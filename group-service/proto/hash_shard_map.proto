@@ -1,0 +1,63 @@
+syntax = "proto3";
+package group_service;
+
+
+enum GroupRoleType {
+  Owner  = 0;
+  Admin  = 1;
+  Member = 2;
+}
+
+message MemberRef {
+  int64 id = 1;
+  GroupRoleType role = 3;
+}
+
+message InsertReq { int64 group_id = 1; MemberRef member = 2; }
+message InsertResp {}
+
+message InsertManyReq { int64 group_id = 1; repeated MemberRef members = 2; }
+message InsertManyResp {}
+
+message RemoveReq { int64 group_id = 1; int64 user_id = 2; }
+message RemoveResp { bool removed = 1; }
+
+message ChangeRoleReq { int64 group_id = 1; int64 user_id = 2; GroupRoleType role = 3; }
+message ChangeRoleResp {}
+
+message GetPageReq { int64 group_id = 1; uint64 page = 2; uint64 page_size = 3; }
+message GetPageResp { repeated MemberRef members = 1; }
+
+message GetAllReq { int64 group_id = 1; }
+message GetAllResp { repeated MemberRef members = 1; }
+
+message CountReq { int64 group_id = 1; }
+message CountResp { uint64 count = 1; }
+
+message UserGroupsReq { int64 user_id = 1; }
+message UserGroupsResp { repeated int64 group_ids = 1; }
+
+message AllKeysReq {}
+message AllKeysResp { repeated int64 group_ids = 1; }
+
+message AllKeysByShardReq { uint64 shard_idx = 1; }
+message AllKeysByShardResp { repeated int64 group_ids = 1; }
+
+message ClearReq { int64 group_id = 1; }
+message ClearResp {}
+
+service HashShard {
+  rpc Insert(InsertReq) returns (InsertResp);
+  rpc InsertMany(InsertManyReq) returns (InsertManyResp);
+  rpc Remove(RemoveReq) returns (RemoveResp);
+  rpc ChangeRole(ChangeRoleReq) returns (ChangeRoleResp);
+
+  rpc GetPage(GetPageReq) returns (GetPageResp);
+  rpc GetAll(GetAllReq) returns (GetAllResp);
+  rpc Count(CountReq) returns (CountResp);
+
+  rpc UserGroups(UserGroupsReq) returns (UserGroupsResp);
+  rpc AllKeys(AllKeysReq) returns (AllKeysResp);
+  rpc AllKeysByShard(AllKeysByShardReq) returns (AllKeysByShardResp);
+  rpc Clear(ClearReq) returns (ClearResp);
+}
