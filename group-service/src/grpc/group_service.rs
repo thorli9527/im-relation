@@ -5,7 +5,8 @@
 pub struct MemberRef {
     #[prost(int64, tag = "1")]
     pub id: i64,
-    #[prost(enumeration = "GroupRoleType", tag = "3")]
+    /// 0/1/2
+    #[prost(int32, tag = "3")]
     pub role: i32,
 }
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
@@ -14,7 +15,7 @@ pub struct MemberRef {
 pub struct InsertReq {
     #[prost(int64, tag = "1")]
     pub group_id: i64,
-    #[prost(message, optional, tag = "332")]
+    #[prost(message, optional, tag = "2")]
     pub member: ::core::option::Option<MemberRef>,
 }
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
@@ -58,7 +59,7 @@ pub struct ChangeRoleReq {
     pub group_id: i64,
     #[prost(int64, tag = "2")]
     pub user_id: i64,
-    #[prost(enumeration = "GroupRoleType", tag = "3")]
+    #[prost(int32, tag = "3")]
     pub role: i32,
 }
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
@@ -193,7 +194,7 @@ impl GroupRoleType {
     }
 }
 /// Generated client implementations.
-pub mod hash_shard_client {
+pub mod group_service_client {
     #![allow(
         unused_variables,
         dead_code,
@@ -204,10 +205,10 @@ pub mod hash_shard_client {
     use tonic::codegen::*;
     use tonic::codegen::http::Uri;
     #[derive(Debug, Clone)]
-    pub struct HashShardClient<T> {
+    pub struct GroupServiceClient<T> {
         inner: tonic::client::Grpc<T>,
     }
-    impl HashShardClient<tonic::transport::Channel> {
+    impl GroupServiceClient<tonic::transport::Channel> {
         /// Attempt to create a new client by connecting to a given endpoint.
         pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
         where
@@ -218,7 +219,7 @@ pub mod hash_shard_client {
             Ok(Self::new(conn))
         }
     }
-    impl<T> HashShardClient<T>
+    impl<T> GroupServiceClient<T>
     where
         T: tonic::client::GrpcService<tonic::body::Body>,
         T::Error: Into<StdError>,
@@ -236,7 +237,7 @@ pub mod hash_shard_client {
         pub fn with_interceptor<F>(
             inner: T,
             interceptor: F,
-        ) -> HashShardClient<InterceptedService<T, F>>
+        ) -> GroupServiceClient<InterceptedService<T, F>>
         where
             F: tonic::service::Interceptor,
             T::ResponseBody: Default,
@@ -250,7 +251,7 @@ pub mod hash_shard_client {
                 http::Request<tonic::body::Body>,
             >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
         {
-            HashShardClient::new(InterceptedService::new(inner, interceptor))
+            GroupServiceClient::new(InterceptedService::new(inner, interceptor))
         }
         /// Compress requests with the given encoding.
         ///
@@ -297,11 +298,11 @@ pub mod hash_shard_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/group_service.HashShard/Insert",
+                "/group_service.GroupService/Insert",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("group_service.HashShard", "Insert"));
+                .insert(GrpcMethod::new("group_service.GroupService", "Insert"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn insert_many(
@@ -318,11 +319,11 @@ pub mod hash_shard_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/group_service.HashShard/InsertMany",
+                "/group_service.GroupService/InsertMany",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("group_service.HashShard", "InsertMany"));
+                .insert(GrpcMethod::new("group_service.GroupService", "InsertMany"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn remove(
@@ -339,11 +340,11 @@ pub mod hash_shard_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/group_service.HashShard/Remove",
+                "/group_service.GroupService/Remove",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("group_service.HashShard", "Remove"));
+                .insert(GrpcMethod::new("group_service.GroupService", "Remove"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn change_role(
@@ -360,11 +361,11 @@ pub mod hash_shard_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/group_service.HashShard/ChangeRole",
+                "/group_service.GroupService/ChangeRole",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("group_service.HashShard", "ChangeRole"));
+                .insert(GrpcMethod::new("group_service.GroupService", "ChangeRole"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn get_page(
@@ -381,11 +382,11 @@ pub mod hash_shard_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/group_service.HashShard/GetPage",
+                "/group_service.GroupService/GetPage",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("group_service.HashShard", "GetPage"));
+                .insert(GrpcMethod::new("group_service.GroupService", "GetPage"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn get_all(
@@ -402,11 +403,11 @@ pub mod hash_shard_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/group_service.HashShard/GetAll",
+                "/group_service.GroupService/GetAll",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("group_service.HashShard", "GetAll"));
+                .insert(GrpcMethod::new("group_service.GroupService", "GetAll"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn count(
@@ -423,11 +424,11 @@ pub mod hash_shard_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/group_service.HashShard/Count",
+                "/group_service.GroupService/Count",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("group_service.HashShard", "Count"));
+                .insert(GrpcMethod::new("group_service.GroupService", "Count"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn user_groups(
@@ -444,11 +445,11 @@ pub mod hash_shard_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/group_service.HashShard/UserGroups",
+                "/group_service.GroupService/UserGroups",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("group_service.HashShard", "UserGroups"));
+                .insert(GrpcMethod::new("group_service.GroupService", "UserGroups"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn all_keys(
@@ -465,11 +466,11 @@ pub mod hash_shard_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/group_service.HashShard/AllKeys",
+                "/group_service.GroupService/AllKeys",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("group_service.HashShard", "AllKeys"));
+                .insert(GrpcMethod::new("group_service.GroupService", "AllKeys"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn all_keys_by_shard(
@@ -489,11 +490,11 @@ pub mod hash_shard_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/group_service.HashShard/AllKeysByShard",
+                "/group_service.GroupService/AllKeysByShard",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("group_service.HashShard", "AllKeysByShard"));
+                .insert(GrpcMethod::new("group_service.GroupService", "AllKeysByShard"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn clear(
@@ -510,17 +511,17 @@ pub mod hash_shard_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/group_service.HashShard/Clear",
+                "/group_service.GroupService/Clear",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("group_service.HashShard", "Clear"));
+                .insert(GrpcMethod::new("group_service.GroupService", "Clear"));
             self.inner.unary(req, path, codec).await
         }
     }
 }
 /// Generated server implementations.
-pub mod hash_shard_server {
+pub mod group_service_server {
     #![allow(
         unused_variables,
         dead_code,
@@ -529,9 +530,9 @@ pub mod hash_shard_server {
         clippy::let_unit_value,
     )]
     use tonic::codegen::*;
-    /// Generated trait containing gRPC methods that should be implemented for use with HashShardServer.
+    /// Generated trait containing gRPC methods that should be implemented for use with GroupServiceServer.
     #[async_trait]
-    pub trait HashShard: std::marker::Send + std::marker::Sync + 'static {
+    pub trait GroupService: std::marker::Send + std::marker::Sync + 'static {
         async fn insert(
             &self,
             request: tonic::Request<super::InsertReq>,
@@ -581,14 +582,14 @@ pub mod hash_shard_server {
         ) -> std::result::Result<tonic::Response<super::ClearResp>, tonic::Status>;
     }
     #[derive(Debug)]
-    pub struct HashShardServer<T> {
+    pub struct GroupServiceServer<T> {
         inner: Arc<T>,
         accept_compression_encodings: EnabledCompressionEncodings,
         send_compression_encodings: EnabledCompressionEncodings,
         max_decoding_message_size: Option<usize>,
         max_encoding_message_size: Option<usize>,
     }
-    impl<T> HashShardServer<T> {
+    impl<T> GroupServiceServer<T> {
         pub fn new(inner: T) -> Self {
             Self::from_arc(Arc::new(inner))
         }
@@ -639,9 +640,9 @@ pub mod hash_shard_server {
             self
         }
     }
-    impl<T, B> tonic::codegen::Service<http::Request<B>> for HashShardServer<T>
+    impl<T, B> tonic::codegen::Service<http::Request<B>> for GroupServiceServer<T>
     where
-        T: HashShard,
+        T: GroupService,
         B: Body + std::marker::Send + 'static,
         B::Error: Into<StdError> + std::marker::Send + 'static,
     {
@@ -656,10 +657,10 @@ pub mod hash_shard_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
-                "/group_service.HashShard/Insert" => {
+                "/group_service.GroupService/Insert" => {
                     #[allow(non_camel_case_types)]
-                    struct InsertSvc<T: HashShard>(pub Arc<T>);
-                    impl<T: HashShard> tonic::server::UnaryService<super::InsertReq>
+                    struct InsertSvc<T: GroupService>(pub Arc<T>);
+                    impl<T: GroupService> tonic::server::UnaryService<super::InsertReq>
                     for InsertSvc<T> {
                         type Response = super::InsertResp;
                         type Future = BoxFuture<
@@ -672,7 +673,7 @@ pub mod hash_shard_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HashShard>::insert(&inner, request).await
+                                <T as GroupService>::insert(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -699,10 +700,12 @@ pub mod hash_shard_server {
                     };
                     Box::pin(fut)
                 }
-                "/group_service.HashShard/InsertMany" => {
+                "/group_service.GroupService/InsertMany" => {
                     #[allow(non_camel_case_types)]
-                    struct InsertManySvc<T: HashShard>(pub Arc<T>);
-                    impl<T: HashShard> tonic::server::UnaryService<super::InsertManyReq>
+                    struct InsertManySvc<T: GroupService>(pub Arc<T>);
+                    impl<
+                        T: GroupService,
+                    > tonic::server::UnaryService<super::InsertManyReq>
                     for InsertManySvc<T> {
                         type Response = super::InsertManyResp;
                         type Future = BoxFuture<
@@ -715,7 +718,7 @@ pub mod hash_shard_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HashShard>::insert_many(&inner, request).await
+                                <T as GroupService>::insert_many(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -742,10 +745,10 @@ pub mod hash_shard_server {
                     };
                     Box::pin(fut)
                 }
-                "/group_service.HashShard/Remove" => {
+                "/group_service.GroupService/Remove" => {
                     #[allow(non_camel_case_types)]
-                    struct RemoveSvc<T: HashShard>(pub Arc<T>);
-                    impl<T: HashShard> tonic::server::UnaryService<super::RemoveReq>
+                    struct RemoveSvc<T: GroupService>(pub Arc<T>);
+                    impl<T: GroupService> tonic::server::UnaryService<super::RemoveReq>
                     for RemoveSvc<T> {
                         type Response = super::RemoveResp;
                         type Future = BoxFuture<
@@ -758,7 +761,7 @@ pub mod hash_shard_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HashShard>::remove(&inner, request).await
+                                <T as GroupService>::remove(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -785,10 +788,12 @@ pub mod hash_shard_server {
                     };
                     Box::pin(fut)
                 }
-                "/group_service.HashShard/ChangeRole" => {
+                "/group_service.GroupService/ChangeRole" => {
                     #[allow(non_camel_case_types)]
-                    struct ChangeRoleSvc<T: HashShard>(pub Arc<T>);
-                    impl<T: HashShard> tonic::server::UnaryService<super::ChangeRoleReq>
+                    struct ChangeRoleSvc<T: GroupService>(pub Arc<T>);
+                    impl<
+                        T: GroupService,
+                    > tonic::server::UnaryService<super::ChangeRoleReq>
                     for ChangeRoleSvc<T> {
                         type Response = super::ChangeRoleResp;
                         type Future = BoxFuture<
@@ -801,7 +806,7 @@ pub mod hash_shard_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HashShard>::change_role(&inner, request).await
+                                <T as GroupService>::change_role(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -828,10 +833,10 @@ pub mod hash_shard_server {
                     };
                     Box::pin(fut)
                 }
-                "/group_service.HashShard/GetPage" => {
+                "/group_service.GroupService/GetPage" => {
                     #[allow(non_camel_case_types)]
-                    struct GetPageSvc<T: HashShard>(pub Arc<T>);
-                    impl<T: HashShard> tonic::server::UnaryService<super::GetPageReq>
+                    struct GetPageSvc<T: GroupService>(pub Arc<T>);
+                    impl<T: GroupService> tonic::server::UnaryService<super::GetPageReq>
                     for GetPageSvc<T> {
                         type Response = super::GetPageResp;
                         type Future = BoxFuture<
@@ -844,7 +849,7 @@ pub mod hash_shard_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HashShard>::get_page(&inner, request).await
+                                <T as GroupService>::get_page(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -871,10 +876,10 @@ pub mod hash_shard_server {
                     };
                     Box::pin(fut)
                 }
-                "/group_service.HashShard/GetAll" => {
+                "/group_service.GroupService/GetAll" => {
                     #[allow(non_camel_case_types)]
-                    struct GetAllSvc<T: HashShard>(pub Arc<T>);
-                    impl<T: HashShard> tonic::server::UnaryService<super::GetAllReq>
+                    struct GetAllSvc<T: GroupService>(pub Arc<T>);
+                    impl<T: GroupService> tonic::server::UnaryService<super::GetAllReq>
                     for GetAllSvc<T> {
                         type Response = super::GetAllResp;
                         type Future = BoxFuture<
@@ -887,7 +892,7 @@ pub mod hash_shard_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HashShard>::get_all(&inner, request).await
+                                <T as GroupService>::get_all(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -914,10 +919,10 @@ pub mod hash_shard_server {
                     };
                     Box::pin(fut)
                 }
-                "/group_service.HashShard/Count" => {
+                "/group_service.GroupService/Count" => {
                     #[allow(non_camel_case_types)]
-                    struct CountSvc<T: HashShard>(pub Arc<T>);
-                    impl<T: HashShard> tonic::server::UnaryService<super::CountReq>
+                    struct CountSvc<T: GroupService>(pub Arc<T>);
+                    impl<T: GroupService> tonic::server::UnaryService<super::CountReq>
                     for CountSvc<T> {
                         type Response = super::CountResp;
                         type Future = BoxFuture<
@@ -930,7 +935,7 @@ pub mod hash_shard_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HashShard>::count(&inner, request).await
+                                <T as GroupService>::count(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -957,10 +962,12 @@ pub mod hash_shard_server {
                     };
                     Box::pin(fut)
                 }
-                "/group_service.HashShard/UserGroups" => {
+                "/group_service.GroupService/UserGroups" => {
                     #[allow(non_camel_case_types)]
-                    struct UserGroupsSvc<T: HashShard>(pub Arc<T>);
-                    impl<T: HashShard> tonic::server::UnaryService<super::UserGroupsReq>
+                    struct UserGroupsSvc<T: GroupService>(pub Arc<T>);
+                    impl<
+                        T: GroupService,
+                    > tonic::server::UnaryService<super::UserGroupsReq>
                     for UserGroupsSvc<T> {
                         type Response = super::UserGroupsResp;
                         type Future = BoxFuture<
@@ -973,7 +980,7 @@ pub mod hash_shard_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HashShard>::user_groups(&inner, request).await
+                                <T as GroupService>::user_groups(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1000,10 +1007,10 @@ pub mod hash_shard_server {
                     };
                     Box::pin(fut)
                 }
-                "/group_service.HashShard/AllKeys" => {
+                "/group_service.GroupService/AllKeys" => {
                     #[allow(non_camel_case_types)]
-                    struct AllKeysSvc<T: HashShard>(pub Arc<T>);
-                    impl<T: HashShard> tonic::server::UnaryService<super::AllKeysReq>
+                    struct AllKeysSvc<T: GroupService>(pub Arc<T>);
+                    impl<T: GroupService> tonic::server::UnaryService<super::AllKeysReq>
                     for AllKeysSvc<T> {
                         type Response = super::AllKeysResp;
                         type Future = BoxFuture<
@@ -1016,7 +1023,7 @@ pub mod hash_shard_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HashShard>::all_keys(&inner, request).await
+                                <T as GroupService>::all_keys(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1043,11 +1050,11 @@ pub mod hash_shard_server {
                     };
                     Box::pin(fut)
                 }
-                "/group_service.HashShard/AllKeysByShard" => {
+                "/group_service.GroupService/AllKeysByShard" => {
                     #[allow(non_camel_case_types)]
-                    struct AllKeysByShardSvc<T: HashShard>(pub Arc<T>);
+                    struct AllKeysByShardSvc<T: GroupService>(pub Arc<T>);
                     impl<
-                        T: HashShard,
+                        T: GroupService,
                     > tonic::server::UnaryService<super::AllKeysByShardReq>
                     for AllKeysByShardSvc<T> {
                         type Response = super::AllKeysByShardResp;
@@ -1061,7 +1068,8 @@ pub mod hash_shard_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HashShard>::all_keys_by_shard(&inner, request).await
+                                <T as GroupService>::all_keys_by_shard(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -1088,10 +1096,10 @@ pub mod hash_shard_server {
                     };
                     Box::pin(fut)
                 }
-                "/group_service.HashShard/Clear" => {
+                "/group_service.GroupService/Clear" => {
                     #[allow(non_camel_case_types)]
-                    struct ClearSvc<T: HashShard>(pub Arc<T>);
-                    impl<T: HashShard> tonic::server::UnaryService<super::ClearReq>
+                    struct ClearSvc<T: GroupService>(pub Arc<T>);
+                    impl<T: GroupService> tonic::server::UnaryService<super::ClearReq>
                     for ClearSvc<T> {
                         type Response = super::ClearResp;
                         type Future = BoxFuture<
@@ -1104,7 +1112,7 @@ pub mod hash_shard_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HashShard>::clear(&inner, request).await
+                                <T as GroupService>::clear(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1153,7 +1161,7 @@ pub mod hash_shard_server {
             }
         }
     }
-    impl<T> Clone for HashShardServer<T> {
+    impl<T> Clone for GroupServiceServer<T> {
         fn clone(&self) -> Self {
             let inner = self.inner.clone();
             Self {
@@ -1166,8 +1174,8 @@ pub mod hash_shard_server {
         }
     }
     /// Generated gRPC service name
-    pub const SERVICE_NAME: &str = "group_service.HashShard";
-    impl<T> tonic::server::NamedService for HashShardServer<T> {
+    pub const SERVICE_NAME: &str = "group_service.GroupService";
+    impl<T> tonic::server::NamedService for GroupServiceServer<T> {
         const NAME: &'static str = SERVICE_NAME;
     }
 }

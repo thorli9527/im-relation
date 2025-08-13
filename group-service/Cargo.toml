@@ -1,49 +1,39 @@
-
 [package]
-name = "group-service"
-version = "0.2.0"
+name = "group-service-full"
+version = "0.1.1"
 edition = "2021"
 
 [dependencies]
 common = { path = "../common" }
 tokio.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+async-trait.workspace = true
+serde .workspace = true
+serde_json = "1"
+ahash .workspace = true
+dashmap.workspace = true
+smallvec.workspace = true
+parking_lot.workspace = true
+roaring.workspace = true
+actix-web.workspace = true
+sqlx.workspace = true
+bincode.workspace = true
+moka.workspace = true
+
+tempfile.workspace = true
+
+tracing-subscriber.workspace = true
+prost.workspace = true                         # Protobuf 编解码
+num_enum.workspace = true                      # 数值枚举转换支持
 tonic.workspace = true
-prost.workspace = true
 prost-types.workspace = true
-serde.workspace = true
 tracing.workspace = true
 utoipa.workspace = true
-anyhow.workspace = true
-mongodb.workspace = true
-once_cell.workspace = true
-futures-util.workspace = true
-chrono.workspace = true
-actix-web.workspace = true
-dashmap.workspace = true
-rdkafka.workspace = true
-bytes.workspace = true
-env_logger.workspace = true
-deadpool-redis.workspace = true
-tokio-util = "0.7.15"
-twox-hash.workspace = true
-arc-swap.workspace = true
-log = "0.4.27"
-rand.workspace = true
-async-trait = "0.1.88"
-sux= "0.7.0"
-ahash = "0.8.12"
-croaring = "2.3.1"
-roaring = "0.10"    # 或当前稳定版
-smallvec = "1.15.1"
-parking_lot = "0.12.4"
-thiserror = "1.0.69"
-zstd = "0.13.3"
-num = "0.4.3"
-tracing-subscriber = "0.3.19"
-tempfile = "3.20.0"
-bincode = { version = "2.0.1", features = ["derive"] }
 [build-dependencies]
+protobuf-src = { version = "^2.1.0", optional = true }
 tonic = "0.13.1"
 tonic-build = "0.13.1"
 prost = "0.13.1"
 prost-build = "0.14.1"
+

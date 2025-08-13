@@ -1,3 +1,5 @@
+pub mod config;
+mod errors;
 
 use serde::{Serialize, Deserialize};
 

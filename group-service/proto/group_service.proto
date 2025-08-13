@@ -1,16 +1,15 @@
 syntax = "proto3";
 package group_service;
 
-
 enum GroupRoleType {
-  Owner  = 0;
-  Admin  = 1;
+  Owner = 0;
+  Admin = 1;
   Member = 2;
 }
 
 message MemberRef {
   int64 id = 1;
-  GroupRoleType role = 3;
+  int32 role = 3; // 0/1/2
 }
 
 message InsertReq { int64 group_id = 1; MemberRef member = 2; }
@@ -22,7 +21,7 @@ message InsertManyResp {}
 message RemoveReq { int64 group_id = 1; int64 user_id = 2; }
 message RemoveResp { bool removed = 1; }
 
-message ChangeRoleReq { int64 group_id = 1; int64 user_id = 2; GroupRoleType role = 3; }
+message ChangeRoleReq { int64 group_id = 1; int64 user_id = 2; int32 role = 3; }
 message ChangeRoleResp {}
 
 message GetPageReq { int64 group_id = 1; uint64 page = 2; uint64 page_size = 3; }
@@ -46,7 +45,7 @@ message AllKeysByShardResp { repeated int64 group_ids = 1; }
 message ClearReq { int64 group_id = 1; }
 message ClearResp {}
 
-service HashShard {
+service GroupService {
   rpc Insert(InsertReq) returns (InsertResp);
   rpc InsertMany(InsertManyReq) returns (InsertManyResp);
   rpc Remove(RemoveReq) returns (RemoveResp);

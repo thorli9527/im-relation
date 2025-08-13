@@ -13,9 +13,7 @@ actix-files = { version = "0.6.6" }            # 静态资源服务
 # ========================
 # 🗄 数据库相关
 # ========================
-mongodb = { version = "3.2.4", features = ["sync"] }       # MongoDB 客户端（同步版）
-mongo_indexed_derive = { version = "2.0.0" }               # Mongo 索引宏派生
-deadpool-redis = { version = "0.21.1", features = ["tokio-comp"] }  # Redis 异步连接池（tokio）
+sqlx = { version = "0.8.6", features = ["mysql", "runtime-tokio-rustls"] }
 
 # ========================
 # ⚙️ 配置、日志、时间
@@ -27,6 +25,10 @@ chrono = { version = "0.4.41" }              # 时间处理（传统）
 time = { version = "0.3.41" }                # 更现代的时间库
 tracing = { version = "0.1.41" }             # 分布式链路追踪
 
+bincode= { version = "2.0.1" }
+parking_lot={version = "0.12.4"}
+roaring={version = "0.11.2"}
+tracing-subscriber={version = "0.3.19"}
 # ========================
 # 📦 核心异步 + 错误处理
 # ========================
@@ -37,7 +39,7 @@ async-trait = { version = "0.1.88" }                    # 支持异步 trait
 futures = { version = "0.3.31" }                        # 异步工具库
 futures-util = { version = "0.3.31" }                   # 异步辅助扩展
 anyhow = { version = "1.0.98" }                         # 通用错误封装
-thiserror = { version = "2.0.12" }                      # 错误定义宏
+thiserror = { version = "2.0.14" }                      # 错误定义宏
 rand = { version = "0.9.2" }
 
 # ========================
