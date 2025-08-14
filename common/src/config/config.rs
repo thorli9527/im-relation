@@ -16,13 +16,8 @@ pub type MySqlPool = Pool<MySql>;
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct AppConfig {
     pub database: Option<DatabaseConfig>,
-    pub redis: Option<RedisConfig>,
     pub server: Option<ServerConfig>,
     pub sys: Option<SysConfig>,
-    pub cache: Option<CacheConfig>,
-    pub kafka: Option<KafkaConfig>,
-    pub shard: Option<ShardConfig>,
-    pub socket: Option<SocketConfig>,
 }
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ShardConfig {
@@ -74,23 +69,11 @@ impl AppConfig {
     pub fn get_database(&self) -> DatabaseConfig {
         self.database.clone().unwrap_or_default()
     }
-    pub fn get_redis(&self) -> RedisConfig {
-        self.redis.clone().unwrap_or_default()
-    }
     pub fn get_server(&self) -> ServerConfig {
         self.server.clone().unwrap_or_default()
     }
     pub fn get_sys(&self) -> SysConfig {
         self.sys.clone().unwrap_or_default()
-    }
-    pub fn get_cache(&self) -> CacheConfig {
-        self.cache.clone().unwrap_or_default()
-    }
-    pub fn get_kafka(&self) -> KafkaConfig {
-        self.kafka.clone().unwrap_or_default()
-    }
-    pub fn get_shard(&self) -> ShardConfig {
-        self.shard.clone().unwrap_or_default()
     }
     /// 获取单例
     pub fn get() -> Arc<Self> {

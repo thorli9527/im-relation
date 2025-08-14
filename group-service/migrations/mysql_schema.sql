@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS group_member (
   PRIMARY KEY (group_id, user_id),
   KEY idx_user_groups (user_id, group_id)
 ) ENGINE=InnoDB
-PARTITION BY HASH(group_id) PARTITIONS 64;
+PARTITION BY HASH(group_id) PARTITIONS 128;
 
 CREATE TABLE IF NOT EXISTS group_meta (
   group_id  BIGINT UNSIGNED NOT NULL PRIMARY KEY,

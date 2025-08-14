@@ -73,6 +73,7 @@ utoipa = { version = "5.3.1" }              # OpenAPI 文档生成
 # ========================
 # 🧠 实用工具/数据结构
 # ========================
+fxhash={ version = "0.2.1"}
 regex = { version = "1.11.1" }
 uuid = { version = "1.17.0" }               # UUID 唯一标识
 twox-hash = { version = "2.1.1" }           # 快速哈希函数（用于 hashmap 优化）
@@ -87,6 +88,8 @@ rustflake = { version = "0.1.1" }           # Twitter 雪花 ID 生成器
 maxminddb = { version = "0.26.0", features = ["serde"] }  # IP 地理位置解析
 ahash={ version = "0.8.12"}
 smallvec={ version = "2.0.0-alpha.11"}
+sysinfo={version = "0.37.0"}
+num_cpus={version = "1.17.0"}
 # ========================
 # 🧊 静态数据/缓存结构
 # ========================

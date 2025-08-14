@@ -1,43 +1,51 @@
+mod online_store;
+mod grpc;
+mod rest_online;
 
-use actix_web::{web, App, HttpResponse, HttpServer, Responder};
-use dashmap::DashSet;
-use std::sync::Arc;
-use common::UserId;
-use tracing_subscriber::{EnvFilter, fmt};
+use std::{net::SocketAddr, sync::Arc};
+use actix_web::{web, App, HttpServer};
+use tokio::signal;
+use crate::grpc::online_service::online_service_server::OnlineServiceServer;
+use crate::grpc::online_service_impl::OnLineServiceImpl;
+use crate::online_store::OnlineStore;
 
-#[derive(Clone)]
-struct AppState { online: Arc<DashSet<UserId>> }
 
-#[derive(serde::Deserialize)]
-struct BatchCheck { uids: Vec<UserId> }
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // 读取配置（可用环境变量，也可以用配置文件）
+    let shard_count = std::env::var("ONLINE_SHARDS")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(128);
 
-async fn set_online(state: web::Data<AppState>, path: web::Path<(UserId,)>) -> impl Responder {
-    let uid = path.into_inner().0; state.online.insert(uid); HttpResponse::Ok().finish()
-}
-async fn set_offline(state: web::Data<AppState>, path: web::Path<(UserId,)>) -> impl Responder {
-    let uid = path.into_inner().0; state.online.remove(&uid); HttpResponse::Ok().finish()
-}
-async fn batch_check(state: web::Data<AppState>, body: web::Json<BatchCheck>) -> impl Responder {
-    let online: Vec<UserId> = body.uids.iter().copied().filter(|u| state.online.contains(u)).collect();
-    HttpResponse::Ok().json(serde_json::json!({ "online": online }))
-}
-async fn healthz() -> impl Responder { HttpResponse::Ok().body("ok") }
+    let grpc_addr: SocketAddr = std::env::var("GRPC_ADDR")
+        .unwrap_or_else(|_| "0.0.0.0:50051".into())
+        .parse()?;
+    let http_addr = std::env::var("HTTP_ADDR")
+        .unwrap_or_else(|_| "0.0.0.0:8080".into());
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    let _ = fmt().with_env_filter(EnvFilter::from_default_env()).try_init();
-    let state = AppState { online: Arc::new(DashSet::new()) };
-    let port: u16 = std::env::var("PORT").ok().and_then(|s| s.parse().ok()).unwrap_or(8081);
-    println!("online-service listening on 0.0.0.0:{port}");
-    HttpServer::new(move || {
-        App::new()
-            .app_data(web::Data::new(state.clone()))
-            .route("/online/{uid}", web::post().to(set_online))
-            .route("/online/{uid}", web::delete().to(set_offline))
-            .route("/online/batch_check", web::post().to(batch_check))
-            .route("/healthz", web::get().to(healthz))
-    })
-    .bind(("0.0.0.0", port))?
-    .run()
-    .await
+    // 初始化全局 OnlineStore
+    let store = Arc::new(OnlineStore::new(shard_count));
+
+    // ========== gRPC 服务 ==========
+    let grpc_store = store.clone();
+    let grpc_server = tokio::spawn(async move {
+        let svc = OnLineServiceImpl::new(grpc_store);
+        println!("[gRPC] Listening on {}", grpc_addr);
+        tonic::transport::Server::builder()
+            .add_service(OnlineServiceServer::new(svc))
+            .serve(grpc_addr)
+            .await
+            .map_err(anyhow::Error::from)
+    });
+
+    // 等待 Ctrl+C 或子任务错误
+    tokio::select! {
+        res = grpc_server => { res??; }
+        _ = signal::ctrl_c() => {
+            println!("Ctrl+C received, shutting down...");
+        }
+    }
+
+    Ok(())
 }

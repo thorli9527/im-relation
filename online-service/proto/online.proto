@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package online_service;
+
+
+service OnlineService {
+  // 设置在线/离线（幂等）
+  rpc SetOnline(SetOnlineRequest) returns (SetOnlineResponse);
+
+  // 单查
+  rpc CheckOnline(CheckOnlineRequest) returns (CheckOnlineResponse);
+
+  // 批量查
+  rpc CheckOnlineBatch(CheckOnlineBatchRequest) returns (CheckOnlineBatchResponse);
+
+  // 统计信息
+  rpc GetStats(GetStatsRequest) returns (GetStatsResponse);
+}
+
+message SetOnlineRequest {
+  int64 user_id = 1;
+  bool online = 2;
+}
+message SetOnlineResponse {
+  bool ok = 1;
+}
+
+message CheckOnlineRequest {
+  int64 user_id = 1;
+}
+message CheckOnlineResponse {
+  bool online = 1;
+}
+
+message CheckOnlineBatchRequest {
+  repeated int64 user_ids = 1;
+}
+message CheckOnlineBatchResponse {
+  // 索引与输入 user_ids 对齐
+  repeated bool results = 1;
+}
+
+message GetStatsRequest {}
+message GetStatsResponse {
+  uint64 total = 1;
+  repeated uint64 per_shard = 2;
+  uint32 max_shard_idx = 3;
+  uint64 max_shard_count = 4;
+}
