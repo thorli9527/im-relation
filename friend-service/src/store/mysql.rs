@@ -73,31 +73,79 @@ impl FriendStorage for MySqlFriendStore {
     }
 
     async fn save_friends(&self, user_id: UserId, friends: &[UserId]) -> Result<()> {
+        use std::collections::HashSet;
+
         let mut tx = self.pool().begin().await?;
 
-        // 1) 删除旧数据
-        sqlx::query(r#"DELETE FROM user_friends WHERE user_id = ?"#)
+        // --- 1) 读取 DB 当前好友列表 ---
+        let db_rows: Vec<u64> = sqlx::query_scalar(
+            r#"
+            SELECT friend_id
+            FROM user_friends
+            WHERE user_id = ?
+            "#,
+        )
             .bind(user_id as u64)
-            .execute(&mut *tx)
+            .fetch_all(&mut *tx)
             .await
-            .with_context(|| format!("save_friends: delete failed, user_id={}", user_id))?;
+            .with_context(|| format!("save_friends(diff): fetch db rows failed, user_id={}", user_id))?;
 
-        // 2) 批量插入新数据（分块）
-        if !friends.is_empty() {
-            for chunk in friends.chunks(self.chunk_size) {
+        let db_set: HashSet<u64> = db_rows.into_iter().collect();
+
+        // 内存去重（避免上层重复传入）
+        let mem_set: HashSet<u64> = friends.iter().copied().map(|x| x as u64).collect();
+
+        // --- 2) 计算差异 ---
+        // 待新增：内存有、DB 无
+        let mut to_add: Vec<u64> = Vec::new();
+        // 待删除：DB 有、内存无
+        let mut to_del: Vec<u64> = Vec::new();
+
+        for fid in mem_set.iter() {
+            if !db_set.contains(fid) {
+                to_add.push(*fid);
+            }
+        }
+        for fid in db_set.iter() {
+            if !mem_set.contains(fid) {
+                to_del.push(*fid);
+            }
+        }
+
+        // --- 3) 执行差异写入（分批 & 同一事务） ---
+        // 删除：DELETE FROM user_friends WHERE user_id=? AND friend_id IN (...)
+        for chunk in to_del.chunks(self.chunk_size) {
+            let mut sql = String::from(
+                "DELETE FROM user_friends WHERE user_id=? AND friend_id IN (",
+            );
+            sql.push_str(&vec!["?"; chunk.len()].join(","));
+            sql.push(')');
+
+            let mut q = sqlx::query(&sql).bind(user_id as u64);
+            for fid in chunk {
+                q = q.bind(*fid);
+            }
+            q.execute(&mut *tx)
+                .await
+                .with_context(|| format!("save_friends(diff): delete chunk failed, user_id={}", user_id))?;
+        }
+
+        // 新增：INSERT INTO user_friends (user_id, friend_id) VALUES (...),(...)
+        if !to_add.is_empty() {
+            use sqlx::QueryBuilder;
+            for chunk in to_add.chunks(self.chunk_size) {
                 let mut qb: QueryBuilder<MySql> =
                     QueryBuilder::new("INSERT INTO user_friends (user_id, friend_id) ");
                 qb.push_values(chunk, |mut b, &fid| {
                     b.push_bind(user_id as u64).push_bind(fid);
                 });
-
-                let query = qb.build();
-                let _res: MySqlQueryResult = query
+                let _res: MySqlQueryResult = qb
+                    .build()
                     .execute(&mut *tx)
                     .await
                     .with_context(|| {
                         format!(
-                            "save_friends: batch insert failed, user_id={}, chunk_len={}",
+                            "save_friends(diff): insert chunk failed, user_id={}, chunk_len={}",
                             user_id,
                             chunk.len()
                         )
@@ -105,7 +153,7 @@ impl FriendStorage for MySqlFriendStore {
             }
         }
 
-        // 3) 更新元数据表
+        // --- 4) 更新元数据（按“内存视图”为准） ---
         sqlx::query(
             r#"
             INSERT INTO user_friends_meta (user_id, friend_count)
@@ -116,14 +164,15 @@ impl FriendStorage for MySqlFriendStore {
             "#,
         )
             .bind(user_id as u64)
-            .bind(friends.len() as u64)
+            .bind(mem_set.len() as u64)
             .execute(&mut *tx)
             .await
-            .with_context(|| format!("save_friends: upsert meta failed, user_id={}", user_id))?;
+            .with_context(|| format!("save_friends(diff): upsert meta failed, user_id={}", user_id))?;
 
         tx.commit().await?;
         Ok(())
     }
+
 
     async fn delete_friends(&self, user_id: UserId) -> Result<()> {
         let mut tx = self.pool().begin().await?;

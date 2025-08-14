@@ -1,9 +1,10 @@
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use sqlx::{mysql::MySqlQueryResult, MySql, Pool, Row};
+use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::ops::Deref;
 use std::sync::Arc;
+
 use common::config::{get_db, MySqlPool};
 use crate::common::GroupId;
 use crate::grpc::group_service::MemberRef;
@@ -11,7 +12,7 @@ use super::GroupStorage;
 
 /// MySQL 实现的 GroupStorage。
 /// - `pool`: 连接池（sqlx::Pool 内部已是 Arc，按值持有即可）
-/// - `chunk_size`: 批量插入单批条数上限（避免超出 max_allowed_packet）
+/// - `chunk_size`: 批量插入/删除单批条数上限（避免超出 max_allowed_packet）
 pub struct MySqlStore {
     pool: Arc<MySqlPool>,
     chunk_size: usize,
@@ -23,7 +24,7 @@ impl MySqlStore {
         Self { pool: get_db(), chunk_size: 1000 }
     }
 
-    /// 自定义批量插入 chunk 大小（至少为 1）
+    /// 自定义批量 chunk 大小（至少为 1）
     pub fn with_chunk_size(mut self, n: usize) -> Self {
         self.chunk_size = n.max(1);
         self
@@ -39,9 +40,7 @@ impl MySqlStore {
 #[async_trait]
 impl GroupStorage for MySqlStore {
     /// 读取某群的**全部成员**，按 user_id 升序返回。
-    /// 注意：fetch_all 会把所有行一次性拉入内存；如成员非常多，请评估内存占用。
     async fn load_group(&self, gid: GroupId) -> Result<Option<Vec<MemberRef>>> {
-        // SQL：全量拉取成员，排序便于后续分页/二分
         let rows = sqlx::query(
             r#"
             SELECT user_id, role
@@ -61,77 +60,142 @@ impl GroupStorage for MySqlStore {
 
         let mut out = Vec::with_capacity(rows.len());
         for r in rows {
-            // 按列名读取可读性更好；若表定义是 BIGINT UNSIGNED，映射到 Rust u64
             let uid_u64: u64 = r
                 .try_get("user_id")
                 .with_context(|| "load_group: column user_id missing or type mismatch")?;
-
-            // role 建议在表里用 INT（范围在 i32），读出时做显式转换检查
             let role_i64: i64 = r
                 .try_get("role")
                 .with_context(|| "load_group: column role missing or type mismatch")?;
             let role = i32::try_from(role_i64)
                 .with_context(|| format!("load_group: role overflow, value={}", role_i64))?;
 
-            out.push(MemberRef {
-                id: uid_u64 as i64, // 下游若要求 i64，这里统一转换
-                role,
-            });
+            out.push(MemberRef { id: uid_u64 as i64, role });
         }
         Ok(Some(out))
     }
 
-    /// 全量保存某群的成员列表：先删后插，再更新 meta。
-    /// 并发注意：
-    /// - 若可能有并发写，请考虑在事务开头对 group_meta 该行做 `SELECT ... FOR UPDATE`
-    ///   以串行化同一 group_id 的写入，或引入 version/updated_at 做乐观锁。
+    /// 仅对差异做写入（方案 A）：
+    /// - 新增：内存有、DB 无 -> INSERT
+    /// - 删除：DB 有、内存无 -> DELETE
+    /// - 角色变更：交集且 role 不同 -> UPDATE
+    ///
+    /// 注意：
+    /// 1) 全过程放在**同一事务**中，避免中间态被读到。
+    /// 2) 默认 RR 隔离下外部一致性读看不到未提交变化。
+    /// 3) 强烈建议表上有联合唯一索引/主键 (group_id, user_id)。
     async fn save_group(&self, gid: GroupId, members: &[MemberRef]) -> Result<()> {
         let mut tx = self.pool().begin().await?;
 
-        // 可选：对当前 group_id 的 meta 行加锁，串行化同组写（若并发写入可能发生）
-        // sqlx::query("SELECT group_id FROM group_meta WHERE group_id = ? FOR UPDATE")
-        //     .bind(gid as u64)
-        //     .execute(&mut *tx)
-        //     .await?;
-
-        // 1) 清空旧成员
-        sqlx::query(r#"DELETE FROM group_member WHERE group_id = ?"#)
+        // --- 1) 读取 DB 当前视图 ---
+        let db_rows = sqlx::query(
+            r#"
+            SELECT user_id, role
+            FROM group_member
+            WHERE group_id = ?
+            "#,
+        )
             .bind(gid as u64)
-            .execute(&mut *tx)
+            .fetch_all(&mut *tx)
             .await
-            .with_context(|| format!("save_group: delete group_member failed, group_id={}", gid))?;
+            .with_context(|| format!("save_group(diff): fetch db members failed, group_id={}", gid))?;
 
-        // 2) 批量插入新成员
-        if !members.is_empty() {
-            for chunk in members.chunks(self.chunk_size) {
-                // 预估 SQL 容量（大致，每个 "(?,?,?)" 7 字节 + 逗号；这里只是近似，避免多次扩容）
-                let mut qb = String::with_capacity(64 + chunk.len() * 8);
-                qb.push_str("INSERT INTO group_member (group_id, user_id, role) VALUES ");
+        // DB -> HashMap<uid, role>
+        let mut db_map: HashMap<i64, i32> = HashMap::with_capacity(db_rows.len());
+        for r in db_rows {
+            let uid_u64: u64 = r.try_get("user_id")?;
+            let role_i64: i64 = r.try_get("role")?;
+            let role = i32::try_from(role_i64)
+                .with_context(|| format!("save_group(diff): db role overflow, v={}", role_i64))?;
+            db_map.insert(uid_u64 as i64, role);
+        }
 
-                // 构造 "(?,?,?),(?,?,?),..."
-                for (i, _) in chunk.iter().enumerate() {
-                    if i > 0 {
-                        qb.push(',');
-                    }
-                    qb.push_str("(?,?,?)");
-                }
+        // 内存 -> HashMap<uid, role>（顺便去重 & 最后一次覆盖）
+        let mut mem_map: HashMap<i64, i32> = HashMap::with_capacity(members.len());
+        for m in members {
+            mem_map.insert(m.id, m.role);
+        }
 
-                // 绑定所有参数：按顺序 (gid, uid, role) * N
-                let mut q = sqlx::query(&qb);
-                for m in chunk {
-                    // 这里可考虑去重（若上游可能传重复 user_id）
-                    q = q.bind(gid as u64)
-                        .bind(u64::try_from(m.id).unwrap_or_default()) // 若 m.id 是 i64，可显式检查
-                        .bind(i64::from(m.role));
-                }
+        // --- 2) 计算差异 ---
+        let mut to_add: Vec<(i64, i32)> = Vec::new();
+        let mut to_del: Vec<i64> = Vec::new();
+        let mut to_role: Vec<(i64, i32)> = Vec::new();
 
-                let _res: MySqlQueryResult = q.execute(&mut *tx).await?;
-                // 如需校验影响行数一致，可断言：
-                // assert_eq!(_res.rows_affected() as usize, chunk.len());
+        // 新增 & 角色变更
+        for (&uid, &mrole) in mem_map.iter() {
+            match db_map.get(&uid) {
+                None => to_add.push((uid, mrole)),
+                Some(&drole) if drole != mrole => to_role.push((uid, mrole)),
+                _ => {}
+            }
+        }
+        // 删除
+        for (&uid, _) in db_map.iter() {
+            if !mem_map.contains_key(&uid) {
+                to_del.push(uid);
             }
         }
 
-        // 3) 更新 group_meta（member_cnt 与更新时间）
+        // --- 3) 执行差异写入（分批） ---
+        // 3.1 删除：DELETE ... WHERE group_id=? AND user_id IN (?,...,?)
+        for chunk in to_del.chunks(self.chunk_size) {
+            let mut sql = String::from("DELETE FROM group_member WHERE group_id=? AND user_id IN (");
+            sql.push_str(&vec!["?"; chunk.len()].join(","));
+            sql.push(')');
+
+            let mut q = sqlx::query(&sql).bind(gid as u64);
+            for uid in chunk {
+                q = q.bind(u64::try_from(*uid).unwrap_or_default());
+            }
+            q.execute(&mut *tx)
+                .await
+                .with_context(|| format!("save_group(diff): delete chunk failed, group_id={}", gid))?;
+        }
+
+        // 3.2 新增：INSERT ... VALUES (?,?,?),(?,?,?),...
+        for chunk in to_add.chunks(self.chunk_size) {
+            let mut sql = String::from("INSERT INTO group_member (group_id, user_id, role) VALUES ");
+            sql.push_str(&vec!["(?,?,?)"; chunk.len()].join(","));
+
+            let mut q = sqlx::query(&sql);
+            for (uid, role) in chunk {
+                q = q
+                    .bind(gid as u64)
+                    .bind(u64::try_from(*uid).unwrap_or_default())
+                    .bind(i64::from(*role));
+            }
+            let _res: MySqlQueryResult = q
+                .execute(&mut *tx)
+                .await
+                .with_context(|| format!("save_group(diff): insert chunk failed, group_id={}", gid))?;
+        }
+
+        // 3.3 角色变更：逐条 UPDATE（或按角色分组拼 CASE WHEN）
+        // 逐条更稳（避免巨大 SQL），量大时也可分批
+        for chunk in to_role.chunks(self.chunk_size) {
+            for (uid, role) in chunk {
+                sqlx::query(
+                    r#"
+                    UPDATE group_member
+                    SET role = ?
+                    WHERE group_id = ? AND user_id = ?
+                    "#,
+                )
+                    .bind(i64::from(*role))
+                    .bind(gid as u64)
+                    .bind(u64::try_from(*uid).unwrap_or_default())
+                    .execute(&mut *tx)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "save_group(diff): update role failed, group_id={}, user_id={}",
+                            gid, uid
+                        )
+                    })?;
+            }
+        }
+
+        // --- 4) 更新 meta（成员数与更新时间）；只写必要 ---
+        // 注意：members.len() 是“内存视图”成员数，代表新状态
         sqlx::query(
             r#"
             INSERT INTO group_meta (group_id, member_cnt)
@@ -145,7 +209,7 @@ impl GroupStorage for MySqlStore {
             .bind(members.len() as u64)
             .execute(&mut *tx)
             .await
-            .with_context(|| format!("save_group: upsert group_meta failed, group_id={}", gid))?;
+            .with_context(|| format!("save_group(diff): upsert group_meta failed, group_id={}", gid))?;
 
         tx.commit().await?;
         Ok(())
@@ -169,7 +233,7 @@ impl GroupStorage for MySqlStore {
         Ok(())
     }
 
-    /// 读取某用户加入的群（升序）。同样注意 fetch_all 的内存占用问题。
+    /// 读取某用户加入的群（升序）。
     async fn load_user_groups(&self, uid: i64) -> Result<Option<Vec<i64>>> {
         let rows = sqlx::query(
             r#"
