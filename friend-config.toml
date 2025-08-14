@@ -1,0 +1,10 @@
+[database]
+url = "mysql://root:73411bf9-a4a9-4a8a-9716-8935d3@127.0.0.1:3306/friend"
+[grpc]
+host = "127.0.0.1"
+port = 9001
+[server]
+host = "127.0.0.1"
+port = 8001
+[sys]
+log_leve = "warn"  #trace debug info error warn

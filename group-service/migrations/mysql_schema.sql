@@ -1,4 +1,3 @@
--- MySQL schema
 CREATE TABLE IF NOT EXISTS group_member (
   group_id  BIGINT UNSIGNED NOT NULL,
   user_id   BIGINT UNSIGNED NOT NULL,

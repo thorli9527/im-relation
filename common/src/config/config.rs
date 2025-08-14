@@ -3,14 +3,11 @@ use config::Config;
 use log::LevelFilter;
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
+use sqlx::mysql::MySqlPoolOptions;
+use sqlx::{MySql, Pool};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use anyhow::anyhow;
-use dashmap::DashMap;
-use sqlx::mysql::MySqlPoolOptions;
-use sqlx::{MySql, Pool};
-use crate::UserId;
 pub type MySqlPool = Pool<MySql>;
 
 #[derive(Debug, Deserialize, Clone, Default)]
@@ -18,6 +15,7 @@ pub struct AppConfig {
     pub database: Option<DatabaseConfig>,
     pub server: Option<ServerConfig>,
     pub sys: Option<SysConfig>,
+    pub grpc: Option<GrpcConfig>,
 }
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ShardConfig {
@@ -89,20 +87,12 @@ pub fn init_log(log_lovel: &str) -> Result<(), AppError> {
     Ok(())
 }
 static INSTANCE: OnceCell<Arc<AppConfig>> = OnceCell::new();
-#[derive(Debug, Deserialize, Clone, Default)]
-pub struct CacheConfig {
-    pub node_id: usize,
-    pub node_total: usize,
-}
+
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct DatabaseConfig {
     pub url: String,
-    pub db_name: String,
 }
-#[derive(Debug, Deserialize, Clone, Default)]
-pub struct RedisConfig {
-    pub url: String,
-}
+
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct SysConfig {
     //全局日志级别
@@ -119,11 +109,10 @@ pub struct ServerConfig {
     pub port: u16,
 }
 
+
 #[derive(Debug, Deserialize, Clone, Default)]
-pub struct KafkaConfig {
-    pub brokers: String,
+pub struct GrpcConfig {
+    pub host: String,
+    pub port: u16,
 }
-#[derive(Debug, Deserialize, Clone, Default)]
-pub struct SocketConfig {
-    pub node_addr: String,
-}
+

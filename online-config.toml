@@ -1,0 +1,8 @@
+[grpc]
+host = "127.0.0.1"
+port = 9002
+[server]
+host = "127.0.0.1"
+port = 8002
+[sys]
+log_leve = "warn"  #trace debug info error warn

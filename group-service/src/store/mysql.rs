@@ -5,10 +5,10 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::sync::Arc;
 
-use common::config::{get_db, MySqlPool};
-use crate::common::GroupId;
-use crate::grpc::group_service::MemberRef;
 use super::GroupStorage;
+use crate::grpc::group_service::MemberRef;
+use common::config::{get_db, MySqlPool};
+use common::GroupId;
 
 /// MySQL 实现的 GroupStorage。
 /// - `pool`: 连接池（sqlx::Pool 内部已是 Arc，按值持有即可）

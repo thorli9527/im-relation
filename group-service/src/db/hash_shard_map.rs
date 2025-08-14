@@ -1,15 +1,14 @@
 use std::ops::Deref;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
+use crate::db::member_list_wrapper::MemberListWrapper;
+use crate::grpc::group_service::{GroupRoleType, MemberRef};
 use ahash::RandomState;
+use common::{GroupId, MemberListError, UserId};
 use dashmap::DashMap;
 use moka::sync::Cache;
 use smallvec::SmallVec;
-use common::MemberListError;
-use crate::common::{GroupId, UserId};
-use crate::db::member_list_wrapper::MemberListWrapper;
-use crate::grpc::group_service::{GroupRoleType, MemberRef};
 
 #[derive(Debug)]
 struct Shard {
