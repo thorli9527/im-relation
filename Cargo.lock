@@ -1069,6 +1069,7 @@ dependencies = [
  "common",
  "dashmap",
  "fxhash",
+ "log",
  "moka",
  "num_cpus",
  "parking_lot",
@@ -1255,6 +1256,7 @@ dependencies = [
  "async-trait",
  "common",
  "dashmap",
+ "log",
  "moka",
  "parking_lot",
  "prost 0.13.5",
@@ -1270,6 +1272,7 @@ dependencies = [
  "tokio",
  "tonic",
  "tonic-build",
+ "tracing-subscriber",
  "utoipa",
 ]
 
@@ -2091,6 +2094,7 @@ dependencies = [
  "common",
  "dashmap",
  "fxhash",
+ "log",
  "moka",
  "num_cpus",
  "parking_lot",

@@ -23,6 +23,8 @@ prost.workspace = true
 tonic.workspace = true
 prost-types.workspace = true
 utoipa.workspace = true
+log.workspace = true
+tracing-subscriber = "0.3.19"
 [build-dependencies]
 protobuf-src = { version = "^2.1.0", optional = true }
 tonic = "0.13.1"

@@ -1,12 +1,14 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-
-use anyhow::Result;
+use actix_web::cookie::time::format_description::parse;
+use anyhow::{Context, Result};
+use log::warn;
+use sqlx::{MySql, Pool};
 use tokio::signal;
 use tonic::transport::Server;
 
-use common::config::get_db;
+use common::config::{get_db, AppConfig};
 use common::UserId;
 
 use crate::autotune::{auto_tune_cache, CacheAutoTune};
@@ -24,9 +26,12 @@ mod autotune;
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
+    // 1) 读取应用配置（示例：从 TOML 文件加载）
+    //    若初始化失败会直接报错退出，避免带着不完整配置继续运行
+    let app_config = AppConfig::init("./friend-config.toml").await;
+    let grpc_config=app_config.grpc.expect("grpc.config.error");
     // ========= 0) 环境配置 =========
-    let grpc_addr: SocketAddr = std::env::var("GRPC_ADDR")
-        .unwrap_or_else(|_| "0.0.0.0:50052".into())
+    let grpc_addr: SocketAddr = format!("{}:{}",grpc_config.host,grpc_config.port)
         .parse()
         .expect("Failed to parse GRPC_ADDR");
 
@@ -59,8 +64,7 @@ async fn main() -> Result<()> {
     let pool = get_db();
 
     // 你的迁移文件（若已包含 meta 表，下面的手动建表会 no-op）
-    let ddl = include_str!("../migrations/mysql_schema.sql");
-    sqlx::query(ddl).execute(&*(pool.clone())).await?;
+    apply_schema_from_ddl(&pool, include_str!("../migrations/mysql_schema.sql")).await?;
 
     // ========= 3) 存储 & 门面 =========
     let storage = Arc::new(MySqlFriendStore::from_pool(pool.clone()));
@@ -88,7 +92,7 @@ async fn main() -> Result<()> {
                     Duration::from_secs(tti_secs),
                 );
                 let p = facade_clone.current_plan();
-                println!("[autotune] refreshed plan: {:?}", p);
+                warn!("[autotune] refreshed plan: {:?}", p);
             }
         });
     }
@@ -98,13 +102,11 @@ async fn main() -> Result<()> {
         facade: facade.clone(),
     };
 
-    println!("[grpc] starting server on {grpc_addr}");
     Server::builder()
         .add_service(FriendServiceServer::new(svc))
         .serve_with_shutdown(grpc_addr, async {
             // 优雅退出：Ctrl+C / SIGINT
             let _ = signal::ctrl_c().await;
-            println!("[grpc] shutting down...");
         })
         .await?;
 
@@ -121,4 +123,33 @@ where
         .ok()
         .and_then(|s| s.parse::<T>().ok())
         .unwrap_or(default)
+}
+
+/// 执行 schema 文件中的多条 DDL 语句（逐条执行 + 事务包裹）。
+///
+/// 注意：这里使用了最简单的分号切分法，适合“纯 DDL、无存储过程/触发器/DELIMITER”的场景。
+/// 如果将来要支持复杂 SQL，请改为：
+///   1) 使用 sqlx 的迁移系统（推荐）；或
+///   2) 写一个更健壮的解析器/状态机来处理 DELIMITER。
+async fn apply_schema_from_ddl(pool: &Pool<MySql>, ddl: &str) -> Result<()> {
+    // 预检查（可选）：测试简单连通性
+    pool.acquire().await.context("failed to acquire DB connection")?;
+
+    // 事务包裹，保证要么全部成功要么全部回滚
+    let mut tx = pool.begin().await.context("failed to begin transaction")?;
+
+    let stmts = ddl
+        .split(';')             // 简单分割
+        .map(str::trim)         // 去掉两端空白
+        .filter(|s| !s.is_empty());
+
+    for (i, stmt) in stmts.enumerate() {
+        sqlx::query(stmt)
+            .execute(&mut *tx)
+            .await
+            .with_context(|| format!("failed to execute DDL stmt #{}: {}", i, stmt.lines().next().unwrap_or(stmt)))?;
+    }
+
+    tx.commit().await.context("failed to commit DDL transaction")?;
+    Ok(())
 }

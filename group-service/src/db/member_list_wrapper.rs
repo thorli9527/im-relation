@@ -28,7 +28,7 @@ impl MemberListWrapper {
     fn role_to_i32(role: GroupRoleType) -> i32 { role as i32 }
 
     #[inline]
-    fn role_from_i32(v: i32) -> GroupRoleType { GroupRoleType::from_i32(v).unwrap_or(GroupRoleType::Member) }
+    fn role_from_i32(v: i32) -> GroupRoleType { GroupRoleType::try_from(v).unwrap_or(GroupRoleType::Member) }
 
     #[inline]
     fn role_of(owners: &RB64, admins: &RB64, uid: u64) -> GroupRoleType {

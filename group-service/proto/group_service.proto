@@ -1,62 +1,172 @@
 syntax = "proto3";
+
+// 包名（生成代码时会对应到命名空间）
 package group_service;
 
+// 群成员角色类型
+// 数字值对应数据库/内存结构里的角色编码
 enum GroupRoleType {
-  Owner = 0;
-  Admin = 1;
-  Member = 2;
+  Owner = 0;  // 群主
+  Admin = 1;  // 管理员
+  Member = 2; // 普通成员
 }
 
+// 群成员引用信息
 message MemberRef {
-  int64 id = 1;
-  int32 role = 3; // 0/1/2
+  int64 id = 1;    // 成员用户ID
+  int32 role = 3;  // 成员角色（0=Owner, 1=Admin, 2=Member）
 }
 
-message InsertReq { int64 group_id = 1; MemberRef member = 2; }
+// ---------------------- 成员增删改 ----------------------
+
+// 插入单个成员请求
+message InsertReq {
+  int64 group_id = 1;  // 群组ID
+  MemberRef member = 2; // 要添加的成员信息
+}
+
+// 插入单个成员响应（无额外数据，表示成功即可）
 message InsertResp {}
 
-message InsertManyReq { int64 group_id = 1; repeated MemberRef members = 2; }
+// 批量插入成员请求
+message InsertManyReq {
+  int64 group_id = 1;              // 群组ID
+  repeated MemberRef members = 2;  // 成员列表
+}
+
+// 批量插入成员响应
 message InsertManyResp {}
 
-message RemoveReq { int64 group_id = 1; int64 user_id = 2; }
-message RemoveResp { bool removed = 1; }
+// 移除成员请求
+message RemoveReq {
+  int64 group_id = 1;  // 群组ID
+  int64 user_id = 2;   // 要移除的用户ID
+}
 
-message ChangeRoleReq { int64 group_id = 1; int64 user_id = 2; int32 role = 3; }
+// 移除成员响应
+message RemoveResp {
+  bool removed = 1; // 是否实际删除成功（false 表示成员不存在）
+}
+
+// 修改成员角色请求
+message ChangeRoleReq {
+  int64 group_id = 1; // 群组ID
+  int64 user_id = 2;  // 用户ID
+  int32 role = 3;     // 新角色（0/1/2）
+}
+
+// 修改成员角色响应
 message ChangeRoleResp {}
 
-message GetPageReq { int64 group_id = 1; uint64 page = 2; uint64 page_size = 3; }
-message GetPageResp { repeated MemberRef members = 1; }
+// ---------------------- 成员查询 ----------------------
 
-message GetAllReq { int64 group_id = 1; }
-message GetAllResp { repeated MemberRef members = 1; }
+// 分页获取群成员请求
+message GetPageReq {
+  int64 group_id = 1;  // 群组ID
+  uint64 page = 2;     // 页码（从 0 或 1 开始，取决于实现）
+  uint64 page_size = 3;// 每页成员数量
+}
 
-message CountReq { int64 group_id = 1; }
-message CountResp { uint64 count = 1; }
+// 分页获取群成员响应
+message GetPageResp {
+  repeated MemberRef members = 1; // 成员列表
+}
 
-message UserGroupsReq { int64 user_id = 1; }
-message UserGroupsResp { repeated int64 group_ids = 1; }
+// 获取群内全部成员请求
+message GetAllReq {
+  int64 group_id = 1; // 群组ID
+}
 
+// 获取群内全部成员响应
+message GetAllResp {
+  repeated MemberRef members = 1; // 成员列表
+}
+
+// 获取群成员数量请求
+message CountReq {
+  int64 group_id = 1; // 群组ID
+}
+
+// 获取群成员数量响应
+message CountResp {
+  uint64 count = 1; // 成员总数
+}
+
+// ---------------------- 跨群查询 ----------------------
+
+// 获取用户所在的所有群组请求
+message UserGroupsReq {
+  int64 user_id = 1; // 用户ID
+}
+
+// 获取用户所在的所有群组响应
+message UserGroupsResp {
+  repeated int64 group_ids = 1; // 群组ID列表
+}
+
+// 获取所有群组ID请求（全局）
 message AllKeysReq {}
-message AllKeysResp { repeated int64 group_ids = 1; }
 
-message AllKeysByShardReq { uint64 shard_idx = 1; }
-message AllKeysByShardResp { repeated int64 group_ids = 1; }
+// 获取所有群组ID响应
+message AllKeysResp {
+  repeated int64 group_ids = 1; // 群组ID列表
+}
 
-message ClearReq { int64 group_id = 1; }
+// 按分片索引获取群组ID请求
+message AllKeysByShardReq {
+  uint64 shard_idx = 1; // 分片下标（与服务器分片数匹配）
+}
+
+// 按分片索引获取群组ID响应
+message AllKeysByShardResp {
+  repeated int64 group_ids = 1; // 群组ID列表
+}
+
+// ---------------------- 群管理 ----------------------
+
+// 清空群成员请求
+message ClearReq {
+  int64 group_id = 1; // 群组ID
+}
+
+// 清空群成员响应
 message ClearResp {}
 
+// ---------------------- 服务定义 ----------------------
+
+// 群组服务接口定义
+// 提供群成员的增删改查、跨群查询、分片管理等能力
 service GroupService {
+  // 添加单个成员
   rpc Insert(InsertReq) returns (InsertResp);
+
+  // 批量添加成员
   rpc InsertMany(InsertManyReq) returns (InsertManyResp);
+
+  // 移除成员
   rpc Remove(RemoveReq) returns (RemoveResp);
+
+  // 修改成员角色
   rpc ChangeRole(ChangeRoleReq) returns (ChangeRoleResp);
 
+  // 分页获取群成员
   rpc GetPage(GetPageReq) returns (GetPageResp);
+
+  // 获取群全部成员
   rpc GetAll(GetAllReq) returns (GetAllResp);
+
+  // 获取群成员数量
   rpc Count(CountReq) returns (CountResp);
 
+  // 获取用户所在的所有群组
   rpc UserGroups(UserGroupsReq) returns (UserGroupsResp);
+
+  // 获取所有群组ID（全局）
   rpc AllKeys(AllKeysReq) returns (AllKeysResp);
+
+  // 按分片索引获取群组ID
   rpc AllKeysByShard(AllKeysByShardReq) returns (AllKeysByShardResp);
+
+  // 清空群成员
   rpc Clear(ClearReq) returns (ClearResp);
 }

@@ -27,6 +27,7 @@ prost-types.workspace = true
 utoipa.workspace = true
 num_cpus.workspace = true
 sysinfo.workspace = true
+log.workspace = true
 [build-dependencies]
 protobuf-src = { version = "^2.1.0", optional = true }
 tonic = "0.13.1"

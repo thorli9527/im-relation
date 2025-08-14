@@ -1,7 +1,7 @@
 pub mod config;
 mod errors;
 
-use serde::{Serialize, Deserialize};
+use serde::{ Deserialize};
 
 pub type UserId = i64;
 pub type GroupId = i64;

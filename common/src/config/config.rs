@@ -47,8 +47,8 @@ impl AppConfig {
         let cfg = config.try_deserialize::<AppConfig>().expect("Failed to deserialize configuration");
         return cfg;
     }
-    pub async fn init(file: &String) {
-        let instance = Self::new(&file);
+    pub async fn init(file: &str) ->Self{
+        let instance = Self::new(&file.to_string());
 
         if instance.database.is_some() {
             let database_config = instance.clone().database.unwrap();
@@ -61,7 +61,8 @@ impl AppConfig {
                 init_log(&log_lovel.clone().unwrap()).expect("init log error");
             }
         }
-        INSTANCE.set(Arc::new(instance)).expect("INSTANCE already initialized");
+        INSTANCE.set(Arc::new(instance.clone())).expect("INSTANCE already initialized");
+        return instance
     }
 
     pub fn get_database(&self) -> DatabaseConfig {

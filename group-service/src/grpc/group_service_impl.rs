@@ -34,7 +34,7 @@ impl GroupService for GroupServiceImpl {
 
     async fn change_role(&self, req: Request<ChangeRoleReq>) -> Result<Response<ChangeRoleResp>, Status> {
         let r = req.into_inner();
-        let role = group_service::GroupRoleType::from_i32(r.role).unwrap_or(group_service::GroupRoleType::Member);
+        let role = group_service::GroupRoleType::try_from(r.role).unwrap_or(group_service::GroupRoleType::Member);
         self.facade.change_role(r.group_id, r.user_id, role).await.map_err(to_status)?;
         Ok(Response::new(ChangeRoleResp{}))
     }
