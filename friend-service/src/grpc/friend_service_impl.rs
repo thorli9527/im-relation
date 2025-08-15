@@ -8,24 +8,27 @@ use common::UserId;
 use crate::grpc::friend_service::friend_service_server::FriendService;
 use crate::grpc::friend_service::*;
 use crate::hot_cold::HotColdFriendFacade;
-// 如果你想保持固定实现，也可以直接用 MySqlFriendStore；此处做成泛型更利于测试
-use crate::store::mysql::FriendStorage;
+// 新版：对齐 FriendRepo（非旧 FriendStorage）
+use crate::store::mysql::FriendRepo;
 
-/// gRPC 服务实现（对存储实现做成泛型，默认用 MySqlFriendStore 传入）
-pub struct FriendServiceImpl<S: FriendStorage> {
-    pub facade: Arc<HotColdFriendFacade<S>>,
+/// gRPC 服务实现（对存储做成泛型，默认由上层注入具体 Repo & Facade）
+pub struct FriendServiceImpl<R: FriendRepo> {
+    pub facade: Arc<HotColdFriendFacade<R>>,
 }
 
-impl<S: FriendStorage> FriendServiceImpl<S> {
+impl<R: FriendRepo> FriendServiceImpl<R> {
     #[inline]
-    fn to_status(err: anyhow::Error, ctx: &str) -> Status {
+    fn internal(err: anyhow::Error, ctx: &str) -> Status {
         Status::internal(format!("{ctx}: {err}"))
     }
 
+    /// i64 → UserId（u64 别名），带负数校验
     #[inline]
-    fn cast_uid(x: i64) -> UserId {
-        // 你的 UserId 若为 u64 别名，这里做安全转换；如需更严格的校验可自行加范围检查
-        x as UserId
+    fn cast_uid(x: i64, field: &'static str) -> Result<UserId, Status> {
+        if x < 0 {
+            return Err(Status::invalid_argument(format!("{field} must be >= 0")));
+        }
+        Ok(x as UserId)
     }
 
     /// 将 Vec<UserId> 转为 Vec<i64>（proto 使用 i64）
@@ -39,8 +42,7 @@ impl<S: FriendStorage> FriendServiceImpl<S> {
     fn paginate(mut items: Vec<UserId>, page: usize, page_size: usize) -> Vec<UserId> {
         let page = page.max(1);
         let page_size = page_size.clamp(1, 10_000);
-        // 可选：稳定一下顺序（如果上层已保证有序可去掉）
-        items.sort_unstable();
+        items.sort_unstable(); // 若上游已保证有序，可去掉
         let start = (page - 1) * page_size;
         if start >= items.len() {
             return Vec::new();
@@ -51,27 +53,27 @@ impl<S: FriendStorage> FriendServiceImpl<S> {
 }
 
 #[async_trait]
-impl<S: FriendStorage + Send + Sync + 'static> FriendService for FriendServiceImpl<S> {
+impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<R> {
     async fn add_friend(
         &self,
         request: Request<AddFriendReq>,
     ) -> Result<Response<AddFriendResp>, Status> {
         let req = request.into_inner();
-        let uid = Self::cast_uid(req.user_id);
-        let fid = Self::cast_uid(req.friend_id);
+        let uid = Self::cast_uid(req.user_id, "user_id")?;
+        let fid = Self::cast_uid(req.friend_id, "friend_id")?;
 
-        // 先看是否已存在（决定返回的 added 布尔）
+        // 判断是否已存在（决定返回布尔）；与写入存在竞态但可接受
         let already = self
             .facade
             .get_friends(uid)
             .await
             .map(|v| v.contains(&fid))
-            .map_err(|e| Self::to_status(e, "add_friend/get_friends"))?;
+            .map_err(|e| Self::internal(e, "add_friend/get_friends"))?;
 
         self.facade
             .add_friend(uid, fid)
             .await
-            .map_err(|e| Self::to_status(e, "add_friend/save"))?;
+            .map_err(|e| Self::internal(e, "add_friend/write"))?;
 
         Ok(Response::new(AddFriendResp { added: !already }))
     }
@@ -81,8 +83,8 @@ impl<S: FriendStorage + Send + Sync + 'static> FriendService for FriendServiceIm
         request: Request<RemoveFriendReq>,
     ) -> Result<Response<RemoveFriendResp>, Status> {
         let req = request.into_inner();
-        let uid = Self::cast_uid(req.user_id);
-        let fid = Self::cast_uid(req.friend_id);
+        let uid = Self::cast_uid(req.user_id, "user_id")?;
+        let fid = Self::cast_uid(req.friend_id, "friend_id")?;
 
         // 同理：根据是否存在决定 removed 布尔
         let existed = self
@@ -90,12 +92,12 @@ impl<S: FriendStorage + Send + Sync + 'static> FriendService for FriendServiceIm
             .get_friends(uid)
             .await
             .map(|v| v.contains(&fid))
-            .map_err(|e| Self::to_status(e, "remove_friend/get_friends"))?;
+            .map_err(|e| Self::internal(e, "remove_friend/get_friends"))?;
 
         self.facade
             .remove_friend(uid, fid)
             .await
-            .map_err(|e| Self::to_status(e, "remove_friend/save"))?;
+            .map_err(|e| Self::internal(e, "remove_friend/write"))?;
 
         Ok(Response::new(RemoveFriendResp { removed: existed }))
     }
@@ -105,15 +107,16 @@ impl<S: FriendStorage + Send + Sync + 'static> FriendService for FriendServiceIm
         request: Request<IsFriendReq>,
     ) -> Result<Response<IsFriendResp>, Status> {
         let req = request.into_inner();
-        let uid = Self::cast_uid(req.user_id);
-        let fid = Self::cast_uid(req.friend_id);
+        let uid = Self::cast_uid(req.user_id, "user_id")?;
+        let fid = Self::cast_uid(req.friend_id, "friend_id")?;
 
+        // 若想更高效，可给 facade 增加 is_friend 直连底库；此处保持兼容
         let is_friend = self
             .facade
             .get_friends(uid)
             .await
             .map(|v| v.contains(&fid))
-            .map_err(|e| Self::to_status(e, "is_friend/get_friends"))?;
+            .map_err(|e| Self::internal(e, "is_friend/get_friends"))?;
 
         Ok(Response::new(IsFriendResp { is_friend }))
     }
@@ -123,13 +126,13 @@ impl<S: FriendStorage + Send + Sync + 'static> FriendService for FriendServiceIm
         request: Request<GetFriendsReq>,
     ) -> Result<Response<GetFriendsResp>, Status> {
         let req = request.into_inner();
-        let uid = Self::cast_uid(req.user_id);
+        let uid = Self::cast_uid(req.user_id, "user_id")?;
 
         let friend_ids = self
             .facade
             .get_friends(uid)
             .await
-            .map_err(|e| Self::to_status(e, "get_friends"))?;
+            .map_err(|e| Self::internal(e, "get_friends/read"))?;
 
         Ok(Response::new(GetFriendsResp {
             friend_ids: Self::ids_to_i64(friend_ids),
@@ -141,13 +144,13 @@ impl<S: FriendStorage + Send + Sync + 'static> FriendService for FriendServiceIm
         request: Request<GetFriendsPageReq>,
     ) -> Result<Response<GetFriendsPageResp>, Status> {
         let req = request.into_inner();
-        let uid = Self::cast_uid(req.user_id);
+        let uid = Self::cast_uid(req.user_id, "user_id")?;
 
         let list = self
             .facade
             .get_friends(uid)
             .await
-            .map_err(|e| Self::to_status(e, "get_friends_page/get_friends"))?;
+            .map_err(|e| Self::internal(e, "get_friends_page/read"))?;
 
         let page_slice = Self::paginate(list, req.page as usize, req.page_size as usize);
 
@@ -156,18 +159,30 @@ impl<S: FriendStorage + Send + Sync + 'static> FriendService for FriendServiceIm
         }))
     }
 
+    async fn get_friends_detailed(&self, request: Request<GetFriendsDetailedReq>) -> Result<Response<GetFriendsDetailedResp>, Status> {
+        todo!()
+    }
+
+    async fn get_friends_page_detailed(&self, request: Request<GetFriendsPageDetailedReq>) -> Result<Response<GetFriendsPageDetailedResp>, Status> {
+        todo!()
+    }
+
+    async fn update_friend_alias(&self, request: Request<UpdateFriendAliasReq>) -> Result<Response<UpdateFriendAliasResp>, Status> {
+        todo!()
+    }
+
     async fn clear_friends(
         &self,
         request: Request<ClearFriendsReq>,
     ) -> Result<Response<ClearFriendsResp>, Status> {
         let req = request.into_inner();
-        let uid = Self::cast_uid(req.user_id);
+        let uid = Self::cast_uid(req.user_id, "user_id")?;
 
-        // 统一通过 facade 的删除用户逻辑（会清持久层并失效热存）
+        // 统一通过 facade 的删除用户逻辑（清持久层并失效热存）
         self.facade
             .delete_user(uid)
             .await
-            .map_err(|e| Self::to_status(e, "clear_friends/delete_user"))?;
+            .map_err(|e| Self::internal(e, "clear_friends/write"))?;
 
         Ok(Response::new(ClearFriendsResp {}))
     }

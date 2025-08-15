@@ -1,190 +1,139 @@
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
+
+use ahash::RandomState;
+use dashmap::DashMap;
+use moka::sync::{Cache, CacheBuilder};
+use smallvec::SmallVec;
 
 use crate::db::member_list_wrapper::MemberListWrapper;
 use crate::grpc::group_service::{GroupRoleType, MemberRef};
-use ahash::RandomState;
 use common::{GroupId, MemberListError, UserId};
-use dashmap::DashMap;
-use moka::sync::Cache;
-use smallvec::SmallVec;
 
-/// 单个分片（Shard）结构，负责存储部分群组的成员列表
+/// 单个分片
 #[derive(Debug)]
 struct Shard {
-    /// key: GroupId -> value: 群组成员列表封装（MemberListWrapper）
     inner: DashMap<GroupId, Arc<MemberListWrapper>, RandomState>,
 }
-
 impl Default for Shard {
     fn default() -> Self {
-        Self {
-            inner: DashMap::with_hasher(RandomState::new()),
-        }
+        Self { inner: DashMap::with_hasher(RandomState::new()) }
     }
 }
 
-/// 基于 group_id 哈希分片的群成员管理结构
-///
-/// 特点：
-/// - 分片存储，提升并发性能，减少锁竞争
-/// - 本地缓存分页结果（page_cache）
-/// - 支持用户ID到群组列表的反向索引（user_to_groups）
-/// - 使用 `AtomicU64` 版本号控制缓存失效
+/// 分片管理的群成员映射
 #[derive(Debug)]
 pub struct HashShardMap {
-    /// 所有分片
     shards: Arc<Vec<Shard>>,
-    /// 分片掩码（shard_count - 1），用于快速定位分片
     shard_mask: usize,
-    /// 每个群组划分的逻辑分片数（业务需要时可用）
     pub per_group_shard: usize,
-    /// 用户ID -> 该用户所在的群组ID列表
-    user_to_groups: DashMap<UserId, SmallVec<GroupId, 8>, RandomState>,
 
-    /// 分页结果缓存
-    /// key: (group_id, page, page_size, group_version)
-    /// value: 成员列表 (Arc<Vec<MemberRef>>)
-    page_cache: Cache<(GroupId, usize, usize, u64), Arc<Vec<MemberRef>>>,
+    /// user_id -> groups
+    user_to_groups: DashMap<UserId, SmallVec<[GroupId; 8]>, RandomState>,
 
-    /// 群组版本号（用于缓存失效）
-    /// 每次群组成员变动时 bump_ver，会导致 page_cache 失效
+    /// 分页缓存（零拷贝命中）：key=(gid,page,size,ver) -> Arc<[MemberRef]>
+    page_cache: Cache<(GroupId, usize, usize, u64), Arc<[MemberRef]>>,
+
+    /// 群版本号（写后 bump，使旧页逻辑失效）
     group_ver: DashMap<GroupId, AtomicU64, RandomState>,
 }
 
 impl HashShardMap {
-    /// 创建一个新的 HashShardMap
-    ///
-    /// - `shard_count`: 分片数（会自动向上取 2 的幂）
-    /// - `per_group_shard`: 每个群组逻辑分片数
+    /// 构造函数
+    /// - `shard_count` 向上取 2 的幂，便于与运算
+    /// - `per_group_shard` 预留字段
     pub fn new(shard_count: usize, per_group_shard: usize) -> Self {
-        // 分片数向上取 2 的幂，便于按位与运算取模
         let n = shard_count.max(1).next_power_of_two();
         let shards = (0..n).map(|_| Shard::default()).collect();
+
+        // 分页缓存：按“条数”计权；容量 10 万条成员（可自行调整）。
+        // 如需时间淘汰，可加 .time_to_idle(Duration::from_secs(300))
+        let page_cache: Cache<(GroupId, usize, usize, u64), Arc<[MemberRef]>> =
+            CacheBuilder::new(100_000 /* max_weight */)
+                .weigher(|_k, v: &Arc<[MemberRef]>| v.len() as u32)
+                .build();
+
         Self {
             shards: Arc::new(shards),
             shard_mask: n - 1,
             per_group_shard,
             user_to_groups: DashMap::with_hasher(RandomState::new()),
-            page_cache: Cache::builder().max_capacity(100_000).build(),
+            page_cache,
             group_ver: DashMap::with_hasher(RandomState::new()),
         }
     }
 
-    /// 根据 group_id 计算所属分片下标
     #[inline]
-    fn shard_idx(&self, group_id: GroupId) -> usize {
-        (group_id as usize) & self.shard_mask
+    fn shard_idx(&self, gid: GroupId) -> usize { (gid as usize) & self.shard_mask }
+
+    /// 分片总数
+    #[inline]
+    pub fn shard_count(&self) -> usize { self.shard_mask + 1 }
+
+    /// group 是否存在
+    #[inline]
+    pub fn contains_group(&self, gid: GroupId) -> bool {
+        self.shards[self.shard_idx(gid)].inner.contains_key(&gid)
     }
 
-    /// 返回分片总数
+    /// 获取或创建包装器
     #[inline]
-    pub fn shard_count(&self) -> usize {
-        self.shard_mask + 1
+    fn get_or_create_wrapper(&self, gid: GroupId) -> Arc<MemberListWrapper> {
+        let shard = &self.shards[self.shard_idx(gid)];
+        if let Some(w) = shard.inner.get(&gid) { return w.clone(); }
+        shard.inner.entry(gid).or_insert_with(|| Arc::new(MemberListWrapper::new_simple())).clone()
     }
 
-    /// 判断该 group 是否已存在
     #[inline]
-    pub fn contains_group(&self, group_id: GroupId) -> bool {
-        let shard = &self.shards[self.shard_idx(group_id)];
-        shard.inner.contains_key(&group_id)
+    fn push_group_unique(list: &mut SmallVec<[GroupId; 8]>, gid: GroupId) {
+        if !list.iter().any(|&g| g == gid) { list.push(gid); }
     }
 
-    /// 获取群组的 MemberListWrapper，没有则创建
-    #[inline]
-    fn get_or_create_wrapper(&self, group_id: GroupId) -> Arc<MemberListWrapper> {
-        let shard = &self.shards[self.shard_idx(group_id)];
-        if let Some(w) = shard.inner.get(&group_id) {
-            return w.clone();
-        }
-        shard.inner
-            .entry(group_id)
-            .or_insert_with(|| Arc::new(MemberListWrapper::new_simple()))
-            .clone()
-    }
-
-    /// 向列表中插入 group_id（不重复）
-    #[inline]
-    fn push_group_unique(list: &mut SmallVec<GroupId ,8>, gid: GroupId) {
-        if !list.iter().any(|&g| g == gid) {
-            list.push(gid);
-        }
-    }
-
-    /// 群版本号 +1（缓存失效）
     #[inline]
     fn bump_ver(&self, gid: GroupId) {
-        let entry = self.group_ver.entry(gid).or_insert_with(|| AtomicU64::new(0));
-        entry.fetch_add(1, Ordering::Relaxed);
+        let e = self.group_ver.entry(gid).or_insert_with(|| AtomicU64::new(0));
+        e.fetch_add(1, Ordering::Relaxed);
     }
 
-    /// 获取当前群版本号
     #[inline]
     fn current_ver(&self, gid: GroupId) -> u64 {
         self.group_ver.get(&gid).map(|v| v.load(Ordering::Relaxed)).unwrap_or(0)
     }
 
-    /// 插入单个成员
-    pub fn insert(&self, group_id: GroupId, member: MemberRef) -> Result<(), MemberListError> {
-        let wrapper = self.get_or_create_wrapper(group_id);
+    // ---------------- 写路径 ----------------
+
+    pub fn insert(&self, gid: GroupId, member: MemberRef) -> Result<(), MemberListError> {
+        let wrapper = self.get_or_create_wrapper(gid);
         wrapper.add(member.clone())?;
-
         let mut entry = self.user_to_groups.entry(member.id).or_insert_with(SmallVec::new);
-        Self::push_group_unique(&mut entry, group_id);
-
-        self.bump_ver(group_id);
+        Self::push_group_unique(&mut entry, gid);
+        self.bump_ver(gid);
         Ok(())
     }
 
-    /// 批量插入成员
-    pub fn insert_many(&self, group_id: GroupId, members: Vec<MemberRef>) -> Result<(), MemberListError> {
-        let wrapper = self.get_or_create_wrapper(group_id);
+    pub fn insert_many(&self, gid: GroupId, members: Vec<MemberRef>) -> Result<(), MemberListError> {
+        let wrapper = self.get_or_create_wrapper(gid);
         wrapper.add_many_slice(&members)?;
-
         for m in members {
             let mut v = self.user_to_groups.entry(m.id).or_insert_with(SmallVec::new);
-            Self::push_group_unique(&mut v, group_id);
+            Self::push_group_unique(&mut v, gid);
         }
-        self.bump_ver(group_id);
+        self.bump_ver(gid);
         Ok(())
     }
 
-    /// 分页获取群成员（带缓存）
-    pub fn get_page(&self, group_id: GroupId, page: usize, page_size: usize) -> Option<Vec<MemberRef>> {
-        let shard = &self.shards[self.shard_idx(group_id)];
-        let ver = self.current_ver(group_id);
-        let key = (group_id, page, page_size, ver);
-
-        // 先查缓存
-        if let Some(cached) = self.page_cache.get(&key) {
-            return Some(cached.deref().clone());
-        }
-
-        // 计算并写入缓存
-        let computed = shard.inner.get(&group_id).map(|w| w.get_page(page, page_size));
-        if let Some(ref v) = computed {
-            self.page_cache.insert(key, Arc::new(v.clone()));
-        }
-        computed
-    }
-
-    /// 移除成员
-    pub fn remove(&self, group_id: GroupId, user_id: UserId) -> Result<bool, MemberListError> {
-        let shard = &self.shards[self.shard_idx(group_id)];
-        if let Some(wrapper) = shard.inner.get(&group_id) {
-            let removed = wrapper.remove(user_id)?;
+    pub fn remove(&self, gid: GroupId, uid: UserId) -> Result<bool, MemberListError> {
+        let shard = &self.shards[self.shard_idx(gid)];
+        if let Some(wrapper) = shard.inner.get(&gid) {
+            let removed = wrapper.remove(uid)?;
             if removed {
-                if let Some(mut v) = self.user_to_groups.get_mut(&user_id) {
-                    if let Some(pos) = v.iter().position(|&g| g == group_id) {
-                        v.remove(pos);
-                    }
-                    if v.is_empty() {
-                        drop(v);
-                        self.user_to_groups.remove(&user_id);
-                    }
+                if let Some(mut v) = self.user_to_groups.get_mut(&uid) {
+                    if let Some(pos) = v.iter().position(|&g| g == gid) { v.remove(pos); }
+                    if v.is_empty() { drop(v); self.user_to_groups.remove(&uid); }
                 }
-                self.bump_ver(group_id);
+                self.bump_ver(gid);
             }
             Ok(removed)
         } else {
@@ -192,79 +141,131 @@ impl HashShardMap {
         }
     }
 
-    /// 修改成员角色
-    pub fn change_role(&self, group_id: GroupId, user_id: UserId, role: GroupRoleType) -> Result<(), MemberListError> {
-        let shard = &self.shards[self.shard_idx(group_id)];
-        if let Some(wrapper) = shard.inner.get(&group_id) {
-            wrapper.change_role(user_id, role)?;
-            self.bump_ver(group_id);
+    pub fn change_role(&self, gid: GroupId, uid: UserId, role: GroupRoleType) -> Result<(), MemberListError> {
+        let shard = &self.shards[self.shard_idx(gid)];
+        if let Some(wrapper) = shard.inner.get(&gid) {
+            wrapper.change_role(uid, role)?;
+            self.bump_ver(gid);
         }
         Ok(())
     }
 
-    /// 清空群组成员（同时更新 user_to_groups）
-    pub fn clear(&self, group_id: GroupId) {
-        let shard = &self.shards[self.shard_idx(group_id)];
-        if let Some(wrapper) = shard.inner.get(&group_id) {
+    /// 新增：修改/清空别名
+    pub fn change_alias(&self, gid: GroupId, uid: UserId, alias: Option<String>) -> Result<(), MemberListError> {
+        let shard = &self.shards[self.shard_idx(gid)];
+        if let Some(wrapper) = shard.inner.get(&gid) {
+            wrapper.change_alias(uid, alias)?;
+            self.bump_ver(gid);
+        }
+        Ok(())
+    }
+
+    /// 清空群成员，并维护反向索引
+    pub fn clear(&self, gid: GroupId) {
+        let shard = &self.shards[self.shard_idx(gid)];
+        if let Some(wrapper) = shard.inner.get(&gid) {
             for m in wrapper.get_all() {
                 if let Some(mut v) = self.user_to_groups.get_mut(&m.id) {
-                    if let Some(pos) = v.iter().position(|&g| g == group_id) {
-                        v.remove(pos);
-                    }
-                    if v.is_empty() {
-                        drop(v);
-                        self.user_to_groups.remove(&m.id);
-                    }
+                    if let Some(pos) = v.iter().position(|&g| g == gid) { v.remove(pos); }
+                    if v.is_empty() { drop(v); self.user_to_groups.remove(&m.id); }
                 }
             }
         }
-        shard.inner.remove(&group_id);
-        self.bump_ver(group_id);
+        shard.inner.remove(&gid);
+        self.bump_ver(gid);
     }
 
-    /// 获取某用户的所有群组ID
-    pub fn user_group_list(&self, user_id: UserId) -> Vec<GroupId> {
-        self.user_to_groups
-            .get(&user_id)
-            .map(|v| v.iter().copied().collect())
-            .unwrap_or_default()
+    // ---------------- 读路径 ----------------
+
+    /// 快路径：零拷贝命中缓存，返回 Arc<[MemberRef]>
+    /// 调用者若需要 Vec 再 `to_vec()`，但建议尽量在内部用切片引用以减少拷贝。
+    pub fn get_page_arc(
+        &self,
+        gid: GroupId,
+        page: usize,
+        page_size: usize,
+    ) -> Option<Arc<[MemberRef]>> {
+        if page_size == 0 { return Some(Arc::from([])); }
+
+        let ver = self.current_ver(gid);
+        let key = (gid, page, page_size, ver);
+
+        if let Some(cached) = self.page_cache.get(&key) {
+            return Some(cached.clone()); // O(1) 引用计数，零拷贝
+        }
+
+        // miss：计算一页
+        let shard = &self.shards[self.shard_idx(gid)];
+        let computed = shard.inner.get(&gid).map(|w| w.get_page(page, page_size));
+
+        if let Some(v) = computed {
+            // 仅在 miss 时做一次分配，缓存为切片 Arc
+            let arc_slice: Arc<[MemberRef]> = Arc::from(v);
+            // 注意：weigher 以 len 计权；这里不会重复复制
+            self.page_cache.insert(key, arc_slice.clone());
+            Some(arc_slice)
+        } else {
+            None
+        }
     }
 
-    /// 获取所有群组ID（全局）
+    /// 兼容旧接口：返回 Vec<MemberRef>（会从缓存的 Arc<[T]> 克隆元素）
+    pub fn get_page(&self, gid: GroupId, page: usize, page_size: usize) -> Option<Vec<MemberRef>> {
+        self.get_page_arc(gid, page, page_size).map(|arc_slice| arc_slice.deref().to_vec())
+    }
+
+    /// 某用户的所有群组
+    pub fn user_group_list(&self, uid: UserId) -> Vec<GroupId> {
+        self.user_to_groups.get(&uid).map(|v| v.iter().copied().collect()).unwrap_or_default()
+    }
+
+    /// 全部群组ID
     pub fn all_keys(&self) -> Vec<GroupId> {
         let cap: usize = self.shards.iter().map(|s| s.inner.len()).sum();
         let mut keys = Vec::with_capacity(cap);
         for shard in self.shards.iter() {
-            for entry in shard.inner.iter() {
-                keys.push(*entry.key());
-            }
+            for e in shard.inner.iter() { keys.push(*e.key()); }
         }
         keys.sort_unstable();
         keys
     }
 
-    /// 获取指定分片的所有群组ID
-    pub fn all_keys_by_shard(&self, shard_idx: usize) -> Vec<GroupId> {
-        if shard_idx >= self.shards.len() {
-            return Vec::new();
-        }
-        let mut v = Vec::with_capacity(self.shards[shard_idx].inner.len());
-        for e in self.shards[shard_idx].inner.iter() {
-            v.push(*e.key());
-        }
+    /// 指定分片的群组ID
+    pub fn all_keys_by_shard(&self, idx: usize) -> Vec<GroupId> {
+        if idx >= self.shards.len() { return Vec::new(); }
+        let mut v = Vec::with_capacity(self.shards[idx].inner.len());
+        for e in self.shards[idx].inner.iter() { v.push(*e.key()); }
         v.sort_unstable();
         v
     }
 
-    /// 获取某个群组的全部成员
-    pub fn get_member_by_key(&self, group_id: GroupId) -> Vec<MemberRef> {
-        let shard = &self.shards[self.shard_idx(group_id)];
-        shard.inner.get(&group_id).map(|w| w.get_all()).unwrap_or_default()
+    /// 某群全部成员（快照）
+    pub fn get_member_by_key(&self, gid: GroupId) -> Vec<MemberRef> {
+        self.shards[self.shard_idx(gid)]
+            .inner
+            .get(&gid)
+            .map(|w| w.get_all())
+            .unwrap_or_default()
     }
 
-    /// 获取某个群组的成员总数
-    pub fn get_member_count_by_key(&self, group_id: GroupId) -> usize {
-        let shard = &self.shards[self.shard_idx(group_id)];
-        shard.inner.get(&group_id).map(|w| w.len()).unwrap_or(0)
+    /// 某群成员总数
+    pub fn get_member_count_by_key(&self, gid: GroupId) -> usize {
+        self.shards[self.shard_idx(gid)]
+            .inner
+            .get(&gid)
+            .map(|w| w.len())
+            .unwrap_or(0)
+    }
+
+    // ---------------- 可选：运行时调优 ----------------
+
+    /// （可选）设置分页缓存 TTI，便于回收冷页
+    pub fn set_page_cache_tti(&self, seconds: u64) {
+        // moka 的 builder 才能设 TTI；这里给个示例可在 new(...) 里直接设：
+        // self.page_cache = CacheBuilder::new(...)
+        //    .weigher(...)
+        //    .time_to_idle(Duration::from_secs(seconds))
+        //    .build();
+        let _ = seconds; // 提示：如需切换 TTI，请在构造时设定
     }
 }

@@ -1,10 +1,12 @@
-// src/db/member/friend_list_ef.rs
-
 use parking_lot::RwLock;
 use roaring::RoaringTreemap as RB64;
 use smallvec::SmallVec;
+use std::collections::HashMap;
+
 use common::UserId;
 use crate::db::elias_fano::EliasFano;
+
+pub type FriendId = u64;
 
 #[derive(thiserror::Error, Debug)]
 pub enum RelationError {
@@ -20,9 +22,28 @@ pub enum RelationError {
 /// 读路径：ΔDel 覆盖 -> ΔAdd 覆盖 -> Base
 #[derive(Debug)]
 pub struct FriendListEf {
-    pub base: RwLock<EliasFano>,               // 压缩主存（仅在合并时重建）
-    pub delta_add: RwLock<SmallVec<u64, 32>>, // 待新增（小而快）
-    pub delta_del: RwLock<SmallVec<u64, 8>>,  // 待删除（小而快）
+    // ===== 好友集合 =====
+    /// 压缩主存（仅在合并时重建）；保证内部升序
+    pub base: RwLock<EliasFano>,
+    /// 待新增（小而快，不保证有序）
+    pub delta_add: RwLock<SmallVec<[FriendId; 32]>>,
+    /// 待删除（小而快，不保证有序）
+    pub delta_del: RwLock<SmallVec<[FriendId; 8]>>,
+
+    // ===== 别名：并行三层结构（无享元） =====
+    /// 稳定面：随 base 对齐
+    pub alias_base: RwLock<HashMap<FriendId, String>>,
+    /// ΔAdd：新增/更新别名
+    pub alias_add: RwLock<HashMap<FriendId, String>>,
+    /// ΔDel：清除别名标记（小集合）
+    pub alias_del: RwLock<SmallVec<[FriendId; 8]>>,
+}
+
+impl Default for FriendListEf {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl FriendListEf {
@@ -32,104 +53,232 @@ impl FriendListEf {
             base: RwLock::new(EliasFano::from_sorted(&[])),
             delta_add: RwLock::new(SmallVec::new()),
             delta_del: RwLock::new(SmallVec::new()),
+            alias_base: RwLock::new(HashMap::new()),
+            alias_add: RwLock::new(HashMap::new()),
+            alias_del: RwLock::new(SmallVec::new()),
         }
     }
 
+    // ====================== 私有工具函数 ======================
+
+    /// 小集合移除一个元素（线性扫描即可）
     #[inline]
-    fn to_u64(id: UserId) -> Result<u64, RelationError> {
-        Ok(id as u64)
+    fn smallvec_remove_one(v: &mut SmallVec<[FriendId; 8]>, x: FriendId) -> bool {
+        if let Some(i) = v.iter().position(|&t| t == x) {
+            v.remove(i);
+            true
+        } else {
+            false
+        }
     }
+
+    /// 小集合是否包含（线性）
+    #[inline]
+    fn smallvec_contains(v: &SmallVec<[FriendId; 8]>, x: FriendId) -> bool {
+        v.iter().any(|&t| t == x)
+    }
+
+    /// 清理别名的增量标记（在 remove 路径中复用）
+    #[inline]
+    fn clear_alias_deltas_for(&self, uid: FriendId) {
+        self.alias_add.write().remove(&uid);
+        // retain 的闭包参数是 &T（&u64），这里用 != 保留非目标
+        self.alias_del.write().retain(|&mut x| x != uid);
+    }
+
+    // ====================== 别名 API（无享元） ======================
+
+    /// 设置/更新别名；传 None 表示清除别名
+    pub fn set_alias<S: Into<String>>(
+        &self,
+        other: UserId,
+        alias: Option<S>,
+    ) -> Result<(), RelationError> {
+        let u = other as FriendId;
+
+        if let Some(a) = alias {
+            // 先去掉“删除”标记，再写入/覆盖 ΔAdd
+            {
+                let mut del = self.alias_del.write();
+                Self::smallvec_remove_one(&mut del, u);
+            }
+            self.alias_add.write().insert(u, a.into());
+        } else {
+            // 标记删除别名，并从 ΔAdd 清除
+            self.alias_add.write().remove(&u);
+            self.alias_del.write().push(u);
+        }
+        Ok(())
+    }
+
+    /// 获取别名（ΔDel -> ΔAdd -> Base），返回克隆的 String 给上层使用
+    pub fn get_alias(&self, other: UserId) -> Result<Option<String>, RelationError> {
+        let u = other as FriendId;
+
+        // 这里尽量减少锁分段；小集合 + 哈希查找都很快
+        {
+            let del = self.alias_del.read();
+            if Self::smallvec_contains(&del, u) {
+                return Ok(None);
+            }
+        }
+        if let Some(a) = self.alias_add.read().get(&u) {
+            return Ok(Some(a.clone()));
+        }
+        Ok(self.alias_base.read().get(&u).cloned())
+    }
+
+    // ====================== 关系 API ======================
 
     /// 是否为好友（增量优先）
     pub fn contains(&self, other: UserId) -> Result<bool, RelationError> {
-        let u = Self::to_u64(other)?;
-        if self.delta_del.read().iter().any(|&x| x == u) { return Ok(false); }
-        if self.delta_add.read().iter().any(|&x| x == u) { return Ok(true); }
+        let u = other as FriendId;
+
+        // ΔDel 命中则直接否
+        if Self::smallvec_contains(&self.delta_del.read(), u) {
+            return Ok(false);
+        }
+        // ΔAdd 命中则直接是
+        if self.delta_add.read().iter().any(|&t| t == u) {
+            return Ok(true);
+        }
+        // 回落到基线
         Ok(self.base.read().contains(u))
     }
-    /// 直接用“已升序去重”的好友列表重建 Base（覆盖式），并清空增量区。
-    ///
-    /// # 约定
-    /// - `sorted_unique` 必须是 **严格升序且无重复** 的 `u64` 列表。
-    /// - 调用方负责保证数据正确性；本函数在 `debug` 下会做轻量断言，
-    ///   `release` 构建将跳过校验以获得最佳性能。
-    ///
-    /// # 行为
-    /// - 在 **锁外** 构建新的 `EliasFano`，然后一次性写入 `base`；
-    /// - 清空 `delta_add` / `delta_del`，使得当前状态完全由 `base` 表达。
-    pub fn set_base_from_sorted(&self, sorted_unique: &[u64]) {
-        // 可选：仅在 debug 下进行单调性与去重断言，release 不做开销
+
+    /// 覆盖式重建 Base，并清空关系增量；同步剪枝 alias_base
+    pub fn set_base_from_sorted(&self, sorted_unique: &[FriendId]) {
         debug_assert!(
-            sorted_unique
-                .windows(2)
-                .all(|w| w[0] < w[1]),
+            sorted_unique.windows(2).all(|w| w[0] < w[1]),
             "set_base_from_sorted: input must be strictly increasing and unique"
         );
 
-        // 1) 在锁外构建新的 EF，避免长时间持有写锁
+        // 1) 锁外构建新的 EF，避免长时间持有写锁
         let new_base = EliasFano::from_sorted(sorted_unique);
 
         // 2) 一次性替换 base
-        {
-            let mut base_guard = self.base.write();
-            *base_guard = new_base;
-        }
+        *self.base.write() = new_base;
 
-        // 3) 清空增量缓冲
+        // 3) 清空关系增量
         self.delta_add.write().clear();
         self.delta_del.write().clear();
+
+        // 4) 剪枝别名基线：只保留仍在好友集合内的条目
+        {
+            let mut ab = self.alias_base.write();
+            // 避免在迭代中修改：先收集 key
+            let keys: Vec<_> = ab.keys().cloned().collect();
+            for k in keys {
+                if sorted_unique.binary_search(&k).is_err() {
+                    ab.remove(&k);
+                }
+            }
+        }
+        // 注意：别名 Δ 不清空；允许继续覆盖到新基线
     }
+
     /// 新增好友（写 ΔAdd；若之前被删除则移除删除标记；幂等）
     pub fn add(&self, other: UserId) -> Result<bool, RelationError> {
-        let u = Self::to_u64(other)?;
-        // 抵消潜在的删除标记
+        let u = other as FriendId;
+
+        // 先从 ΔDel 抵消
         {
             let mut del = self.delta_del.write();
-            if let Some(i) = del.iter().position(|&x| x == u) { del.remove(i); }
+            Self::smallvec_remove_one(&mut del, u);
         }
-        // 已存在则幂等
-        if self.contains(other)? { return Ok(false); }
+
+        // 已存在则幂等返回 false
+        if self.contains(other)? {
+            return Ok(false);
+        }
+
         self.delta_add.write().push(u);
         Ok(true)
     }
 
+    /// 新增好友并可附带别名（仅在“确实新增”时写入别名，不影响已存在关系）
+    pub fn add_with_alias<S: Into<String>>(
+        &self,
+        other: UserId,
+        alias: Option<S>,
+    ) -> Result<bool, RelationError> {
+        let added = self.add(other)?;
+        if added {
+            if let Some(a) = alias {
+                // 不需要传播错误（infallible）
+                let _ = self.set_alias(other, Some(a));
+            }
+        }
+        Ok(added)
+    }
+
     /// 删除好友（写 ΔDel；若尚在 ΔAdd 中则直接抵消；幂等）
+    /// 同步清理别名的增量标记；Base 中的别名将于 compact 时被剪除
     pub fn remove(&self, other: UserId) -> Result<bool, RelationError> {
-        let u = Self::to_u64(other)?;
+        let u = other as FriendId;
+
+        // 若还在 ΔAdd，直接抵消（不进入 ΔDel）
         {
             let mut add = self.delta_add.write();
             if let Some(i) = add.iter().position(|&x| x == u) {
                 add.remove(i);
+                self.clear_alias_deltas_for(u);
                 return Ok(true);
             }
         }
-        if self.contains(other)? {
-            self.delta_del.write().push(u);
-            return Ok(true);
+
+        // 不在当前视图就幂等 false
+        if !self.contains(other)? {
+            return Ok(false);
         }
-        Ok(false)
+
+        self.delta_del.write().push(u);
+        self.clear_alias_deltas_for(u);
+        Ok(true)
     }
 
     /// 取全部好友（合并视图），升序去重
-    pub fn snapshot_all(&self) -> Vec<u64> {
-        let base = self.base.read().to_vec();        // EF -> Vec<u64>（升序）
-        let add  = self.delta_add.read().clone();    // 小向量，拷一份
-        let del  = self.delta_del.read().clone();
+    pub fn snapshot_all(&self) -> Vec<FriendId> {
+        // EF -> Vec（升序）
+        let base = self.base.read().to_vec();
 
-        // 合并 base 与 add（都升序）
+        // ΔAdd/ΔDel 都是小集合，复制后各自处理
+        let mut add = self.delta_add.read().clone();
+        let del = self.delta_del.read().clone();
+
+        // 1) add 排序去重
+        add.sort_unstable();
+        add.dedup();
+
+        // 2) 合并 base(升序) 与 add(升序)
         let mut out = Vec::with_capacity(base.len() + add.len());
-        out.extend_from_slice(&base);
+        let (mut i, mut j) = (0usize, 0usize);
+        while i < base.len() && j < add.len() {
+            let (a, b) = (base[i], add[j]);
+            if a < b {
+                out.push(a);
+                i += 1;
+            } else if a > b {
+                out.push(b);
+                j += 1;
+            } else {
+                // 相同则保一份
+                out.push(a);
+                i += 1;
+                j += 1;
+            }
+        }
+        if i < base.len() {
+            out.extend_from_slice(&base[i..]);
+        }
+        if j < add.len() {
+            out.extend_from_slice(&add[j..]);
+        }
 
-        let mut add_sorted = add.to_vec();
-        add_sorted.sort_unstable();
-        add_sorted.dedup();
-        out.extend(add_sorted.into_iter());
-
-        out.sort_unstable();
-        out.dedup();
-
+        // 3) 应用删除（小集合线性扫）
         if !del.is_empty() {
-            // 小集合删除，线性/二分都可，这里用 binary_search
+            // del 很小，逐个二分删除也行；但 remove(idx) 是 O(n)，不过 n≈|out|
+            // 若更关注极致性能，可收集“保留”集合再一次性重建 out。
             for d in del.iter() {
                 if let Ok(idx) = out.binary_search(d) {
                     out.remove(idx);
@@ -139,44 +288,122 @@ impl FriendListEf {
         out
     }
 
+    /// 取全部（含别名）
+    pub fn snapshot_all_detailed(&self) -> Vec<(FriendId, Option<String>)> {
+        let all = self.snapshot_all();
+        let del = self.alias_del.read().clone();
+        let add = self.alias_add.read().clone();
+        let base = self.alias_base.read();
+
+        let mut out = Vec::with_capacity(all.len());
+        for uid in all {
+            if del.iter().any(|&x| x == uid) {
+                out.push((uid, None));
+                continue;
+            }
+            if let Some(a) = add.get(&uid) {
+                out.push((uid, Some(a.clone())));
+                continue;
+            }
+            out.push((uid, base.get(&uid).cloned()));
+        }
+        out
+    }
+
     /// 分页（升序）
-    pub fn get_page(&self, page: usize, page_size: usize) -> Vec<u64> {
-        if page_size == 0 { return Vec::new(); }
+    #[inline]
+    pub fn get_page(&self, page: usize, page_size: usize) -> Vec<FriendId> {
+        if page_size == 0 {
+            return Vec::new();
+        }
         let all = self.snapshot_all();
         let start = page.saturating_mul(page_size);
         all.into_iter().skip(start).take(page_size).collect()
     }
 
+    /// 分页（含别名）
+    #[inline]
+    pub fn get_page_detailed(&self, page: usize, page_size: usize) -> Vec<(FriendId, Option<String>)> {
+        if page_size == 0 {
+            return Vec::new();
+        }
+        let all = self.snapshot_all_detailed();
+        let start = page.saturating_mul(page_size);
+        all.into_iter().skip(start).take(page_size).collect()
+    }
+
     /// 与**全局在线**位图求交（遍历好友 + contains）
-    pub fn online_with_global(&self, global_online: &RB64) -> Vec<u64> {
+    #[inline]
+    pub fn online_with_global(&self, global_online: &RB64) -> Vec<FriendId> {
         let all = self.snapshot_all();
         let mut out = Vec::with_capacity(all.len().min(256));
         for uid in all {
-            if global_online.contains(uid) { out.push(uid); }
+            if global_online.contains(uid) {
+                out.push(uid);
+            }
         }
         out
     }
 
     /// 达阈值或定时触发：把 Δ 归并进 EF Base（重建一次）
+    /// 同步应用别名 Δ，并剪枝非好友的别名
     pub fn maybe_compact(&self, add_thresh: usize, del_thresh: usize) {
         let add_len = self.delta_add.read().len();
         let del_len = self.delta_del.read().len();
-        if add_len < add_thresh && del_len < del_thresh { return; }
-
-        // 合并后重建 EF
-        let merged = self.snapshot_all();              // 升序去重
-        let new_base = EliasFano::from_sorted(&merged);
-
-        {
-            let mut b = self.base.write();
-            *b = new_base;
+        if add_len < add_thresh && del_len < del_thresh {
+            return;
         }
+
+        // 1) 合并后重建 EF
+        let merged = self.snapshot_all(); // 升序去重
+        let new_base = EliasFano::from_sorted(&merged);
+        *self.base.write() = new_base;
+
+        // 2) 清空关系增量
         self.delta_add.write().clear();
         self.delta_del.write().clear();
+
+        // 3) 应用别名增量到 Base，并清理非好友（严格顺序：删 -> 加 -> 剪枝）
+        {
+            let mut ab = self.alias_base.write();
+            let mut aa = self.alias_add.write();
+            let mut ad = self.alias_del.write();
+
+            // (a) 删除优先
+            if !ad.is_empty() {
+                for &uid in ad.iter() {
+                    ab.remove(&uid);
+                    aa.remove(&uid);
+                }
+                ad.clear();
+            }
+
+            // (b) 应用新增/更新（仅对仍为好友的 id）
+            if !aa.is_empty() {
+                // aa.drain() 避免克隆
+                for (uid, alias) in aa.drain() {
+                    if merged.binary_search(&uid).is_ok() {
+                        ab.insert(uid, alias);
+                    }
+                }
+            }
+
+            // (c) 剪枝：Base 中残留但已不在好友集合的别名
+            if !ab.is_empty() {
+                let keys: Vec<_> = ab.keys().cloned().collect();
+                for k in keys {
+                    if merged.binary_search(&k).is_err() {
+                        ab.remove(&k);
+                    }
+                }
+            }
+        }
     }
 
     // —— 轻量只读计数（给 MemberRelation 估算用）——
     #[inline] pub fn base_len(&self) -> usize { self.base.read().len() }
     #[inline] pub fn delta_add_len(&self) -> usize { self.delta_add.read().len() }
     #[inline] pub fn delta_del_len(&self) -> usize { self.delta_del.read().len() }
+    #[inline] pub fn alias_add_len(&self) -> usize { self.alias_add.read().len() }
+    #[inline] pub fn alias_del_len(&self) -> usize { self.alias_del.read().len() }
 }

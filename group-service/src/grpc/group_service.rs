@@ -2,33 +2,35 @@
 /// 群成员引用信息
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MemberRef {
     /// 成员用户ID
     #[prost(int64, tag = "1")]
     pub id: i64,
+    /// 群内别名（可选，不传或空表示无别名）
+    #[prost(string, optional, tag = "2")]
+    pub alias: ::core::option::Option<::prost::alloc::string::String>,
     /// 成员角色（0=Owner, 1=Admin, 2=Member）
     #[prost(int32, tag = "3")]
     pub role: i32,
 }
-/// 插入单个成员请求
+/// 插入单个成员
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct InsertReq {
     /// 群组ID
     #[prost(int64, tag = "1")]
     pub group_id: i64,
-    /// 要添加的成员信息
+    /// 要添加的成员信息（可携带 alias）
     #[prost(message, optional, tag = "2")]
     pub member: ::core::option::Option<MemberRef>,
 }
-/// 插入单个成员响应（无额外数据，表示成功即可）
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct InsertResp {}
-/// 批量插入成员请求
+/// 批量插入成员
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -36,16 +38,15 @@ pub struct InsertManyReq {
     /// 群组ID
     #[prost(int64, tag = "1")]
     pub group_id: i64,
-    /// 成员列表
+    /// 成员列表（成员可各自携带 alias）
     #[prost(message, repeated, tag = "2")]
     pub members: ::prost::alloc::vec::Vec<MemberRef>,
 }
-/// 批量插入成员响应
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct InsertManyResp {}
-/// 移除成员请求
+/// 移除成员
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -57,7 +58,6 @@ pub struct RemoveReq {
     #[prost(int64, tag = "2")]
     pub user_id: i64,
 }
-/// 移除成员响应
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -66,7 +66,7 @@ pub struct RemoveResp {
     #[prost(bool, tag = "1")]
     pub removed: bool,
 }
-/// 修改成员角色请求
+/// 修改成员角色
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -81,12 +81,30 @@ pub struct ChangeRoleReq {
     #[prost(int32, tag = "3")]
     pub role: i32,
 }
-/// 修改成员角色响应
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct ChangeRoleResp {}
-/// 分页获取群成员请求
+/// 修改成员别名（新增）
+#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ChangeAliasReq {
+    /// 群组ID
+    #[prost(int64, tag = "1")]
+    pub group_id: i64,
+    /// 用户ID
+    #[prost(int64, tag = "2")]
+    pub user_id: i64,
+    /// 新别名（为空或不传表示清空别名）
+    #[prost(string, optional, tag = "3")]
+    pub alias: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ChangeAliasResp {}
+/// 分页获取群成员
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -101,16 +119,15 @@ pub struct GetPageReq {
     #[prost(uint64, tag = "3")]
     pub page_size: u64,
 }
-/// 分页获取群成员响应
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetPageResp {
-    /// 成员列表
+    /// 成员列表（包含 alias）
     #[prost(message, repeated, tag = "1")]
     pub members: ::prost::alloc::vec::Vec<MemberRef>,
 }
-/// 获取群内全部成员请求
+/// 获取群内全部成员
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -119,16 +136,15 @@ pub struct GetAllReq {
     #[prost(int64, tag = "1")]
     pub group_id: i64,
 }
-/// 获取群内全部成员响应
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAllResp {
-    /// 成员列表
+    /// 成员列表（包含 alias）
     #[prost(message, repeated, tag = "1")]
     pub members: ::prost::alloc::vec::Vec<MemberRef>,
 }
-/// 获取群成员数量请求
+/// 获取群成员数量
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -137,7 +153,6 @@ pub struct CountReq {
     #[prost(int64, tag = "1")]
     pub group_id: i64,
 }
-/// 获取群成员数量响应
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -146,7 +161,7 @@ pub struct CountResp {
     #[prost(uint64, tag = "1")]
     pub count: u64,
 }
-/// 获取用户所在的所有群组请求
+/// 获取用户所在的所有群组
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -155,7 +170,6 @@ pub struct UserGroupsReq {
     #[prost(int64, tag = "1")]
     pub user_id: i64,
 }
-/// 获取用户所在的所有群组响应
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -164,12 +178,11 @@ pub struct UserGroupsResp {
     #[prost(int64, repeated, tag = "1")]
     pub group_ids: ::prost::alloc::vec::Vec<i64>,
 }
-/// 获取所有群组ID请求（全局）
+/// 获取所有群组ID（全局）
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct AllKeysReq {}
-/// 获取所有群组ID响应
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -178,7 +191,7 @@ pub struct AllKeysResp {
     #[prost(int64, repeated, tag = "1")]
     pub group_ids: ::prost::alloc::vec::Vec<i64>,
 }
-/// 按分片索引获取群组ID请求
+/// 按分片索引获取群组ID
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -187,7 +200,6 @@ pub struct AllKeysByShardReq {
     #[prost(uint64, tag = "1")]
     pub shard_idx: u64,
 }
-/// 按分片索引获取群组ID响应
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -196,7 +208,7 @@ pub struct AllKeysByShardResp {
     #[prost(int64, repeated, tag = "1")]
     pub group_ids: ::prost::alloc::vec::Vec<i64>,
 }
-/// 清空群成员请求
+/// 清空群成员
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -205,13 +217,11 @@ pub struct ClearReq {
     #[prost(int64, tag = "1")]
     pub group_id: i64,
 }
-/// 清空群成员响应
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct ClearResp {}
-/// 群成员角色类型
-/// 数字值对应数据库/内存结构里的角色编码
+/// 群成员角色类型（与数据库/内存中的角色编码对齐）
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
@@ -257,8 +267,7 @@ pub mod group_service_client {
     )]
     use tonic::codegen::*;
     use tonic::codegen::http::Uri;
-    /// 群组服务接口定义
-    /// 提供群成员的增删改查、跨群查询、分片管理等能力
+    /// 群组服务接口定义：提供群成员增删改查、跨群查询、分片管理等能力
     #[derive(Debug, Clone)]
     pub struct GroupServiceClient<T> {
         inner: tonic::client::Grpc<T>,
@@ -425,6 +434,31 @@ pub mod group_service_client {
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("group_service.GroupService", "ChangeRole"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// 修改成员别名（新增）
+        pub async fn change_alias(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ChangeAliasReq>,
+        ) -> std::result::Result<
+            tonic::Response<super::ChangeAliasResp>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/group_service.GroupService/ChangeAlias",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("group_service.GroupService", "ChangeAlias"));
             self.inner.unary(req, path, codec).await
         }
         /// 分页获取群成员
@@ -619,6 +653,11 @@ pub mod group_service_server {
             &self,
             request: tonic::Request<super::ChangeRoleReq>,
         ) -> std::result::Result<tonic::Response<super::ChangeRoleResp>, tonic::Status>;
+        /// 修改成员别名（新增）
+        async fn change_alias(
+            &self,
+            request: tonic::Request<super::ChangeAliasReq>,
+        ) -> std::result::Result<tonic::Response<super::ChangeAliasResp>, tonic::Status>;
         /// 分页获取群成员
         async fn get_page(
             &self,
@@ -658,8 +697,7 @@ pub mod group_service_server {
             request: tonic::Request<super::ClearReq>,
         ) -> std::result::Result<tonic::Response<super::ClearResp>, tonic::Status>;
     }
-    /// 群组服务接口定义
-    /// 提供群成员的增删改查、跨群查询、分片管理等能力
+    /// 群组服务接口定义：提供群成员增删改查、跨群查询、分片管理等能力
     #[derive(Debug)]
     pub struct GroupServiceServer<T> {
         inner: Arc<T>,
@@ -897,6 +935,51 @@ pub mod group_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ChangeRoleSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/group_service.GroupService/ChangeAlias" => {
+                    #[allow(non_camel_case_types)]
+                    struct ChangeAliasSvc<T: GroupService>(pub Arc<T>);
+                    impl<
+                        T: GroupService,
+                    > tonic::server::UnaryService<super::ChangeAliasReq>
+                    for ChangeAliasSvc<T> {
+                        type Response = super::ChangeAliasResp;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ChangeAliasReq>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as GroupService>::change_alias(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ChangeAliasSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

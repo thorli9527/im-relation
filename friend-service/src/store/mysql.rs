@@ -1,195 +1,375 @@
 // friend-service/src/store/mysql.rs
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use sqlx::{mysql::MySqlQueryResult, MySql, Pool, QueryBuilder};
+use sqlx::{mysql::MySqlRow, MySql, QueryBuilder, Row};
 use std::sync::Arc;
-use sysinfo::User;
-use common::config::{get_db, MySqlPool};
 use common::UserId;
+use common::config::{get_db, MySqlPool};
+
+// =============== 领域模型与接口 ===============
+
+#[derive(Debug, Clone)]
+pub struct FriendEntry {
+    pub friend_id: UserId,
+    pub alias: Option<String>,
+    pub created_at: i64, // UNIX_TIMESTAMP 秒
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AddOutcome {
+    Inserted,
+    Updated,
+    Unchanged,
+}
 
 #[async_trait]
-pub trait FriendStorage: Send + Sync + 'static {
-    async fn load_friends(&self, user_id: UserId) -> Result<Option<Vec<UserId>>>;
-    async fn save_friends(&self, user_id: UserId, friends: &[UserId]) -> Result<()>;
-    async fn delete_friends(&self, user_id: UserId) -> Result<()>;
+pub trait FriendRepo: Send + Sync + 'static {
+    async fn add_friend(&self, user: UserId, friend: UserId, alias: Option<&str>) -> Result<AddOutcome>;
+    async fn remove_friend(&self, user: UserId, friend: UserId) -> Result<bool>;
+    async fn set_alias(&self, user: UserId, friend: UserId, alias: Option<&str>) -> Result<bool>;
+    async fn is_friend(&self, user: UserId, friend: UserId) -> Result<bool>;
+    async fn page_friends(&self, user: UserId, cursor: Option<UserId>, limit: u32)
+                          -> Result<(Vec<FriendEntry>, Option<UserId>)>;
+    async fn upsert_bulk(&self, user: UserId, items: &[(UserId, Option<&str>)]) -> Result<()>;
+    async fn clear_all(&self, user: UserId) -> Result<()>;
+    async fn count(&self, user: UserId) -> Result<u64>;
 }
+
+// =============== MySQL 实现（对齐 friend_edge / user_friends_meta） ===============
 
 #[derive(Clone)]
-pub struct MySqlFriendStore {
+pub struct FriendStorage {
     pool: Arc<MySqlPool>,
-    chunk_size: usize,
+    chunk: usize,
 }
 
-impl MySqlFriendStore {
-    /// 使用全局配置创建（依赖 common::config::get_db）
+impl FriendStorage {
+    /// 使用全局连接池
     pub fn new() -> Self {
-        Self {
-            pool: get_db(),
-            chunk_size: 1000,
-        }
+        Self { pool: get_db(), chunk: 1000 }
     }
 
-    /// 使用外部注入的连接池（便于测试/多库）
+    /// 自定义连接池
     pub fn from_pool(pool: Arc<MySqlPool>) -> Self {
-        Self {
-            pool,
-            chunk_size: 1000,
-        }
+        Self { pool, chunk: 1000 }
     }
 
-    /// 配置批量插入 chunk 大小（默认 1000，最小 1）
-    pub fn with_chunk_size(mut self, n: usize) -> Self {
-        self.chunk_size = n.max(1);
+    /// 批量写入分片大小（默认 1000）
+    pub fn with_chunk(mut self, n: usize) -> Self {
+        self.chunk = n.max(1);
         self
     }
 
     #[inline]
-    pub fn pool(&self) -> &Pool<MySql> {
-        self.pool.as_ref()
-    }
+    fn db(&self) -> &MySqlPool { self.pool.as_ref() }
 }
 
 #[async_trait]
-impl FriendStorage for MySqlFriendStore {
-    async fn load_friends(&self, user_id: UserId) -> Result<Option<Vec<UserId>>> {
-        let rows: Vec<UserId> = sqlx::query_scalar(
-            r#"
-            SELECT friend_id
-            FROM user_friends
-            WHERE user_id = ?
-            ORDER BY friend_id ASC
-            "#,
-        )
-            .bind(user_id as u64)
-            .fetch_all(self.pool())
-            .await
-            .with_context(|| format!("load_friends: fetch_all failed, user_id={}", user_id))?;
+impl FriendRepo for FriendStorage {
 
-        if rows.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(rows))
+    async fn add_friend(&self, user: UserId, friend: UserId, alias: Option<&str>) -> Result<AddOutcome> {
+        let insert_res = sqlx::query(
+            r#"
+        INSERT INTO friend_edge (user_id, friend_id, alias)
+        VALUES (?, ?, ?)
+        "#,
+        )
+            .bind(user as u64)
+            .bind(friend as u64)
+            .bind(alias)
+            .execute(self.db())
+            .await;
+
+        match insert_res {
+            Ok(_ok) => {
+                // 计数 +1（失败不阻塞主流程）
+                let _ = sqlx::query(
+                    r#"
+                INSERT INTO user_friends_meta (user_id, friend_count)
+                VALUES (?, 1)
+                ON DUPLICATE KEY UPDATE
+                  friend_count = friend_count + 1,
+                  updated_at   = CURRENT_TIMESTAMP
+                "#,
+                )
+                    .bind(user as u64)
+                    .execute(self.db())
+                    .await;
+
+                Ok(AddOutcome::Inserted)
+            }
+
+            Err(sqlx::Error::Database(db_err)) => {
+                // 用 SQLSTATE 判断“唯一键冲突”（MySQL=23000）
+                let is_dup = db_err.code().as_deref() == Some("23000");
+                if !is_dup {
+                    return Err(sqlx::Error::Database(db_err)).with_context(|| "add_friend: insert failed");
+                }
+
+                // 已存在：读取现有 alias 并比较
+                let db_alias: Option<String> = sqlx::query_scalar(
+                    r#"SELECT alias FROM friend_edge WHERE user_id=? AND friend_id=? "#,
+                )
+                    .bind(user as u64)
+                    .bind(friend as u64)
+                    .fetch_optional(self.db())
+                    .await
+                    .with_context(|| "add_friend: fetch alias after dup key")?
+                    .flatten();
+
+                let changed = match (db_alias.as_deref(), alias) {
+                    (None, None) => false,
+                    (Some(a), Some(b)) => a != b,
+                    (Some(_), None) | (None, Some(_)) => true,
+                };
+
+                if changed {
+                    sqlx::query(
+                        r#"
+                    UPDATE friend_edge
+                    SET alias = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE user_id=? AND friend_id=?
+                    "#,
+                    )
+                        .bind(alias)
+                        .bind(user as u64)
+                        .bind(friend as u64)
+                        .execute(self.db())
+                        .await
+                        .with_context(|| "add_friend: update alias on dup")?;
+
+                    Ok(AddOutcome::Updated)
+                } else {
+                    Ok(AddOutcome::Unchanged)
+                }
+            }
+
+            Err(e) => Err(e).with_context(|| "add_friend: insert failed"),
         }
     }
 
-    async fn save_friends(&self, user_id: UserId, friends: &[UserId]) -> Result<()> {
-        use std::collections::HashSet;
+    async fn remove_friend(&self, user: UserId, friend: UserId) -> Result<bool> {
+        let mut tx = self.db().begin().await
+            .with_context(|| "remove_friend: begin tx")?;
 
-        let mut tx = self.pool().begin().await?;
-
-        // --- 1) 读取 DB 当前好友列表 ---
-        let db_rows: Vec<u64> = sqlx::query_scalar(
-            r#"
-            SELECT friend_id
-            FROM user_friends
-            WHERE user_id = ?
-            "#,
+        let res = sqlx::query(
+            r#"DELETE FROM friend_edge WHERE user_id=? AND friend_id=? "#,
         )
-            .bind(user_id as u64)
-            .fetch_all(&mut *tx)
+            .bind(user as u64)
+            .bind(friend as u64)
+            .execute(&mut *tx)
             .await
-            .with_context(|| format!("save_friends(diff): fetch db rows failed, user_id={}", user_id))?;
+            .with_context(|| "remove_friend: delete edge failed")?;
 
-        let db_set: HashSet<u64> = db_rows.into_iter().collect();
-
-        // 内存去重（避免上层重复传入）
-        let mem_set: HashSet<u64> = friends.iter().copied().map(|x| x as u64).collect();
-
-        // --- 2) 计算差异 ---
-        // 待新增：内存有、DB 无
-        let mut to_add: Vec<u64> = Vec::new();
-        // 待删除：DB 有、内存无
-        let mut to_del: Vec<u64> = Vec::new();
-
-        for fid in mem_set.iter() {
-            if !db_set.contains(fid) {
-                to_add.push(*fid);
-            }
-        }
-        for fid in db_set.iter() {
-            if !mem_set.contains(fid) {
-                to_del.push(*fid);
-            }
+        if res.rows_affected() == 1 {
+            let _ = sqlx::query(
+                r#"
+                INSERT INTO user_friends_meta (user_id, friend_count)
+                VALUES (?, 0)
+                ON DUPLICATE KEY UPDATE
+                  friend_count = GREATEST(friend_count - 1, 0),
+                  updated_at   = CURRENT_TIMESTAMP
+                "#,
+            )
+                .bind(user as u64)
+                .execute(&mut *tx)
+                .await;
+            tx.commit().await?;
+            return Ok(true);
         }
 
-        // --- 3) 执行差异写入（分批 & 同一事务） ---
-        // 删除：DELETE FROM user_friends WHERE user_id=? AND friend_id IN (...)
-        for chunk in to_del.chunks(self.chunk_size) {
-            let mut sql = String::from(
-                "DELETE FROM user_friends WHERE user_id=? AND friend_id IN (",
-            );
-            sql.push_str(&vec!["?"; chunk.len()].join(","));
-            sql.push(')');
+        tx.commit().await?;
+        Ok(false)
+    }
 
-            let mut q = sqlx::query(&sql).bind(user_id as u64);
-            for fid in chunk {
-                q = q.bind(*fid);
-            }
-            q.execute(&mut *tx)
+    async fn set_alias(&self, user: UserId, friend: UserId, alias: Option<&str>) -> Result<bool> {
+        // 仅在值真的变化时更新
+        let changed = if let Some(a) = alias {
+            let res = sqlx::query(
+                r#"
+                UPDATE friend_edge
+                SET alias=?, updated_at=CURRENT_TIMESTAMP
+                WHERE user_id=? AND friend_id=? AND (alias IS NULL OR alias <> ?)
+                "#,
+            )
+                .bind(a)
+                .bind(user as u64)
+                .bind(friend as u64)
+                .bind(a)
+                .execute(self.db())
                 .await
-                .with_context(|| format!("save_friends(diff): delete chunk failed, user_id={}", user_id))?;
+                .with_context(|| "set_alias: update alias failed")?;
+            res.rows_affected() > 0
+        } else {
+            let res = sqlx::query(
+                r#"
+                UPDATE friend_edge
+                SET alias=NULL, updated_at=CURRENT_TIMESTAMP
+                WHERE user_id=? AND friend_id=? AND alias IS NOT NULL
+                "#,
+            )
+                .bind(user as u64)
+                .bind(friend as u64)
+                .execute(self.db())
+                .await
+                .with_context(|| "set_alias: clear alias failed")?;
+            res.rows_affected() > 0
+        };
+        Ok(changed)
+    }
+
+    async fn is_friend(&self, user: UserId, friend: UserId) -> Result<bool> {
+        let exists: Option<i64> = sqlx::query_scalar(
+            r#"SELECT 1 FROM friend_edge WHERE user_id=? AND friend_id=? LIMIT 1"#,
+        )
+            .bind(user as u64)
+            .bind(friend as u64)
+            .fetch_optional(self.db())
+            .await
+            .with_context(|| "is_friend: select failed")?;
+        Ok(exists.is_some())
+    }
+
+    async fn page_friends(
+        &self,
+        user: UserId,
+        cursor: Option<UserId>,
+        limit: u32,
+    ) -> Result<(Vec<FriendEntry>, Option<UserId>)> {
+        let lim = limit.clamp(1, 5000) as i64;
+
+        let rows: Vec<MySqlRow> = if let Some(cur) = cursor {
+            sqlx::query(
+                r#"
+                SELECT friend_id, alias,
+                       UNIX_TIMESTAMP(created_at), UNIX_TIMESTAMP(updated_at)
+                FROM friend_edge
+                WHERE user_id=? AND friend_id > ?
+                ORDER BY friend_id ASC
+                LIMIT ?
+                "#,
+            )
+                .bind(user as u64)
+                .bind(cur as u64)
+                .bind(lim)
+                .fetch_all(self.db())
+                .await
+        } else {
+            sqlx::query(
+                r#"
+                SELECT friend_id, alias,
+                       UNIX_TIMESTAMP(created_at), UNIX_TIMESTAMP(updated_at)
+                FROM friend_edge
+                WHERE user_id=?
+                ORDER BY friend_id ASC
+                LIMIT ?
+                "#,
+            )
+                .bind(user as u64)
+                .bind(lim)
+                .fetch_all(self.db())
+                .await
+        }
+            .with_context(|| "page_friends: query failed")?;
+
+        let mut items = Vec::with_capacity(rows.len());
+        let mut next: Option<UserId> = None;
+
+        for r in rows.into_iter() {
+            let fid: u64 = r.try_get(0)?;
+            let alias: Option<String> = r.try_get(1)?;
+            let created_at: i64 = r.try_get(2)?;
+            let updated_at: i64 = r.try_get(3)?;
+            next = Some(fid as UserId);
+            items.push(FriendEntry {
+                friend_id: fid as UserId,
+                alias,
+                created_at,
+                updated_at,
+            });
         }
 
-        // 新增：INSERT INTO user_friends (user_id, friend_id) VALUES (...),(...)
-        if !to_add.is_empty() {
-            use sqlx::QueryBuilder;
-            for chunk in to_add.chunks(self.chunk_size) {
-                let mut qb: QueryBuilder<MySql> =
-                    QueryBuilder::new("INSERT INTO user_friends (user_id, friend_id) ");
-                qb.push_values(chunk, |mut b, &fid| {
-                    b.push_bind(user_id as u64).push_bind(fid);
-                });
-                let _res: MySqlQueryResult = qb
-                    .build()
-                    .execute(&mut *tx)
-                    .await
-                    .with_context(|| {
-                        format!(
-                            "save_friends(diff): insert chunk failed, user_id={}, chunk_len={}",
-                            user_id,
-                            chunk.len()
-                        )
-                    })?;
-            }
+        let next_cursor = if items.len() == lim as usize { next } else { None };
+        Ok((items, next_cursor))
+    }
+
+    async fn upsert_bulk(&self, user: UserId, items: &[(UserId, Option<&str>)]) -> Result<()> {
+        if items.is_empty() { return Ok(()); }
+
+        let mut tx = self.db().begin().await
+            .with_context(|| "upsert_bulk: begin tx")?;
+
+        for chunk in items.chunks(self.chunk) {
+            let mut qb: QueryBuilder<MySql> =
+                QueryBuilder::new("INSERT INTO friend_edge (user_id, friend_id, alias) ");
+            qb.push_values(chunk, |mut b, (fid, alias)| {
+                b.push_bind(user as u64)
+                    .push_bind(*fid as u64)
+                    .push_bind(*alias);
+            });
+            qb.push(" ON DUPLICATE KEY UPDATE alias=VALUES(alias), updated_at=CURRENT_TIMESTAMP ");
+
+            qb.build()
+                .execute(&mut *tx)
+                .await
+                .with_context(|| "upsert_bulk: insert chunk failed")?;
         }
 
-        // --- 4) 更新元数据（按“内存视图”为准） ---
+        // 刷新计数（以 DB 真实计数为准）
+        let cnt: i64 = sqlx::query_scalar(
+            r#"SELECT COUNT(*) FROM friend_edge WHERE user_id=? "#,
+        )
+            .bind(user as u64)
+            .fetch_one(&mut *tx)
+            .await
+            .with_context(|| "upsert_bulk: count failed")?;
+
         sqlx::query(
             r#"
             INSERT INTO user_friends_meta (user_id, friend_count)
             VALUES (?, ?)
-            ON DUPLICATE KEY UPDATE
-              friend_count = VALUES(friend_count),
-              updated_at = CURRENT_TIMESTAMP
+            ON DUPLICATE KEY UPDATE friend_count=VALUES(friend_count), updated_at=CURRENT_TIMESTAMP
             "#,
         )
-            .bind(user_id as u64)
-            .bind(mem_set.len() as u64)
+            .bind(user as u64)
+            .bind(cnt as u64)
             .execute(&mut *tx)
             .await
-            .with_context(|| format!("save_friends(diff): upsert meta failed, user_id={}", user_id))?;
+            .with_context(|| "upsert_bulk: upsert meta failed")?;
 
         tx.commit().await?;
         Ok(())
     }
 
+    async fn clear_all(&self, user: UserId) -> Result<()> {
+        let mut tx = self.db().begin().await
+            .with_context(|| "clear_all: begin tx")?;
 
-    async fn delete_friends(&self, user_id: UserId) -> Result<()> {
-        let mut tx = self.pool().begin().await?;
-
-        sqlx::query(r#"DELETE FROM user_friends WHERE user_id = ?"#)
-            .bind(user_id as u64)
+        sqlx::query(r#"DELETE FROM friend_edge WHERE user_id=? "#)
+            .bind(user as u64)
             .execute(&mut *tx)
             .await
-            .with_context(|| format!("delete_friends: from user_friends failed, user_id={}", user_id))?;
+            .with_context(|| "clear_all: delete edge failed")?;
 
-        sqlx::query(r#"DELETE FROM user_friends_meta WHERE user_id = ?"#)
-            .bind(user_id as u64)
+        sqlx::query(r#"DELETE FROM user_friends_meta WHERE user_id=? "#)
+            .bind(user as u64)
             .execute(&mut *tx)
             .await
-            .with_context(|| format!("delete_friends: from user_friends_meta failed, user_id={}", user_id))?;
+            .with_context(|| "clear_all: delete meta failed")?;
 
         tx.commit().await?;
         Ok(())
+    }
+
+    async fn count(&self, user: UserId) -> Result<u64> {
+        let c: Option<i64> = sqlx::query_scalar(
+            r#"SELECT friend_count FROM user_friends_meta WHERE user_id=? "#,
+        )
+            .bind(user as u64)
+            .fetch_optional(self.db())
+            .await
+            .with_context(|| "count: select meta failed")?;
+        Ok(c.unwrap_or(0) as u64)
     }
 }

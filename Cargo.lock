@@ -51,7 +51,7 @@ dependencies = [
  "pin-project-lite",
  "rand 0.9.2",
  "sha1",
- "smallvec 1.15.1",
+ "smallvec",
  "tokio",
  "tokio-util",
  "tracing",
@@ -166,7 +166,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_urlencoded",
- "smallvec 1.15.1",
+ "smallvec",
  "socket2 0.5.10",
  "time",
  "tracing",
@@ -602,6 +602,7 @@ dependencies = [
  "moka",
  "num_enum",
  "once_cell",
+ "parking_lot",
  "prost 0.13.5",
  "prost-build 0.14.1",
  "prost-types 0.13.5",
@@ -1072,6 +1073,7 @@ dependencies = [
  "log",
  "moka",
  "num_cpus",
+ "once_cell",
  "parking_lot",
  "prost 0.13.5",
  "prost-build 0.14.1",
@@ -1080,7 +1082,7 @@ dependencies = [
  "roaring",
  "serde",
  "serde_json",
- "smallvec 2.0.0-alpha.11",
+ "smallvec",
  "sqlx",
  "sysinfo",
  "thiserror 2.0.14",
@@ -1256,6 +1258,7 @@ dependencies = [
  "async-trait",
  "common",
  "dashmap",
+ "env_logger",
  "log",
  "moka",
  "parking_lot",
@@ -1266,8 +1269,9 @@ dependencies = [
  "roaring",
  "serde",
  "serde_json",
- "smallvec 2.0.0-alpha.11",
+ "smallvec",
  "sqlx",
+ "sysinfo",
  "thiserror 2.0.14",
  "tokio",
  "tonic",
@@ -1458,7 +1462,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "smallvec 1.15.1",
+ "smallvec",
  "tokio",
  "want",
 ]
@@ -1558,7 +1562,7 @@ dependencies = [
  "icu_normalizer_data",
  "icu_properties",
  "icu_provider",
- "smallvec 1.15.1",
+ "smallvec",
  "zerovec",
 ]
 
@@ -1620,7 +1624,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "686f825264d630750a544639377bae737628043f20d38bbc029e8f29ea968a7e"
 dependencies = [
  "idna_adapter",
- "smallvec 1.15.1",
+ "smallvec",
  "utf8_iter",
 ]
 
@@ -1927,7 +1931,7 @@ dependencies = [
  "parking_lot",
  "portable-atomic",
  "rustc_version",
- "smallvec 1.15.1",
+ "smallvec",
  "tagptr",
  "thiserror 1.0.69",
  "uuid",
@@ -1971,7 +1975,7 @@ dependencies = [
  "num-iter",
  "num-traits",
  "rand 0.8.5",
- "smallvec 1.15.1",
+ "smallvec",
  "zeroize",
 ]
 
@@ -2105,7 +2109,7 @@ dependencies = [
  "roaring",
  "serde",
  "serde_json",
- "smallvec 2.0.0-alpha.11",
+ "smallvec",
  "sqlx",
  "sysinfo",
  "thiserror 2.0.14",
@@ -2156,7 +2160,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "redox_syscall",
- "smallvec 1.15.1",
+ "smallvec",
  "windows-targets 0.52.6",
 ]
 
@@ -2970,12 +2974,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "smallvec"
-version = "2.0.0-alpha.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87b96efa4bd6bdd2ff0c6615cc36fc4970cbae63cfd46ddff5cee35a1b4df570"
-
-[[package]]
 name = "socket2"
 version = "0.5.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3054,7 +3052,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "smallvec 1.15.1",
+ "smallvec",
  "thiserror 2.0.14",
  "tokio",
  "tokio-stream",
@@ -3135,7 +3133,7 @@ dependencies = [
  "serde",
  "sha1",
  "sha2",
- "smallvec 1.15.1",
+ "smallvec",
  "sqlx-core",
  "stringprep",
  "thiserror 2.0.14",
@@ -3172,7 +3170,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "smallvec 1.15.1",
+ "smallvec",
  "sqlx-core",
  "stringprep",
  "thiserror 2.0.14",
@@ -3664,7 +3662,7 @@ dependencies = [
  "once_cell",
  "regex",
  "sharded-slab",
- "smallvec 1.15.1",
+ "smallvec",
  "thread_local",
  "tracing",
  "tracing-core",

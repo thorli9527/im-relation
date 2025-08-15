@@ -1,6 +1,7 @@
 mod online_store;
 mod grpc;
 mod rest_online;
+mod db;
 
 use std::{net::SocketAddr, sync::Arc};
 use actix_web::{web, App, HttpServer};

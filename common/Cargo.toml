@@ -60,6 +60,7 @@ tracing.workspace = true
 actix-service.workspace = true
 config = { workspace = true }
 env_logger.workspace = true
+parking_lot = "0.12.4"
 [build-dependencies]
 protobuf-src = { version = "^2.1.0", optional = true }
 tonic = "0.13.1"

@@ -1,4 +1,4 @@
-mod db { pub mod member_list_wrapper; pub mod hash_shard_map; }
+mod db;
 mod grpc;
 mod store;
 mod hot_cold;
@@ -6,129 +6,131 @@ mod hot_cold;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use anyhow::{Context, Result};
-use log::warn;
-use common::config::{get_db, AppConfig};
-use sqlx::{ MySql, Pool};
 use tokio::signal;
+use log::{info, warn};
 use crate::db::hash_shard_map::HashShardMap;
 use crate::grpc::group_service::group_service_server::GroupServiceServer;
 use crate::grpc::group_service_impl::GroupServiceImpl;
 use crate::hot_cold::HotColdFacade;
 use crate::store::mysql::MySqlStore;
 
-/// 应用入口
-/// - 初始化配置与日志
-/// - 建立数据库连接 & 应用 schema
-/// - 初始化内存结构、冷热层、存储
-/// - 启动 gRPC 服务（支持优雅退出）
-#[actix_web::main]
-async fn main() -> Result<()> {
+mod hot_capacity {
+    use std::env;
+    use sysinfo::System;
 
-    // 1) 读取应用配置（示例：从 TOML 文件加载）
-    //    若初始化失败会直接报错退出，避免带着不完整配置继续运行
-    let app_config = AppConfig::init("./group-config.toml").await;
+    #[derive(Clone, Copy)]
+    pub struct HotMemModel {
+        pub bytes_per_member: usize,
+        pub bytes_per_group_overhead: usize,
+        pub avg_members_per_group: usize,
+        pub mem_utilization: f64,
+    }
 
-    // 2) 获取数据库连接池
-    //    这里假设 get_db() 内部已完成连接字符串配置与连接池初始化
-    let pool = get_db();
+    fn env_parse<T: std::str::FromStr>(key: &str, default: T) -> T {
+        env::var(key).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
+    }
 
-    // 3) 执行 schema（多语句 DDL 逐条执行，避免 MySQL multi-statements 限制）
-    apply_schema_from_ddl(&pool, include_str!("../migrations/mysql_schema.sql")).await?;
+    pub fn auto_hot_groups_capacity(
+        model: HotMemModel,
+        hard_cap_max: u64,
+        hard_cap_min: u64
+    ) -> (u64, String) {
+        if let Ok(v) = std::env::var("HOT_GROUPS") {
+            if let Ok(n) = v.parse::<u64>() {
+                return (n.clamp(hard_cap_min, hard_cap_max), "env(HOT_GROUPS)".to_string());
+            }
+        }
 
-    // 4) 初始化分片结构（HashShardMap）
-    //    - SHARD_COUNT 环境变量可覆盖分片数（默认 128，自动向上取 2 的幂）
-    //    - per_group_shard 目前保留为 1（为更细粒度分片留扩展位）
-    let shard_count = parse_env("SHARD_COUNT", 128usize);
-    let map = Arc::new(HashShardMap::new(shard_count, 1));
+        let avg_members = env_parse("HOT_AVG_MEMBERS", model.avg_members_per_group);
+        let bytes_per_member = env_parse("HOT_BYTES_PER_MEMBER", model.bytes_per_member);
+        let bytes_per_group_overhead = env_parse("HOT_BYTES_PER_GROUP", model.bytes_per_group_overhead);
+        let mem_utilization = env_parse("HOT_MEM_UTIL", model.mem_utilization).clamp(0.05, 0.95);
 
-    // 5) 初始化存储与冷热层门面
-    //    - HOT_GROUPS: 热群上限（默认 1_000_000）
-    //    - HOT_TTI_SECS: 热数据空闲超时（默认 1800s）
-    let store = Arc::new(MySqlStore::new());
-    let facade = Arc::new(HotColdFacade::new(
-        map.clone(),
-        store.clone(),
-        parse_env("HOT_GROUPS", 1_000_000u64),
-        parse_env("HOT_TTI_SECS", 1_800u64),
-    ));
+        let mut sys = System::new();
+        sys.refresh_memory();
+        let total_bytes = sys.total_memory() as u64;
+        let avail_bytes = sys.available_memory() as u64;
 
-    // 6) 解析 gRPC 监听地址
-    let grpc_cfg = app_config.grpc.expect("grpc.error");
-    let grpc_addr: SocketAddr = format!("{}:{}", grpc_cfg.host, grpc_cfg.port)
+        let budget_bytes = (avail_bytes as f64 * mem_utilization) as u64;
+        let bytes_per_group = bytes_per_group_overhead as u64 + (avg_members as u64) * (bytes_per_member as u64);
+        let cap = if bytes_per_group == 0 {
+            hard_cap_min.max(1)
+        } else {
+            ((budget_bytes / bytes_per_group) as f64 * 0.9) as u64
+        }
+            .clamp(hard_cap_min, hard_cap_max);
+
+        let debug = format!(
+            "auto(total={} MB, avail={} MB, budget={} MB; group≈{} B = {} + {}*{}; util={:.2})",
+            total_bytes / 1_048_576,
+            avail_bytes / 1_048_576,
+            budget_bytes / 1_048_576,
+            bytes_per_group,
+            bytes_per_group_overhead,
+            avg_members,
+            bytes_per_member,
+            mem_utilization
+        );
+
+        (cap, debug)
+    }
+
+    pub fn calc_hot_capacity_from_mem() -> (u64, String) {
+        let model = HotMemModel {
+            bytes_per_member: env_parse("HOT_BYTES_PER_MEMBER", 120usize),
+            bytes_per_group_overhead: env_parse("HOT_BYTES_PER_GROUP", 2_048usize),
+            avg_members_per_group: env_parse("HOT_AVG_MEMBERS", 100usize),
+            mem_utilization: env_parse("HOT_MEM_UTIL", 0.50f64),
+        };
+        auto_hot_groups_capacity(model, 1_000_000, 1_000)
+    }
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // 初始化日志（默认读取 RUST_LOG）
+    env_logger::init();
+
+    let hot_tti_secs: u64 = std::env::var("HOT_TTI_SECS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(57_600); // 16 小时
+
+    let (hot_capacity, debug_line) = hot_capacity::calc_hot_capacity_from_mem();
+
+    let shard_count: usize = std::env::var("SHARD_COUNT").ok().and_then(|v| v.parse().ok()).unwrap_or(1024);
+    let per_group_shard: usize = std::env::var("PER_GROUP_SHARD").ok().and_then(|v| v.parse().ok()).unwrap_or(1);
+
+    info!(
+        "hot cache capacity decided: hot_capacity={}, hot_tti_secs={}, shard_count={}, per_group_shard={}, {}",
+        hot_capacity, hot_tti_secs, shard_count, per_group_shard, debug_line
+    );
+
+    let map = Arc::new(HashShardMap::new(shard_count, per_group_shard));
+    let storage = Arc::new(MySqlStore::new());
+    let facade = Arc::new(HotColdFacade::new(map, storage, hot_capacity, hot_tti_secs));
+
+    let svc = GroupServiceImpl { facade: facade.clone() };
+    let addr: SocketAddr = std::env::var("BIND_ADDR")
+        .unwrap_or_else(|_| "0.0.0.0:50051".to_string())
         .parse()
-        .context("invalid grpc host:port")?;
-    warn!("Starting gRPC server on {}", grpc_addr);
+        .expect("invalid BIND_ADDR");
 
-    // 7) 启动 gRPC 服务 + 优雅关停（Ctrl-C 或容器 SIGTERM）
+    info!("starting gRPC server on {}", addr);
+
     tonic::transport::Server::builder()
-        .add_service(GroupServiceServer::new(GroupServiceImpl { facade }))
-        .serve_with_shutdown(grpc_addr, shutdown_signal())
-        .await
-        .context("gRPC server exited with error")?;
+        .add_service(GroupServiceServer::new(svc))
+        .serve_with_shutdown(addr, async {
+            let _ = signal::ctrl_c().await;
+            warn!("shutting down...");
+        })
+        .await?;
 
-    warn!("Server shutdown complete");
     Ok(())
 }
 
-/// 执行 schema 文件中的多条 DDL 语句（逐条执行 + 事务包裹）。
-///
-/// 注意：这里使用了最简单的分号切分法，适合“纯 DDL、无存储过程/触发器/DELIMITER”的场景。
-/// 如果将来要支持复杂 SQL，请改为：
-///   1) 使用 sqlx 的迁移系统（推荐）；或
-///   2) 写一个更健壮的解析器/状态机来处理 DELIMITER。
-async fn apply_schema_from_ddl(pool: &Pool<MySql>, ddl: &str) -> Result<()> {
-    // 预检查（可选）：测试简单连通性
-    pool.acquire().await.context("failed to acquire DB connection")?;
-
-    // 事务包裹，保证要么全部成功要么全部回滚
-    let mut tx = pool.begin().await.context("failed to begin transaction")?;
-
-    let stmts = ddl
-        .split(';')             // 简单分割
-        .map(str::trim)         // 去掉两端空白
-        .filter(|s| !s.is_empty());
-
-    for (i, stmt) in stmts.enumerate() {
-        warn!("apply DDL stmt");
-        sqlx::query(stmt)
-            .execute(&mut *tx)
-            .await
-            .with_context(|| format!("failed to execute DDL stmt #{}: {}", i, stmt.lines().next().unwrap_or(stmt)))?;
-    }
-
-    tx.commit().await.context("failed to commit DDL transaction")?;
-    Ok(())
-}
-
-/// 解析环境变量，失败则返回默认值。
+// 如果你项目里没有 parse_env，这里给一个兜底实现
+#[allow(dead_code)]
 fn parse_env<T: std::str::FromStr>(key: &str, default: T) -> T {
-    std::env::var(key).ok().and_then(|s| s.parse().ok()).unwrap_or(default)
-}
-
-
-/// 优雅关停信号（Ctrl-C 或 SIGTERM）
-/// - k8s/容器化场景建议使用该模式，避免强杀导致未完成的请求被中断
-async fn shutdown_signal() {
-    // Ctrl+C
-    let ctrl_c = async {
-        signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
-    };
-
-    // 其他平台（如 Unix）的 SIGTERM
-    #[cfg(unix)]
-    let terminate = async {
-        let mut sigterm = signal::unix::signal(signal::unix::SignalKind::terminate())
-            .expect("failed to install SIGTERM handler");
-        sigterm.recv().await;
-    };
-
-    #[cfg(not(unix))]
-    let terminate = std::future::pending::<()>();
-
-    tokio::select! {
-        _ = ctrl_c => {},
-        _ = terminate => {},
-    }
-
+    std::env::var(key).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
 }
