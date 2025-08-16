@@ -3,9 +3,10 @@
 // 目标（健壮 + 性能 + 观测）
 // -----------------------------------------------------------------------------
 // - 防击穿：moka::future::Cache + try_get_with（天然 single-flight）；路由统一 Option<i64>；失败不上缓存。
-// - 健壮性：无 unwrap/expect；空入参快速返回；错误边界清晰化。
+// - 健壮性：无 unwrap/expect；空入参快速返回；错误边界清晰化（normalize & 目录失败均按 Err 返回）。
 // - 性能：get_by_ids 并发聚合 + 回灌缓存，显著降低 p95/p99。
-// - 观测：Cache line padding 的计数器，避免伪共享，提供快照导出。
+// - 观测：Cache line padding 的计数器（CachePadded<AtomicU64>），避免伪共享，提供快照导出。
+// - 读写一致：Normalizer 的规范化规则在 读路径 与 目录写入 时保持一致，彻底避免错配。
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -29,52 +30,71 @@ use crate::grpc::client_service::ClientEntity;
 // Metrics with cache-line padding
 // -----------------------------------------------------------------------------
 
+/// 路由级指标（email/phone/name 使用同一份结构）
+///
+/// 采用 CachePadded<AtomicU64> 避免不同计数器位于同一 cache line
+/// 造成伪共享（false sharing），在高并发多核场景下能降低尾延迟抖动。
 #[derive(Default)]
 struct RouteStats {
-    // 加载（目录查询）路径
+    /// 目录查询（加载）尝试次数：仅在缓存 miss 且进入加载闭包时增加
     load_attempt: CachePadded<AtomicU64>,
+    /// 目录查询成功次数（返回 Ok）
     load_ok:      CachePadded<AtomicU64>,
+    /// 目录查询失败次数（返回 Err），失败不会写路由缓存
     load_err:     CachePadded<AtomicU64>,
-    // 结果映射（包含缓存命中或刚加载完成后的返回）
-    some:         CachePadded<AtomicU64>, // 正命中（Some(id)）
-    none:         CachePadded<AtomicU64>, // 负命中（None）
+    /// 路由为 Some(id) 的返回计数（可能来自缓存，也可能是刚加载成功）
+    some:         CachePadded<AtomicU64>,
+    /// 路由为 None 的返回计数（负缓存命中）
+    none:         CachePadded<AtomicU64>,
 }
 
+/// 全量指标集合
 #[derive(Default)]
 struct Stats {
-    // by_id
-    by_id_hit:         CachePadded<AtomicU64>,
-    by_id_miss:        CachePadded<AtomicU64>,
-    by_id_load_attempt:CachePadded<AtomicU64>, // 仅在 miss 时触发的真实加载尝试
-    by_id_load_ok:     CachePadded<AtomicU64>,
-    by_id_load_err:    CachePadded<AtomicU64>, // 包含 not found/库错等
+    // ---------------- by_id 路径 ----------------
 
-    // 路由（按维度分开便于定位）
+    /// by_id 本地命中次数（contains_key 粗粒度命中）
+    by_id_hit:          CachePadded<AtomicU64>,
+    /// by_id 本地未命中次数
+    by_id_miss:         CachePadded<AtomicU64>,
+    /// by_id 加载尝试次数：仅在 miss 并触发 try_get_with 闭包时增加
+    by_id_load_attempt: CachePadded<AtomicU64>,
+    /// by_id 加载成功次数（包括 get_by_ids 聚合回灌）
+    by_id_load_ok:      CachePadded<AtomicU64>,
+    /// by_id 加载失败次数（not found / DB Error 等）
+    by_id_load_err:     CachePadded<AtomicU64>,
+
+    // ---------------- 路由路径（目录） ----------------
     route_email: RouteStats,
     route_phone: RouteStats,
     route_name:  RouteStats,
 }
 
+/// 公开导出的快照（复制原子值，便于对接监控）
 #[derive(Debug, Clone)]
 pub struct StatsSnapshot {
+    // by_id
     pub by_id_hit:          u64,
     pub by_id_miss:         u64,
     pub by_id_load_attempt: u64,
     pub by_id_load_ok:      u64,
     pub by_id_load_err:     u64,
 
+    // email
     pub email_load_attempt: u64,
     pub email_load_ok:      u64,
     pub email_load_err:     u64,
     pub email_some:         u64,
     pub email_none:         u64,
 
+    // phone
     pub phone_load_attempt: u64,
     pub phone_load_ok:      u64,
     pub phone_load_err:     u64,
     pub phone_some:         u64,
     pub phone_none:         u64,
 
+    // name
     pub name_load_attempt:  u64,
     pub name_load_ok:       u64,
     pub name_load_err:      u64,
@@ -83,8 +103,13 @@ pub struct StatsSnapshot {
 }
 
 impl Stats {
-    #[inline] fn inc(v: &CachePadded<AtomicU64>) { v.fetch_add(1, Ordering::Relaxed); }
+    /// 自增工具：放在 impl 内以简化调用语法
+    #[inline]
+    fn inc(v: &CachePadded<AtomicU64>) {
+        v.fetch_add(1, Ordering::Relaxed);
+    }
 
+    /// 读取快照（Relaxed 足够：只做观测，不参与同步）
     fn snapshot(&self) -> StatsSnapshot {
         StatsSnapshot {
             by_id_hit:          self.by_id_hit.load(Ordering::Relaxed),
@@ -118,25 +143,53 @@ impl Stats {
 // Normalizer（真实实现，读写一致）
 // -----------------------------------------------------------------------------
 
+/// 统一的规范化接口：所有进入系统的外部标识（email/phone/name）
+/// 必须先通过 Normalizer，再用于：
+/// - 查询（读路径）
+/// - 目录写入（索引写）
+/// 这样可保证“读写一致”，消除“写时一种规则，读时另一种”的错配。
 pub trait Normalizer: Send + Sync + 'static {
+    /// 归一化 Email：
+    /// - trim → NFKC → to_lowercase
+    /// - 域名部分走 IDNA/Punycode 转 ASCII
+    /// - 基本长度校验（local<=64；整体<=254）
+    /// - 返回空 Bytes 表示“空入参”，调用方应快速返回 None
     fn email_norm(&self, raw: &str) -> Result<Bytes>;
+
+    /// 归一化 Phone：
+    /// - trim → NFKC → 仅保留数字和 '+'，'+' 只能在首位
+    /// - 支持 "00"→"+"；无国家码则补默认 CC
+    /// - 校验 E.164 8..=15 位
+    /// - 返回空 Bytes 表示“空/无效”，调用方快速返回 None
     fn phone_norm(&self, raw: &str) -> Result<Bytes>;
+
+    /// 归一化 Name：
+    /// - trim → NFKC → 小写 → 压缩空白
+    /// - 返回空 Bytes 表示“空入参”，调用方快速返回 None
     fn name_norm(&self, raw: &str) -> Result<Bytes>;
 }
 
+/// 默认国家码驱动的规范化实现。
+/// 注意：default_country_cc 仅用于 phone_norm 补全无前缀的号码。
 pub struct RealNormalizer {
-    default_country_cc: String, // E.164 默认国家码（不含+）
+    /// E.164 默认国家码（不含“+”，如 "86"/"1"）
+    default_country_cc: String,
 }
 
 impl RealNormalizer {
+    /// 创建一个真实 Normalizer。示例：`RealNormalizer::new("86")`
     pub fn new(default_country_cc: impl Into<String>) -> Self {
         Self { default_country_cc: default_country_cc.into() }
     }
+
+    /// Unicode NFKC + to_lowercase + trim（对 email/local、name 等通用）
     #[inline]
     fn nfkc_lower_trim(s: &str) -> String {
         let folded: String = s.nfkc().collect::<String>().to_lowercase();
         folded.trim().to_string()
     }
+
+    /// 仅保留数字和 '+'（且 '+' 只能在首位），忽略其它格式字符（空格/横线/括号等）
     fn strip_phone_chars(s: &str) -> Result<String> {
         let mut out = String::with_capacity(s.len());
         let mut plus_seen = false;
@@ -146,10 +199,12 @@ impl RealNormalizer {
                 if i != 0 || plus_seen { bail!("invalid '+' position in phone"); }
                 plus_seen = true; out.push('+'); continue;
             }
-            // 其他字符忽略（空格/横杠/括号等）
+            // 其他字符忽略
         }
         Ok(out)
     }
+
+    /// 归一化为 E.164：处理 "00"→"+"；无前缀时按 default_cc 补全；校验长度区间
     fn to_e164(mut s: String, default_cc: &str) -> Result<String> {
         if s.is_empty() { return Ok(s); }
         if s.starts_with("00") { s.replace_range(0..2, "+"); }
@@ -166,35 +221,45 @@ impl RealNormalizer {
     }
 }
 
+/// 多空白压缩（包括制表/多空格等）
 static RE_SPACES: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s+").expect("compile whitespace regex"));
 
 impl Normalizer for RealNormalizer {
     fn email_norm(&self, raw: &str) -> Result<Bytes> {
         let trimmed = raw.trim();
         if trimmed.is_empty() { return Ok(Bytes::new()); }
+
+        // local@domain：local 小写，domain 走 IDNA
         let lowered = Self::nfkc_lower_trim(trimmed);
         let parts: Vec<&str> = lowered.split('@').collect();
         if parts.len() != 2 { bail!("invalid email: missing '@'"); }
         let (local, domain) = (parts[0], parts[1]);
         if local.is_empty() || domain.is_empty() { bail!("invalid email: empty local or domain"); }
+
+        // 域名部分转 ASCII
         let domain_ascii = IdnaConfig::default()
             .use_std3_ascii_rules(true)
             .to_ascii(domain)
             .map_err(|e| anyhow!("idna to_ascii failed: {e}"))?;
+
+        // 粗校验长度
         if local.len() > 64 { bail!("invalid email: local too long"); }
         let email_ascii = format!("{local}@{domain_ascii}");
         if email_ascii.len() > 254 { bail!("invalid email: too long"); }
+
         Ok(Bytes::from(email_ascii))
     }
+
     fn phone_norm(&self, raw: &str) -> Result<Bytes> {
         let trimmed = raw.trim();
         if trimmed.is_empty() { return Ok(Bytes::new()); }
         let s = trimmed.nfkc().collect::<String>();
         let stripped = Self::strip_phone_chars(&s)?;
-        if stripped.is_empty() { return Ok(Bytes::new()); }
+        if stripped.is_empty() { return Ok(Bytes::new()); } // 全是噪声字符
         let e164 = Self::to_e164(stripped, &self.default_country_cc)?;
         Ok(Bytes::from(e164))
     }
+
     fn name_norm(&self, raw: &str) -> Result<Bytes> {
         let s = Self::nfkc_lower_trim(raw);
         if s.is_empty() { return Ok(Bytes::new()); }
@@ -207,19 +272,37 @@ impl Normalizer for RealNormalizer {
 // Facade：缓存 + 路由 + 指标
 // -----------------------------------------------------------------------------
 
+/// 读路径统一的热层（Hot）
+///
+/// - by_id：对象缓存，Key=i64（主键），Value=Arc<ClientEntity>
+/// - 路由缓存（email/phone/name → Option<i64>）：
+///   - Some(id)：正命中；None：负缓存（确认不存在）；目录失败不上缓存
+/// - 观测：内部带 Stats；可通过 stats() 导出快照
 pub struct ClientHot<R, D, N> {
+    /// 业务实体读仓库（分片内/聚合 DB 查询）
     repo: Arc<R>,
+    /// 目录读仓库（email/phone/name → id）
     dir: Arc<D>,
+    /// 统一规范化器（确保读写一致）
     normalizer: Arc<N>,
 
-    by_id: Cache<i64, Arc<ClientEntity>>,              // id -> 实体
-    email_to_id: Cache<Bytes, Option<i64>>,            // 路由：正/负命中
+    /// 主键缓存：moka future::Cache（并发安全；装载单飞）
+    by_id: Cache<i64, Arc<ClientEntity>>,
+
+    /// 路由缓存：统一 Option<i64> 表示正/负命中（None=确认不存在）
+    email_to_id: Cache<Bytes, Option<i64>>,
     phone_to_id: Cache<Bytes, Option<i64>>,
     name_to_id:  Cache<Bytes, Option<i64>>,
 
-    stats: Arc<Stats>,                                 // cache-line padded 计数器
+    /// 观测：cache-line padding 的计数器
+    stats: Arc<Stats>,
 }
 
+/// 热层配置（容量与 TTL）
+///
+/// - by_id_max_capacity：对象缓存容量上限（近似 LRU）
+/// - by_id_ttl：对象缓存 TTL（强一致要求低时可适当增大）
+/// - route_max_capacity / route_ttl：路由缓存容量与 TTL
 pub struct ClientHotConfig {
     pub by_id_max_capacity: u64,
     pub by_id_ttl: Duration,
@@ -244,12 +327,15 @@ where
     D: DirectoryReadRepo + Send + Sync + 'static,
     N: Normalizer,
 {
+    /// 构造：传入读仓库与 Normalizer，并配置缓存容量/TTL
     pub fn new(repo: Arc<R>, dir: Arc<D>, normalizer: Arc<N>, cfg: ClientHotConfig) -> Self {
+        // by_id：对象缓存（future::Cache 自带单飞装载）
         let by_id = Cache::builder()
             .max_capacity(cfg.by_id_max_capacity)
             .time_to_live(cfg.by_id_ttl)
             .build();
 
+        // 路由缓存构造器：Key=Bytes，Val=Option<i64>
         let build_route = || {
             Cache::builder()
                 .max_capacity(cfg.route_max_capacity)
@@ -269,7 +355,7 @@ where
         }
     }
 
-    /// 导出指标快照
+    /// 导出指标快照（用于 Prometheus / OTLP 等上报）
     #[inline]
     pub fn stats(&self) -> StatsSnapshot {
         self.stats.snapshot()
@@ -277,14 +363,19 @@ where
 
     // ------------------------- 对外 API -------------------------
 
-    /// id -> 实体；不存在返回 Err("not found")
+    /// 通过主键读取实体：
+    /// - 命中直接返回；
+    /// - 未命中触发单飞装载：repo.get_by_id(id)；
+    /// - 不存在按 Err("not found") 返回（不缓存 None）。
     pub async fn get_by_id(&self, id: i64) -> Result<Arc<ClientEntity>> {
+        // 先做 contains_key 统计粗粒度命中/未命中（不会触发加载）
         if self.by_id.contains_key(&id) {
             Stats::inc(&self.stats.by_id_hit);
         } else {
             Stats::inc(&self.stats.by_id_miss);
         }
 
+        // try_get_with：仅在 miss 时进入闭包（单飞）；闭包返回 Arc<ClientEntity>
         let stats = Arc::clone(&self.stats);
         let arc = self
             .by_id
@@ -306,6 +397,7 @@ where
             .map_err({
                 let stats = Arc::clone(&self.stats);
                 move |e| {
+                    // moka 的加载错误（包括闭包返回 Err）也会到这里
                     Stats::inc(&stats.by_id_load_err);
                     anyhow!("cache(by_id) try_get_with failed: {}", e)
                 }
@@ -314,19 +406,22 @@ where
         Ok(arc)
     }
 
-    /// 批量 ids：同步命中 + 聚合 miss 批量查 + 回灌；返回存在的实体（不保证顺序）。
+    /// 批量按 id 读取（返回存在的实体，**不保证顺序**）：
+    /// - 同步遍历 ids 做一次 contains_key，将命中与 miss 分离；
+    /// - 对命中集合并发 get() 拉取 Arc；
+    /// - 将 miss 传入 repo.get_by_ids 聚合读取，统一回灌缓存。
     pub async fn get_by_ids(&self, ids: &[i64]) -> Result<Vec<Arc<ClientEntity>>> {
         if ids.is_empty() {
             return Ok(Vec::new());
         }
 
-        // 1) 同步判断命中
+        // 1) 同步判断命中并去重（seen）
         let mut seen = HashSet::with_capacity(ids.len());
         let mut present_ids = Vec::new();
         let mut misses = Vec::new();
 
         for &id in ids {
-            if !seen.insert(id) { continue; }
+            if !seen.insert(id) { continue; } // 去重
             if self.by_id.contains_key(&id) {
                 Stats::inc(&self.stats.by_id_hit);
                 present_ids.push(id);
@@ -336,7 +431,7 @@ where
             }
         }
 
-        // 2) 并发取回命中的值（纯内存 await），竞态 None 过滤
+        // 2) 并发拉取命中值（get() 不触发装载；竞态 None 会被过滤）
         let mut hits: Vec<Arc<ClientEntity>> = stream::iter(
             present_ids.into_iter().map(|id| async move { self.by_id.get(&id).await })
         )
@@ -350,32 +445,31 @@ where
             return Ok(hits);
         }
 
-        // 4) miss 聚合：底层分片并发 + IN 分批
+        // 4) miss 聚合读取（建议在 repo 内分片+分批 IN）
         let fetched = self
             .repo
             .get_by_ids(&misses)
             .await
             .context("repo.get_by_ids failed in hot_cold::get_by_ids")?;
 
-        // 统计装载 ok/err（err 这里代表“未找到”的 miss 数）
+        // 统计装载 ok/err（这里的 err 以“未找到”的差额近似）
         let ok_cnt = fetched.len() as u64;
         let miss_cnt = misses.len() as u64;
         if ok_cnt > 0 {
             self.stats.by_id_load_ok.fetch_add(ok_cnt, Ordering::Relaxed);
-            self.stats.by_id_load_attempt.fetch_add(ok_cnt, Ordering::Relaxed); // 每个找到的都意味着一次有效装载
+            self.stats.by_id_load_attempt.fetch_add(ok_cnt, Ordering::Relaxed);
         }
         if miss_cnt > ok_cnt {
             self.stats
                 .by_id_load_err
                 .fetch_add(miss_cnt - ok_cnt, Ordering::Relaxed);
-            // 注意：这里没有对“未找到但尝试了”的计数细分；如需更精确，可改为 repo 返回 found_ids 以统计 attempt。
         }
 
         if fetched.is_empty() {
             return Ok(hits);
         }
 
-        // 5) 回灌 + 合并
+        // 5) 回灌缓存并合并返回
         let mut map: HashMap<i64, Arc<ClientEntity>> = HashMap::with_capacity(fetched.len());
         for ent in fetched {
             let id = ent.id;
@@ -387,7 +481,10 @@ where
         Ok(hits)
     }
 
-    /// email -> Option<实体>
+    /// 通过 email 查询：
+    /// - 规范化 → 空键直接返回 None；
+    /// - 路由缓存 miss 时查询目录（get_id_by_email），成功后写入 Some/None；
+    /// - 目录失败不上缓存（保持下次可重试）。
     pub async fn get_by_email(&self, raw: &str) -> Result<Option<Arc<ClientEntity>>> {
         let norm = self.normalizer.email_norm(raw).context("normalize email failed")?;
         if norm.is_empty() {
@@ -427,7 +524,7 @@ where
         }
     }
 
-    /// phone -> Option<实体>
+    /// 通过 phone 查询：逻辑同上
     pub async fn get_by_phone(&self, raw: &str) -> Result<Option<Arc<ClientEntity>>> {
         let norm = self.normalizer.phone_norm(raw).context("normalize phone failed")?;
         if norm.is_empty() {
@@ -467,7 +564,7 @@ where
         }
     }
 
-    /// name -> Option<实体>
+    /// 通过 name 查询：逻辑同上；额外做 UTF-8 校验（规范化产物是 Bytes）
     pub async fn get_by_name(&self, raw: &str) -> Result<Option<Arc<ClientEntity>>> {
         let norm = self.normalizer.name_norm(raw).context("normalize name failed")?;
         if norm.is_empty() {
@@ -510,6 +607,9 @@ where
 
     // ------------------- 失效/刷新钩子 -------------------
 
+    /// 刷新单个 id 的对象缓存：
+    /// - 如 DB 存在：覆盖插入；
+    /// - 如 DB 不存在：主动失效。
     pub async fn refresh_by_id(&self, id: i64) -> Result<()> {
         match self.repo.get_by_id(id).await.context("repo.get_by_id failed in refresh_by_id")? {
             Some(ent) => { self.by_id.insert(id, Arc::new(ent)).await; }
@@ -518,6 +618,10 @@ where
         Ok(())
     }
 
+    /// 邮箱变更时的路由处理：
+    /// - old_raw 存在且可规范化：失效旧键；
+    /// - new_raw 存在且可规范化：写入正缓存 Some(id)；
+    /// - 最后刷新 by_id。
     pub async fn on_change_email(&self, old_raw: Option<&str>, new_raw: Option<&str>, id: i64) -> Result<()> {
         if let Some(old) = old_raw {
             if let Ok(k) = self.normalizer.email_norm(old) {
@@ -531,6 +635,7 @@ where
         self.refresh_by_id(id).await
     }
 
+    /// 手机号变更：逻辑同上
     pub async fn on_change_phone(&self, old_raw: Option<&str>, new_raw: Option<&str>, id: i64) -> Result<()> {
         if let Some(old) = old_raw {
             if let Ok(k) = self.normalizer.phone_norm(old) {
@@ -544,6 +649,7 @@ where
         self.refresh_by_id(id).await
     }
 
+    /// 用户名变更：逻辑同上；name_norm 的 Bytes 需是 UTF-8（由规范化保证）
     pub async fn on_change_name(&self, old_raw: Option<&str>, new_raw: Option<&str>, id: i64) -> Result<()> {
         if let Some(old) = old_raw {
             if let Ok(k) = self.normalizer.name_norm(old) {
@@ -557,6 +663,7 @@ where
         self.refresh_by_id(id).await
     }
 
+    /// 主键失效（不触发 DB）
     pub async fn invalidate_by_id(&self, id: i64) {
         self.by_id.invalidate(&id).await;
     }
