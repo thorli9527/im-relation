@@ -43,9 +43,10 @@ message ClientEntity {
 
   map<string, string> profile_fields = 10; // 扩展键值（低频）
 
-  google.protobuf.Timestamp create_time = 11; // 服务器写入
-  google.protobuf.Timestamp update_time = 12; // 服务器写入
+  int64 create_time = 11;       // 创建时间
+  int64 update_time = 12;       // 更新时间
 
+  int32 version = 13;
   // 预留字段号，避免将来冲突
   reserved 100 to 119;
   reserved "password";

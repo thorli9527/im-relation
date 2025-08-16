@@ -10,13 +10,13 @@ use argon2::password_hash::rand_core::OsRng;
 use prost_types::FieldMask;
 use sqlx::{Executor, MySql, Pool, QueryBuilder, Row};
 use tonic::{Request, Response, Status};
-
+use common::config::MySqlPool;
 use crate::db::traits::{ClientReadRepo, DirectoryReadRepo};
 use crate::grpc::client_service::{
     client_entity_service_server::ClientEntityService, ChangeEmailReq, ChangePasswordReq,
     ChangePhoneReq, ChangeResponse, ClientEntity, GetClientReq, RegisterUserReq, UpdateClientReq,
 };
-use crate::hot_cold::{ClientHotStore, Normalizer};
+use crate::hot_cold::{ClientHot, Normalizer};
 
 #[async_trait::async_trait]
 pub trait IdAllocator: Send + Sync + 'static {
@@ -27,30 +27,28 @@ pub struct DummyIdAlloc;
 #[async_trait::async_trait]
 impl IdAllocator for DummyIdAlloc {
     async fn next_id(&self) -> anyhow::Result<i64> {
-        Ok((std::time::SystemTime::now()
+        let dur = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-            & i64::MAX as u128) as i64)
+            .map_err(|e| anyhow::anyhow!("clock drift: {e}"))?;
+        Ok(((dur.as_nanos()) & (i64::MAX as u128)) as i64)
     }
 }
 
-#[derive(Clone)]
 pub struct ClientEntityServiceImpl<C, D, N, I>
 where
-    C: ClientReadRepo,
-    D: DirectoryReadRepo,
+    C: ClientReadRepo + Send + Sync + 'static,
+    D: DirectoryReadRepo + Send + Sync + 'static,
     N: Normalizer,
     I: IdAllocator,
 {
     // 读全走热层
-    hot: ClientHotStore<C, D, N>,
+    hot: ClientHot<C, D, N>,
     // 直接持有 normalizer，避免从 hot 取私有字段/方法
     normalizer: Arc<N>,
 
     // 写库
-    shard_pools: Arc<[Pool<MySql>]>,
-    dir_pool: Pool<MySql>,
+    shard_pools: Arc<[MySqlPool]>,
+    dir_pool: MySqlPool,
 
     shard_count: usize,
     id_alloc: Arc<I>,
@@ -61,13 +59,13 @@ where
 
 impl<C, D, N, I> ClientEntityServiceImpl<C, D, N, I>
 where
-    C: ClientReadRepo,
-    D: DirectoryReadRepo,
+    C: ClientReadRepo + Send + Sync + 'static,
+    D: DirectoryReadRepo + Send + Sync + 'static,
     N: Normalizer,
     I: IdAllocator,
 {
     pub fn new(
-        hot: ClientHotStore<C, D, N>,
+        hot: ClientHot<C, D, N>,
         normalizer: Arc<N>,
         shard_pools: Vec<Pool<MySql>>,
         dir_pool: Pool<MySql>,
@@ -108,8 +106,8 @@ where
 
     #[inline]
     fn verify_password(&self, stored_hash: &str, raw: &str) -> Result<bool, Status> {
-        let parsed =
-            PasswordHash::new(stored_hash).map_err(|e| Status::internal(format!("parse hash: {e}")))?;
+        let parsed = PasswordHash::new(stored_hash)
+            .map_err(|e| Status::internal(format!("parse hash: {e}")))?;
         Ok(self.pwd.verify_password(raw.as_bytes(), &parsed).is_ok())
     }
 
@@ -127,7 +125,8 @@ where
                 .bind(email_norm)
                 .fetch_optional(tx.as_mut())
                 .await
-                .map_err(|e| Status::internal(format!("select uid_email: {e}")))? {
+                .map_err(|e| Status::internal(format!("select uid_email: {e}")))?
+        {
             if existing != id {
                 return Err(Status::already_exists("email already used"));
             }
@@ -161,7 +160,8 @@ where
                 .bind(phone_norm)
                 .fetch_optional(tx.as_mut())
                 .await
-                .map_err(|e| Status::internal(format!("select uid_phone: {e}")))? {
+                .map_err(|e| Status::internal(format!("select uid_phone: {e}")))?
+        {
             if existing != id {
                 return Err(Status::already_exists("phone already used"));
             }
@@ -195,7 +195,8 @@ where
                 .bind(name_norm)
                 .fetch_optional(tx.as_mut())
                 .await
-                .map_err(|e| Status::internal(format!("select uid_name: {e}")))? {
+                .map_err(|e| Status::internal(format!("select uid_name: {e}")))?
+        {
             if existing != id {
                 return Err(Status::already_exists("username already used"));
             }
@@ -260,8 +261,8 @@ where
 #[tonic::async_trait]
 impl<C, D, N, I> ClientEntityService for ClientEntityServiceImpl<C, D, N, I>
 where
-    C: ClientReadRepo,
-    D: DirectoryReadRepo,
+    C: ClientReadRepo + Send + Sync + 'static,
+    D: DirectoryReadRepo + Send + Sync + 'static,
     N: Normalizer,
     I: IdAllocator,
 {
@@ -278,11 +279,14 @@ where
             return Err(Status::invalid_argument("password required"));
         }
 
-        // 规范化
-        let name_norm = self
+        // 规范化（读写一致）
+        let name_norm_b = self
             .normalizer
             .name_norm(&r.name)
             .map_err(|e| Status::invalid_argument(format!("bad name: {e}")))?;
+        let name_norm = std::str::from_utf8(&name_norm_b)
+            .map_err(|e| Status::invalid_argument(format!("name not utf8: {e}")))?;
+
         let email_norm = match r.email.as_deref() {
             Some(e) if !e.is_empty() => Some(
                 self.normalizer
@@ -309,13 +313,13 @@ where
         let shard_id = self.shard_idx(id) as i32;
         let pwd_hash = self.hash_password(&r.password)?;
 
-        // 目录库事务
+        // 目录库事务（先写目录，防止重复占用）
         let mut dir_tx = self
             .dir_pool
             .begin()
             .await
             .map_err(|e| Status::internal(format!("dir begin: {e}")))?;
-        self.upsert_uid_name(&mut dir_tx, &name_norm, id, shard_id).await?;
+        self.upsert_uid_name(&mut dir_tx, name_norm, id, shard_id).await?;
         if let Some(ref en) = email_norm {
             self.upsert_uid_email(&mut dir_tx, en.as_ref(), id, shard_id)
                 .await?;
@@ -370,14 +374,16 @@ where
             .await
             .map_err(|e| Status::internal(format!("dir commit: {e}")))?;
 
-        // 刷热 & 返回
-        let ent = self
-            .hot
+        // 刷热 & 返回（refresh -> get_by_id）
+        self.hot
             .refresh_by_id(id)
             .await
-            .map_err(|e| Status::internal(format!("refresh hot: {e}")))?
-            .ok_or_else(|| Status::internal("entity missing after insert"))?;
-        self.hot.on_registered((*ent).clone());
+            .map_err(|e| Status::internal(format!("refresh hot: {e}")))?;
+        let ent = self
+            .hot
+            .get_by_id(id)
+            .await
+            .map_err(|e| Status::internal(format!("reload after register: {e}")))?;
         Ok(Response::new((*ent).clone()))
     }
 
@@ -484,14 +490,18 @@ where
             .map_err(|e| Status::internal(format!("dir commit: {e}")))?;
 
         self.hot
-            .on_change_phone(r.id, old_phone.as_deref(), r.new_phone.as_deref())
-            .await;
-        let reloaded = self
-            .hot
+            .on_change_phone(old_phone.as_deref(), r.new_phone.as_deref(), r.id)
+            .await
+            .map_err(|e| Status::internal(format!("hot on_change_phone: {e}")))?;
+        self.hot
             .refresh_by_id(r.id)
             .await
-            .map_err(|e| Status::internal(format!("refresh: {e}")))?
-            .ok_or_else(|| Status::internal("entity missing after update"))?;
+            .map_err(|e| Status::internal(format!("refresh: {e}")))?;
+        let reloaded = self
+            .hot
+            .get_by_id(r.id)
+            .await
+            .map_err(|e| Status::internal(format!("reload after change_phone: {e}")))?;
         Ok(Response::new((*reloaded).clone()))
     }
 
@@ -558,14 +568,18 @@ where
             .map_err(|e| Status::internal(format!("dir commit: {e}")))?;
 
         self.hot
-            .on_change_email(r.id, old_email.as_deref(), r.new_email.as_deref())
-            .await;
-        let reloaded = self
-            .hot
+            .on_change_email(old_email.as_deref(), r.new_email.as_deref(), r.id)
+            .await
+            .map_err(|e| Status::internal(format!("hot on_change_email: {e}")))?;
+        self.hot
             .refresh_by_id(r.id)
             .await
-            .map_err(|e| Status::internal(format!("refresh: {e}")))?
-            .ok_or_else(|| Status::internal("entity missing after update"))?;
+            .map_err(|e| Status::internal(format!("refresh: {e}")))?;
+        let reloaded = self
+            .hot
+            .get_by_id(r.id)
+            .await
+            .map_err(|e| Status::internal(format!("reload after change_email: {e}")))?;
         Ok(Response::new((*reloaded).clone()))
     }
 
@@ -606,7 +620,7 @@ where
             return Err(Status::invalid_argument("no updatable fields in mask"));
         }
 
-        // 改名：先维护目录
+        // 改名：先维护目录（读写一致）
         let mut old_name: Option<String> = None;
         if set_name {
             let cur = self
@@ -616,10 +630,12 @@ where
                 .map_err(|_| Status::not_found("id not found"))?;
             old_name = Some(cur.name.clone());
 
-            let new_name_norm = self
+            let new_name_norm_b = self
                 .normalizer
                 .name_norm(&patch.name)
                 .map_err(|e| Status::invalid_argument(format!("bad name: {e}")))?;
+            let new_name_norm = std::str::from_utf8(&new_name_norm_b)
+                .map_err(|e| Status::invalid_argument(format!("name not utf8: {e}")))?;
 
             let mut dir_tx = self
                 .dir_pool
@@ -627,15 +643,17 @@ where
                 .await
                 .map_err(|e| Status::internal(format!("dir begin: {e}")))?;
             let shard_id = self.shard_idx(patch.id) as i32;
-            self.upsert_uid_name(&mut dir_tx, &new_name_norm, patch.id, shard_id)
+            self.upsert_uid_name(&mut dir_tx, new_name_norm, patch.id, shard_id)
                 .await?;
             if let Some(ref on) = old_name {
                 if on != &patch.name {
-                    let on_norm = self
+                    let on_b = self
                         .normalizer
                         .name_norm(on)
                         .map_err(|e| Status::internal(format!("norm old name: {e}")))?;
-                    self.delete_uid_name(&mut dir_tx, &on_norm).await?;
+                    let on_norm = std::str::from_utf8(&on_b)
+                        .map_err(|e| Status::internal(format!("old name not utf8: {e}")))?;
+                    self.delete_uid_name(&mut dir_tx, on_norm).await?;
                 }
             }
             dir_tx
@@ -692,16 +710,21 @@ where
             .map_err(|e| Status::internal(format!("update client: {e}")))?;
 
         // 热层维护 & 返回
+        if set_name {
+            self.hot
+                .on_change_name(old_name.as_deref(), Some(&patch.name), patch.id)
+                .await
+                .map_err(|e| Status::internal(format!("hot on_change_name: {e}")))?;
+        }
         self.hot
-            .on_update_profile(patch.id, old_name.as_deref(), set_name.then_some(patch.name.as_str()))
-            .await;
-
-        let out = self
-            .hot
             .refresh_by_id(patch.id)
             .await
-            .map_err(|e| Status::internal(format!("refresh: {e}")))?
-            .ok_or_else(|| Status::internal("entity missing after update"))?;
+            .map_err(|e| Status::internal(format!("refresh: {e}")))?;
+        let out = self
+            .hot
+            .get_by_id(patch.id)
+            .await
+            .map_err(|e| Status::internal(format!("reload after update_client: {e}")))?;
 
         Ok(Response::new((*out).clone()))
     }

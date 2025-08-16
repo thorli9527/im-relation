@@ -32,12 +32,14 @@ pub struct ClientEntity {
         ::prost::alloc::string::String,
         ::prost::alloc::string::String,
     >,
-    /// 服务器写入
-    #[prost(message, optional, tag = "11")]
-    pub create_time: ::core::option::Option<::prost_types::Timestamp>,
-    /// 服务器写入
-    #[prost(message, optional, tag = "12")]
-    pub update_time: ::core::option::Option<::prost_types::Timestamp>,
+    /// 创建时间
+    #[prost(int64, tag = "11")]
+    pub create_time: i64,
+    /// 更新时间
+    #[prost(int64, tag = "12")]
+    pub update_time: i64,
+    #[prost(int32, tag = "13")]
+    pub version: i32,
 }
 /// ===== 注册 =====
 #[derive(Clone, PartialEq, ::prost::Message)]

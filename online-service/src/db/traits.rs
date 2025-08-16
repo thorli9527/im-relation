@@ -1,3 +1,4 @@
+// online-service/src/db/traits.rs
 use anyhow::Result;
 use async_trait::async_trait;
 use crate::grpc::client_service::ClientEntity;
