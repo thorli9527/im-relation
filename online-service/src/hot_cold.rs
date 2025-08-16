@@ -16,7 +16,6 @@ use std::time::Duration;
 use anyhow::{anyhow, bail, Context, Result};
 use bytes::Bytes;
 use futures::stream::{self, StreamExt};
-use idna::Config as IdnaConfig;
 use moka::future::Cache;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -237,9 +236,7 @@ impl Normalizer for RealNormalizer {
         if local.is_empty() || domain.is_empty() { bail!("invalid email: empty local or domain"); }
 
         // 域名部分转 ASCII
-        let domain_ascii = IdnaConfig::default()
-            .use_std3_ascii_rules(true)
-            .to_ascii(domain)
+        let domain_ascii =idna::domain_to_ascii(domain)
             .map_err(|e| anyhow!("idna to_ascii failed: {e}"))?;
 
         // 粗校验长度
