@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use anyhow::Context as AnyhowContext;
 use argon2::{
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
@@ -11,7 +12,7 @@ use prost_types::FieldMask;
 use sqlx::{MySql, Row, QueryBuilder};
 use tonic::{Request, Response, Status};
 
-use common::config::{MySqlPool, get_db};
+use common::config::get_db;
 
 use crate::db::traits::{ClientReadRepo, DirectoryReadRepo};
 use crate::grpc::client_service::{
@@ -36,8 +37,8 @@ impl IdAllocator for DummyIdAlloc {
     }
 }
 
-/// 可选的“在线触摸”回调：在读取热缓存之前续命
-type OnlineTouch = Arc<dyn Fn(i64) + Send + Sync + 'static>;
+/// 可选的在线续命回调：所有对外 RPC 在读热之前触发一次。
+type OnlineTouch = Arc<dyn Fn(i64) + Send + Sync>;
 
 pub struct ClientEntityServiceImpl<C, D, N, I>
 where
@@ -46,22 +47,13 @@ where
     N: Normalizer,
     I: IdAllocator,
 {
-    // 读全走热层
     hot: ClientHot<C, D, N>,
-    // 直接持有 normalizer（读写一致）
     normalizer: Arc<N>,
-
-    // 单库连接池（全局）
-    pool: MySqlPool,
-
-    // 发号器
     id_alloc: Arc<I>,
-
-    // 密码哈希器（argon2id）
-    pwd: Argon2<'static>,
-
-    // 可选“取热前触摸续命”
+    // 取热前“触摸续命”（可选）
     online_touch: Option<OnlineTouch>,
+
+    pwd: Argon2<'static>,
 }
 
 impl<C, D, N, I> ClientEntityServiceImpl<C, D, N, I>
@@ -71,28 +63,25 @@ where
     N: Normalizer,
     I: IdAllocator,
 {
-    /// 使用全局连接池 get_db()；可选 online_touch 回调
     pub fn new(
         hot: ClientHot<C, D, N>,
         normalizer: Arc<N>,
         id_alloc: I,
         online_touch: Option<OnlineTouch>,
     ) -> Self {
-        let pool = get_db().as_ref().clone();
         Self {
             hot,
             normalizer,
-            pool,
             id_alloc: Arc::new(id_alloc),
-            pwd: Argon2::default(),
             online_touch,
+            pwd: Argon2::default(),
         }
     }
 
     #[inline]
     fn touch_online(&self, id: i64) {
-        if let Some(ref f) = self.online_touch {
-            (f)(id);
+        if let Some(cb) = &self.online_touch {
+            (cb)(id);
         }
     }
 
@@ -109,12 +98,12 @@ where
 
     #[inline]
     fn verify_password(&self, stored_hash: &str, raw: &str) -> Result<bool, Status> {
-        let parsed = PasswordHash::new(stored_hash)
-            .map_err(|e| Status::internal(format!("parse hash: {e}")))?;
+        let parsed =
+            PasswordHash::new(stored_hash).map_err(|e| Status::internal(format!("parse hash: {e}")))?;
         Ok(self.pwd.verify_password(raw.as_bytes(), &parsed).is_ok())
     }
 
-    // -------- 目录写辅助（无 shard_id；列名为 email/phone/name；时间由默认/ON UPDATE 保持） --------
+    // -------- 目录写帮助（uid_*：列名使用 email/phone/name；无 shard_id） --------
 
     async fn upsert_uid_email(
         &self,
@@ -122,24 +111,25 @@ where
         email_norm: &[u8],
         id: i64,
     ) -> Result<(), Status> {
+        // 存量是否占用
         if let Some(existing) =
             sqlx::query_scalar::<_, i64>("SELECT id FROM uid_email WHERE email=?")
                 .bind(email_norm)
                 .fetch_optional(tx.as_mut())
                 .await
-                .map_err(|e| Status::internal(format!("select uid_email: {e}")))?
-        {
+                .map_err(|e| Status::internal(format!("select uid_email: {e}")))? {
             if existing != id {
                 return Err(Status::already_exists("email already used"));
             }
-            sqlx::query("UPDATE uid_email SET state=1 WHERE email=?")
+            sqlx::query("UPDATE uid_email SET state=1, update_time=NOW(3) WHERE email=?")
                 .bind(email_norm)
                 .execute(tx.as_mut())
                 .await
                 .map_err(|e| Status::internal(format!("update uid_email: {e}")))?;
             return Ok(());
         }
-        sqlx::query("INSERT INTO uid_email(email,id,state) VALUES(?, ?, 1)")
+        // 新增
+        sqlx::query("INSERT INTO uid_email(email,id,state) VALUES(?,?,1)")
             .bind(email_norm)
             .bind(id)
             .execute(tx.as_mut())
@@ -159,19 +149,18 @@ where
                 .bind(phone_norm)
                 .fetch_optional(tx.as_mut())
                 .await
-                .map_err(|e| Status::internal(format!("select uid_phone: {e}")))?
-        {
+                .map_err(|e| Status::internal(format!("select uid_phone: {e}")))? {
             if existing != id {
                 return Err(Status::already_exists("phone already used"));
             }
-            sqlx::query("UPDATE uid_phone SET state=1 WHERE phone=?")
+            sqlx::query("UPDATE uid_phone SET state=1, update_time=NOW(3) WHERE phone=?")
                 .bind(phone_norm)
                 .execute(tx.as_mut())
                 .await
                 .map_err(|e| Status::internal(format!("update uid_phone: {e}")))?;
             return Ok(());
         }
-        sqlx::query("INSERT INTO uid_phone(phone,id,state) VALUES(?, ?, 1)")
+        sqlx::query("INSERT INTO uid_phone(phone,id,state) VALUES(?,?,1)")
             .bind(phone_norm)
             .bind(id)
             .execute(tx.as_mut())
@@ -191,19 +180,18 @@ where
                 .bind(name_norm)
                 .fetch_optional(tx.as_mut())
                 .await
-                .map_err(|e| Status::internal(format!("select uid_name: {e}")))?
-        {
+                .map_err(|e| Status::internal(format!("select uid_name: {e}")))? {
             if existing != id {
                 return Err(Status::already_exists("username already used"));
             }
-            sqlx::query("UPDATE uid_name SET state=1 WHERE name=?")
+            sqlx::query("UPDATE uid_name SET state=1, update_time=NOW(3) WHERE name=?")
                 .bind(name_norm)
                 .execute(tx.as_mut())
                 .await
                 .map_err(|e| Status::internal(format!("update uid_name: {e}")))?;
             return Ok(());
         }
-        sqlx::query("INSERT INTO uid_name(name,id,state) VALUES(?, ?, 1)")
+        sqlx::query("INSERT INTO uid_name(name,id,state) VALUES(?,?,1)")
             .bind(name_norm)
             .bind(id)
             .execute(tx.as_mut())
@@ -298,17 +286,17 @@ where
             _ => None,
         };
 
-        // 发号
+        // 发号、准备写库
         let id = self
             .id_alloc
             .next_id()
             .await
             .map_err(|e| Status::internal(format!("alloc id: {e}")))?;
         let pwd_hash = self.hash_password(&r.password)?;
+        let db = &*get_db();
 
-        // 目录库事务（先写目录，防止重复占用）
-        let mut dir_tx = self
-            .pool
+        // 目录先占位（事务）
+        let mut dir_tx = db
             .begin()
             .await
             .map_err(|e| Status::internal(format!("dir begin: {e}")))?;
@@ -320,9 +308,8 @@ where
             self.upsert_uid_phone(&mut dir_tx, pn.as_ref(), id).await?;
         }
 
-        // client 表事务
-        let mut cli_tx = self
-            .pool
+        // client 主表（事务）
+        let mut cli_tx = db
             .begin()
             .await
             .map_err(|e| Status::internal(format!("client begin: {e}")))?;
@@ -363,10 +350,9 @@ where
         dir_tx
             .commit()
             .await
-            .map_err(|e| Status::internal(format!("dir commit: {e}")))?;
+            .map_err(|e| Status::internal(format!("directory commit: {e}")))?;
 
-        // 刷热 & 返回（refresh -> get_by_id），读前触摸续命
-        self.touch_online(id);
+        // 刷热 & 返回
         self.hot
             .refresh_by_id(id)
             .await
@@ -384,10 +370,12 @@ where
         req: Request<ChangePasswordReq>,
     ) -> Result<Response<ChangeResponse>, Status> {
         let r = req.into_inner();
+        self.touch_online(r.id);
 
+        let db = &*get_db();
         let row = sqlx::query("SELECT password_hash FROM client WHERE id=?")
             .bind(r.id)
-            .fetch_optional(&self.pool)
+            .fetch_optional(db)
             .await
             .map_err(|e| Status::internal(format!("load hash: {e}")))?;
         let Some(row) = row else { return Err(Status::not_found("id not found")); };
@@ -412,7 +400,7 @@ where
         )
             .bind(new_hash)
             .bind(r.id)
-            .execute(&self.pool)
+            .execute(db)
             .await
             .map_err(|e| Status::internal(format!("update password: {e}")))?;
 
@@ -424,8 +412,6 @@ where
         req: Request<ChangePhoneReq>,
     ) -> Result<Response<ClientEntity>, Status> {
         let r = req.into_inner();
-
-        // 读前触摸续命
         self.touch_online(r.id);
 
         let cur = self
@@ -445,8 +431,8 @@ where
         };
 
         // 目录库
-        let mut dir_tx = self
-            .pool
+        let db = &*get_db();
+        let mut dir_tx = db
             .begin()
             .await
             .map_err(|e| Status::internal(format!("dir begin: {e}")))?;
@@ -461,9 +447,8 @@ where
             self.delete_uid_phone(&mut dir_tx, opn.as_ref()).await?;
         }
 
-        // client
-        let mut cli_tx = self
-            .pool
+        // 主表
+        let mut cli_tx = db
             .begin()
             .await
             .map_err(|e| Status::internal(format!("client begin: {e}")))?;
@@ -476,14 +461,12 @@ where
         cli_tx.commit().await.map_err(|e| Status::internal(format!("client commit: {e}")))?;
         dir_tx.commit().await.map_err(|e| Status::internal(format!("dir commit: {e}")))?;
 
+        // 热层维护（内含 refresh）
         self.hot
             .on_change_phone(old_phone.as_deref(), r.new_phone.as_deref(), r.id)
             .await
             .map_err(|e| Status::internal(format!("hot on_change_phone: {e}")))?;
-        self.hot
-            .refresh_by_id(r.id)
-            .await
-            .map_err(|e| Status::internal(format!("refresh: {e}")))?;
+
         let reloaded = self
             .hot
             .get_by_id(r.id)
@@ -497,8 +480,6 @@ where
         req: Request<ChangeEmailReq>,
     ) -> Result<Response<ClientEntity>, Status> {
         let r = req.into_inner();
-
-        // 读前触摸续命
         self.touch_online(r.id);
 
         let cur = self
@@ -517,9 +498,9 @@ where
             _ => None,
         };
 
-        // 目录库
-        let mut dir_tx = self
-            .pool
+        let db = &*get_db();
+        // 目录
+        let mut dir_tx = db
             .begin()
             .await
             .map_err(|e| Status::internal(format!("dir begin: {e}")))?;
@@ -534,9 +515,8 @@ where
             self.delete_uid_email(&mut dir_tx, oen.as_ref()).await?;
         }
 
-        // client
-        let mut cli_tx = self
-            .pool
+        // 主表
+        let mut cli_tx = db
             .begin()
             .await
             .map_err(|e| Status::internal(format!("client begin: {e}")))?;
@@ -553,10 +533,7 @@ where
             .on_change_email(old_email.as_deref(), r.new_email.as_deref(), r.id)
             .await
             .map_err(|e| Status::internal(format!("hot on_change_email: {e}")))?;
-        self.hot
-            .refresh_by_id(r.id)
-            .await
-            .map_err(|e| Status::internal(format!("refresh: {e}")))?;
+
         let reloaded = self
             .hot
             .get_by_id(r.id)
@@ -573,6 +550,8 @@ where
         let Some(patch) = r.patch else {
             return Err(Status::invalid_argument("patch required"));
         };
+        self.touch_online(patch.id);
+
         let FieldMask { paths } = r
             .update_mask
             .ok_or_else(|| Status::invalid_argument("update_mask required"))?;
@@ -605,9 +584,6 @@ where
         // 改名：先维护目录（读写一致）
         let mut old_name: Option<String> = None;
         if set_name {
-            // 读前触摸续命
-            self.touch_online(patch.id);
-
             let cur = self
                 .hot
                 .get_by_id(patch.id)
@@ -622,8 +598,8 @@ where
             let new_name_norm = std::str::from_utf8(&new_name_norm_b)
                 .map_err(|e| Status::invalid_argument(format!("name not utf8: {e}")))?;
 
-            let mut dir_tx = self
-                .pool
+            let db = &*get_db();
+            let mut dir_tx = db
                 .begin()
                 .await
                 .map_err(|e| Status::internal(format!("dir begin: {e}")))?;
@@ -645,49 +621,43 @@ where
                 .map_err(|e| Status::internal(format!("dir commit: {e}")))?;
         }
 
-        // client：按掩码拼 UPDATE
+        // 主表：按掩码拼 UPDATE
+        let db = &*get_db();
         let mut qb = QueryBuilder::<MySql>::new("UPDATE client SET ");
         let mut first = true;
 
         if set_name {
-            if !first { qb.push(", "); }
-            first = false;
+            if !first { qb.push(", "); } first = false;
             qb.push("name=").push_bind(&patch.name);
         }
         if set_lang {
-            if !first { qb.push(", "); }
-            first = false;
+            if !first { qb.push(", "); } first = false;
             qb.push("language=").push_bind(patch.language.as_deref());
         }
         if set_avatar {
-            if !first { qb.push(", "); }
-            first = false;
+            if !first { qb.push(", "); } first = false;
             qb.push("avatar=").push_bind(&patch.avatar);
         }
         if set_policy {
-            if !first { qb.push(", "); }
-            first = false;
+            if !first { qb.push(", "); } first = false;
             qb.push("allow_add_friend=").push_bind(patch.allow_add_friend);
         }
         if set_gender {
-            if !first { qb.push(", "); }
-            first = false;
+            if !first { qb.push(", "); } first = false;
             qb.push("gender=").push_bind(patch.gender);
         }
         if set_user_type {
-            if !first { qb.push(", "); }
-            first = false;
+            if !first { qb.push(", "); } first = false;
             qb.push("user_type=").push_bind(patch.user_type);
         }
         if set_profile {
-            if !first { qb.push(", "); }
-            first = false;
+            if !first { qb.push(", "); } first = false;
             qb.push("profile_fields=").push_bind(sqlx::types::Json(patch.profile_fields.clone()));
         }
 
         qb.push(", updated_at=NOW(3), version=version+1 WHERE id=").push_bind(patch.id);
         qb.build()
-            .execute(&self.pool)
+            .execute(db)
             .await
             .map_err(|e| Status::internal(format!("update client: {e}")))?;
 
@@ -698,10 +668,6 @@ where
                 .await
                 .map_err(|e| Status::internal(format!("hot on_change_name: {e}")))?;
         }
-        self.hot
-            .refresh_by_id(patch.id)
-            .await
-            .map_err(|e| Status::internal(format!("refresh: {e}")))?;
         let out = self
             .hot
             .get_by_id(patch.id)
@@ -716,8 +682,6 @@ where
         req: Request<GetClientReq>,
     ) -> Result<Response<ClientEntity>, Status> {
         let id = req.into_inner().id;
-
-        // 读前触摸续命
         self.touch_online(id);
 
         let ent = self
