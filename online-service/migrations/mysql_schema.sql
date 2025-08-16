@@ -18,36 +18,44 @@ CREATE TABLE client (
                         KEY k_name  (name)
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC
   PARTITION BY HASH (id) PARTITIONS 32;
-
--- 目录表：全局唯一键，路由到主表分片（32 路）
+-- 建议：name 采用二进制比较避免 collation 干扰
+-- 如需保持 VARCHAR，可加 COLLATE utf8mb4_bin；或改为 VARBINARY(96)
+-- email -> id
 CREATE TABLE uid_email (
-                           email_norm VARBINARY(320) NOT NULL,
-                           id        BIGINT NOT NULL,
-                           shard_id  INT    NOT NULL,
-                           state     TINYINT NOT NULL DEFAULT 1,     -- 0=pending,1=active
-                           updated_at DATETIME(3) NOT NULL,
-                           PRIMARY KEY (email_norm),
-                           KEY k_id (id)
-) ENGINE=InnoDB ROW_FORMAT=DYNAMIC
-  PARTITION BY KEY (email_norm) PARTITIONS 32;
-
-CREATE TABLE uid_phone (
-                           phone_norm VARBINARY(32) NOT NULL,
-                           id        BIGINT NOT NULL,
-                           shard_id  INT    NOT NULL,
-                           state     TINYINT NOT NULL DEFAULT 1,
-                           updated_at DATETIME(3) NOT NULL,
-                           PRIMARY KEY (phone_norm),
-                           KEY k_id (id)
-) ENGINE=InnoDB ROW_FORMAT=DYNAMIC
-  PARTITION BY KEY (phone_norm) PARTITIONS 32;
-
-CREATE TABLE uid_name (
-                          name_norm VARCHAR(64) NOT NULL,
-                          id        BIGINT      NOT NULL,
-                          shard_id  INT         NOT NULL,
-                          updated_at DATETIME(3) NOT NULL,
-                          PRIMARY KEY (name_norm),
-                          KEY k_id (id)
+                           email        VARBINARY(255) NOT NULL,
+                           id           BIGINT         NOT NULL,
+                           state        TINYINT        NOT NULL DEFAULT 1,  -- 0=占位, 1=生效
+                           create_time  DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+                           update_time  DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+                           PRIMARY KEY (email),
+                           KEY idx_state (state),
+                           KEY idx_update_time (update_time)
 ) ENGINE=InnoDB
-  PARTITION BY KEY (name_norm) PARTITIONS 32;
+PARTITION BY KEY(email) PARTITIONS 64;
+
+-- phone -> id
+CREATE TABLE uid_phone (
+                           phone        VARBINARY(32)  NOT NULL,
+                           id           BIGINT         NOT NULL,
+                           state        TINYINT        NOT NULL DEFAULT 1,
+                           create_time  DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+                           update_time  DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+                           PRIMARY KEY (phone),
+                           KEY idx_state (state),
+                           KEY idx_update_time (update_time)
+) ENGINE=InnoDB
+PARTITION BY KEY(phone) PARTITIONS 64;
+
+-- name -> id
+CREATE TABLE uid_name (
+                          name         VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+                          id           BIGINT         NOT NULL,
+                          state        TINYINT        NOT NULL DEFAULT 1,
+                          create_time  DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+                          update_time  DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+                          PRIMARY KEY (name),
+                          KEY idx_state (state),
+                          KEY idx_update_time (update_time)
+) ENGINE=InnoDB
+PARTITION BY KEY(name) PARTITIONS 64;
+

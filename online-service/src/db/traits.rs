@@ -9,7 +9,6 @@ pub trait ClientReadRepo: Clone + Send + Sync + 'static {
     /// 单条读取
     async fn get_by_id(&self, id: i64) -> Result<Option<ClientEntity>>;
 
-    /// 批量读取（跨分片自动聚合；返回已命中的实体，顺序不保证）
     async fn get_by_ids(&self, ids: &[i64]) -> Result<Vec<ClientEntity>>;
 
     /// 存在性检查（等值点查）

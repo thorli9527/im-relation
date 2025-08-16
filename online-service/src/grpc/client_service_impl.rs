@@ -8,9 +8,11 @@ use argon2::{
 };
 use argon2::password_hash::rand_core::OsRng;
 use prost_types::FieldMask;
-use sqlx::{Executor, MySql, Pool, QueryBuilder, Row};
+use sqlx::{MySql, Row, QueryBuilder};
 use tonic::{Request, Response, Status};
-use common::config::MySqlPool;
+
+use common::config::{MySqlPool, get_db};
+
 use crate::db::traits::{ClientReadRepo, DirectoryReadRepo};
 use crate::grpc::client_service::{
     client_entity_service_server::ClientEntityService, ChangeEmailReq, ChangePasswordReq,
@@ -34,6 +36,9 @@ impl IdAllocator for DummyIdAlloc {
     }
 }
 
+/// 可选的“在线触摸”回调：在读取热缓存之前续命
+type OnlineTouch = Arc<dyn Fn(i64) + Send + Sync + 'static>;
+
 pub struct ClientEntityServiceImpl<C, D, N, I>
 where
     C: ClientReadRepo + Send + Sync + 'static,
@@ -43,18 +48,20 @@ where
 {
     // 读全走热层
     hot: ClientHot<C, D, N>,
-    // 直接持有 normalizer，避免从 hot 取私有字段/方法
+    // 直接持有 normalizer（读写一致）
     normalizer: Arc<N>,
 
-    // 写库
-    shard_pools: Arc<[MySqlPool]>,
-    dir_pool: MySqlPool,
+    // 单库连接池（全局）
+    pool: MySqlPool,
 
-    shard_count: usize,
+    // 发号器
     id_alloc: Arc<I>,
 
     // 密码哈希器（argon2id）
     pwd: Argon2<'static>,
+
+    // 可选“取热前触摸续命”
+    online_touch: Option<OnlineTouch>,
 }
 
 impl<C, D, N, I> ClientEntityServiceImpl<C, D, N, I>
@@ -64,33 +71,29 @@ where
     N: Normalizer,
     I: IdAllocator,
 {
+    /// 使用全局连接池 get_db()；可选 online_touch 回调
     pub fn new(
         hot: ClientHot<C, D, N>,
         normalizer: Arc<N>,
-        shard_pools: Vec<Pool<MySql>>,
-        dir_pool: Pool<MySql>,
         id_alloc: I,
+        online_touch: Option<OnlineTouch>,
     ) -> Self {
-        let shard_count = shard_pools.len();
-        assert!(shard_count > 0, "shard_pools cannot be empty");
+        let pool = get_db().as_ref().clone();
         Self {
             hot,
             normalizer,
-            shard_pools: shard_pools.into(),
-            dir_pool,
-            shard_count,
+            pool,
             id_alloc: Arc::new(id_alloc),
             pwd: Argon2::default(),
+            online_touch,
         }
     }
 
     #[inline]
-    fn shard_idx(&self, id: i64) -> usize {
-        (id as u64 % self.shard_count as u64) as usize
-    }
-    #[inline]
-    fn shard_db(&self, id: i64) -> &Pool<MySql> {
-        &self.shard_pools[self.shard_idx(id)]
+    fn touch_online(&self, id: i64) {
+        if let Some(ref f) = self.online_touch {
+            (f)(id);
+        }
     }
 
     // -------- 密码 --------
@@ -111,17 +114,16 @@ where
         Ok(self.pwd.verify_password(raw.as_bytes(), &parsed).is_ok())
     }
 
-    // -------- 目录写帮助（统一 tx.as_mut()） --------
+    // -------- 目录写辅助（无 shard_id；列名为 email/phone/name；时间由默认/ON UPDATE 保持） --------
 
     async fn upsert_uid_email(
         &self,
         tx: &mut sqlx::Transaction<'_, MySql>,
         email_norm: &[u8],
         id: i64,
-        shard_id: i32,
     ) -> Result<(), Status> {
         if let Some(existing) =
-            sqlx::query_scalar::<_, i64>("SELECT id FROM uid_email WHERE email_norm=?")
+            sqlx::query_scalar::<_, i64>("SELECT id FROM uid_email WHERE email=?")
                 .bind(email_norm)
                 .fetch_optional(tx.as_mut())
                 .await
@@ -130,18 +132,16 @@ where
             if existing != id {
                 return Err(Status::already_exists("email already used"));
             }
-            sqlx::query("UPDATE uid_email SET state=1, shard_id=?, updated_at=NOW(3) WHERE email_norm=?")
-                .bind(shard_id)
+            sqlx::query("UPDATE uid_email SET state=1 WHERE email=?")
                 .bind(email_norm)
                 .execute(tx.as_mut())
                 .await
                 .map_err(|e| Status::internal(format!("update uid_email: {e}")))?;
             return Ok(());
         }
-        sqlx::query("INSERT INTO uid_email(email_norm,id,shard_id,state,updated_at) VALUES(?,?,?,1,NOW(3))")
+        sqlx::query("INSERT INTO uid_email(email,id,state) VALUES(?, ?, 1)")
             .bind(email_norm)
             .bind(id)
-            .bind(shard_id)
             .execute(tx.as_mut())
             .await
             .map_err(|e| Status::internal(format!("insert uid_email: {e}")))?;
@@ -153,10 +153,9 @@ where
         tx: &mut sqlx::Transaction<'_, MySql>,
         phone_norm: &[u8],
         id: i64,
-        shard_id: i32,
     ) -> Result<(), Status> {
         if let Some(existing) =
-            sqlx::query_scalar::<_, i64>("SELECT id FROM uid_phone WHERE phone_norm=?")
+            sqlx::query_scalar::<_, i64>("SELECT id FROM uid_phone WHERE phone=?")
                 .bind(phone_norm)
                 .fetch_optional(tx.as_mut())
                 .await
@@ -165,18 +164,16 @@ where
             if existing != id {
                 return Err(Status::already_exists("phone already used"));
             }
-            sqlx::query("UPDATE uid_phone SET state=1, shard_id=?, updated_at=NOW(3) WHERE phone_norm=?")
-                .bind(shard_id)
+            sqlx::query("UPDATE uid_phone SET state=1 WHERE phone=?")
                 .bind(phone_norm)
                 .execute(tx.as_mut())
                 .await
                 .map_err(|e| Status::internal(format!("update uid_phone: {e}")))?;
             return Ok(());
         }
-        sqlx::query("INSERT INTO uid_phone(phone_norm,id,shard_id,state,updated_at) VALUES(?,?,?,1,NOW(3))")
+        sqlx::query("INSERT INTO uid_phone(phone,id,state) VALUES(?, ?, 1)")
             .bind(phone_norm)
             .bind(id)
-            .bind(shard_id)
             .execute(tx.as_mut())
             .await
             .map_err(|e| Status::internal(format!("insert uid_phone: {e}")))?;
@@ -188,10 +185,9 @@ where
         tx: &mut sqlx::Transaction<'_, MySql>,
         name_norm: &str,
         id: i64,
-        shard_id: i32,
     ) -> Result<(), Status> {
         if let Some(existing) =
-            sqlx::query_scalar::<_, i64>("SELECT id FROM uid_name WHERE name_norm=?")
+            sqlx::query_scalar::<_, i64>("SELECT id FROM uid_name WHERE name=?")
                 .bind(name_norm)
                 .fetch_optional(tx.as_mut())
                 .await
@@ -200,18 +196,16 @@ where
             if existing != id {
                 return Err(Status::already_exists("username already used"));
             }
-            sqlx::query("UPDATE uid_name SET shard_id=?, updated_at=NOW(3) WHERE name_norm=?")
-                .bind(shard_id)
+            sqlx::query("UPDATE uid_name SET state=1 WHERE name=?")
                 .bind(name_norm)
                 .execute(tx.as_mut())
                 .await
                 .map_err(|e| Status::internal(format!("update uid_name: {e}")))?;
             return Ok(());
         }
-        sqlx::query("INSERT INTO uid_name(name_norm,id,shard_id,updated_at) VALUES(?,?,?,NOW(3))")
+        sqlx::query("INSERT INTO uid_name(name,id,state) VALUES(?, ?, 1)")
             .bind(name_norm)
             .bind(id)
-            .bind(shard_id)
             .execute(tx.as_mut())
             .await
             .map_err(|e| Status::internal(format!("insert uid_name: {e}")))?;
@@ -223,7 +217,7 @@ where
         tx: &mut sqlx::Transaction<'_, MySql>,
         email_norm: &[u8],
     ) -> Result<(), Status> {
-        sqlx::query("DELETE FROM uid_email WHERE email_norm=?")
+        sqlx::query("DELETE FROM uid_email WHERE email=?")
             .bind(email_norm)
             .execute(tx.as_mut())
             .await
@@ -236,7 +230,7 @@ where
         tx: &mut sqlx::Transaction<'_, MySql>,
         phone_norm: &[u8],
     ) -> Result<(), Status> {
-        sqlx::query("DELETE FROM uid_phone WHERE phone_norm=?")
+        sqlx::query("DELETE FROM uid_phone WHERE phone=?")
             .bind(phone_norm)
             .execute(tx.as_mut())
             .await
@@ -249,7 +243,7 @@ where
         tx: &mut sqlx::Transaction<'_, MySql>,
         name_norm: &str,
     ) -> Result<(), Status> {
-        sqlx::query("DELETE FROM uid_name WHERE name_norm=?")
+        sqlx::query("DELETE FROM uid_name WHERE name=?")
             .bind(name_norm)
             .execute(tx.as_mut())
             .await
@@ -304,37 +298,34 @@ where
             _ => None,
         };
 
-        // 发号与分片
+        // 发号
         let id = self
             .id_alloc
             .next_id()
             .await
             .map_err(|e| Status::internal(format!("alloc id: {e}")))?;
-        let shard_id = self.shard_idx(id) as i32;
         let pwd_hash = self.hash_password(&r.password)?;
 
         // 目录库事务（先写目录，防止重复占用）
         let mut dir_tx = self
-            .dir_pool
+            .pool
             .begin()
             .await
             .map_err(|e| Status::internal(format!("dir begin: {e}")))?;
-        self.upsert_uid_name(&mut dir_tx, name_norm, id, shard_id).await?;
+        self.upsert_uid_name(&mut dir_tx, name_norm, id).await?;
         if let Some(ref en) = email_norm {
-            self.upsert_uid_email(&mut dir_tx, en.as_ref(), id, shard_id)
-                .await?;
+            self.upsert_uid_email(&mut dir_tx, en.as_ref(), id).await?;
         }
         if let Some(ref pn) = phone_norm {
-            self.upsert_uid_phone(&mut dir_tx, pn.as_ref(), id, shard_id)
-                .await?;
+            self.upsert_uid_phone(&mut dir_tx, pn.as_ref(), id).await?;
         }
 
-        // 分片库事务
-        let db = self.shard_db(id);
-        let mut cli_tx = db
+        // client 表事务
+        let mut cli_tx = self
+            .pool
             .begin()
             .await
-            .map_err(|e| Status::internal(format!("shard begin: {e}")))?;
+            .map_err(|e| Status::internal(format!("client begin: {e}")))?;
         sqlx::query(
             r#"
             INSERT INTO client(
@@ -368,13 +359,14 @@ where
         cli_tx
             .commit()
             .await
-            .map_err(|e| Status::internal(format!("shard commit: {e}")))?;
+            .map_err(|e| Status::internal(format!("client commit: {e}")))?;
         dir_tx
             .commit()
             .await
             .map_err(|e| Status::internal(format!("dir commit: {e}")))?;
 
-        // 刷热 & 返回（refresh -> get_by_id）
+        // 刷热 & 返回（refresh -> get_by_id），读前触摸续命
+        self.touch_online(id);
         self.hot
             .refresh_by_id(id)
             .await
@@ -395,7 +387,7 @@ where
 
         let row = sqlx::query("SELECT password_hash FROM client WHERE id=?")
             .bind(r.id)
-            .fetch_optional(self.shard_db(r.id))
+            .fetch_optional(&self.pool)
             .await
             .map_err(|e| Status::internal(format!("load hash: {e}")))?;
         let Some(row) = row else { return Err(Status::not_found("id not found")); };
@@ -411,7 +403,7 @@ where
             }
         }
 
-        // TODO: verify_token 校验（短信/邮箱/2FA）
+        // TODO: verify_token（短信/邮箱/2FA）
         let new_hash = self.hash_password(&r.new_password)?;
         sqlx::query(
             "UPDATE client \
@@ -420,7 +412,7 @@ where
         )
             .bind(new_hash)
             .bind(r.id)
-            .execute(self.shard_db(r.id))
+            .execute(&self.pool)
             .await
             .map_err(|e| Status::internal(format!("update password: {e}")))?;
 
@@ -432,6 +424,9 @@ where
         req: Request<ChangePhoneReq>,
     ) -> Result<Response<ClientEntity>, Status> {
         let r = req.into_inner();
+
+        // 读前触摸续命
+        self.touch_online(r.id);
 
         let cur = self
             .hot
@@ -451,14 +446,12 @@ where
 
         // 目录库
         let mut dir_tx = self
-            .dir_pool
+            .pool
             .begin()
             .await
             .map_err(|e| Status::internal(format!("dir begin: {e}")))?;
-        let shard_id = self.shard_idx(r.id) as i32;
         if let Some(ref pn) = new_phone_norm {
-            self.upsert_uid_phone(&mut dir_tx, pn.as_ref(), r.id, shard_id)
-                .await?;
+            self.upsert_uid_phone(&mut dir_tx, pn.as_ref(), r.id).await?;
         }
         if let Some(op) = old_phone.as_deref() {
             let opn = self
@@ -468,26 +461,20 @@ where
             self.delete_uid_phone(&mut dir_tx, opn.as_ref()).await?;
         }
 
-        // 分片库
-        let db = self.shard_db(r.id);
-        let mut cli_tx = db
+        // client
+        let mut cli_tx = self
+            .pool
             .begin()
             .await
-            .map_err(|e| Status::internal(format!("shard begin: {e}")))?;
+            .map_err(|e| Status::internal(format!("client begin: {e}")))?;
         sqlx::query("UPDATE client SET phone_norm=?, updated_at=NOW(3), version=version+1 WHERE id=?")
             .bind(new_phone_norm.as_ref().map(|b| b.as_ref()))
             .bind(r.id)
             .execute(cli_tx.as_mut())
             .await
             .map_err(|e| Status::internal(format!("update client.phone: {e}")))?;
-        cli_tx
-            .commit()
-            .await
-            .map_err(|e| Status::internal(format!("shard commit: {e}")))?;
-        dir_tx
-            .commit()
-            .await
-            .map_err(|e| Status::internal(format!("dir commit: {e}")))?;
+        cli_tx.commit().await.map_err(|e| Status::internal(format!("client commit: {e}")))?;
+        dir_tx.commit().await.map_err(|e| Status::internal(format!("dir commit: {e}")))?;
 
         self.hot
             .on_change_phone(old_phone.as_deref(), r.new_phone.as_deref(), r.id)
@@ -511,6 +498,9 @@ where
     ) -> Result<Response<ClientEntity>, Status> {
         let r = req.into_inner();
 
+        // 读前触摸续命
+        self.touch_online(r.id);
+
         let cur = self
             .hot
             .get_by_id(r.id)
@@ -529,14 +519,12 @@ where
 
         // 目录库
         let mut dir_tx = self
-            .dir_pool
+            .pool
             .begin()
             .await
             .map_err(|e| Status::internal(format!("dir begin: {e}")))?;
-        let shard_id = self.shard_idx(r.id) as i32;
         if let Some(ref en) = new_email_norm {
-            self.upsert_uid_email(&mut dir_tx, en.as_ref(), r.id, shard_id)
-                .await?;
+            self.upsert_uid_email(&mut dir_tx, en.as_ref(), r.id).await?;
         }
         if let Some(oe) = old_email.as_deref() {
             let oen = self
@@ -546,26 +534,20 @@ where
             self.delete_uid_email(&mut dir_tx, oen.as_ref()).await?;
         }
 
-        // 分片库
-        let db = self.shard_db(r.id);
-        let mut cli_tx = db
+        // client
+        let mut cli_tx = self
+            .pool
             .begin()
             .await
-            .map_err(|e| Status::internal(format!("shard begin: {e}")))?;
+            .map_err(|e| Status::internal(format!("client begin: {e}")))?;
         sqlx::query("UPDATE client SET email_norm=?, updated_at=NOW(3), version=version+1 WHERE id=?")
             .bind(new_email_norm.as_ref().map(|b| b.as_ref()))
             .bind(r.id)
             .execute(cli_tx.as_mut())
             .await
             .map_err(|e| Status::internal(format!("update client.email: {e}")))?;
-        cli_tx
-            .commit()
-            .await
-            .map_err(|e| Status::internal(format!("shard commit: {e}")))?;
-        dir_tx
-            .commit()
-            .await
-            .map_err(|e| Status::internal(format!("dir commit: {e}")))?;
+        cli_tx.commit().await.map_err(|e| Status::internal(format!("client commit: {e}")))?;
+        dir_tx.commit().await.map_err(|e| Status::internal(format!("dir commit: {e}")))?;
 
         self.hot
             .on_change_email(old_email.as_deref(), r.new_email.as_deref(), r.id)
@@ -623,6 +605,9 @@ where
         // 改名：先维护目录（读写一致）
         let mut old_name: Option<String> = None;
         if set_name {
+            // 读前触摸续命
+            self.touch_online(patch.id);
+
             let cur = self
                 .hot
                 .get_by_id(patch.id)
@@ -638,13 +623,11 @@ where
                 .map_err(|e| Status::invalid_argument(format!("name not utf8: {e}")))?;
 
             let mut dir_tx = self
-                .dir_pool
+                .pool
                 .begin()
                 .await
                 .map_err(|e| Status::internal(format!("dir begin: {e}")))?;
-            let shard_id = self.shard_idx(patch.id) as i32;
-            self.upsert_uid_name(&mut dir_tx, new_name_norm, patch.id, shard_id)
-                .await?;
+            self.upsert_uid_name(&mut dir_tx, new_name_norm, patch.id).await?;
             if let Some(ref on) = old_name {
                 if on != &patch.name {
                     let on_b = self
@@ -662,8 +645,7 @@ where
                 .map_err(|e| Status::internal(format!("dir commit: {e}")))?;
         }
 
-        // 分片库：按掩码拼 UPDATE
-        let db = self.shard_db(patch.id);
+        // client：按掩码拼 UPDATE
         let mut qb = QueryBuilder::<MySql>::new("UPDATE client SET ");
         let mut first = true;
 
@@ -705,7 +687,7 @@ where
 
         qb.push(", updated_at=NOW(3), version=version+1 WHERE id=").push_bind(patch.id);
         qb.build()
-            .execute(db)
+            .execute(&self.pool)
             .await
             .map_err(|e| Status::internal(format!("update client: {e}")))?;
 
@@ -734,6 +716,10 @@ where
         req: Request<GetClientReq>,
     ) -> Result<Response<ClientEntity>, Status> {
         let id = req.into_inner().id;
+
+        // 读前触摸续命
+        self.touch_online(id);
+
         let ent = self
             .hot
             .get_by_id(id)

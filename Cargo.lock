@@ -2165,6 +2165,7 @@ dependencies = [
  "common",
  "crossbeam-utils",
  "dashmap",
+ "env_logger",
  "futures",
  "fxhash",
  "hex",
