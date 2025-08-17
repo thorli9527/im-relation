@@ -16,17 +16,15 @@ use crate::db::group::GroupEntity;
 #[derive(Clone)]
 pub struct GroupServiceImpl<S: GroupStorage> {
     facade:  Arc<HotColdFacade<S>>,                         // 成员热层（带写穿）
-    _pool:   MySqlPool,                                     // 如后续还要用，可保留
     profile: Arc<GroupProfileCache<MySqlGroupProfileStore>>, // 群信息 L1 写穿
 }
 
 impl<S: GroupStorage> GroupServiceImpl<S> {
     pub fn new(
         facade: Arc<HotColdFacade<S>>,
-        pool: MySqlPool,
         profile: Arc<GroupProfileCache<MySqlGroupProfileStore>>,
     ) -> Self {
-        Self { facade, _pool: pool, profile }
+        Self { facade, profile }
     }
 
     #[inline]

@@ -1,31 +1,38 @@
+use std::sync::Arc;
 use anyhow::Result;
 use async_trait::async_trait;
 use sqlx::{mysql::MySqlPool, Row, Executor};
+use common::config::get_db;
 use crate::db::group::GroupEntity;
 use super::storage::GroupProfileStorage;
 
 /// 基于 sqlx::MySql 的群资料存储（写穿 + 可选CAS）
 #[derive(Clone)]
 pub struct MySqlGroupProfileStore {
-    pool: MySqlPool,
 }
 
 impl MySqlGroupProfileStore {
-    pub fn new(pool: MySqlPool) -> Self { Self { pool } }
+    #[inline]
+    pub fn new() -> Self {
+        Self {
+        }
+    }
 }
 
 #[async_trait]
 impl GroupProfileStorage for MySqlGroupProfileStore {
     async fn load_group_info(&self, gid: i64) -> Result<Option<GroupEntity>> {
+        let pool = get_db();
         let rec = sqlx::query(
             r#"
             SELECT id, name, avatar, description, notice, join_permission, owner_id, group_type,
                    allow_search, enable, create_time, update_time
-            FROM group_info WHERE id = ?
+              FROM group_info
+             WHERE id = ?
             "#,
         )
             .bind(gid as u64)
-            .fetch_optional(&self.pool)
+            .fetch_optional(&*pool)
             .await?;
 
         Ok(rec.map(|r| GroupEntity {
@@ -49,6 +56,8 @@ impl GroupProfileStorage for MySqlGroupProfileStore {
         e: &GroupEntity,
         expected_update_time: Option<u64>,
     ) -> Result<bool> {
+        let pool = get_db();
+
         match expected_update_time {
             // CAS 更新
             Some(expect) => {
@@ -65,14 +74,14 @@ impl GroupProfileStorage for MySqlGroupProfileStore {
                     .bind(&e.description)
                     .bind(&e.notice)
                     .bind(e.join_permission)
-                    .bind(e.owner_id)
+                    .bind(e.owner_id as u64)
                     .bind(e.group_type)
                     .bind(e.allow_search)
                     .bind(e.enable)
                     .bind(e.update_time)
                     .bind(e.id as u64)
                     .bind(expect)
-                    .execute(&self.pool)
+                    .execute(&*pool)
                     .await?;
                 Ok(res.rows_affected() == 1)
             }
@@ -110,7 +119,7 @@ impl GroupProfileStorage for MySqlGroupProfileStore {
                     .bind(e.enable)
                     .bind(e.create_time)
                     .bind(e.update_time)
-                    .execute(&self.pool)
+                    .execute(&*pool)
                     .await?;
                 Ok(true)
             }
@@ -118,9 +127,10 @@ impl GroupProfileStorage for MySqlGroupProfileStore {
     }
 
     async fn delete_group_info(&self, gid: i64) -> Result<()> {
+        let pool = get_db();
         sqlx::query("DELETE FROM group_info WHERE id=?")
             .bind(gid as u64)
-            .execute(&self.pool)
+            .execute(&*pool)
             .await?;
         Ok(())
     }

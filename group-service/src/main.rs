@@ -11,7 +11,7 @@ use std::time::Duration;
 use tokio::signal;
 use log::{info, warn};
 use sqlx::mysql::MySqlPoolOptions;
-
+use common::config::{get_db, AppConfig};
 use crate::db::hash_shard_map::HashShardMap;
 use crate::grpc::group_service::group_service_server::GroupServiceServer;
 use crate::grpc::group_service_impl::GroupServiceImpl;
@@ -94,7 +94,7 @@ mod hot_capacity {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // 日志（读取 RUST_LOG，默认 info）
-    env_logger::init();
+    let app_cfg = AppConfig::init("./group-config.toml").await;
 
     // ---------- 环境配置 ----------
     let hot_tti_secs: u64 = std::env::var("HOT_TTI_SECS").ok().and_then(|v| v.parse().ok()).unwrap_or(57_600); // 16h
@@ -111,19 +111,16 @@ async fn main() -> anyhow::Result<()> {
     let persist_debounce_ms: u64= parse_env("PERSIST_DEBOUNCE_MS", 200u64);
 
     // 群信息 L1 写穿
-    let profile_l1_cap: u64     = parse_env("PROFILE_L1_CAP", 100_000u64);
+    let profile_l1_cap: u64     = parse_env("PROFILE_L1_CAP", 1_000_000u64);
     let profile_l1_tti_secs: u64= parse_env("PROFILE_L1_TTI_SECS", 600u64);
-
+    let grpc_cfg=app_cfg.grpc.clone().expect("grpc config missing");
     // gRPC 绑定地址
     let addr: SocketAddr = std::env::var("BIND_ADDR")
-        .unwrap_or_else(|_| "0.0.0.0:50051".to_string())
+        .unwrap_or_else(|_| format!("{}:{}",grpc_cfg.host,grpc_cfg.port))
         .parse()
         .expect("invalid BIND_ADDR");
 
     // 数据库（仅供群信息 L1 写穿；成员冷存仍用你现有的 MySqlStore）
-    let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "mysql://user:pass@127.0.0.1:3306/yourdb".to_string());
-    let db_max_conns: u32 = parse_env("DB_POOL_MAX", 16u32);
 
     info!(
         "hot cache decided: cap={}, tti={}s, shard_count={}, per_group_shard={}, {}",
@@ -136,10 +133,7 @@ async fn main() -> anyhow::Result<()> {
     info!("gRPC will listen on {}", addr);
 
     // ---------- 连接池（群信息用） ----------
-    let pool = MySqlPoolOptions::new()
-        .max_connections(db_max_conns)
-        .connect(&database_url)
-        .await?;
+
 
     // ---------- 成员热层 ----------
     // HashShardMap（带分页缓存）
@@ -158,9 +152,8 @@ async fn main() -> anyhow::Result<()> {
         persist_debounce: Duration::from_millis(persist_debounce_ms),
     };
     let facade = Arc::new(HotColdFacade::with_config(map, storage, hot_cfg));
-
     // ---------- 群信息 L1 写穿 ----------
-    let profile_store = MySqlGroupProfileStore::new(pool.clone());
+    let profile_store = MySqlGroupProfileStore::new();
     let profile_cache = Arc::new(GroupProfileCache::new(
         Arc::new(profile_store),
         profile_l1_cap,
@@ -169,7 +162,7 @@ async fn main() -> anyhow::Result<()> {
 
     // ---------- gRPC Server ----------
     // 若你的 GroupServiceImpl 仍旧构造：`{ facade }`，把下一行改为那个版本即可
-    let svc_impl = GroupServiceImpl::new(facade.clone(), pool.clone(), profile_cache.clone());
+    let svc_impl = GroupServiceImpl::new(facade.clone(),  profile_cache.clone());
     let svc = GroupServiceServer::new(svc_impl);
 
     tonic::transport::Server::builder()
