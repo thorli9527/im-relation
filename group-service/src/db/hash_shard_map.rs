@@ -12,7 +12,7 @@ use crate::db::member_list_wrapper::MemberListWrapper;
 use crate::grpc::group_service::{GroupRoleType, MemberRef};
 use common::{GroupId, MemberListError, UserId};
 
-/// 单个分片
+/// 单个分片：gid -> 成员包装器
 #[derive(Debug)]
 struct Shard {
     inner: DashMap<GroupId, Arc<MemberListWrapper>, RandomState>,
@@ -23,37 +23,53 @@ impl Default for Shard {
     }
 }
 
-/// 分片管理的群成员映射
+/// 分片管理的群成员映射（线程安全，读写并发友好）
+/// - shards：按 gid 做 2^n 分片，降低竞争
+/// - user_to_groups：用户 -> 加入的群列表（用于快速反查）
+/// - group_ver：群版本号（每次写后 bump；分页缓存 key 中携带 ver）
+/// - page_cache：分页结果缓存（key = (gid, page, size, ver) -> Arc<[MemberRef]>）
+///   * 命中零拷贝；miss 时仅在插入时分配一次 Arc<[T]>
 #[derive(Debug)]
 pub struct HashShardMap {
     shards: Arc<Vec<Shard>>,
     shard_mask: usize,
     pub per_group_shard: usize,
 
-    /// user_id -> groups
     user_to_groups: DashMap<UserId, SmallVec<[GroupId; 8]>, RandomState>,
 
-    /// 分页缓存（零拷贝命中）：key=(gid,page,size,ver) -> Arc<[MemberRef]>
     page_cache: Cache<(GroupId, usize, usize, u64), Arc<[MemberRef]>>,
 
-    /// 群版本号（写后 bump，使旧页逻辑失效）
     group_ver: DashMap<GroupId, AtomicU64, RandomState>,
+
+    /// 分页大小的下限（避免 0）
+    min_page_size: usize,
+    /// 分页大小的上限（防止超大页造成内存尖刺）
+    max_page_size: usize,
 }
 
 impl HashShardMap {
     /// 构造函数
     /// - `shard_count` 向上取 2 的幂，便于与运算
-    /// - `per_group_shard` 预留字段
-    pub fn new(shard_count: usize, per_group_shard: usize) -> Self {
+    /// - `per_group_shard` 预留（未来可用于超大群的内部再分片）
+    /// - `page_cache_capacity` 以“成员条数”计权（weigher 返回切片长度）
+    /// - `page_cache_tti` 可选，设置分页缓存的 idle 过期
+    pub fn new(
+        shard_count: usize,
+        per_group_shard: usize,
+        page_cache_capacity: u32,
+        page_cache_tti: Option<Duration>,
+    ) -> Self {
         let n = shard_count.max(1).next_power_of_two();
         let shards = (0..n).map(|_| Shard::default()).collect();
 
-        // 分页缓存：按“条数”计权；容量 10 万条成员（可自行调整）。
-        // 如需时间淘汰，可加 .time_to_idle(Duration::from_secs(300))
-        let page_cache: Cache<(GroupId, usize, usize, u64), Arc<[MemberRef]>> =
-            CacheBuilder::new(100_000 /* max_weight */)
-                .weigher(|_k, v: &Arc<[MemberRef]>| v.len() as u32)
-                .build();
+        // 分页缓存：按“条数”计权；容量 = page_cache_capacity 条成员
+        let mut builder: CacheBuilder<(GroupId, usize, usize, u64), Arc<[MemberRef]>, _> =
+            Cache::builder().weigher(|_k, v: &Arc<[MemberRef]>| v.len() as u32);
+        builder = builder.max_capacity(page_cache_capacity as u64);
+        if let Some(tti) = page_cache_tti {
+            builder = builder.time_to_idle(tti);
+        }
+        let page_cache = builder.build();
 
         Self {
             shards: Arc::new(shards),
@@ -62,6 +78,8 @@ impl HashShardMap {
             user_to_groups: DashMap::with_hasher(RandomState::new()),
             page_cache,
             group_ver: DashMap::with_hasher(RandomState::new()),
+            min_page_size: 1,
+            max_page_size: 10_000, // 可按需调大/动态配置
         }
     }
 
@@ -82,7 +100,9 @@ impl HashShardMap {
     #[inline]
     fn get_or_create_wrapper(&self, gid: GroupId) -> Arc<MemberListWrapper> {
         let shard = &self.shards[self.shard_idx(gid)];
-        if let Some(w) = shard.inner.get(&gid) { return w.clone(); }
+        if let Some(w) = shard.inner.get(&gid) {
+            return w.clone();
+        }
         shard.inner.entry(gid).or_insert_with(|| Arc::new(MemberListWrapper::new_simple())).clone()
     }
 
@@ -95,6 +115,8 @@ impl HashShardMap {
     fn bump_ver(&self, gid: GroupId) {
         let e = self.group_ver.entry(gid).or_insert_with(|| AtomicU64::new(0));
         e.fetch_add(1, Ordering::Relaxed);
+        // 主动使该 gid 的旧页失效，释放缓存压力
+        self.invalidate_gid_pages(gid);
     }
 
     #[inline]
@@ -102,23 +124,51 @@ impl HashShardMap {
         self.group_ver.get(&gid).map(|v| v.load(Ordering::Relaxed)).unwrap_or(0)
     }
 
+    /// 主动剔除某个 gid 的所有旧分页（减少过期页堆积）
+    fn invalidate_gid_pages(&self, gid: GroupId) {
+        // key: &(GroupId, usize, usize, u64), value: &Arc<[MemberRef]>
+        self.page_cache
+            .invalidate_entries_if(move |&(k_gid, _, _, _), _| k_gid == gid);
+    }
+
+    /// 维护反向索引（添加）
+    #[inline]
+    fn index_add(&self, uid: UserId, gid: GroupId) {
+        let mut entry = self.user_to_groups.entry(uid).or_insert_with(SmallVec::new);
+        Self::push_group_unique(&mut entry, gid);
+    }
+
+    /// 维护反向索引（删除）
+    #[inline]
+    fn index_remove(&self, uid: UserId, gid: GroupId) {
+        if let Some(mut v) = self.user_to_groups.get_mut(&uid) {
+            if let Some(pos) = v.iter().position(|&g| g == gid) { v.remove(pos); }
+            if v.is_empty() { drop(v); self.user_to_groups.remove(&uid); }
+        }
+    }
+
+    /// 规范化页大小
+    #[inline]
+    fn clamp_page_size(&self, size: usize) -> usize {
+        size.clamp(self.min_page_size, self.max_page_size)
+    }
+
     // ---------------- 写路径 ----------------
 
     pub fn insert(&self, gid: GroupId, member: MemberRef) -> Result<(), MemberListError> {
         let wrapper = self.get_or_create_wrapper(gid);
         wrapper.add(member.clone())?;
-        let mut entry = self.user_to_groups.entry(member.id).or_insert_with(SmallVec::new);
-        Self::push_group_unique(&mut entry, gid);
+        self.index_add(member.id, gid);
         self.bump_ver(gid);
         Ok(())
     }
 
     pub fn insert_many(&self, gid: GroupId, members: Vec<MemberRef>) -> Result<(), MemberListError> {
+        if members.is_empty() { return Ok(()); }
         let wrapper = self.get_or_create_wrapper(gid);
         wrapper.add_many_slice(&members)?;
         for m in members {
-            let mut v = self.user_to_groups.entry(m.id).or_insert_with(SmallVec::new);
-            Self::push_group_unique(&mut v, gid);
+            self.index_add(m.id, gid);
         }
         self.bump_ver(gid);
         Ok(())
@@ -129,10 +179,7 @@ impl HashShardMap {
         if let Some(wrapper) = shard.inner.get(&gid) {
             let removed = wrapper.remove(uid)?;
             if removed {
-                if let Some(mut v) = self.user_to_groups.get_mut(&uid) {
-                    if let Some(pos) = v.iter().position(|&g| g == gid) { v.remove(pos); }
-                    if v.is_empty() { drop(v); self.user_to_groups.remove(&uid); }
-                }
+                self.index_remove(uid, gid);
                 self.bump_ver(gid);
             }
             Ok(removed)
@@ -150,7 +197,7 @@ impl HashShardMap {
         Ok(())
     }
 
-    /// 新增：修改/清空别名
+    /// 修改/清空别名
     pub fn change_alias(&self, gid: GroupId, uid: UserId, alias: Option<String>) -> Result<(), MemberListError> {
         let shard = &self.shards[self.shard_idx(gid)];
         if let Some(wrapper) = shard.inner.get(&gid) {
@@ -165,10 +212,7 @@ impl HashShardMap {
         let shard = &self.shards[self.shard_idx(gid)];
         if let Some(wrapper) = shard.inner.get(&gid) {
             for m in wrapper.get_all() {
-                if let Some(mut v) = self.user_to_groups.get_mut(&m.id) {
-                    if let Some(pos) = v.iter().position(|&g| g == gid) { v.remove(pos); }
-                    if v.is_empty() { drop(v); self.user_to_groups.remove(&m.id); }
-                }
+                self.index_remove(m.id, gid);
             }
         }
         shard.inner.remove(&gid);
@@ -177,15 +221,14 @@ impl HashShardMap {
 
     // ---------------- 读路径 ----------------
 
-    /// 快路径：零拷贝命中缓存，返回 Arc<[MemberRef]>
-    /// 调用者若需要 Vec 再 `to_vec()`，但建议尽量在内部用切片引用以减少拷贝。
+    /// 零拷贝命中缓存，返回 Arc<[MemberRef]>；miss 时构建并缓存
     pub fn get_page_arc(
         &self,
         gid: GroupId,
         page: usize,
         page_size: usize,
     ) -> Option<Arc<[MemberRef]>> {
-        if page_size == 0 { return Some(Arc::from([])); }
+        let page_size = self.clamp_page_size(page_size);
 
         let ver = self.current_ver(gid);
         let key = (gid, page, page_size, ver);
@@ -194,14 +237,10 @@ impl HashShardMap {
             return Some(cached.clone()); // O(1) 引用计数，零拷贝
         }
 
-        // miss：计算一页
         let shard = &self.shards[self.shard_idx(gid)];
         let computed = shard.inner.get(&gid).map(|w| w.get_page(page, page_size));
-
         if let Some(v) = computed {
-            // 仅在 miss 时做一次分配，缓存为切片 Arc
             let arc_slice: Arc<[MemberRef]> = Arc::from(v);
-            // 注意：weigher 以 len 计权；这里不会重复复制
             self.page_cache.insert(key, arc_slice.clone());
             Some(arc_slice)
         } else {
@@ -209,9 +248,15 @@ impl HashShardMap {
         }
     }
 
-    /// 兼容旧接口：返回 Vec<MemberRef>（会从缓存的 Arc<[T]> 克隆元素）
+    /// 兼容旧接口：返回 Vec<MemberRef>
     pub fn get_page(&self, gid: GroupId, page: usize, page_size: usize) -> Option<Vec<MemberRef>> {
         self.get_page_arc(gid, page, page_size).map(|arc_slice| arc_slice.deref().to_vec())
+    }
+
+    /// 返回全量成员（零拷贝切片）
+    pub fn get_all_arc(&self, gid: GroupId) -> Option<Arc<[MemberRef]>> {
+        let shard = &self.shards[self.shard_idx(gid)];
+        shard.inner.get(&gid).map(|w| Arc::from(w.get_all()))
     }
 
     /// 某用户的所有群组
@@ -239,7 +284,7 @@ impl HashShardMap {
         v
     }
 
-    /// 某群全部成员（快照）
+    /// 某群全部成员（Vec 快照）
     pub fn get_member_by_key(&self, gid: GroupId) -> Vec<MemberRef> {
         self.shards[self.shard_idx(gid)]
             .inner
@@ -259,13 +304,9 @@ impl HashShardMap {
 
     // ---------------- 可选：运行时调优 ----------------
 
-    /// （可选）设置分页缓存 TTI，便于回收冷页
-    pub fn set_page_cache_tti(&self, seconds: u64) {
-        // moka 的 builder 才能设 TTI；这里给个示例可在 new(...) 里直接设：
-        // self.page_cache = CacheBuilder::new(...)
-        //    .weigher(...)
-        //    .time_to_idle(Duration::from_secs(seconds))
-        //    .build();
-        let _ = seconds; // 提示：如需切换 TTI，请在构造时设定
+    /// 调整分页大小阈值（避免异常参数）
+    pub fn set_page_size_bounds(&mut self, min_size: usize, max_size: usize) {
+        self.min_page_size = min_size.max(1);
+        self.max_page_size = max_size.max(self.min_page_size);
     }
 }

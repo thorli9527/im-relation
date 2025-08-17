@@ -50,9 +50,6 @@ pub struct RegisterUserReq {
     /// 明文（仅入参，服务端立刻哈希）
     #[prost(string, tag = "2")]
     pub password: ::prost::alloc::string::String,
-    /// 必填
-    #[prost(int64, tag = "3")]
-    pub uid: i64,
     #[prost(string, optional, tag = "4")]
     pub email: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag = "5")]

@@ -2,17 +2,22 @@ mod db;
 mod grpc;
 mod store;
 mod hot_cold;
+mod profile;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use tokio::signal;
 use log::{info, warn};
+use sqlx::mysql::MySqlPoolOptions;
+
 use crate::db::hash_shard_map::HashShardMap;
 use crate::grpc::group_service::group_service_server::GroupServiceServer;
 use crate::grpc::group_service_impl::GroupServiceImpl;
-use crate::hot_cold::HotColdFacade;
-use crate::store::mysql::MySqlStore;
+use crate::hot_cold::{HotColdConfig, HotColdFacade};
+use crate::store::mysql::MySqlStore; // 成员冷存（你已有）
+use crate::profile::{MySqlGroupProfileStore, GroupProfileCache}; // 群信息 L1 写穿
 
 mod hot_capacity {
     use std::env;
@@ -33,7 +38,7 @@ mod hot_capacity {
     pub fn auto_hot_groups_capacity(
         model: HotMemModel,
         hard_cap_max: u64,
-        hard_cap_min: u64
+        hard_cap_min: u64,
     ) -> (u64, String) {
         if let Ok(v) = std::env::var("HOT_GROUPS") {
             if let Ok(n) = v.parse::<u64>() {
@@ -88,49 +93,99 @@ mod hot_capacity {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // 初始化日志（默认读取 RUST_LOG）
+    // 日志（读取 RUST_LOG，默认 info）
     env_logger::init();
 
-    let hot_tti_secs: u64 = std::env::var("HOT_TTI_SECS")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(57_600); // 16 小时
-
+    // ---------- 环境配置 ----------
+    let hot_tti_secs: u64 = std::env::var("HOT_TTI_SECS").ok().and_then(|v| v.parse().ok()).unwrap_or(57_600); // 16h
     let (hot_capacity, debug_line) = hot_capacity::calc_hot_capacity_from_mem();
 
-    let shard_count: usize = std::env::var("SHARD_COUNT").ok().and_then(|v| v.parse().ok()).unwrap_or(1024);
-    let per_group_shard: usize = std::env::var("PER_GROUP_SHARD").ok().and_then(|v| v.parse().ok()).unwrap_or(1);
+    let shard_count: usize      = parse_env("SHARD_COUNT", 1024usize);
+    let per_group_shard: usize  = parse_env("PER_GROUP_SHARD", 1usize);
 
-    info!(
-        "hot cache capacity decided: hot_capacity={}, hot_tti_secs={}, shard_count={}, per_group_shard={}, {}",
-        hot_capacity, hot_tti_secs, shard_count, per_group_shard, debug_line
-    );
+    // HashShardMap 分页缓存
+    let page_cache_cap: u32     = parse_env("PAGE_CACHE_CAP", 100_000u32);
+    let page_cache_tti_secs: u64= parse_env("PAGE_CACHE_TTI_SECS", 300u64);
 
-    let map = Arc::new(HashShardMap::new(shard_count, per_group_shard));
-    let storage = Arc::new(MySqlStore::new());
-    let facade = Arc::new(HotColdFacade::new(map, storage, hot_capacity, hot_tti_secs));
+    // HotColdFacade 去抖
+    let persist_debounce_ms: u64= parse_env("PERSIST_DEBOUNCE_MS", 200u64);
 
-    let svc = GroupServiceImpl { facade: facade.clone() };
+    // 群信息 L1 写穿
+    let profile_l1_cap: u64     = parse_env("PROFILE_L1_CAP", 100_000u64);
+    let profile_l1_tti_secs: u64= parse_env("PROFILE_L1_TTI_SECS", 600u64);
+
+    // gRPC 绑定地址
     let addr: SocketAddr = std::env::var("BIND_ADDR")
         .unwrap_or_else(|_| "0.0.0.0:50051".to_string())
         .parse()
         .expect("invalid BIND_ADDR");
 
-    info!("starting gRPC server on {}", addr);
+    // 数据库（仅供群信息 L1 写穿；成员冷存仍用你现有的 MySqlStore）
+    let database_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "mysql://user:pass@127.0.0.1:3306/yourdb".to_string());
+    let db_max_conns: u32 = parse_env("DB_POOL_MAX", 16u32);
+
+    info!(
+        "hot cache decided: cap={}, tti={}s, shard_count={}, per_group_shard={}, {}",
+        hot_capacity, hot_tti_secs, shard_count, per_group_shard, debug_line
+    );
+    info!(
+        "page_cache: cap={}, tti={}s; debounce={}ms; profile_l1: cap={}, tti={}s",
+        page_cache_cap, page_cache_tti_secs, persist_debounce_ms, profile_l1_cap, profile_l1_tti_secs
+    );
+    info!("gRPC will listen on {}", addr);
+
+    // ---------- 连接池（群信息用） ----------
+    let pool = MySqlPoolOptions::new()
+        .max_connections(db_max_conns)
+        .connect(&database_url)
+        .await?;
+
+    // ---------- 成员热层 ----------
+    // HashShardMap（带分页缓存）
+    let map = Arc::new(HashShardMap::new(
+        shard_count,
+        per_group_shard,
+        page_cache_cap,
+        Some(Duration::from_secs(page_cache_tti_secs)),
+    ));
+    // 成员冷存：沿用你现有的实现
+    let storage = Arc::new(MySqlStore::new());
+    // 热/冷门面（带去抖/单飞/逐出持久化）
+    let hot_cfg = HotColdConfig {
+        hot_capacity,
+        hot_tti: Duration::from_secs(hot_tti_secs),
+        persist_debounce: Duration::from_millis(persist_debounce_ms),
+    };
+    let facade = Arc::new(HotColdFacade::with_config(map, storage, hot_cfg));
+
+    // ---------- 群信息 L1 写穿 ----------
+    let profile_store = MySqlGroupProfileStore::new(pool.clone());
+    let profile_cache = Arc::new(GroupProfileCache::new(
+        Arc::new(profile_store),
+        profile_l1_cap,
+        profile_l1_tti_secs,
+    ));
+
+    // ---------- gRPC Server ----------
+    // 若你的 GroupServiceImpl 仍旧构造：`{ facade }`，把下一行改为那个版本即可
+    let svc_impl = GroupServiceImpl::new(facade.clone(), pool.clone(), profile_cache.clone());
+    let svc = GroupServiceServer::new(svc_impl);
 
     tonic::transport::Server::builder()
-        .add_service(GroupServiceServer::new(svc))
+        .add_service(svc)
         .serve_with_shutdown(addr, async {
             let _ = signal::ctrl_c().await;
-            warn!("shutting down...");
+            warn!("shutting down... flushing hot groups");
+            facade.flush_all().await;
+            warn!("flush done. bye");
         })
         .await?;
 
     Ok(())
 }
 
-// 如果你项目里没有 parse_env，这里给一个兜底实现
-#[allow(dead_code)]
+// 兜底环境读取
 fn parse_env<T: std::str::FromStr>(key: &str, default: T) -> T {
     std::env::var(key).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
 }

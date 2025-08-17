@@ -315,6 +315,39 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0674a1ddeecb70197781e945de4b3b8ffb61fa939a5597bcf48503737663100"
 
 [[package]]
+name = "arb-service"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "ahash",
+ "anyhow",
+ "async-trait",
+ "common",
+ "dashmap",
+ "fxhash",
+ "log",
+ "moka",
+ "num_cpus",
+ "once_cell",
+ "parking_lot",
+ "prost 0.13.5",
+ "prost-build 0.14.1",
+ "prost-types 0.13.5",
+ "protobuf-src",
+ "roaring",
+ "serde",
+ "serde_json",
+ "smallvec",
+ "sqlx",
+ "sysinfo",
+ "thiserror 2.0.14",
+ "tokio",
+ "tonic",
+ "tonic-build",
+ "utoipa",
+]
+
+[[package]]
 name = "argon2"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

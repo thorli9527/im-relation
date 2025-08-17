@@ -1,6 +1,6 @@
 
 [workspace]
-members = ["common", "online-service", "group-service", "friend-service"]
+members = ["common", "online-service", "group-service", "friend-service", "arb-service"]
 resolver = "2"
 [workspace.dependencies]
 # ========================

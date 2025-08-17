@@ -2,7 +2,7 @@ pub mod config;
 mod errors;
 pub mod util;
 
-use serde::{ Deserialize};
+use serde::Deserialize;
 
 pub type UserId = i64;
 pub type GroupId = i64;
@@ -17,14 +17,17 @@ pub enum RelationError {
 }
 
 
-
 use thiserror::Error;
+use crate::MemberListError::{AlreadyExists, GroupNotFound, InvalidGroupId, InvalidUserId, NotFound, TooManyMembers};
 
-/// 群成员管理相关错误
+/// 统一结果别名
+pub type MResult<T> = Result<T, MemberListError>;
+
+/// 群成员管理相关错误（非穷尽，后续可扩展）
+#[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum MemberListError {
     // ===== 参数类 =====
-
     /// 无效的用户 ID（负数、零等非法值）
     #[error("invalid user id")]
     InvalidUserId,
@@ -33,12 +36,11 @@ pub enum MemberListError {
     #[error("invalid group id")]
     InvalidGroupId,
 
-    /// 参数不合法（通用版，附带原因）
+    /// 参数不合法（通用）
     #[error("invalid argument: {0}")]
     InvalidArgument(String),
 
     // ===== 状态类 =====
-
     /// 指定成员不存在
     #[error("member not found")]
     NotFound,
@@ -47,16 +49,15 @@ pub enum MemberListError {
     #[error("group not found")]
     GroupNotFound,
 
-    /// 不满足业务前置条件（如不能修改群主角色、越权等）
-    #[error("precondition failed: {0}")]
+    /// 业务前置条件不满足（如不能修改群主角色等）
+    #[error("failed precondition: {0}")]
     PreconditionFailed(String),
 
-    /// 操作不被允许（权限不足）
+    /// 权限不足
     #[error("permission denied: {0}")]
     PermissionDenied(String),
 
     // ===== 冲突类 =====
-
     /// 成员已存在（重复插入）
     #[error("member already exists")]
     AlreadyExists,
@@ -66,7 +67,6 @@ pub enum MemberListError {
     TooManyMembers,
 
     // ===== 系统类 =====
-
     /// 数据库错误
     #[error("database error: {0}")]
     DatabaseError(String),
@@ -75,7 +75,68 @@ pub enum MemberListError {
     #[error("serialization error: {0}")]
     SerializationError(String),
 
+    /// 内部错误（不对外细化原因）
+    #[error("internal error: {0}")]
+    Internal(String),
+
     /// 其它未分类错误
     #[error("internal error: {0}")]
     Other(String),
 }
+
+impl MemberListError {
+    #[inline]
+    pub fn db<E: std::fmt::Display>(e: E) -> Self {
+        MemberListError::DatabaseError(e.to_string())
+    }
+    #[inline]
+    pub fn ser<E: std::fmt::Display>(e: E) -> Self {
+        MemberListError::SerializationError(e.to_string())
+    }
+    #[inline]
+    pub fn internal<E: std::fmt::Display>(e: E) -> Self {
+        MemberListError::Internal(e.to_string())
+    }
+}
+
+// ---- 常见错误类型到 MemberListError 的转换 ----
+
+impl From<sqlx::Error> for MemberListError {
+    fn from(e: sqlx::Error) -> Self {
+        MemberListError::DatabaseError(e.to_string())
+    }
+}
+
+impl From<serde_json::Error> for MemberListError {
+    fn from(e: serde_json::Error) -> Self {
+        MemberListError::SerializationError(e.to_string())
+    }
+}
+
+impl From<anyhow::Error> for MemberListError {
+    fn from(e: anyhow::Error) -> Self {
+        MemberListError::Other(e.to_string())
+    }
+}
+
+// ---- gRPC 映射（tonic::Status）便捷转换 ----
+
+impl From<MemberListError> for tonic::Status {
+    fn from(err: MemberListError) -> Self {
+        use MemberListError::*;
+        match err {
+            InvalidUserId | InvalidGroupId | InvalidArgument(_) => {
+                tonic::Status::invalid_argument(err.to_string())
+            }
+            NotFound | GroupNotFound => tonic::Status::not_found(err.to_string()),
+            PreconditionFailed(_) => tonic::Status::failed_precondition(err.to_string()),
+            PermissionDenied(_) => tonic::Status::permission_denied(err.to_string()),
+            AlreadyExists => tonic::Status::already_exists(err.to_string()),
+            TooManyMembers => tonic::Status::resource_exhausted(err.to_string()),
+            DatabaseError(_) | SerializationError(_) | Internal(_) | Other(_) => {
+                tonic::Status::internal(err.to_string())
+            }
+        }
+    }
+}
+

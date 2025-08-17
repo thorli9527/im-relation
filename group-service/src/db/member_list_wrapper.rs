@@ -5,16 +5,12 @@ use std::collections::HashMap;
 use common::{MemberListError, UserId};
 use crate::grpc::group_service::{GroupRoleType, MemberRef};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MemberListWrapper {
     members: RwLock<RB64>,
     owners:  RwLock<RB64>,
     admins:  RwLock<RB64>,
-    aliases: RwLock<HashMap<u64, String>>, // 新增：别名表（按需可换成 DashMap/Sharded）
-}
-
-impl Default for MemberListWrapper {
-    fn default() -> Self { Self::new_simple() }
+    aliases: RwLock<HashMap<u64, String>>, // 别名（可按需换成分片化结构）
 }
 
 impl MemberListWrapper {
@@ -29,6 +25,9 @@ impl MemberListWrapper {
 
     #[inline]
     fn to_u64(id: UserId) -> Result<u64, MemberListError> {
+        if id <= 0 {
+            return Err(MemberListError::InvalidUserId);
+        }
         Ok(id as u64)
     }
 
@@ -37,7 +36,8 @@ impl MemberListWrapper {
 
     #[inline]
     fn role_from_i32(v: i32) -> GroupRoleType {
-        GroupRoleType::try_from(v).unwrap_or(GroupRoleType::Member)
+        // prost 生成的一般是 from_i32；兼容 try_from 的场景
+        GroupRoleType::from_i32(v).unwrap_or(GroupRoleType::Member)
     }
 
     #[inline]
@@ -45,6 +45,21 @@ impl MemberListWrapper {
         if owners.contains(uid) { GroupRoleType::Owner }
         else if admins.contains(uid) { GroupRoleType::Admin }
         else { GroupRoleType::Member }
+    }
+
+    #[inline]
+    fn owner_count_locked(owners: &RB64) -> usize {
+        owners.len() as usize
+    }
+
+    /// 在拿到写锁的前提下，原子地设置 uid 的角色位（只允许单一角色）
+    #[inline]
+    fn set_role_bits(owners: &mut RB64, admins: &mut RB64, uid: u64, role: GroupRoleType) {
+        match role {
+            GroupRoleType::Owner => { owners.insert(uid); admins.remove(uid); }
+            GroupRoleType::Admin => { admins.insert(uid); owners.remove(uid); }
+            _ => { owners.remove(uid); admins.remove(uid); }
+        }
     }
 
     /// 新增成员（含别名、角色）
@@ -58,11 +73,7 @@ impl MemberListWrapper {
         let mut al = self.aliases.write();
 
         m.insert(uid);
-        match Self::role_from_i32(member.role) {
-            GroupRoleType::Owner => { o.insert(uid); a.remove(uid); }
-            GroupRoleType::Admin => { a.insert(uid); o.remove(uid); }
-            _ => { o.remove(uid); a.remove(uid); }
-        }
+        Self::set_role_bits(&mut o, &mut a, uid, Self::role_from_i32(member.role));
 
         match member.alias {
             Some(alias) if !alias.is_empty() => { al.insert(uid, alias); }
@@ -72,7 +83,7 @@ impl MemberListWrapper {
         Ok(())
     }
 
-    /// 批量新增（slice），原子性由调用方保证；内部尽量减少锁竞争
+    /// 批量新增（slice），尽量减少锁竞争
     pub fn add_many_slice(&self, list: &[MemberRef]) -> Result<(), MemberListError> {
         let mut m = self.members.write();
         let mut o = self.owners.write();
@@ -82,12 +93,7 @@ impl MemberListWrapper {
         for member in list {
             let uid = Self::to_u64(member.id)?;
             m.insert(uid);
-            match Self::role_from_i32(member.role) {
-                GroupRoleType::Owner => { o.insert(uid); a.remove(uid); }
-                GroupRoleType::Admin => { a.insert(uid); o.remove(uid); }
-                _ => { o.remove(uid); a.remove(uid); }
-            }
-
+            Self::set_role_bits(&mut o, &mut a, uid, Self::role_from_i32(member.role));
             match &member.alias {
                 Some(alias) if !alias.is_empty() => { al.insert(uid, alias.clone()); }
                 _ => { al.remove(&uid); }
@@ -100,9 +106,20 @@ impl MemberListWrapper {
         self.add_many_slice(&list)
     }
 
-    /// 删除成员（包含角色与别名清理）
+    /// 删除成员（包含角色与别名清理）；保护“最后一个 Owner”
     pub fn remove(&self, user_id: UserId) -> Result<bool, MemberListError> {
         let uid = Self::to_u64(user_id)?;
+
+        // 先读 owners 判断“最后一个群主”约束
+        {
+            let o = self.owners.read();
+            if o.contains(uid) && Self::owner_count_locked(&o) == 1 {
+                return Err(MemberListError::PreconditionFailed(
+                    "cannot remove the last owner".into(),
+                ));
+            }
+        }
+
         let mut m = self.members.write();
         if m.remove(uid) {
             let mut o = self.owners.write();
@@ -117,25 +134,36 @@ impl MemberListWrapper {
         }
     }
 
-    /// 修改成员角色（若成员不存在，会将其加入 members 集）
+    /// 修改成员角色（若成员不存在，会将其加入 members 集）；
+    /// 保护“最后一个 Owner”不被降级。
     pub fn change_role(&self, user_id: UserId, role: GroupRoleType) -> Result<(), MemberListError> {
         let uid = Self::to_u64(user_id)?;
+
+        // 如果是从 Owner 降级，需要检查是否为最后一个 Owner
+        if !matches!(role, GroupRoleType::Owner) {
+            let o = self.owners.read();
+            if o.contains(uid) && Self::owner_count_locked(&o) == 1 {
+                return Err(MemberListError::PreconditionFailed(
+                    "cannot demote the last owner".into(),
+                ));
+            }
+        }
+
         let mut m = self.members.write();
         let mut o = self.owners.write();
         let mut a = self.admins.write();
 
-        m.insert(uid);
-        match role {
-            GroupRoleType::Owner => { o.insert(uid); a.remove(uid); }
-            GroupRoleType::Admin => { a.insert(uid); o.remove(uid); }
-            _ => { o.remove(uid); a.remove(uid); }
-        }
+        m.insert(uid); // 保持与原实现一致：若不存在，先加入成员集
+        Self::set_role_bits(&mut o, &mut a, uid, role);
         Ok(())
     }
 
-    /// 修改/清空别名（None 或 空字符串 => 清空）
+    /// 修改/清空别名（None 或 空字符串 => 清空）；仅允许群内成员
     pub fn change_alias<S: AsRef<str>>(&self, user_id: UserId, alias: Option<S>) -> Result<(), MemberListError> {
         let uid = Self::to_u64(user_id)?;
+        if !self.members.read().contains(uid) {
+            return Err(MemberListError::NotFound);
+        }
         let mut al = self.aliases.write();
         match alias {
             Some(s) if !s.as_ref().is_empty() => { al.insert(uid, s.as_ref().to_string()); }
@@ -149,6 +177,26 @@ impl MemberListWrapper {
     pub fn get_alias(&self, user_id: UserId) -> Result<Option<String>, MemberListError> {
         let uid = Self::to_u64(user_id)?;
         Ok(self.aliases.read().get(&uid).cloned())
+    }
+
+    /// 获取某成员角色（无则返回 Member）
+    #[inline]
+    pub fn get_role(&self, user_id: UserId) -> Result<GroupRoleType, MemberListError> {
+        let uid = Self::to_u64(user_id)?;
+        let o = self.owners.read();
+        let a = self.admins.read();
+        Ok(Self::role_of(&o, &a, uid))
+    }
+
+    #[inline]
+    pub fn is_owner(&self, user_id: UserId) -> Result<bool, MemberListError> {
+        let uid = Self::to_u64(user_id)?;
+        Ok(self.owners.read().contains(uid))
+    }
+
+    #[inline]
+    pub fn owner_count(&self) -> usize {
+        self.owners.read().len() as usize
     }
 
     #[inline]

@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package arb_server;
+
+enum SyncDataType {
+  SOCKET_ADD = 0;
+  SOCKET_DEL = 1;
+}
+message BytesBlob {
+  bytes data = 1;
+  SyncDataType type = 2;
+}
+/**
+ * 通用响应
+ */
+message CommonResp {
+  bool success = 1;  // 是否成功
+  string message = 2;// 提示或错误信息
+}
+
+enum NodeType {
+  GROUP_NODE = 0;       // 群组管理节点（用于群聊逻辑、分片等）
+  SOCKET_NODE = 1;      // Socket 接入节点（处理底层连接与会话）
+  SOCKET_GATEWAY = 2;   // Socket 网关（前端连接入口，兼具连接管理和鉴权）
+  ONLINE_NODE = 3;      // 在线状态节点（处理用户在线状态逻辑）
+  MSG_GATEWAY = 4;      // 消息中转网关（统一转发消息的逻辑中心）
+  MES_GROUP = 5;        // 群组消息处理节点（专注处理群消息逻辑）
+  MSG_FRIEND = 6;       // 好友消息处理节点（专注处理单聊/好友消息）
+}
+
+
+// =====================
+// 通用结构体定义
+// =====================
+// 基础请求，仅包含节点地址
+message BaseRequest {
+  string node_addr = 1;   // 节点地址（如 192.168.1.10:9000）
+  NodeType node_type = 2; // 节点类型
+}
+
+
+// =====================
+// 通用结构体定义
+// =====================
+// 基础请求，仅包含节点地址
+message RegisterRequest {
+  string node_addr = 1;   // 节点地址（如 192.168.1.10:9000）
+  NodeType node_type = 2; // 节点类型
+  optional string kafka_addr = 3;  // Kafka 地址（可选，用于消息队列）
+}
+
+// =====================
+// 通用结构体定义
+// =====================
+// 基础请求，仅包含节点地址
+message QueryNodeReq {
+  NodeType node_type = 1; // 节点类型
+}
+
+// ============================
+// 分片节点元信息
+// ============================
+message NodeInfo {
+  string node_addr = 1;             // 所属节点地址
+  uint64 last_update_time = 4;      // 最后更新时间戳（毫秒）
+  NodeType node_type = 7;           // 节点类型
+  optional string kafka_addr = 8;   // Kafka 地址（可选，用于消息传递）
+}
+message NodeInfoList {
+  repeated NodeInfo nodes = 1;
+}
+// ============================
+// 仲裁服务接口定义
+// ============================
+service ArbServerRpcService {
+  // === 分片状态更新 ===
+  rpc UpdateShardState(BaseRequest) returns (CommonResp);
+  // === 节点注册与生命周期 ===
+  rpc RegisterNode(RegisterRequest) returns (CommonResp);
+  /// 节点注册
+  rpc ListAllNodes(QueryNodeReq) returns (NodeInfoList);
+  /// === 节点状态与控制-节点优雅退出 ===
+  rpc GracefulLeave(NodeInfo) returns (CommonResp);
+  /// 节点心跳检测
+  rpc heartbeat(BaseRequest) returns (CommonResp);
+}
+
+// ============================
+// 仲裁客户端接口定义
+// ============================
+service ArbClientRpcService {
+  //同步数据
+  rpc syncData(BytesBlob) returns (CommonResp);
+}

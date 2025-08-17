@@ -11,6 +11,24 @@ enum GroupRoleType {
   Admin  = 1; // 管理员
   Member = 2; // 普通成员
 }
+/**
+ * 加群权限控制类型
+ */
+enum JoinPermission {
+  ANYONE = 0;        // 任何人可加入
+  NEED_APPROVAL = 1; // 加群需审批
+  INVITE_ONLY = 2;   // 仅允许邀请加入
+  CLOSED = 3;        // 不允许加入
+}
+/**
+ * 群组类型
+ */
+enum GroupType {
+  UNKNOWN_GROUP_TYPE = 0; // 未知
+  NORMAL_GROUP = 1;       // 普通群组
+  SUPER_GROUP = 2;        // 超级群组
+  SYSTEM_GROUP = 3;       // 系统群组
+}
 
 // 群成员引用信息
 message MemberRef {
@@ -119,32 +137,79 @@ message ClearReq {
   int64 group_id = 1; // 群组ID
 }
 message ClearResp {}
+/**
+ * 通用响应
+ */
+message CommonResp {
+  bool success = 1;  // 是否成功
+  string message = 2;// 提示或错误信息
+}
 
+/**
+ * ID 请求
+ */
+message IdReq {
+  int64 ref_id = 1; // 引用ID（用户ID、群ID等）
+}
+
+/**
+ * 创建群组请求
+ * 用于创建一个新群组，由 creator_uid 发起。
+ */
+message CreateGroupReq {
+  int64 id = 1;           // 消息唯一 ID（用于日志追踪、幂等等）
+  int64 creator_uid = 2;          // 创建者的用户 ID，自动成为群主
+  string name = 3;                 // 群名称
+  repeated int64 members = 4;     // 初始群成员 UID 列表（不包含自己）
+  optional string avatar = 5;      // 群头像（可选）
+  optional string intro = 6;       // 群简介（可选）
+}
+
+/**
+ * 修改群资料请求
+ * 包括名称、头像、简介的更新，操作者需要有权限（如群主、管理员）。
+ */
+message UpdateGroupProfileReq {
+  int64 operator_uid = 2;         // 操作者 UID（必须具备权限）
+  int64 group_id = 3;             // 目标群 ID
+  optional string name = 4;        // 新的群名称（可选）
+  optional string avatar = 5;      // 新头像（可选）
+  optional string intro = 6;       // 新简介（可选）
+}
+/**
+ * 解散群请求
+ * 仅群主可调用该接口，执行后群组彻底删除。
+ */
+message DismissGroupReq {
+  int64 id = 1;
+  int64 owner_uid = 2;           // 群主 UID
+  int64 group_id = 3;
+}
 // ---------------------- 服务定义 ----------------------
 
 // 群组服务接口定义：提供群成员增删改查、跨群查询、分片管理等能力
 service GroupService {
+  // 查询群组信息
+  // 创建群组（发起方自动成为群主）
+  rpc CreateGroup(CreateGroupReq) returns (CommonResp);
+  // 修改群资料（头像、名称、简介）
+  rpc UpdateGroupProfile(UpdateGroupProfileReq) returns (CommonResp);
+  // 解散群组（仅群主）
+  rpc DismissGroup(DismissGroupReq) returns (CommonResp);
   // 添加单个成员
   rpc Insert(InsertReq) returns (InsertResp);
-
   // 批量添加成员
   rpc InsertMany(InsertManyReq) returns (InsertManyResp);
-
   // 移除成员
   rpc Remove(RemoveReq) returns (RemoveResp);
-
   // 修改成员角色
   rpc ChangeRole(ChangeRoleReq) returns (ChangeRoleResp);
-
   // 修改成员别名（新增）
   rpc ChangeAlias(ChangeAliasReq) returns (ChangeAliasResp);
-
   // 分页获取群成员
   rpc GetPage(GetPageReq) returns (GetPageResp);
-
   // 获取群全部成员
   rpc GetAll(GetAllReq) returns (GetAllResp);
-
   // 获取群成员数量
   rpc Count(CountReq) returns (CountResp);
 

@@ -1,59 +1,111 @@
+//! hot_cold.rs
+//! ------------------------------------------------------------------
+//! 热/冷一体：成员热层 + 冷存持久化的门面。
+//! - ensure_hot：L1 热标记 + 单飞从冷存加载（仅成员集）
+//! - 写路径：insert/insert_many/remove/change_role/change_alias -> 去抖合并落库
+//! - 热度逐出：仅在持久化成功后清空内存（失败保留，下次再尝试）
+//!
+//! 依赖：HashShardMap(成员容器)、GroupStorage(冷存接口)、env_logger + log 宏
+
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Result;
+use dashmap::{DashMap, DashSet};
+use log::{debug, error, info};
 use moka::sync::{Cache, CacheBuilder};
-use tokio::runtime::Handle;
+use tokio::{runtime::Handle, time::sleep};
 
 use common::{GroupId, MemberListError, UserId};
 use crate::db::hash_shard_map::HashShardMap;
 use crate::grpc::group_service::{GroupRoleType, MemberRef};
 use crate::store::GroupStorage;
 
-// 可选：用 dashmap 做持久化中的去重
-use dashmap::DashSet;
+/// 运行参数
+#[derive(Clone, Debug)]
+pub struct HotColdConfig {
+    pub hot_capacity: u64,         // 热点标记最大条数
+    pub hot_tti: Duration,         // 热点标记 TTI
+    pub persist_debounce: Duration // 写入去抖时间窗
+}
 
+impl Default for HotColdConfig {
+    fn default() -> Self {
+        Self {
+            hot_capacity: 50_000,
+            hot_tti: Duration::from_secs(600),
+            persist_debounce: Duration::from_millis(200),
+        }
+    }
+}
+
+/// 热/冷门面
+#[derive(Clone)]
 pub struct HotColdFacade<S: GroupStorage> {
     map: Arc<HashShardMap>,
     storage: Arc<S>,
-    /// 仅作为“热点标记”，不存数据；key 存在表示该群在热点期
+
+    /// 热点群标记（仅 key，无值）
     hot: Cache<GroupId, ()>,
-    /// 去重当前进行中的持久化，避免同一 gid 并发多次 save_group
+
+    /// 同一 gid 在途持久化去重
     pending_persist: DashSet<GroupId>,
+
+    /// 单飞：同一 gid 并发只加载一次
+    loading: DashMap<GroupId, Arc<tokio::sync::Mutex<()>>>,
+
+    /// 写入去抖时间窗
+    persist_debounce: Duration,
+
+    /// 运行时句柄（用于在 listener 中 spawn）
     rt: Handle,
 }
 
 impl<S: GroupStorage> HotColdFacade<S> {
-    pub fn new(
-        map: Arc<HashShardMap>,
-        storage: Arc<S>,
-        hot_capacity: u64,
-        hot_tti_secs: u64,
-    ) -> Self {
+    /// 旧签名：快速构造（保留兼容）
+    pub fn new(map: Arc<HashShardMap>, storage: Arc<S>, hot_capacity: u64, hot_tti_secs: u64) -> Self {
+        Self::with_config(
+            map,
+            storage,
+            HotColdConfig {
+                hot_capacity,
+                hot_tti: Duration::from_secs(hot_tti_secs),
+                ..Default::default()
+            },
+        )
+    }
+
+    /// 推荐：使用配置构造
+    pub fn with_config(map: Arc<HashShardMap>, storage: Arc<S>, cfg: HotColdConfig) -> Self {
         let rt = Handle::current();
         let rt_for_listener = rt.clone();
 
-        // 构建 hot cache：仅记录“热点 group_id”，不缓存实际成员
-        let builder: CacheBuilder<GroupId, (), _> = Cache::builder()
-            .max_capacity(hot_capacity)
-            .time_to_idle(Duration::from_secs(hot_tti_secs));
+        // 热点标记，仅 key
+        let hot_builder: CacheBuilder<GroupId, (), _> = Cache::builder()
+            .max_capacity(cfg.hot_capacity)
+            .time_to_idle(cfg.hot_tti);
 
-        // 逐出监听：被动写回 + 内存清理
-        let hot = builder
+        // 逐出监听：持久化成功 -> 清本地；失败 -> 保留待下次
+        let hot = hot_builder
             .eviction_listener({
                 let map = map.clone();
                 let storage = storage.clone();
-                move |gid, _unit, _cause| {
+                move |gid, _unit, cause| {
                     let map = map.clone();
                     let storage = storage.clone();
-                    // 注意：moka 的 listener 可能不在 runtime 线程上，使用 Handle::spawn
+                    let gid = *gid;
                     rt_for_listener.spawn(async move {
-                        let gid = *gid;
-                        // 抓取当前快照并保存到存储；保存成功再清空本地
-                        // 即使失败，也不 panic；下次激活会再次尝试
+                        debug!("hot-evict gid={gid}, cause={:?}", cause);
                         let members = map.get_member_by_key(gid);
-                        let _ = storage.save_group(gid, &members).await;
-                        map.clear(gid);
+                        match storage.save_group(gid, &members).await {
+                            Ok(_) => {
+                                map.clear(gid);
+                                debug!("hot-evict persisted & cleared gid={gid}");
+                            }
+                            Err(e) => {
+                                error!("hot-evict persist failed gid={gid}: {e}");
+                            }
+                        }
                     });
                 }
             })
@@ -64,64 +116,121 @@ impl<S: GroupStorage> HotColdFacade<S> {
             storage,
             hot,
             pending_persist: DashSet::new(),
+            loading: DashMap::new(),
+            persist_debounce: cfg.persist_debounce,
             rt,
         }
     }
 
-    /// 确保 group 处于“热点”状态：
-    /// - 若 hot 中已有标记，直接返回（避免重复从 DB 加载，尤其是空群）
-    /// - 若无标记，则尝试从 DB 加载（load_group 内部已做游标分页，避免一次性大结果）
+    /// 标记热点（刷新 TTI）
+    pub fn touch(&self, gid: GroupId) {
+        self.hot.insert(gid, ());
+    }
+
+    /// 是否热点
+    pub fn is_hot(&self, gid: GroupId) -> bool {
+        self.hot.contains_key(&gid)
+    }
+
+    /// 预热一批群（忽略错误，尽力加载）
+    pub async fn warmup(&self, gids: &[GroupId]) {
+        for &gid in gids {
+            let _ = self.ensure_hot(gid).await;
+        }
+    }
+
+    /// 确保群处于“热点”状态（单飞冷加载）
     pub async fn ensure_hot(&self, gid: GroupId) -> Result<()> {
         if self.hot.contains_key(&gid) {
             return Ok(());
         }
-        if !self.map.contains_group(gid) {
-            if let Ok(Some(members)) = self.storage.load_group(gid).await {
-                // DB 中有记录才回填到内存
+        if self.map.contains_group(gid) {
+            self.hot.insert(gid, ());
+            return Ok(());
+        }
+
+        // 单飞锁
+        let lock = self
+            .loading
+            .entry(gid)
+            .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
+            .clone();
+        let _g = lock.lock().await;
+
+        // 二次检查
+        if self.hot.contains_key(&gid) || self.map.contains_group(gid) {
+            self.hot.insert(gid, ());
+            return Ok(());
+        }
+
+        // 冷加载（建议 storage 内部游标/分页）
+        match self.storage.load_group(gid).await {
+            Ok(Some(members)) => {
+                let n = members.len();
                 let _ = self.map.insert_many(gid, members);
+                self.hot.insert(gid, ());
+                info!("ensure_hot loaded gid={gid}, members={n}");
+            }
+            Ok(None) => {
+                // 空群也标记，避免重复 IO
+                self.hot.insert(gid, ());
+                debug!("ensure_hot empty gid={gid}");
+            }
+            Err(e) => {
+                error!("ensure_hot load failed gid={gid}: {e}");
+                return Err(e);
             }
         }
-        // 标记热点，无论是否加载到成员（空群也标记，避免重复 IO）
-        self.hot.insert(gid, ());
+
+        // 可选移除锁项
+        self.loading.remove(&gid);
         Ok(())
     }
 
-    /// 去重并发持久化任务：同一 gid 同时只跑一个 save_group
+    /// 去抖持久化：同一 gid 合并窗口内的多次写为一次
     fn persist_async(&self, gid: GroupId) {
         if !self.pending_persist.insert(gid) {
-            // 已经有在途任务，跳过本次
+            // 已有在途任务，本次合并
             return;
         }
         let storage = self.storage.clone();
         let map = self.map.clone();
         let pending = self.pending_persist.clone();
+        let delay = self.persist_debounce;
 
         self.rt.spawn(async move {
-            let members = map.get_member_by_key(gid);
-            // 尽量保存，不因错误中断后续
-            let _ = storage.save_group(gid, &members).await;
+            sleep(delay).await;
+            let snapshot = map.get_member_by_key(gid);
+            match storage.save_group(gid, &snapshot).await {
+                Ok(_) => debug!("persist ok gid={gid}, members={}", snapshot.len()),
+                Err(e) => error!("persist failed gid={gid}: {e}"),
+            }
             pending.remove(&gid);
         });
     }
 
-    // ------------------- 写路径 -------------------
+    // ========================= 写路径 =========================
 
-    pub async fn insert(&self, gid: GroupId, m: MemberRef) -> Result<(), MemberListError> {
-        let _ = self.ensure_hot(gid).await;
+    pub async fn insert(&self, gid: GroupId, m: MemberRef) -> std::result::Result<(), MemberListError> {
+        let _ = self.ensure_hot(gid).await.map_err(|e| MemberListError::Internal(e.to_string()))?;
         self.map.insert(gid, m)?;
         self.persist_async(gid);
         Ok(())
     }
 
-    pub async fn insert_many(&self, gid: GroupId, members: Vec<MemberRef>) -> Result<(), MemberListError> {
-        let _ = self.ensure_hot(gid).await;
+    pub async fn insert_many(
+        &self,
+        gid: GroupId,
+        members: Vec<MemberRef>,
+    ) -> std::result::Result<(), MemberListError> {
+        let _ = self.ensure_hot(gid).await.map_err(|e| MemberListError::Internal(e.to_string()))?;
         self.map.insert_many(gid, members)?;
         self.persist_async(gid);
         Ok(())
     }
 
-    pub async fn remove(&self, gid: GroupId, uid: UserId) -> Result<bool, MemberListError> {
-        let _ = self.ensure_hot(gid).await;
+    pub async fn remove(&self, gid: GroupId, uid: UserId) -> std::result::Result<bool, MemberListError> {
+        let _ = self.ensure_hot(gid).await.map_err(|e| MemberListError::Internal(e.to_string()))?;
         let removed = self.map.remove(gid, uid)?;
         if removed {
             self.persist_async(gid);
@@ -134,46 +243,53 @@ impl<S: GroupStorage> HotColdFacade<S> {
         gid: GroupId,
         uid: UserId,
         role: GroupRoleType,
-    ) -> Result<(), MemberListError> {
-        let _ = self.ensure_hot(gid).await;
+    ) -> std::result::Result<(), MemberListError> {
+        let _ = self.ensure_hot(gid).await.map_err(|e| MemberListError::Internal(e.to_string()))?;
         self.map.change_role(gid, uid, role)?;
         self.persist_async(gid);
         Ok(())
     }
 
-    /// 新增：修改/清空别名（与 proto: ChangeAliasReq 对齐）
+    /// 修改/清空别名
     pub async fn change_alias(
         &self,
         gid: GroupId,
         uid: UserId,
         alias: Option<String>,
-    ) -> Result<(), MemberListError> {
-        let _ = self.ensure_hot(gid).await;
-        // 你在 member_list_wrapper 里实现了 change_alias(user_id, Option<_>)
+    ) -> std::result::Result<(), MemberListError> {
+        let _ = self.ensure_hot(gid).await.map_err(|e| MemberListError::Internal(e.to_string()))?;
         self.map.change_alias(gid, uid, alias)?;
         self.persist_async(gid);
         Ok(())
     }
 
+    /// 解散群：清热并异步清冷
     pub async fn clear(&self, gid: GroupId) {
         let _ = self.ensure_hot(gid).await;
         self.map.clear(gid);
-        // 直接删存储，避免写回空集再 upsert 计数
+
         let storage = self.storage.clone();
         self.rt.spawn(async move {
-            let _ = storage.delete_group(gid).await;
+            if let Err(e) = storage.delete_group(gid).await {
+                error!("delete_group failed gid={gid}: {e}");
+            } else {
+                info!("delete_group ok gid={gid}");
+            }
         });
+
+        // 失效热点标记（避免再次触发逐出）
+        self.hot.invalidate(&gid);
     }
 
-    // ------------------- 读路径 -------------------
+    // ========================= 读路径 =========================
 
-    /// 分页读取（内存分页，RB 有序迭代；冷群会先 ensure_hot）
+    /// 分页读取（内存分页；冷群先 ensure_hot）
     pub async fn get_page(&self, gid: GroupId, page: usize, size: usize) -> Vec<MemberRef> {
         let _ = self.ensure_hot(gid).await;
         self.map.get_page(gid, page, size).unwrap_or_default()
     }
 
-    /// 读取全部（内存快照；DB 侧加载已是游标分页；超大群慎用）
+    /// 全量读取（快照；大群慎用）
     pub async fn get_all(&self, gid: GroupId) -> Vec<MemberRef> {
         let _ = self.ensure_hot(gid).await;
         self.map.get_member_by_key(gid)
@@ -184,28 +300,35 @@ impl<S: GroupStorage> HotColdFacade<S> {
         self.map.get_member_count_by_key(gid)
     }
 
-    /// 用户加入的群列表（优先内存；无则从 DB 带回）
+    /// 用户加入的群列表（优先内存，miss 冷读）
     pub async fn user_groups(&self, uid: UserId) -> Vec<i64> {
         let v = self.map.user_group_list(uid);
         if v.is_empty() {
-            if let Ok(Some(v2)) = self.storage.load_user_groups(uid).await {
-                return v2;
+            match self.storage.load_user_groups(uid).await {
+                Ok(Some(v2)) => return v2,
+                Ok(None) => {}
+                Err(e) => error!("load_user_groups failed uid={uid}: {e}"),
             }
         }
         v
     }
 
-    // ------------------- 管理/查询 -------------------
+    // ========================= 管理 =========================
 
-    pub fn all_keys(&self) -> Vec<GroupId> {
-        self.map.all_keys()
-    }
+    pub fn all_keys(&self) -> Vec<GroupId> { self.map.all_keys() }
+    pub fn all_keys_by_shard(&self, idx: usize) -> Vec<GroupId> { self.map.all_keys_by_shard(idx) }
+    pub fn shard_count(&self) -> usize { self.map.shard_count() }
 
-    pub fn all_keys_by_shard(&self, idx: usize) -> Vec<GroupId> {
-        self.map.all_keys_by_shard(idx)
-    }
-
-    pub fn shard_count(&self) -> usize {
-        self.map.shard_count()
+    /// 立即刷盘所有热点群（优雅停机）
+    pub async fn flush_all(&self) {
+        let keys = self.all_keys();
+        info!("flush_all start, groups={}", keys.len());
+        for gid in keys {
+            let members = self.map.get_member_by_key(gid);
+            if let Err(e) = self.storage.save_group(gid, &members).await {
+                error!("flush_all save failed gid={gid}: {e}");
+            }
+        }
+        info!("flush_all done");
     }
 }

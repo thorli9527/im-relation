@@ -56,7 +56,6 @@ message ClientEntity {
 message RegisterUserReq {
   string name = 1;                          // 必填
   string password = 2;                      // 明文（仅入参，服务端立刻哈希）
-  int64 uid = 3;                            // 必填
   optional string email = 4;
   optional string phone = 5;
   optional string language = 6;
