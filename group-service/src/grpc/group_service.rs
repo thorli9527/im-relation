@@ -308,6 +308,50 @@ pub struct DismissGroupReq {
     #[prost(int64, tag = "3")]
     pub group_id: i64,
 }
+#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GroupInfo {
+    /// 群ID
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+    /// 群名称
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+    /// 群头像
+    #[prost(string, tag = "3")]
+    pub avatar: ::prost::alloc::string::String,
+    /// 群简介
+    #[prost(string, tag = "4")]
+    pub description: ::prost::alloc::string::String,
+    /// 群公告
+    #[prost(string, tag = "5")]
+    pub notice: ::prost::alloc::string::String,
+    /// 加群权限
+    #[prost(enumeration = "JoinPermission", tag = "6")]
+    pub join_permission: i32,
+    /// 群主ID
+    #[prost(int64, tag = "7")]
+    pub owner_id: i64,
+    /// 群类型
+    #[prost(enumeration = "GroupType", tag = "8")]
+    pub group_type: i32,
+    /// 是否可搜索
+    #[prost(bool, tag = "9")]
+    pub allow_search: bool,
+    /// 是否启用
+    #[prost(bool, tag = "10")]
+    pub enable: bool,
+    /// 创建时间
+    #[prost(uint64, tag = "11")]
+    pub create_time: u64,
+    /// 更新时间
+    #[prost(uint64, tag = "12")]
+    pub update_time: u64,
+    /// 群成员数量
+    #[prost(uint32, tag = "13")]
+    pub member_cnt: u32,
+}
 /// 群成员角色类型（与数据库/内存中的角色编码对齐）
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -560,6 +604,27 @@ pub mod group_service_client {
                 .insert(
                     GrpcMethod::new("group_service.GroupService", "UpdateGroupProfile"),
                 );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_group(
+            &mut self,
+            request: impl tonic::IntoRequest<super::IdReq>,
+        ) -> std::result::Result<tonic::Response<super::GroupInfo>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/group_service.GroupService/GetGroup",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("group_service.GroupService", "GetGroup"));
             self.inner.unary(req, path, codec).await
         }
         /// 解散群组（仅群主）
@@ -880,6 +945,10 @@ pub mod group_service_server {
             &self,
             request: tonic::Request<super::UpdateGroupProfileReq>,
         ) -> std::result::Result<tonic::Response<super::CommonResp>, tonic::Status>;
+        async fn get_group(
+            &self,
+            request: tonic::Request<super::IdReq>,
+        ) -> std::result::Result<tonic::Response<super::GroupInfo>, tonic::Status>;
         /// 解散群组（仅群主）
         async fn dismiss_group(
             &self,
@@ -1102,6 +1171,49 @@ pub mod group_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = UpdateGroupProfileSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/group_service.GroupService/GetGroup" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetGroupSvc<T: GroupService>(pub Arc<T>);
+                    impl<T: GroupService> tonic::server::UnaryService<super::IdReq>
+                    for GetGroupSvc<T> {
+                        type Response = super::GroupInfo;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::IdReq>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as GroupService>::get_group(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetGroupSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

@@ -5,23 +5,7 @@ use log::{info, warn};
 use sqlx::mysql::MySqlPool;
 use tonic::{Request, Response, Status};
 
-use crate::grpc::group_service::{
-    group_service_server::GroupService as GrpcGroupService,
-    // 请求/响应与模型
-    CommonResp, CreateGroupReq, UpdateGroupProfileReq, DismissGroupReq,
-    InsertReq, InsertResp, InsertManyReq, InsertManyResp,
-    RemoveReq, RemoveResp,
-    ChangeRoleReq, ChangeRoleResp,
-    ChangeAliasReq, ChangeAliasResp,
-    GetPageReq, GetPageResp,
-    GetAllReq, GetAllResp,
-    CountReq, CountResp,
-    UserGroupsReq, UserGroupsResp,
-    AllKeysReq, AllKeysResp,
-    AllKeysByShardReq, AllKeysByShardResp,
-    ClearReq, ClearResp,
-    GroupRoleType, MemberRef,
-};
+use crate::grpc::group_service::{group_service_server::GroupService as GrpcGroupService, CommonResp, CreateGroupReq, UpdateGroupProfileReq, DismissGroupReq, InsertReq, InsertResp, InsertManyReq, InsertManyResp, RemoveReq, RemoveResp, ChangeRoleReq, ChangeRoleResp, ChangeAliasReq, ChangeAliasResp, GetPageReq, GetPageResp, GetAllReq, GetAllResp, CountReq, CountResp, UserGroupsReq, UserGroupsResp, AllKeysReq, AllKeysResp, AllKeysByShardReq, AllKeysByShardResp, ClearReq, ClearResp, GroupRoleType, MemberRef, IdReq, GroupInfo};
 use crate::hot_cold::HotColdFacade;
 use crate::profile::{GroupProfileCache, MySqlGroupProfileStore};
 use crate::store::GroupStorage; // 你的冷存储抽象
@@ -196,6 +180,48 @@ where
             .map_err(|_| Status::failed_precondition("conflict, please retry"))?;
 
         Ok(Response::new(CommonResp { success: true, message: String::new() }))
+    }
+
+    async fn get_group(
+        &self,
+        request: Request<IdReq>,
+    ) -> Result<Response<GroupInfo>, Status> {
+        let req = request.into_inner();
+        let gid = req.ref_id;
+
+        // 1) 先从 L1/L2 取群资料（L1 miss 时 L2 加载）
+        let profile = match self
+            .profile
+            .get_or_load(gid)
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?
+        {
+            Some(p) => p,              // 通常是 Arc<GroupEntity>
+            None => return Err(Status::not_found("group not found")),
+        };
+
+        // 2) 成员数从热层拿（若为冷群会自动 ensure_hot）
+        let member_cnt = self.facade.count(gid).await as u32;
+
+        // 3) 组装返回（字段名按你的 GroupInfo 定义调整）
+        let gi = GroupInfo {
+            id:            profile.id,
+            name:          profile.name.clone(),
+            avatar:        profile.avatar.clone(),
+            description:   profile.description.clone(),
+            notice:        profile.notice.clone(),
+            join_permission: profile.join_permission,
+            owner_id:      profile.owner_id,
+            group_type:    profile.group_type,
+            allow_search:  profile.allow_search,
+            enable:        profile.enable,
+            create_time:   profile.create_time,
+            update_time:   profile.update_time,
+            member_cnt, // 如果你的 GroupInfo 没这个字段，请删掉
+        };
+
+        log::info!("get_group ok: gid={}", gid);
+        Ok(Response::new(gi))
     }
 
     async fn dismiss_group(

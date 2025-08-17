@@ -185,6 +185,23 @@ message DismissGroupReq {
   int64 owner_uid = 2;           // 群主 UID
   int64 group_id = 3;
 }
+
+
+message GroupInfo {
+  int64 id = 1;                 // 群ID
+  string name = 2;               // 群名称
+  string avatar = 3;             // 群头像
+  string description = 4;        // 群简介
+  string notice = 5;             // 群公告
+  JoinPermission join_permission = 6; // 加群权限
+  int64 owner_id = 7;           // 群主ID
+  GroupType group_type = 8;      // 群类型
+  bool allow_search = 9;         // 是否可搜索
+  bool enable = 10;              // 是否启用
+  uint64 create_time = 11;       // 创建时间
+  uint64 update_time = 12;       // 更新时间
+  uint32 member_cnt=13;           // 群成员数量
+}
 // ---------------------- 服务定义 ----------------------
 
 // 群组服务接口定义：提供群成员增删改查、跨群查询、分片管理等能力
@@ -194,6 +211,7 @@ service GroupService {
   rpc CreateGroup(CreateGroupReq) returns (CommonResp);
   // 修改群资料（头像、名称、简介）
   rpc UpdateGroupProfile(UpdateGroupProfileReq) returns (CommonResp);
+  rpc GetGroup(IdReq) returns (GroupInfo);
   // 解散群组（仅群主）
   rpc DismissGroup(DismissGroupReq) returns (CommonResp);
   // 添加单个成员
