@@ -1,4 +1,4 @@
-mod db;
+mod member;
 mod grpc;
 mod store;
 mod hot_cold;
@@ -12,7 +12,7 @@ use tokio::signal;
 use log::{info, warn};
 use sqlx::mysql::MySqlPoolOptions;
 use common::config::{get_db, AppConfig};
-use crate::db::hash_shard_map::HashShardMap;
+use crate::member::shard_map::HashShardMap;
 use crate::grpc::group_service::group_service_server::GroupServiceServer;
 use crate::grpc::group_service_impl::GroupServiceImpl;
 use crate::hot_cold::{HotColdConfig, HotColdFacade};

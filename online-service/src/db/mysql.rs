@@ -1,4 +1,4 @@
-// online-service/src/db/mysql.rs
+// online-service/src/member/mysql.rs
 //
 // 目标：
 // - 与 proto 对齐：ClientEntity 的时间为 i64（秒），version 为 i32

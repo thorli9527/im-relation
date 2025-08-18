@@ -3,7 +3,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use sqlx::{mysql::MySqlPool, Row, Executor};
 use common::config::get_db;
-use crate::db::group::GroupEntity;
+use crate::profile::model::GroupEntity;
 use super::storage::GroupProfileStorage;
 
 /// 基于 sqlx::MySql 的群资料存储（写穿 + 可选CAS）

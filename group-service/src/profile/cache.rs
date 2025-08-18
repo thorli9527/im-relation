@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 use dashmap::DashMap;
 use log::{debug};
 use moka::sync::Cache;
-use crate::db::group::GroupEntity;
+use crate::profile::model::GroupEntity;
 use super::GroupProfileStorage;
 
 /// 本地 L1 缓存（写穿）+ 单飞加载；逐出时不主动写回（避免丢写风险）

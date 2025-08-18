@@ -11,7 +11,7 @@ use crate::profile::{GroupProfileCache, MySqlGroupProfileStore};
 use crate::store::GroupStorage; // 你的冷存储抽象
 
 use common::MemberListError;
-use crate::db::group::GroupEntity;
+use crate::profile::model::GroupEntity;
 
 #[derive(Clone)]
 pub struct GroupServiceImpl<S: GroupStorage> {

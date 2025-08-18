@@ -175,7 +175,7 @@ impl GroupStorage for MySqlStore {
             .bind(gid as u64)
             .fetch_all(&mut *tx)
             .await
-            .with_context(|| format!("save_group(diff): fetch db members failed, group_id={}", gid))?;
+            .with_context(|| format!("save_group(diff): fetch member members failed, group_id={}", gid))?;
 
         // DB -> HashMap<uid, (alias, role)>
         let mut db_map: HashMap<i64, (Option<String>, i32)> = HashMap::with_capacity(db_rows.len());
@@ -184,7 +184,7 @@ impl GroupStorage for MySqlStore {
             let alias_db: Option<String> = r.try_get("alias")?;
             let role_i64: i64 = r.try_get("role")?;
             let role_i32 = i32::try_from(role_i64)
-                .with_context(|| format!("save_group(diff): db role overflow, v={}", role_i64))?;
+                .with_context(|| format!("save_group(diff): member role overflow, v={}", role_i64))?;
             db_map.insert(uid_u64 as i64, (alias_db, role_i32));
         }
 

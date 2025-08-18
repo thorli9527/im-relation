@@ -17,7 +17,7 @@ use moka::sync::{Cache, CacheBuilder};
 use tokio::{runtime::Handle, time::sleep};
 
 use common::{GroupId, MemberListError, UserId};
-use crate::db::hash_shard_map::HashShardMap;
+use crate::member::shard_map::HashShardMap;
 use crate::grpc::group_service::{GroupRoleType, MemberRef};
 use crate::store::GroupStorage;
 

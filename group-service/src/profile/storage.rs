@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use crate::db::group::GroupEntity;
+use crate::profile::model::GroupEntity;
 
 /// 群资料冷存接口（方案A：L1写穿）
 #[async_trait]
