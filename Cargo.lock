@@ -315,6 +315,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0674a1ddeecb70197781e945de4b3b8ffb61fa939a5597bcf48503737663100"
 
 [[package]]
+name = "app_api"
+version = "0.1.0"
+
+[[package]]
+name = "app_socket"
+version = "0.1.0"
+
+[[package]]
 name = "arb-service"
 version = "0.1.0"
 dependencies = [
@@ -2034,6 +2042,14 @@ dependencies = [
  "thiserror 1.0.69",
  "uuid",
 ]
+
+[[package]]
+name = "msg_friend"
+version = "0.1.0"
+
+[[package]]
+name = "msg_gateway"
+version = "0.1.0"
 
 [[package]]
 name = "multimap"

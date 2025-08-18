@@ -2,8 +2,6 @@ pub mod config;
 mod errors;
 pub mod util;
 
-use serde::Deserialize;
-
 pub type UserId = i64;
 pub type GroupId = i64;
 #[derive(thiserror::Error, Debug)]
@@ -17,8 +15,8 @@ pub enum RelationError {
 }
 
 
-use thiserror::Error;
 use crate::MemberListError::{AlreadyExists, GroupNotFound, InvalidGroupId, InvalidUserId, NotFound, TooManyMembers};
+use thiserror::Error;
 
 /// 统一结果别名
 pub type MResult<T> = Result<T, MemberListError>;
