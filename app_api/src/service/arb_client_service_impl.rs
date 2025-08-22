@@ -7,7 +7,13 @@ use async_trait::async_trait;
 use tonic::{Request, Response, Status};
 
 pub struct ArbClientServiceImpl {
-    client: ArbServerRpcServiceClient<tonic::transport::Channel>,
+}
+
+impl ArbClientServiceImpl {
+    pub fn new() -> Self {
+        Self {
+        }
+    }
 }
 #[async_trait]
 impl ArbClientRpcService for ArbClientServiceImpl {
