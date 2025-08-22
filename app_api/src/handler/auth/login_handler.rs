@@ -1,26 +1,26 @@
 use actix_web::{post, web, web::ServiceConfig, HttpResponse, Responder};
+use deadpool_redis::redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use common::config::AppConfig;
 use common::errors::AppError;
-use common::result::result;
+use common::redis::redis_pool::RedisPoolTools;
+use common::result::{result, result_data, ApiResponse};
+use common::util::common_utils::{build_md5_with_key, build_uuid};
 use crate::grpc::auth::DeviceType;
-use crate::grpc::client_service::FindByContentReq;
+use crate::grpc::client_service::{ClientEntity, FindByContentReq};
 use crate::service::client_rpc_service_impl::ClientRpcServiceImpl;
-use crate::service::user_service::UserRegType;
+use crate::service::user_service::{UserLogType, UserRegType};
 
 pub fn configure(cfg: &mut ServiceConfig) {
     cfg.service(auth_login);
 }
 
-#[derive(Deserialize, Serialize, ToSchema, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct LoginReq {
-    #[schema(example = "phone")]
-    login_type: UserRegType,
-    #[schema(example = "123456")]
+    login_type: UserLogType,
     password: String,
-    #[schema(example = "+8613888888888")]
     target: String,
-    #[schema(example = "Android")]
     device_type: DeviceType,
 }
 
@@ -33,48 +33,59 @@ pub struct LoginResp {
 /// 用户登录
 ///
 /// 用户可以使用手机号、邮箱、用户名等方式登录
-#[utoipa::path(
-    post,
-    path = "/auth/login",
-    request_body = LoginReq,
-    responses(
-        (status = 200, description = "登录成功", body = LoginResp),
-        (status = 401, description = "登录失败，用户名或密码错误"),
-        (status = 500, description = "服务器错误"),
-    ),
-    tag = "auth"
-)]
 #[post("/auth/login")]
 pub async fn auth_login(dto: web::Json<LoginReq>) -> Result<impl Responder, AppError> {
     let client_service = ClientRpcServiceImpl::get();
     let mut client = client_service.client.lock().await;
-    match  dto.login_type{
-        UserRegType::Phone => {
-            let result = client.find_by_phone(FindByContentReq{ content: dto.target.clone() }).await.map_err(|e| AppError::BizError("login.error".to_string()))?;
-            let result=result.into_inner();
-            if result.client.is_some() {
+    let req = FindByContentReq { content: dto.target.clone() };
+    let md5_key = &AppConfig::get().sys.clone().unwrap().md5_key.unwrap();
 
+    let client_op: Option<ClientEntity> = match dto.login_type {
+        UserLogType::Phone => {
+            let result = client.find_by_phone(req).await.map_err(|e| AppError::BizError("login.error".to_string()))?;
+            let result = result.into_inner();
+            if let Some(mut client) = result.client {
+                let stored_password = client.password.clone();
+                if dto.password == build_md5_with_key(&stored_password, md5_key) {
+                    client.password = "".to_string();
+                    Some(client)
+                } else {
+                    None
+                }
+            } else {
+                None
             }
-
-
         },
-        UserRegType::Email => {
-            let result = client.login_by_email(LoginReqMsg {
-                email: dto.email.clone(),
-                password: dto.password.clone(),
-            });
+        UserLogType::Email => {
+            let result = client.find_by_email(req).await.map_err(|e| AppError::BizError("login.error".to_string()))?;
+            let result = result.into_inner();
+            if let Some(mut client) = result.client {
+                let stored_password = client.password.clone();
+                if dto.password == build_md5_with_key(&stored_password, md5_key) {
+                    client.password = "".to_string();
+                    Some(client)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
         },
-    }
-    match token_result {
-        Ok(token) => {
-            let resp = LoginResp {
-                token,
-            };
-            Ok(HttpResponse::Ok().json(resp))
+        _ => {
+            None
         }
-        Err(e) => {
-            eprintln!("Login failed: {:?}", e);
-            Ok(HttpResponse::Unauthorized().body("Login failed: Invalid credentials")) // 401
-        }
+    };
+
+    if client_op.is_none() {
+        return Err(AppError::BizError("login.error".to_string()));
     }
+
+    let token = build_uuid();
+    let redis_key = format!("app:token:{}", token);
+    let redis_pool = RedisPoolTools::get();
+    let mut conn = redis_pool.get().await.map_err(|e| AppError::BizError("redis.error".to_string()))?;
+    let json_data = serde_json::to_string(&client_op.clone().unwrap())?;
+    conn.set::<_, _, ()>(&redis_key, json_data).await.map_err(|e| AppError::BizError("redis.set.error".to_string()))?;
+    let resp = LoginResp { token };
+    Ok(HttpResponse::Ok().json(result_data(client_op.unwrap())))
 }

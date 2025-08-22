@@ -1,17 +1,16 @@
-use crate::handlers::common_handler::status;
 use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
-use biz_core::kafka_util::node_util::NodeUtil;
-use biz_core::protocol::arb::arb_models::NodeType;
 use common::errors::AppError;
 use common::util::common_utils::hash_index;
 use serde::Serialize;
+use crate::grpc::arb_server::NodeType;
+use crate::util::node_util::NodeUtil;
 
 #[derive(Serialize)]
 pub struct SocketAddrResponse {
     pub address: String,
 }
 pub fn configure(cfg: &mut web::ServiceConfig) {
-    cfg.service(status);
+    cfg.service(get_socket_address);
 }
 #[get("/socket/address")]
 pub async fn get_socket_address(req: HttpRequest) -> Result<impl Responder, AppError> {

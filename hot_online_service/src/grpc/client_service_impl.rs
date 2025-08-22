@@ -1,21 +1,20 @@
-// client-service/src/service/client_rpc_service_impl
+// hot_online_service/src/grpc/client_service_impl.rs
 
 use std::sync::Arc;
 
-use argon2::password_hash::rand_core::OsRng;
-use argon2::{
-    password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
-    Argon2,
-};
 use prost_types::FieldMask;
 use sqlx::{MySql, QueryBuilder, Row};
 use tonic::{Request, Response, Status};
 
 use common::config::get_db;
+use common::util::common_utils::build_snow_id;
 
 use crate::db::traits::{ClientReadRepo, DirectoryReadRepo};
 use crate::grpc::client_service::client_rpc_service_server::ClientRpcService;
-use crate::grpc::client_service::{ChangeEmailReq, ChangePasswordReq, ChangePhoneReq, ChangeResponse, ClientEntity, FindByContentReq, FindClientDto, GetClientReq, RegisterUserReq, UpdateClientReq};
+use crate::grpc::client_service::{
+    ChangeEmailReq, ChangePasswordReq, ChangePhoneReq, ChangeResponse, ClientEntity,
+    FindByContentReq, FindClientDto, GetClientReq, RegisterUserReq, UpdateClientReq
+};
 use crate::hot_cold::{ClientHot, Normalizer};
 
 #[async_trait::async_trait]
@@ -27,10 +26,7 @@ pub struct DummyIdAlloc;
 #[async_trait::async_trait]
 impl IdAllocator for DummyIdAlloc {
     async fn next_id(&self) -> anyhow::Result<i64> {
-        let dur = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|e| anyhow::anyhow!("clock drift: {e}"))?;
-        Ok(((dur.as_nanos()) & (i64::MAX as u128)) as i64)
+        Ok(build_snow_id())
     }
 }
 
@@ -47,10 +43,8 @@ where
     hot: ClientHot<C, D, N>,
     normalizer: Arc<N>,
     id_alloc: Arc<I>,
-    // 取热前“触摸续命”（可选）
+    // 取热前"触摸续命"（可选）
     online_touch: Option<OnlineTouch>,
-
-    pwd: Argon2<'static>,
 }
 
 impl<C, D, N, I> ClientEntityServiceImpl<C, D, N, I>
@@ -71,7 +65,6 @@ where
             normalizer,
             id_alloc: Arc::new(id_alloc),
             online_touch,
-            pwd: Argon2::default(),
         }
     }
 
@@ -85,19 +78,9 @@ where
     // -------- 密码 --------
 
     #[inline]
-    fn hash_password(&self, raw: &str) -> Result<String, Status> {
-        let salt = SaltString::generate(&mut OsRng);
-        self.pwd
-            .hash_password(raw.as_bytes(), &salt)
-            .map(|h| h.to_string())
-            .map_err(|e| Status::internal(format!("hash_password: {e}")))
-    }
-
-    #[inline]
-    fn verify_password(&self, stored_hash: &str, raw: &str) -> Result<bool, Status> {
-        let parsed =
-            PasswordHash::new(stored_hash).map_err(|e| Status::internal(format!("parse hash: {e}")))?;
-        Ok(self.pwd.verify_password(raw.as_bytes(), &parsed).is_ok())
+    fn verify_password(&self, stored_password: &str, raw: &str) -> bool {
+        // 直接比较明文密码
+        stored_password == raw
     }
 
     // -------- 目录写帮助（uid_*：列名使用 email/phone/name；无 shard_id） --------
@@ -245,87 +228,83 @@ where
     N: Normalizer,
     I: IdAllocator,
 {
-   async fn find_by_email(&self, request: Request<FindByContentReq>) -> Result<Response<FindClientDto>, Status> {
-    let req = request.into_inner();
-    let content = req.content;
+    async fn find_by_email(&self, request: Request<FindByContentReq>) -> Result<Response<FindClientDto>, Status> {
+        let req = request.into_inner();
+        let content = req.content;
 
-    if content.is_empty() {
-        return Err(Status::invalid_argument("email content is empty"));
+        if content.is_empty() {
+            return Err(Status::invalid_argument("email content is empty"));
+        }
+
+        // 通过热层查询用户
+        let client_opt = self.hot
+            .get_by_email(&content)
+            .await
+            .map_err(|e| Status::internal(format!("find by email failed: {}", e)))?;
+
+        match client_opt {
+            Some(client) => {
+                // 触发在线状态更新
+                self.touch_online(client.id);
+                let entity = (*client).clone();
+                Ok(Response::new(FindClientDto{client: Some(entity)}))
+            },
+            None =>
+                Ok(Response::new(FindClientDto{client: None})),
+        }
     }
 
-    // 触发在线状态更新
-    // 注意：此处无法获取具体用户ID，因此不调用 touch_online
+    async fn find_by_phone(&self, request: Request<FindByContentReq>) -> Result<Response<FindClientDto>, Status> {
+        let req = request.into_inner();
+        let content = req.content;
 
-    // 通过热层查询用户
-    let client_opt = self.hot
-        .get_by_email(&content)
-        .await
-        .map_err(|e| Status::internal(format!("find by email failed: {}", e)))?;
+        if content.is_empty() {
+            return Err(Status::invalid_argument("phone content is empty"));
+        }
 
-    match client_opt {
-        Some(client) => {
-            // 触发在线状态更新
-            self.touch_online(client.id);
-            let entity = (*client).clone();
-            Ok(Response::new(FindClientDto{client: Some(entity)}))
-        },
-        None =>
-            Ok(Response::new(FindClientDto{client: None})),
-    }
-}
+        // 通过热层查询用户
+        let client_opt = self.hot
+            .get_by_phone(&content)
+            .await
+            .map_err(|e| Status::internal(format!("find by phone failed: {}", e)))?;
 
-async fn find_by_phone(&self, request: Request<FindByContentReq>) -> Result<Response<FindClientDto>, Status> {
-    let req = request.into_inner();
-    let content = req.content;
-
-    if content.is_empty() {
-        return Err(Status::invalid_argument("phone content is empty"));
+        match client_opt {
+            Some(client) => {
+                // 触发在线状态更新
+                self.touch_online(client.id);
+                let entity = (*client).clone();
+                Ok(Response::new(FindClientDto{client: Some(entity)}))
+            },
+            None =>
+                Ok(Response::new(FindClientDto{client: None})),
+        }
     }
 
-    // 通过热层查询用户
-    let client_opt = self.hot
-        .get_by_phone(&content)
-        .await
-        .map_err(|e| Status::internal(format!("find by phone failed: {}", e)))?;
+    async fn find_by_name(&self, request: Request<FindByContentReq>) -> Result<Response<FindClientDto>, Status> {
+        let req = request.into_inner();
+        let content = req.content;
 
-    match client_opt {
-        Some(client) => {
-            // 触发在线状态更新
-            self.touch_online(client.id);
-            let entity = (*client).clone();
-            Ok(Response::new(FindClientDto{client: Some(entity)}))
-        },
-        None =>
-            Ok(Response::new(FindClientDto{client: None})),
+        if content.is_empty() {
+            return Err(Status::invalid_argument("name content is empty"));
+        }
+
+        // 通过热层查询用户
+        let client_opt = self.hot
+            .get_by_name(&content)
+            .await
+            .map_err(|e| Status::internal(format!("find by name failed: {}", e)))?;
+
+        match client_opt {
+            Some(client) => {
+                // 触发在线状态更新
+                self.touch_online(client.id);
+                let entity = (*client).clone();
+                Ok(Response::new(FindClientDto{client: Some(entity)}))
+            },
+            None =>
+                Ok(Response::new(FindClientDto{client: None})),
+        }
     }
-}
-
-async fn find_by_name(&self, request: Request<FindByContentReq>) -> Result<Response<FindClientDto>, Status> {
-    let req = request.into_inner();
-    let content = req.content;
-
-    if content.is_empty() {
-        return Err(Status::invalid_argument("name content is empty"));
-    }
-
-    // 通过热层查询用户
-    let client_opt = self.hot
-        .get_by_name(&content)
-        .await
-        .map_err(|e| Status::internal(format!("find by name failed: {}", e)))?;
-
-    match client_opt {
-        Some(client) => {
-            // 触发在线状态更新
-            self.touch_online(client.id);
-            let entity = (*client).clone();
-            Ok(Response::new(FindClientDto{client: Some(entity)}))
-        },
-        None =>
-            Ok(Response::new(FindClientDto{client: None})),
-    }
-}
-
 
     async fn register(
         &self,
@@ -394,21 +373,21 @@ async fn find_by_name(&self, request: Request<FindByContentReq>) -> Result<Respo
         sqlx::query(
             r#"
             INSERT INTO client(
-              id, name, password_hash, password_algo, language, avatar,
+              id, name, password, language, avatar,
               allow_add_friend, gender, user_type,
-              email_norm, phone_norm, profile_fields,
+              email_norm, phone_norm,
               created_at, updated_at, version
             ) VALUES (
-              ?, ?, ?, 1, ?, ?,
+              ?, ?, ?, ?, ?,
               ?, ?, ?,
-              ?, ?, ?,
+              ?, ?,
               NOW(3), NOW(3), 0
             )
         "#,
         )
             .bind(id)
             .bind(&r.name)
-            .bind(&r.password)
+            .bind(&r.password) // 直接存储明文密码
             .bind(r.language.as_deref())
             .bind(&r.avatar)
             .bind(r.allow_add_friend as i32)
@@ -416,7 +395,6 @@ async fn find_by_name(&self, request: Request<FindByContentReq>) -> Result<Respo
             .bind(r.user_type as i32)
             .bind(email_norm.as_ref().map(|b| b.as_ref()))
             .bind(phone_norm.as_ref().map(|b| b.as_ref()))
-            .bind(sqlx::types::Json(r.profile_fields))
             .execute(cli_tx.as_mut())
             .await
             .map_err(|e| Status::internal(format!("insert client: {e}")))?;
@@ -451,18 +429,18 @@ async fn find_by_name(&self, request: Request<FindByContentReq>) -> Result<Respo
         self.touch_online(r.id);
 
         let db = &*get_db();
-        let row = sqlx::query("SELECT password_hash FROM client WHERE id=?")
+        let row = sqlx::query("SELECT password FROM client WHERE id=?")
             .bind(r.id)
             .fetch_optional(db)
             .await
-            .map_err(|e| Status::internal(format!("load hash: {e}")))?;
+            .map_err(|e| Status::internal(format!("load password: {e}")))?;
         let Some(row) = row else { return Err(Status::not_found("id not found")); };
         let stored: String =
-            row.try_get("password_hash").map_err(|e| Status::internal(format!("row: {e}")))?;
+            row.try_get("password").map_err(|e| Status::internal(format!("row: {e}")))?;
 
         if let Some(old) = r.old_password.as_deref() {
             if !old.is_empty() {
-                let ok = self.verify_password(&stored, old)?;
+                let ok = self.verify_password(&stored, old);
                 if !ok {
                     return Ok(Response::new(ChangeResponse { success: false }));
                 }
@@ -470,13 +448,14 @@ async fn find_by_name(&self, request: Request<FindByContentReq>) -> Result<Respo
         }
 
         // TODO: verify_token（短信/邮箱/2FA）
-        let new_hash = self.hash_password(&r.new_password)?;
+        // 直接使用新密码，不进行哈希处理
+        let new_password = r.new_password.clone();
         sqlx::query(
             "UPDATE client \
-             SET password_hash=?, password_algo=1, updated_at=NOW(3), version=version+1 \
+             SET password=?, updated_at=NOW(3), version=version+1 \
              WHERE id=?",
         )
-            .bind(new_hash)
+            .bind(new_password)
             .bind(r.id)
             .execute(db)
             .await
@@ -634,14 +613,13 @@ async fn find_by_name(&self, request: Request<FindByContentReq>) -> Result<Respo
             .update_mask
             .ok_or_else(|| Status::invalid_argument("update_mask required"))?;
 
-        // 允许更新字段
+        // 允许更新字段（移除了 profile_fields 相关代码）
         let mut set_name = false;
         let mut set_lang = false;
         let mut set_avatar = false;
         let mut set_policy = false;
         let mut set_gender = false;
         let mut set_user_type = false;
-        let mut set_profile = false;
 
         for p in paths {
             match p.as_str() {
@@ -651,11 +629,11 @@ async fn find_by_name(&self, request: Request<FindByContentReq>) -> Result<Respo
                 "allow_add_friend" => set_policy = true,
                 "gender" => set_gender = true,
                 "user_type" => set_user_type = true,
-                "profile_fields" => set_profile = true,
+                "profile_fields" => return Err(Status::invalid_argument("profile_fields not allowed")),
                 other => return Err(Status::invalid_argument(format!("field not allowed: {other}"))),
             }
         }
-        if !(set_name || set_lang || set_avatar || set_policy || set_gender || set_user_type || set_profile) {
+        if !(set_name || set_lang || set_avatar || set_policy || set_gender || set_user_type) {
             return Err(Status::invalid_argument("no updatable fields in mask"));
         }
 
@@ -727,10 +705,6 @@ async fn find_by_name(&self, request: Request<FindByContentReq>) -> Result<Respo
         if set_user_type {
             if !first { qb.push(", "); } first = false;
             qb.push("user_type=").push_bind(patch.user_type);
-        }
-        if set_profile {
-            if !first { qb.push(", "); } first = false;
-            qb.push("profile_fields=").push_bind(sqlx::types::Json(patch.profile_fields.clone()));
         }
 
         qb.push(", updated_at=NOW(3), version=version+1 WHERE id=").push_bind(patch.id);

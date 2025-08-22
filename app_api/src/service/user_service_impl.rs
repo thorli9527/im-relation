@@ -214,7 +214,7 @@ impl UserServiceAuthOpt for UserService {
         // 注意：这里需要根据您的实际 Redis 配置进行调整
         // /*
         let redis_pool = RedisPoolTools::get();
-        let mut conn = redis_pool.get().await.unwrap();
+        let mut conn = redis_pool.get().await?;
         let json_data:String=conn.get(redis_key.clone()).await.map_err(|e| anyhow!("Redis error: {}", e))?;
         // 4. 反序列化验证会话数据
         let verify_session: VerifySession = serde_json::from_str(&json_data)

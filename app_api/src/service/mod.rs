@@ -2,6 +2,7 @@ use tonic::Request;
 use crate::grpc::arb_server::{NodeType, QueryNodeReq, RegisterRequest};
 use crate::service::arb_server_service::ArbServerService;
 use crate::service::client_rpc_service_impl::ClientRpcServiceImpl;
+use crate::service::online_rpc_service_impl::OnlineRpcServiceImpl;
 use crate::util::node_util::NodeUtil;
 
 pub mod arb_server_service;
@@ -9,6 +10,7 @@ pub mod arb_client_service_impl;
 pub mod user_service;
 pub mod user_service_impl;
 pub mod client_rpc_service_impl;
+mod online_rpc_service_impl;
 
 pub async fn init(){
     ArbServerService::init().await.expect("ArbServerService init");
@@ -34,6 +36,7 @@ pub async fn init(){
     let list=list_rep.into_inner();
     for node in list.nodes {
         ClientRpcServiceImpl::new(&node.node_addr).await.unwrap();
+        OnlineRpcServiceImpl::init(&node.node_addr).await.unwrap();
         break
     }
 

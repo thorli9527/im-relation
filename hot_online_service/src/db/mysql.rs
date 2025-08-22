@@ -77,7 +77,7 @@ fn row_to_entity(r: &MySqlRow) -> Result<ClientEntity> {
                 .collect(),
             _ => HashMap::new(),
         };
-
+    let password =r.try_get("password").context("missing 'password'")?;
     // 秒级时间戳（UNIX_TIMESTAMP(...) 已在投影里转换）
     let create_time: i64 = r.try_get("create_time").context("missing 'create_time'")?;
     let update_time: i64 = r.try_get("update_time").context("missing 'update_time'")?;
@@ -89,6 +89,7 @@ fn row_to_entity(r: &MySqlRow) -> Result<ClientEntity> {
 
     Ok(ClientEntity {
         id,
+        password,
         name,
         email,
         phone,
@@ -107,6 +108,7 @@ fn row_to_entity(r: &MySqlRow) -> Result<ClientEntity> {
 /// 与 row_to_entity 对齐的统一投影；将 DATETIME(3) 转为 i64 秒。
 const SELECT_ENTITY_PROJECTION: &str = r#"
     id,
+    password,
     name,
     language,
     avatar,

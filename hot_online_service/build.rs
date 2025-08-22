@@ -41,6 +41,7 @@ fn build_client() {
         .compile_protos(
             &[
                 "proto/auth.proto",
+                "proto/online.proto",
                 "proto/client_entity.proto",
             ],
             &["proto"], // proto 根目录
