@@ -1,6 +1,6 @@
 
 [workspace]
-members = ["common", "hot_online-service", "hot_group-service", "hot_friend-service", "arb-service", "app_api", "app_socket", "msg_gateway", "msg_friend"]
+members = ["common", "hot_online_service", "hot_group_service", "hot_friend_service", "arb-service", "app_api", "app_socket", "msg_gateway", "msg_friend", "app_main"]
 resolver = "2"
 [workspace.dependencies]
 # ========================
@@ -15,7 +15,9 @@ rand_core = { version = "0.9.3" }
 # 🗄 数据库相关
 # ========================
 sqlx = { version = "0.8.6", features = ["mysql", "runtime-tokio-rustls", "macros", "json"] }
-
+mongodb = { version = "3.2.4", features = ["sync"] }       # MongoDB 客户端（同步版）
+mongo_indexed_derive = { version = "2.0.0" }               # Mongo 索引宏派生
+deadpool-redis = { version = "0.21.1", features = ["tokio-comp"] }  # Redis 异步连接池（tokio）
 
 # ========================
 # ⚙️ 配置、日志、时间
@@ -92,6 +94,7 @@ ahash={ version = "0.8.12"}
 smallvec={ version = "1.15.1"}
 sysinfo={version = "0.37.0"}
 num_cpus={version = "1.17.0"}
+
 # ========================
 # 🧊 静态数据/缓存结构
 # ========================

@@ -8,7 +8,7 @@ enum SyncDataType {
 }
 message BytesBlob {
   bytes data = 1;
-  SyncDataType type = 2;
+  SyncDataType sync_type = 2;
 }
 /**
  * 通用响应
@@ -26,6 +26,7 @@ enum NodeType {
   MSG_GATEWAY = 4;      // 消息中转网关（统一转发消息的逻辑中心）
   MES_GROUP = 5;        // 群组消息处理节点（专注处理群消息逻辑）
   MSG_FRIEND = 6;       // 好友消息处理节点（专注处理单聊/好友消息）
+  API_NODE=7;           // API 接入节点
 }
 
 

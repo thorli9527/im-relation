@@ -1,6 +1,11 @@
 pub mod config;
-mod errors;
+pub mod errors;
 pub mod util;
+pub mod kafka;
+pub mod redis;
+pub mod result;
+
+pub type RedisPool = deadpool_redis::Pool;
 
 pub type UserId = i64;
 pub type GroupId = i64;

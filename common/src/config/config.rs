@@ -8,6 +8,8 @@ use sqlx::{MySql, Pool};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
+use crate::redis::redis_pool::RedisPoolTools;
+
 pub type MySqlPool = Pool<MySql>;
 
 #[derive(Debug, Deserialize, Clone, Default)]
@@ -16,6 +18,7 @@ pub struct AppConfig {
     pub server: Option<ServerConfig>,
     pub sys: Option<SysConfig>,
     pub grpc: Option<GrpcConfig>,
+    pub redis: Option<RedisConfig>,
 }
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ShardConfig {
@@ -49,6 +52,10 @@ impl AppConfig {
     }
     pub async fn init(file: &str) ->Self{
         let instance = Self::new(&file.to_string());
+        if instance.redis.is_some() {
+            let redis_config = instance.clone().redis.unwrap();
+            RedisPoolTools::init(&redis_config.url).expect("init redis error");
+        }
 
         if instance.database.is_some() {
             let database_config = instance.clone().database.unwrap();
@@ -113,7 +120,11 @@ pub struct ServerConfig {
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct GrpcConfig {
-    pub host: String,
-    pub port: u16,
+    pub server_addr: Option<String>,
+    pub client_addr: Option<String>,
 }
 
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct RedisConfig {
+    pub url: String,
+}

@@ -13,6 +13,12 @@ moka.workspace = true                          # 高性能内存缓存库
 dashmap.workspace = true                       # 并发安全 HashMap
 sqlx.workspace = true
 # ========================
+# ========================
+# 🔧 序列化、验证、工具
+# ========================
+uuid.workspace = true                          # UUID 唯一 ID
+hex.workspace = true                           # 十六进制转换
+md-5.workspace = true                          # MD5 哈希
 # ⚙️ 配置、日志、时间
 # ========================
 chrono.workspace = true                        # 时间处理
@@ -59,8 +65,11 @@ prost-types.workspace = true
 tracing.workspace = true
 actix-service.workspace = true
 config = { workspace = true }
+deadpool-redis.workspace = true
 env_logger.workspace = true
 parking_lot = "0.12.4"
+lazy_static = "1.5.0"
+regex = "1.11.1"
 [build-dependencies]
 protobuf-src = { version = "^2.1.0", optional = true }
 tonic = "0.13.1"

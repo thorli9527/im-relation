@@ -1,0 +1,37 @@
+
+[package]
+name = "hot_friend_service"
+version = "0.2.0"
+edition = "2021"
+
+[dependencies]
+common = { path = "../common" }
+tokio.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+async-trait.workspace = true
+serde .workspace = true
+serde_json = "1"
+ahash .workspace = true
+fxhash.workspace = true
+dashmap.workspace = true
+smallvec.workspace = true
+parking_lot.workspace = true
+roaring.workspace = true
+actix-web.workspace = true
+sqlx.workspace = true
+moka.workspace = true
+prost.workspace = true
+tonic.workspace = true
+prost-types.workspace = true
+utoipa.workspace = true
+num_cpus.workspace = true
+sysinfo.workspace = true
+log.workspace = true
+once_cell = "1.21.3"
+[build-dependencies]
+protobuf-src = { version = "^2.1.0", optional = true }
+tonic = "0.13.1"
+tonic-build = "0.13.1"
+prost = "0.13.1"
+prost-build = "0.14.1"

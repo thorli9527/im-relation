@@ -1,1 +1,1 @@
-mod arb_server;
+pub mod arb_server;

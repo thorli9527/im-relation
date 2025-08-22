@@ -6,7 +6,7 @@ pub struct BytesBlob {
     #[prost(bytes = "vec", tag = "1")]
     pub data: ::prost::alloc::vec::Vec<u8>,
     #[prost(enumeration = "SyncDataType", tag = "2")]
-    pub r#type: i32,
+    pub sync_type: i32,
 }
 /// *
 /// 通用响应
@@ -140,6 +140,8 @@ pub enum NodeType {
     MesGroup = 5,
     /// 好友消息处理节点（专注处理单聊/好友消息）
     MsgFriend = 6,
+    /// API 接入节点
+    ApiNode = 7,
 }
 impl NodeType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -155,6 +157,7 @@ impl NodeType {
             Self::MsgGateway => "MSG_GATEWAY",
             Self::MesGroup => "MES_GROUP",
             Self::MsgFriend => "MSG_FRIEND",
+            Self::ApiNode => "API_NODE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -167,6 +170,7 @@ impl NodeType {
             "MSG_GATEWAY" => Some(Self::MsgGateway),
             "MES_GROUP" => Some(Self::MesGroup),
             "MSG_FRIEND" => Some(Self::MsgFriend),
+            "API_NODE" => Some(Self::ApiNode),
             _ => None,
         }
     }
