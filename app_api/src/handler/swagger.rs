@@ -26,5 +26,8 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
 }
 #[get("/openapi.json")]
 async fn openapi_json() -> impl Responder {
-    HttpResponse::Ok().content_type("application/json").body(ApiDoc::openapi().to_json().unwrap())
+    match ApiDoc::openapi().to_json() {
+        Ok(json) => HttpResponse::Ok().content_type("application/json").body(json),
+        Err(_) => HttpResponse::InternalServerError().body("OpenAPI generation error"),
+    }
 }

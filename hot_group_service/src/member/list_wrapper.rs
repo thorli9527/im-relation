@@ -2,7 +2,7 @@ use parking_lot::RwLock;
 use roaring::RoaringTreemap as RB64;
 use std::collections::HashMap;
 
-use crate::grpc::group_service::{GroupRoleType, MemberRef};
+use crate::grpc_msg_group::group_service::{GroupRoleType, MemberRef};
 use common::{MemberListError, UserId};
 
 #[derive(Debug, Default)]

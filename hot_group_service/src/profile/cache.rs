@@ -24,7 +24,10 @@ impl<S: GroupProfileStorage> GroupProfileCache<S> {
     #[inline]
     fn now_ms() -> u64 {
         use std::time::{SystemTime, UNIX_EPOCH};
-        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64
+        match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(d) => d.as_millis() as u64,
+            Err(_) => 0,
+        }
     }
 
     /// 读：L1 命中→返回；miss→单飞冷读→回填→返回

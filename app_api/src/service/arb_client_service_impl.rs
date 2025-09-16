@@ -1,6 +1,6 @@
-use crate::grpc::arb_server::arb_client_rpc_service_server::ArbClientRpcService;
-use crate::grpc::arb_server::arb_server_rpc_service_client::ArbServerRpcServiceClient;
-use crate::grpc::arb_server::{BytesBlob, CommonResp, NodeType, QueryNodeReq};
+use crate::grpc_arb::arb_server::arb_client_rpc_service_server::ArbClientRpcService;
+use crate::grpc_arb::arb_server::arb_server_rpc_service_client::ArbServerRpcServiceClient;
+use crate::grpc_arb::arb_server::{BytesBlob, CommonResp, NodeType, QueryNodeReq};
 use crate::service::arb_server_service::ArbServerService;
 use crate::util::node_util::NodeUtil;
 use async_trait::async_trait;

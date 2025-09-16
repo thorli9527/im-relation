@@ -1,6 +1,16 @@
 
 [workspace]
-members = ["common", "hot_online_service", "hot_group_service", "hot_friend_service", "arb-service", "app_api", "app_socket", "msg_gateway", "msg_friend", "app_main"]
+members = [
+"common", 
+"hot_online_service", 
+"hot_group_service", 
+"hot_friend_service", 
+"arb-service", 
+"app_api", 
+"app_socket", 
+"msg_friend",
+"msg_group",
+"app_main"]
 resolver = "2"
 [workspace.dependencies]
 # ========================
@@ -59,6 +69,8 @@ validator = { version = "0.20.0", features = ["derive"] } # 参数验证宏
 prost = { version = "0.13.1" }              # Protobuf 编解码
 prost-types = { version = "0.13.1" }        # Protobuf 常用类型支持
 tonic = { version = "0.13.1" }              # gRPC 框架
+prost-build = { version = "0.14.1" }
+tonic-build = { version = "0.13.1" }
 
 # ========================
 # 📡 Kafka 消息队列
@@ -103,4 +115,3 @@ lazy_static = { version = "1.5.0" }         # 宏版懒加载
 dashmap = { version = "6.1.0" }             # 并发哈希表
 moka = { version = "0.12.10", default-features = false, features = ["sync"] } # 高性能本地缓存
 arc-swap = { version = "1.7.1" }            # Arc 原子交换，常用于读多写少
-

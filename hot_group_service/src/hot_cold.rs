@@ -16,7 +16,7 @@ use log::{debug, error, info};
 use moka::sync::{Cache, CacheBuilder};
 use tokio::{runtime::Handle, time::sleep};
 
-use crate::grpc::group_service::{GroupRoleType, MemberRef};
+use crate::grpc_msg_group::group_service::{GroupRoleType, MemberRef};
 use crate::member::shard_map::ShardMap;
 use crate::store::GroupStorage;
 use common::{GroupId, MemberListError, UserId};

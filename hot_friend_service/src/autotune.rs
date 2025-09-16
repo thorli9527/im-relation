@@ -108,7 +108,7 @@ pub fn auto_tune_cache(cfg: &AutoTuneConfig) -> CacheAutoTune {
     // 条目大小估算（主存 & 热键）
     let per_entry_main = estimate_entry_bytes(cfg.avg_key_bytes, cfg.avg_value_bytes, cfg.overhead_factor) as f64;
     // 热键仅以 Key 为主，overhead 适当减少
-    let per_entry_hot  = estimate_entry_bytes(cfg.avg_key_bytes, 0, (cfg.overhead_factor * 0.7)) as f64;
+    let per_entry_hot  = estimate_entry_bytes(cfg.avg_key_bytes, 0, cfg.overhead_factor * 0.7) as f64;
 
     // 主存/热键预算拆分
     let main_budget_bytes = (budget_bytes as f64) * split_main;

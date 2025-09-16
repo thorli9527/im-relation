@@ -9,12 +9,12 @@ use tokio::time::{timeout, Duration};
 use tonic::{Request, Response, Status};
 use tonic::transport::Uri;
 
-use crate::grpc::arb_server::arb_server_rpc_service_server::ArbServerRpcService;
-use crate::grpc::arb_server::{
+use crate::grpc_arb::arb_server::arb_server_rpc_service_server::ArbServerRpcService;
+use crate::grpc_arb::arb_server::{
     BaseRequest, CommonResp, NodeInfo, NodeInfoList, QueryNodeReq, RegisterRequest,
     NodeType, BytesBlob, SyncDataType,
 };
-use crate::grpc::arb_server::arb_client_rpc_service_client::ArbClientRpcServiceClient;
+use crate::grpc_arb::client::connect_client;
 
 /// 仲裁服务核心实现
 /// 负责节点注册、心跳管理、节点列表维护及跨节点数据同步
@@ -126,8 +126,8 @@ impl ArbServerRpcServiceImpl {
                 };
 
                 // 连接并同步数据（5秒超时）
-                let result = timeout(Duration::from_secs(5), async move {
-                    match ArbClientRpcServiceClient::connect(uri).await {
+                let result = timeout(Duration::from_secs(5), async {
+                    match connect_client(&addr).await {
                         Ok(mut client) => {
                             client.sync_data(Request::new(blob)).await
                         }

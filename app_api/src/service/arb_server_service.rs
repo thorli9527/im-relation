@@ -2,7 +2,7 @@ use common::config::AppConfig;
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::grpc::arb_server::arb_server_rpc_service_client::ArbServerRpcServiceClient;
+use crate::grpc_arb::arb_server::arb_server_rpc_service_client::ArbServerRpcServiceClient;
 
 #[derive(Debug)]
 pub struct ArbServerService {

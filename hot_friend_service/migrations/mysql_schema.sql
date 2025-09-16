@@ -16,45 +16,20 @@ CREATE TABLE
                                      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
-CREATE TABLE client (
-                        id               BIGINT        NOT NULL PRIMARY KEY,
-                        name             VARCHAR(64)   NOT NULL,
-                        password_hash    VARBINARY(72) NOT NULL,
-                        password_algo    TINYINT       NOT NULL DEFAULT 1,
-                        language         CHAR(5)       NULL,
-                        avatar           VARCHAR(256)  NOT NULL DEFAULT '',
-                        allow_add_friend TINYINT       NOT NULL DEFAULT 0,
-                        gender           TINYINT       NOT NULL DEFAULT 0,
-                        user_type        TINYINT       NOT NULL DEFAULT 0,
-                        email_norm       VARBINARY(320) NULL,
-                        phone_norm       VARBINARY(32)  NULL,
-                        profile_fields   JSON          NULL,
-                        created_at       DATETIME(3)   NOT NULL,
-                        updated_at       DATETIME(3)   NOT NULL,
-                        version          INT           NOT NULL DEFAULT 0,
-                        KEY k_email (email_norm(191)),
-                        KEY k_phone (phone_norm)
-) ENGINE=InnoDB ROW_FORMAT=DYNAMIC
-  PARTITION BY HASH (id) PARTITIONS 32;
+-- NOTE: client 以及 uid_* 相关表应由 hot_online_service 管理，已从此处移除
 
-CREATE TABLE uid_email (
-                           email_norm VARBINARY(320) NOT NULL,
-                           id         BIGINT NOT NULL,
-                           shard_id   INT    NOT NULL,
-                           state      TINYINT NOT NULL DEFAULT 1,
-                           updated_at DATETIME(3) NOT NULL,
-                           PRIMARY KEY (email_norm),
-                           KEY k_id (id)
-) ENGINE=InnoDB ROW_FORMAT=DYNAMIC
-  PARTITION BY KEY (email_norm) PARTITIONS 32;
-
-CREATE TABLE uid_phone (
-                           phone_norm VARBINARY(32) NOT NULL,
-                           id         BIGINT NOT NULL,
-                           shard_id   INT    NOT NULL,
-                           state      TINYINT NOT NULL DEFAULT 1,
-                           updated_at DATETIME(3) NOT NULL,
-                           PRIMARY KEY (phone_norm),
-                           KEY k_id (id)
-) ENGINE=InnoDB ROW_FORMAT=DYNAMIC
-  PARTITION BY KEY (phone_norm) PARTITIONS 32;
+-- 补偿任务：好友关系双向添加失败的重试队列表
+CREATE TABLE IF NOT EXISTS friend_add_jobs (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  friend_id BIGINT UNSIGNED NOT NULL,
+  alias_for_user VARCHAR(64) NULL,
+  alias_for_friend VARCHAR(64) NULL,
+  error_msg VARCHAR(512) NULL,
+  retry_count INT NOT NULL DEFAULT 0,
+  status TINYINT NOT NULL DEFAULT 0, -- 0=pending,1=done,2=failed
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_status_created (status, created_at),
+  KEY idx_user_friend (user_id, friend_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

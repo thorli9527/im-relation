@@ -10,7 +10,7 @@ use common::errors::AppError;
 use common::redis::redis_pool::RedisPoolTools;
 use common::result::ApiResponse;
 use common::util::common_utils::{build_md5_with_key, build_uuid};
-use crate::grpc::client_service::FindByContentReq;
+use crate::grpc_hot_online::client_service::FindByContentReq;
 use crate::handler::auth::register_handler_dto::{RegisterRequest, RegisterResponse, RegisterVerifyRequest};
 use crate::service::client_rpc_service_impl::ClientRpcServiceImpl;
 use crate::service::user_service::{UserService, UserServiceAuthOpt};

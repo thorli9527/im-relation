@@ -1,1 +1,12 @@
+/# Build artifacts
 /target/
+
+# OS & Editor files
+.DS_Store
+.idea/
+.vscode/
+
+# Local env and logs
+.env
+*.log
+/tmp/

@@ -1,0 +1,9 @@
+[grpc]
+server_addr = "127.0.0.1:9000"
+client_addr = "127.0.0.1:8000"
+[server]
+host = "127.0.0.1"
+port = 8000
+[sys]
+log_leve = "warn"  #trace debug info error warn
+

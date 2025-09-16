@@ -7,7 +7,7 @@ use std::convert::TryFrom;
 use std::sync::Arc;
 use tonic::codegen::tokio_stream::StreamExt;
 
-use crate::grpc::group_service::MemberRef;
+use crate::grpc_msg_group::group_service::MemberRef;
 use common::config::{get_db, MySqlPool};
 use common::GroupId;
 const LOAD_GROUP_PAGE_LIMIT: usize = 2_000;

@@ -8,7 +8,7 @@ use dashmap::DashMap;
 use moka::sync::{Cache, CacheBuilder};
 use smallvec::SmallVec;
 
-use crate::grpc::group_service::{GroupRoleType, MemberRef};
+use crate::grpc_msg_group::group_service::{GroupRoleType, MemberRef};
 use crate::member::list_wrapper::MemberListWrapper;
 use common::{GroupId, MemberListError, UserId};
 

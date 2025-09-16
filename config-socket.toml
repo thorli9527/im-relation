@@ -1,0 +1,19 @@
+[server]
+host = "0.0.0.0"
+port = 9600
+
+[sys]
+log_leve = "info"
+
+[socket]
+# ACK 分片数（不配置则为 CPU 核数）
+ack_shards = 0
+# ACK 重试间隔（毫秒）
+ack_retry_ms = 500
+# 分片调度器分片数（不配置则为 CPU 核数）
+dispatch_shards = 0
+# 每分片队列容量
+dispatch_cap = 10000
+# Kafka 参数（建议配置文件统一管理，移除 env 依赖）
+kafka_broker = "127.0.0.1:9092"
+kafka_group_id = "socket-dispatcher"

@@ -1,7 +1,7 @@
 use dashmap::DashMap;
 use once_cell::sync::OnceCell;
 use std::{cmp::Ordering, sync::Arc};
-use crate::grpc::arb_server::{NodeInfo, NodeType};
+use crate::grpc_arb::arb_server::{NodeInfo, NodeType};
 
 /// 仅用 node_addr 做比较（升序）；其它字段忽略
 impl Eq for NodeInfo {}

@@ -11,7 +11,7 @@ fn build_server() {
         .build_client(true) // 如无需生成 gRPC Client 代码
         .type_attribute(".", "#[derive(serde::Serialize, serde::Deserialize,utoipa::ToSchema)]")
         .type_attribute(".", "#[serde(rename_all = \"camelCase\")]")
-        .out_dir("src/grpc/") // 输出 Rust 模块到该目录
+        .out_dir("src/grpc_msg_group/") // 输出 Rust 模块到该目录
         .compile_protos(
             &[
                 "proto/group_service.proto",
@@ -26,7 +26,8 @@ fn build_client() {
         .build_client(true) // 如无需生成 gRPC Client 代码
         .type_attribute(".", "#[derive(serde::Serialize, serde::Deserialize,utoipa::ToSchema)]")
         .type_attribute(".", "#[serde(rename_all = \"camelCase\")]")
-        .out_dir("../app_socket/src/grpc/") // 输出 Rust 模块到该目录
+        // 移除跨 crate 输出，改由消费者自行生成
+        .out_dir("src/grpc_msg_group/")
         .compile_protos(
             &[
                 "proto/group_service.proto",
@@ -35,4 +36,3 @@ fn build_client() {
         )
         .expect("💥 Proto 编译失败，请检查路径和语法！");
 }
-

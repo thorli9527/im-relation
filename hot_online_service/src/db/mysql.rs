@@ -25,7 +25,7 @@ use sqlx::{mysql::MySqlRow, MySql, Pool, QueryBuilder, Row};
 use common::config::get_db;
 
 use crate::db::traits::{ClientReadRepo, DirectoryReadRepo};
-use crate::grpc::client_service::ClientEntity;
+use crate::grpc_hot_online::client_service::ClientEntity;
 
 // ====================== 行 -> 结构体 映射 ======================
 

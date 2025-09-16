@@ -1,5 +1,5 @@
-use crate::grpc::auth::{AuthType, DeviceType};
-use crate::grpc::client_service::{ClientEntity, FindByContentReq, RegisterUserReq, UserType};
+use crate::grpc_hot_online::auth::{AuthType, DeviceType};
+use crate::grpc_hot_online::client_service::{ClientEntity, FindByContentReq, RegisterUserReq, UserType};
 use crate::service::client_rpc_service_impl::ClientRpcServiceImpl;
 use crate::service::user_service::{UserService, UserAuthOpt, UserRegType, UserServiceAuthOpt};
 use anyhow::anyhow;

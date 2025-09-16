@@ -4,30 +4,25 @@ pub mod util;
 pub mod kafka;
 pub mod redis;
 pub mod result;
-
+// note: message.proto moved to service crates
+use thiserror::Error;
 pub type RedisPool = deadpool_redis::Pool;
 
 pub type UserId = i64;
 pub type GroupId = i64;
-#[derive(thiserror::Error, Debug)]
+#[derive(Debug, Error)]
 pub enum RelationError {
     #[error("invalid user id")]
     InvalidUserId,
     #[error("retry")]
     Retry,
-    #[error("internal: {0}")]
-    Internal(&'static str),
+    #[error("internal: {0}")] Internal(&'static str),
 }
 
-
-use crate::MemberListError::{AlreadyExists, GroupNotFound, InvalidGroupId, InvalidUserId, NotFound, TooManyMembers};
-use thiserror::Error;
 
 /// 统一结果别名
 pub type MResult<T> = Result<T, MemberListError>;
 
-/// 群成员管理相关错误（非穷尽，后续可扩展）
-#[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum MemberListError {
     // ===== 参数类 =====
@@ -142,4 +137,3 @@ impl From<MemberListError> for tonic::Status {
         }
     }
 }
-

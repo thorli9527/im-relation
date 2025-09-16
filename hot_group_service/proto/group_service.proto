@@ -7,74 +7,101 @@ package group_service;
 
 // 群成员角色类型（与数据库/内存中的角色编码对齐）
 enum GroupRoleType {
-  Owner  = 0; // 群主
-  Admin  = 1; // 管理员
-  Member = 2; // 普通成员
+  // 群主
+  Owner  = 0;
+  // 管理员
+  Admin  = 1;
+  // 普通成员
+  Member = 2;
 }
 /**
  * 加群权限控制类型
  */
 enum JoinPermission {
-  ANYONE = 0;        // 任何人可加入
-  NEED_APPROVAL = 1; // 加群需审批
-  INVITE_ONLY = 2;   // 仅允许邀请加入
-  CLOSED = 3;        // 不允许加入
+  // 任何人可加入
+  ANYONE = 0;
+  // 加群需审批
+  NEED_APPROVAL = 1;
+  // 仅允许邀请加入
+  INVITE_ONLY = 2;
+  // 不允许加入
+  CLOSED = 3;
 }
 /**
  * 群组类型
  */
 enum GroupType {
-  UNKNOWN_GROUP_TYPE = 0; // 未知
-  NORMAL_GROUP = 1;       // 普通群组
-  SUPER_GROUP = 2;        // 超级群组
-  SYSTEM_GROUP = 3;       // 系统群组
+  // 未知
+  UNKNOWN_GROUP_TYPE = 0;
+  // 普通群组
+  NORMAL_GROUP = 1;
+  // 超级群组
+  SUPER_GROUP = 2;
+  // 系统群组
+  SYSTEM_GROUP = 3;
 }
 
 // 群成员引用信息
 message MemberRef {
-  int64 id = 1;               // 成员用户ID
-  optional string alias = 2;  // 群内别名（可选，不传或空表示无别名）
-  int32 role = 3;             // 成员角色（0=Owner, 1=Admin, 2=Member）
+  // 成员用户ID
+  int64 id = 1;
+  // 群内别名（可选，不传或空表示无别名）
+  optional string alias = 2;
+  // 成员角色（0=Owner, 1=Admin, 2=Member）
+  int32 role = 3;
 }
 
 // ---------------------- 成员增删改 ----------------------
 
 // 插入单个成员
 message InsertReq {
-  int64 group_id = 1;   // 群组ID
-  MemberRef member = 2; // 要添加的成员信息（可携带 alias）
+  // 群组ID
+  int64 group_id = 1;
+  // 要添加的成员信息（可携带 alias）
+  MemberRef member = 2;
 }
 message InsertResp {}
 
 // 批量插入成员
 message InsertManyReq {
-  int64 group_id = 1;              // 群组ID
-  repeated MemberRef members = 2;  // 成员列表（成员可各自携带 alias）
+  // 群组ID
+  int64 group_id = 1;
+  // 成员列表（成员可各自携带 alias）
+  repeated MemberRef members = 2;
 }
 message InsertManyResp {}
 
 // 移除成员
 message RemoveReq {
-  int64 group_id = 1; // 群组ID
-  int64 user_id = 2;  // 要移除的用户ID
+  // 群组ID
+  int64 group_id = 1;
+  // 要移除的用户ID
+  int64 user_id = 2;
 }
 message RemoveResp {
-  bool removed = 1; // 是否实际删除成功（false 表示成员不存在）
+  // 是否实际删除成功（false 表示成员不存在）
+  bool removed = 1;
 }
 
 // 修改成员角色
 message ChangeRoleReq {
-  int64 group_id = 1; // 群组ID
-  int64 user_id = 2;  // 用户ID
-  int32 role = 3;     // 新角色（0/1/2）
+  // 群组ID
+  int64 group_id = 1;
+  // 用户ID
+  int64 user_id = 2;
+  // 新角色（0/1/2）
+  int32 role = 3;
 }
 message ChangeRoleResp {}
 
 // 修改成员别名（新增）
 message ChangeAliasReq {
-  int64 group_id = 1;          // 群组ID
-  int64 user_id = 2;           // 用户ID
-  optional string alias = 3;   // 新别名（为空或不传表示清空别名）
+  // 群组ID
+  int64 group_id = 1;
+  // 用户ID
+  int64 user_id = 2;
+  // 新别名（为空或不传表示清空别名）
+  optional string alias = 3;
 }
 message ChangeAliasResp {}
 
@@ -82,74 +109,91 @@ message ChangeAliasResp {}
 
 // 分页获取群成员
 message GetPageReq {
-  int64 group_id = 1;  // 群组ID
-  uint64 page = 2;     // 页码（从 0 或 1 开始，取决于实现）
-  uint64 page_size = 3;// 每页成员数量
+  // 群组ID
+  int64 group_id = 1;
+  // 页码（从 0 或 1 开始，取决于实现）
+  uint64 page = 2;
+  // 每页成员数量
+  uint64 page_size = 3;
 }
 message GetPageResp {
-  repeated MemberRef members = 1; // 成员列表（包含 alias）
+  // 成员列表（包含 alias）
+  repeated MemberRef members = 1;
 }
 
 // 获取群内全部成员
 message GetAllReq {
-  int64 group_id = 1; // 群组ID
+  // 群组ID
+  int64 group_id = 1;
 }
 message GetAllResp {
-  repeated MemberRef members = 1; // 成员列表（包含 alias）
+  // 成员列表（包含 alias）
+  repeated MemberRef members = 1;
 }
 
 // 获取群成员数量
 message CountReq {
-  int64 group_id = 1; // 群组ID
+  // 群组ID
+  int64 group_id = 1;
 }
 message CountResp {
-  uint64 count = 1; // 成员总数
+  // 成员总数
+  uint64 count = 1;
 }
 
 // ---------------------- 跨群查询 ----------------------
 
 // 获取用户所在的所有群组
 message UserGroupsReq {
-  int64 user_id = 1; // 用户ID
+  // 用户ID
+  int64 user_id = 1;
 }
 message UserGroupsResp {
-  repeated int64 group_ids = 1; // 群组ID列表
+  // 群组ID列表
+  repeated int64 group_ids = 1;
 }
 
 // 获取所有群组ID（全局）
 message AllKeysReq {}
 message AllKeysResp {
-  repeated int64 group_ids = 1; // 群组ID列表
+  // 群组ID列表
+  repeated int64 group_ids = 1;
 }
 
 // 按分片索引获取群组ID
 message AllKeysByShardReq {
-  uint64 shard_idx = 1; // 分片下标（与服务器分片数匹配）
+  // 分片下标（与服务器分片数匹配）
+  uint64 shard_idx = 1;
 }
 message AllKeysByShardResp {
-  repeated int64 group_ids = 1; // 群组ID列表
+  // 群组ID列表
+  repeated int64 group_ids = 1;
 }
 
 // ---------------------- 群管理 ----------------------
 
 // 清空群成员
 message ClearReq {
-  int64 group_id = 1; // 群组ID
+  // 群组ID
+  int64 group_id = 1;
 }
 message ClearResp {}
 /**
  * 通用响应
  */
 message CommonResp {
-  bool success = 1;  // 是否成功
-  string message = 2;// 提示或错误信息
+  // 是否成功
+  bool success = 1;
+  // 提示或错误信息
+  string message = 2;
 }
 
 /**
  * ID 请求
  */
 message IdReq {
-  int64 ref_id = 1; // 引用ID（用户ID、群ID等）
+  // 引用ID（用户ID、群ID等）
+  int64 ref_id = 1;
 }
 
 /**
@@ -157,12 +201,18 @@ message IdReq {
  * 用于创建一个新群组，由 creator_uid 发起。
  */
 message CreateGroupReq {
-  int64 id = 1;           // 消息唯一 ID（用于日志追踪、幂等等）
-  int64 creator_uid = 2;          // 创建者的用户 ID，自动成为群主
-  string name = 3;                 // 群名称
-  repeated int64 members = 4;     // 初始群成员 UID 列表（不包含自己）
-  optional string avatar = 5;      // 群头像（可选）
-  optional string intro = 6;       // 群简介（可选）
+  // 消息唯一 ID（用于日志追踪、幂等等）
+  int64 id = 1;
+  // 创建者的用户 ID，自动成为群主
+  int64 creator_uid = 2;
+  // 群名称
+  string name = 3;
+  // 初始群成员 UID 列表（不包含自己）
+  repeated int64 members = 4;
+  // 群头像（可选）
+  optional string avatar = 5;
+  // 群简介（可选）
+  optional string intro = 6;
 }
 
 /**
@@ -170,11 +220,16 @@ message CreateGroupReq {
  * 包括名称、头像、简介的更新，操作者需要有权限（如群主、管理员）。
  */
 message UpdateGroupProfileReq {
-  int64 operator_uid = 2;         // 操作者 UID（必须具备权限）
-  int64 group_id = 3;             // 目标群 ID
-  optional string name = 4;        // 新的群名称（可选）
-  optional string avatar = 5;      // 新头像（可选）
-  optional string intro = 6;       // 新简介（可选）
+  // 操作者 UID（必须具备权限）
+  int64 operator_uid = 2;
+  // 目标群 ID
+  int64 group_id = 3;
+  // 新的群名称（可选）
+  optional string name = 4;
+  // 新头像（可选）
+  optional string avatar = 5;
+  // 新简介（可选）
+  optional string intro = 6;
 }
 /**
  * 解散群请求
@@ -182,25 +237,39 @@ message UpdateGroupProfileReq {
  */
 message DismissGroupReq {
   int64 id = 1;
-  int64 owner_uid = 2;           // 群主 UID
+  // 群主 UID
+  int64 owner_uid = 2;
   int64 group_id = 3;
 }
 
 
 message GroupInfo {
-  int64 id = 1;                 // 群ID
-  string name = 2;               // 群名称
-  string avatar = 3;             // 群头像
-  string description = 4;        // 群简介
-  string notice = 5;             // 群公告
-  JoinPermission join_permission = 6; // 加群权限
-  int64 owner_id = 7;           // 群主ID
-  GroupType group_type = 8;      // 群类型
-  bool allow_search = 9;         // 是否可搜索
-  bool enable = 10;              // 是否启用
-  uint64 create_time = 11;       // 创建时间
-  uint64 update_time = 12;       // 更新时间
-  uint32 member_cnt=13;           // 群成员数量
+  // 群ID
+  int64 id = 1;
+  // 群名称
+  string name = 2;
+  // 群头像
+  string avatar = 3;
+  // 群简介
+  string description = 4;
+  // 群公告
+  string notice = 5;
+  // 加群权限
+  JoinPermission join_permission = 6;
+  // 群主ID
+  int64 owner_id = 7;
+  // 群类型
+  GroupType group_type = 8;
+  // 是否可搜索
+  bool allow_search = 9;
+  // 是否启用
+  bool enable = 10;
+  // 创建时间
+  uint64 create_time = 11;
+  // 更新时间
+  uint64 update_time = 12;
+  // 群成员数量
+  uint32 member_cnt=13;
 }
 // ---------------------- 服务定义 ----------------------
 

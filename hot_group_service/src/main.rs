@@ -1,5 +1,5 @@
 mod member;
-mod grpc;
+mod grpc_msg_group;
 mod store;
 mod hot_cold;
 mod profile;
@@ -8,15 +8,15 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::grpc::group_service::group_service_server::GroupServiceServer;
-use crate::grpc::group_service_impl::GroupServiceImpl;
+use crate::grpc_msg_group::group_service::group_service_server::GroupServiceServer;
+use crate::grpc_msg_group::group_service_impl::GroupServiceImpl;
 use crate::hot_cold::{HotColdConfig, HotColdFacade};
 use crate::member::shard_map::ShardMap;
 use crate::store::mysql::MySqlStore;
 use common::config::{get_db, AppConfig};
 use log::{info, warn};
-use sqlx::mysql::MySqlPoolOptions;
 use tokio::signal;
+use actix_web::{get, App, HttpResponse, HttpServer};
 // 成员冷存（你已有）
 use crate::profile::{GroupProfileCache, MySqlGroupProfileStore};
 // 群信息 L1 写穿
@@ -96,7 +96,8 @@ mod hot_capacity {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // 日志（读取 RUST_LOG，默认 info）
-    let app_cfg = AppConfig::init("./config-group.toml").await;
+    // 支持通过 APP_CONFIG 指定外部配置路径，未设置则使用默认
+    let app_cfg = AppConfig::init_from_env("./config-group.toml").await;
 
     // ---------- 环境配置 ----------
     let hot_tti_secs: u64 = std::env::var("HOT_TTI_SECS").ok().and_then(|v| v.parse().ok()).unwrap_or(57_600); // 16h
@@ -115,12 +116,18 @@ async fn main() -> anyhow::Result<()> {
     // 群信息 L1 写穿
     let profile_l1_cap: u64     = parse_env("PROFILE_L1_CAP", 1_000_000u64);
     let profile_l1_tti_secs: u64= parse_env("PROFILE_L1_TTI_SECS", 600u64);
-    let grpc_cfg=app_cfg.grpc.clone().expect("grpc config missing");
+    let grpc_cfg = app_cfg.grpc.clone();
     // gRPC 绑定地址
-    let addr: SocketAddr = std::env::var("BIND_ADDR")
-        .unwrap_or_else(|_| format!("{}",grpc_cfg.server_addr.unwrap()))
+    let bind = std::env::var("BIND_ADDR")
+        .ok()
+        .or_else(|| grpc_cfg.and_then(|g| g.server_addr))
+        .unwrap_or_else(|| "0.0.0.0:8082".to_string());
+    let addr: SocketAddr = bind
         .parse()
-        .expect("invalid BIND_ADDR");
+        .unwrap_or_else(|_| {
+            warn!("invalid BIND_ADDR '{}', fallback 0.0.0.0:8082", bind);
+            "0.0.0.0:8082".parse().unwrap()
+        });
 
     // 数据库（仅供群信息 L1 写穿；成员冷存仍用你现有的 MySqlStore）
 
@@ -133,6 +140,14 @@ async fn main() -> anyhow::Result<()> {
         page_cache_cap, page_cache_tti_secs, persist_debounce_ms, profile_l1_cap, profile_l1_tti_secs
     );
     info!("gRPC will listen on {}", addr);
+    // HTTP 健康检查端口（复用 server 配置；若缺省，则 0.0.0.0:8084）
+    let http_cfg = app_cfg.server.clone().unwrap_or_default();
+    let http_addr: SocketAddr = format!("{}:{}", http_cfg.host, http_cfg.port)
+        .parse()
+        .unwrap_or_else(|_| {
+            warn!("invalid http host/port, fallback 0.0.0.0:8084");
+            "0.0.0.0:8084".parse().unwrap()
+        });
 
     // ---------- 连接池（群信息用） ----------
 
@@ -166,6 +181,26 @@ async fn main() -> anyhow::Result<()> {
     // 若你的 GroupServiceImpl 仍旧构造：`{ facade }`，把下一行改为那个版本即可
     let svc_impl = GroupServiceImpl::new(facade.clone(),  profile_cache.clone());
     let svc = GroupServiceServer::new(svc_impl);
+
+    // 启动 /healthz HTTP Server（简易健康检查）
+    #[get("/healthz")]
+    async fn healthz() -> actix_web::HttpResponse {
+        HttpResponse::Ok().json(serde_json::json!({"ok": true}))
+    }
+    std::thread::spawn(move || {
+        actix_web::rt::System::new().block_on(async move {
+            let server = match HttpServer::new(|| App::new().service(healthz)).bind(http_addr) {
+                Ok(s) => s,
+                Err(e) => {
+                    warn!("http bind error: {}", e);
+                    return;
+                }
+            };
+            if let Err(e) = server.run().await {
+                warn!("http server error: {}", e);
+            }
+        });
+    });
 
     tonic::transport::Server::builder()
         .add_service(svc)

@@ -3,15 +3,16 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$/app_api/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/app_main/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/app_socket/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/arb-service/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/common/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/msg_friend/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/msg_gateway/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/hot_friend_service/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/hot_group_service/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/hot_online_service/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/app_main/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/msg_friend/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/msg_gateway/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/msg_group/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

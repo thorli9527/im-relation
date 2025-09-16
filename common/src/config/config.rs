@@ -19,6 +19,7 @@ pub struct AppConfig {
     pub sys: Option<SysConfig>,
     pub grpc: Option<GrpcConfig>,
     pub redis: Option<RedisConfig>,
+    pub socket: Option<SocketConfig>,
 }
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ShardConfig {
@@ -49,6 +50,11 @@ impl AppConfig {
             .expect("Failed to build configuration");
         let cfg = config.try_deserialize::<AppConfig>().expect("Failed to deserialize configuration");
         return cfg;
+    }
+    /// 从环境变量 `APP_CONFIG` 读取配置文件路径；不存在则回退到传入默认路径
+    pub async fn init_from_env(default_file: &str) -> Self {
+        let path = std::env::var("APP_CONFIG").unwrap_or_else(|_| default_file.to_string());
+        Self::init(&path).await
     }
     pub async fn init(file: &str) ->Self{
         let instance = Self::new(&file.to_string());
@@ -81,6 +87,7 @@ impl AppConfig {
     pub fn get_sys(&self) -> SysConfig {
         self.sys.clone().unwrap_or_default()
     }
+    pub fn get_socket(&self) -> SocketConfig { self.socket.clone().unwrap_or_default() }
     /// 获取单例
     pub fn get() -> Arc<Self> {
         INSTANCE.get().expect("INSTANCE is not initialized").clone()
@@ -127,4 +134,20 @@ pub struct GrpcConfig {
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct RedisConfig {
     pub url: String,
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct SocketConfig {
+    /// ACK 分片数量（缺省为 CPU 核数）
+    pub ack_shards: Option<usize>,
+    /// ACK 重试间隔（毫秒，缺省 500ms）
+    pub ack_retry_ms: Option<u64>,
+    /// 分片调度器分片数（缺省为 CPU 核数）
+    pub dispatch_shards: Option<usize>,
+    /// 分片队列容量（缺省 10000）
+    pub dispatch_cap: Option<usize>,
+    /// Kafka broker 地址（优先使用此配置）
+    pub kafka_broker: Option<String>,
+    /// Kafka 消费组（优先使用此配置）
+    pub kafka_group_id: Option<String>,
 }

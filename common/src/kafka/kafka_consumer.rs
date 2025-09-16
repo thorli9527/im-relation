@@ -1,6 +1,15 @@
+//! 轻量封装的 Kafka 消费循环
+//!
+//! 特点：
+//! - 采用 `StreamConsumer` 拉取消息，for-ever 循环
+//! - handler 签名为 `Fn(OwnedMessage) -> Future<Result<()>>`
+//!   - 传入 `OwnedMessage`（拥有所有权），避免生命周期问题
+//! - 提交语义：handler 返回 Ok 才异步提交 offset（至少一次）
+//! - 关闭自动提交，交由业务控制
+
 use std::future::Future;
-use anyhow::{Result};
-use log::{ warn};
+use anyhow::Result;
+use log::warn;
 use std::sync::Arc;
 
 use rdkafka::config::ClientConfig;
@@ -10,6 +19,12 @@ use crate::kafka::topic_info::TopicInfo;
 use crate::util::common_utils::build_md5;
 
 /// 启动 Kafka 消费循环
+///
+/// 参数：
+/// - `broker`：Kafka broker 地址
+/// - `group_id`：消费组 ID
+/// - `topic_list`：订阅的主题集合
+/// - `handler`：每条消息的处理函数，返回 Ok 表示可提交 offset
 pub async fn start_consumer<F, Fut>(
     broker: &str,
     group_id: &str,
@@ -17,15 +32,15 @@ pub async fn start_consumer<F, Fut>(
     handler: F,
 ) -> Result<()>
 where
-    F: Fn(&OwnedMessage) -> Fut + Send + Sync + 'static,
+    F: Fn(OwnedMessage) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = Result<()>> + Send,
 {
     let consumer: StreamConsumer = ClientConfig::new()
         .set("group.id", group_id)
         .set("bootstrap.servers", broker)
-        // 开启 SASL 认证
+        // 开启 SASL 认证（具体安全策略根据集群配置调整）
         .set("security.protocol", "SASL_PLAINTEXT") // 或 SASL_SSL
-        .set("sasl.mechanism", "PLAIN")             // 常见机制还有 SCRAM-SHA-256/512
+        .set("sasl.mechanism", "PLAIN")             // 也可用 SCRAM-SHA-256/512
         .set("sasl.username", "admin")
         .set("sasl.password", build_md5(&broker))
         // 关闭自动提交 offset
@@ -40,8 +55,9 @@ where
         match arc_consumer.recv().await {
             Ok(msg) => {
                 let owned = msg.detach();
-                match handler(&owned).await {
+                match handler(owned).await {
                     Ok(_) => {
+                        // 仅在成功处理后提交 offset（至少一次）
                         arc_consumer.commit_message(&msg, rdkafka::consumer::CommitMode::Async)?;
                     }
                     Err(e) => {

@@ -3,10 +3,13 @@ use actix_web::middleware::Logger;
 use log::warn;
 use tonic::transport::Server;
 use common::config::AppConfig;
-use crate::grpc::arb_server::arb_client_rpc_service_server::ArbClientRpcServiceServer;
+use crate::grpc_arb::arb_server::arb_client_rpc_service_server::ArbClientRpcServiceServer;
 use crate::service::arb_client_service_impl::ArbClientServiceImpl;
 
-pub mod grpc;
+// 移除旧 grpc 目录，改用分类模块
+mod grpc_hot_online;
+mod grpc_arb;
+// 兼容导入由各处直接使用新命名空间
 pub mod handler;
 pub mod service;
 pub mod util;
@@ -14,7 +17,8 @@ pub mod util;
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1) 加载配置 & 初始化（内含 DB、日志等）
-    let app_cfg = AppConfig::init("./config-api.toml").await;
+    // 支持通过 APP_CONFIG 指定外部配置路径，未设置则使用默认
+    let app_cfg = AppConfig::init_from_env("./config-api.toml").await;
     // 初始化服务
     service::init().await;
     // 读取配置文件
@@ -42,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    HttpServer::new(move || {
+    let _ = HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
             // 配置 控制器

@@ -116,6 +116,35 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
         Ok(())
     }
 
+    /// 双向添加好友（带别名，原子性由底层存储保证）。
+    pub async fn add_friend_both(
+        &self,
+        a: UserId,
+        b: UserId,
+        alias_for_a: Option<&str>,
+        alias_for_b: Option<&str>,
+    ) -> Result<()> {
+        self.storage
+            .add_friend_both(a, b, alias_for_a, alias_for_b)
+            .await
+            .with_context(|| format!("add_friend_both: repo.add_friend_both failed a={a}, b={b}"))?;
+
+        // 更新两侧热存
+        for (uid, fid) in [(a, b), (b, a)] {
+            let mut list = if let Some(v) = self.store(uid).get(&uid) {
+                v
+            } else {
+                self.load_all_from_repo(uid).await?
+            };
+            if !list.contains(&fid) {
+                list.push(fid);
+                list.sort_unstable();
+            }
+            self.store(uid).insert(uid, list);
+        }
+        Ok(())
+    }
+
     /// 移除好友（不存在则忽略）。
     pub async fn remove_friend(&self, uid: UserId, fid: UserId) -> Result<()> {
         let removed = self

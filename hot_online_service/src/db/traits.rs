@@ -1,4 +1,4 @@
-use crate::grpc::client_service::ClientEntity;
+use crate::grpc_hot_online::client_service::ClientEntity;
 // hot_online_service/src/member/traits.rs
 use anyhow::Result;
 use async_trait::async_trait;

@@ -1,3 +1,4 @@
 pub mod topic_info;
-mod kafka_producer;
-mod kafka_consumer;
+pub mod kafka_producer;
+pub mod kafka_consumer;
+pub use kafka_consumer::start_consumer;

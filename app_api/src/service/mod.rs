@@ -1,5 +1,5 @@
 use tonic::Request;
-use crate::grpc::arb_server::{NodeType, QueryNodeReq, RegisterRequest};
+use crate::grpc_arb::arb_server::{NodeType, QueryNodeReq, RegisterRequest};
 use crate::service::arb_client_service_impl::ArbClientServiceImpl;
 use crate::service::arb_server_service::ArbServerService;
 use crate::service::client_rpc_service_impl::ClientRpcServiceImpl;

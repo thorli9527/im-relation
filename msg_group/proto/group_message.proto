@@ -1,0 +1,85 @@
+syntax = "proto3";
+import "google/protobuf/empty.proto";
+package msg_group_service;
+
+// 会话场景
+enum ChatScene {
+  CHAT_UNKNOWN = 0;
+  SINGLE = 1;
+  GROUP = 2;
+}
+
+// 消息主类型
+enum ContentType {
+  UNKNOWN = 0;
+  TEXT = 1;
+  IMAGE = 2;
+  AUDIO = 3;
+  VIDEO = 4;
+  HTML = 5;
+  LOCATION = 6;
+  FILE = 7;
+  EMOJI = 8;
+  QUOTE = 9;
+  AV_CALL = 10;
+  VOIP = 11;
+  NOTIFICATION = 12;
+  SYSTEM = 13;
+  REMINDER = 14;
+  FRIEND_EVENT = 15;
+  REVOKE = 17;
+  FORWARD = 18;
+  CONTACT_CARD = 19;
+  VOTE = 20;
+  RED_ENVELOPE = 21;
+  ENCRYPTED = 22;
+  ACK = 23;
+  CUSTOM = 100;
+}
+
+// 顶层消息结构
+message Content {
+  optional uint64 message_id = 1;
+  int64 sender_id = 2;
+  int64 receiver_id = 3; // 群ID
+  int64 timestamp = 4;
+  ContentType message_type = 5;
+  ChatScene scene = 6; // GROUP
+  repeated MessageContent contents = 10;
+}
+
+// oneof 内容（保留加密封装）
+message MessageContent {
+  oneof content {
+    EncryptedContent encrypted = 22;
+  }
+}
+
+// 加密载荷封装
+message EncryptedContent {
+  string scheme = 1;
+  bytes sender_pub = 2;
+  string key_id = 3;
+  bytes nonce = 4;
+  bytes ciphertext = 5;
+  bytes aad = 6;
+  uint64 msg_no = 7;
+}
+
+// 状态/操作
+message MsgDeliveredAck { int64 msg_id = 1; int64 ack_user_id = 2; int64 ack_at = 3; }
+message MsgRead { int64 msg_id = 1; int64 user_id = 2; int64 chat_id = 3; int64 read_at = 4; }
+message MsgReadAck { int64 msg_id = 1; int64 ack_user_id = 2; int64 ack_at = 3; }
+message MsgRecall { int64 msg_id = 1; int64 operator_user_id = 2; optional string reason = 3; int64 recalled_at = 4; }
+message MsgForward { int64 src_msg_id = 1; optional int64 new_msg_id = 2; int64 from_user_id = 3; int64 to_user_id = 4; int64 created_at = 5; }
+
+// 群消息服务
+service GroupMsgService {
+  rpc SendMessage(Content) returns (google.protobuf.Empty);
+  rpc ReportMsgRead(MsgRead) returns (google.protobuf.Empty);
+  rpc AckMsgDelivered(MsgDeliveredAck) returns (google.protobuf.Empty);
+  rpc AckMsgRead(MsgReadAck) returns (google.protobuf.Empty);
+  rpc RecallMsg(MsgRecall) returns (google.protobuf.Empty);
+  rpc ForwardMsg(MsgForward) returns (google.protobuf.Empty);
+}
+

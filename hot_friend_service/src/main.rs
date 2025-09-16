@@ -6,14 +6,15 @@ use anyhow::{Context, Result};
 use log::warn;
 use sqlx::{MySql, Pool};
 use tokio::signal;
+use actix_web::{get, App, HttpResponse, HttpServer};
 use tonic::transport::Server;
 
 use common::config::{get_db, AppConfig};
 use common::UserId;
 
 use crate::autotune::{auto_tune_cache, AutoTuneConfig, CacheAutoTune};
-use crate::grpc::friend_service::friend_service_server::FriendServiceServer;
-use crate::grpc::friend_service_impl::FriendServiceImpl;
+use crate::grpc_hot_friend::friend_service::friend_service_server::FriendServiceServer;
+use crate::service::friend_service_impl::FriendServiceImpl;
 use crate::hot_cold::HotColdFriendFacade;
 use crate::store::mysql::FriendStorage;
 // ← 现在用你实现的 FriendStorage
@@ -21,20 +22,25 @@ use crate::store::mysql::FriendStorage;
 mod db;
 mod store;
 mod hot_cold;
-pub mod grpc;
+// 旧 grpc 模块已移除，改用分类模块
+mod grpc_hot_friend;
+pub mod service;
 mod hot_shard_store;
 mod autotune;
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
-    // 1) 读取应用配置
-    let app_config = AppConfig::init("./config-friend.toml").await;
+    // 1) 读取应用配置（支持 APP_CONFIG 覆盖路径）
+    let app_config = AppConfig::init_from_env("./config-friend.toml").await;
     let grpc_config = app_config.grpc.expect("grpc.config.error");
 
-    // 0) 基本参数
-    let grpc_addr: SocketAddr = format!("{}", grpc_config.server_addr.unwrap())
+    // 0) 基本参数（更稳健的地址解析 + 回退）
+    let grpc_addr_str = grpc_config
+        .server_addr
+        .unwrap_or_else(|| "0.0.0.0:8081".to_string());
+    let grpc_addr: SocketAddr = grpc_addr_str
         .parse()
-        .expect("Failed to parse GRPC_ADDR");
+        .context("Failed to parse GRPC_ADDR")?;
 
     // 估计平均条目大小
     let avg_key_bytes = std::mem::size_of::<UserId>(); // u64 -> 8
@@ -97,7 +103,32 @@ async fn main() -> Result<()> {
         });
     }
 
-    // 4) 启动 gRPC
+    // 4) 启动健康检查 HTTP（/healthz）
+    let http_cfg = app_config.server.clone().unwrap_or_default();
+    let http_addr: SocketAddr = format!("{}:{}", http_cfg.host, http_cfg.port)
+        .parse()
+        .unwrap_or_else(|_| "0.0.0.0:8085".parse().unwrap());
+
+    #[get("/healthz")]
+    async fn healthz() -> actix_web::HttpResponse {
+        HttpResponse::Ok().json(serde_json::json!({"ok": true}))
+    }
+    std::thread::spawn(move || {
+        actix_web::rt::System::new().block_on(async move {
+            let server = match HttpServer::new(|| App::new().service(healthz)).bind(http_addr) {
+                Ok(s) => s,
+                Err(e) => {
+                    warn!("http bind error: {}", e);
+                    return;
+                }
+            };
+            if let Err(e) = server.run().await {
+                warn!("http server error: {}", e);
+            }
+        });
+    });
+
+    // 5) 启动 gRPC
     let svc = FriendServiceImpl::<FriendStorage> { facade };
 
     Server::builder()

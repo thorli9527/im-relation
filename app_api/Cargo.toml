@@ -1,7 +1,8 @@
 [package]
 name = "app_api"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+build = "build.rs"
 
 [dependencies]
 common = { path = "../common" }
@@ -9,9 +10,9 @@ tokio.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 async-trait.workspace = true
-serde .workspace = true
-serde_json = "1"
-ahash .workspace = true
+serde.workspace = true
+serde_json.workspace = true
+ahash.workspace = true
 validator.workspace = true
 fxhash.workspace = true
 dashmap.workspace = true
@@ -29,7 +30,7 @@ num_cpus.workspace = true
 deadpool-redis.workspace = true
 sysinfo.workspace = true
 log.workspace = true
-once_cell = "1.21.3"
+once_cell.workspace = true
 arc-swap.workspace = true
 regex.workspace = true
 rand = "0.8.5"

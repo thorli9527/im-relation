@@ -1,6 +1,6 @@
 use tonic::Status;
-use crate::grpc::arb_server::arb_server_rpc_service_client::ArbServerRpcServiceClient;
-use crate::grpc::client_service::client_rpc_service_client::ClientRpcServiceClient;
+use crate::grpc_arb::arb_server::arb_server_rpc_service_client::ArbServerRpcServiceClient;
+use crate::grpc_hot_online::client_service::client_rpc_service_client::ClientRpcServiceClient;
 use std::sync::Arc;
 use ahash::HashMap;
 use arc_swap::ArcSwap;

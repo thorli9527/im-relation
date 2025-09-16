@@ -52,8 +52,8 @@ use async_trait::async_trait;
 use common::UserId;
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
-use crate::grpc::auth::{AuthType, DeviceType};
-use crate::grpc::client_service::ClientEntity;
+use crate::grpc_hot_online::auth::{AuthType, DeviceType};
+use crate::grpc_hot_online::client_service::ClientEntity;
 
 #[derive(Clone, Debug)]
 pub struct UserService {}

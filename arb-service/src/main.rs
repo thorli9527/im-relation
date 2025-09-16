@@ -1,4 +1,4 @@
-mod grpc;
+mod grpc_arb;
 mod service;
 
 fn main() {

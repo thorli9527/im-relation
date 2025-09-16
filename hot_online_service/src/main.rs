@@ -1,14 +1,14 @@
 // hot_online_service/src/main.rs
 
 mod online_store;
-mod grpc;
+mod grpc_hot_online;
 mod rest_online;
 pub mod db;
 mod hot_cold;
 
 use std::{net::SocketAddr, sync::Arc};
 
-use actix_web::{web, App, HttpResponse, HttpServer};
+use actix_web::{web, App, HttpServer};
 use anyhow::Context;
 use log::{info, warn};
 use tokio::signal;
@@ -16,18 +16,19 @@ use tokio::signal;
 use common::config::{get_db, AppConfig};
 
 use crate::db::mysql::{ClientRepoSqlx, DirectoryRepoSqlx};
-use crate::grpc::client_service::client_rpc_service_server::ClientRpcServiceServer;
-use crate::grpc::online_service::online_service_server::OnlineServiceServer;
-use crate::grpc::online_service_impl::OnLineServiceImpl;
+use crate::grpc_hot_online::client_service::client_rpc_service_server::ClientRpcServiceServer;
+use crate::grpc_hot_online::online_service::online_service_server::OnlineServiceServer;
+use crate::grpc_hot_online::online_service_impl::OnLineServiceImpl;
 
-use crate::grpc::client_service_impl::{ClientEntityServiceImpl, DummyIdAlloc};
+use crate::grpc_hot_online::client_service_impl::{ClientEntityServiceImpl, DummyIdAlloc};
 use crate::hot_cold::{ClientHot, ClientHotConfig, RealNormalizer};
 use crate::online_store::OnlineStore;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // 1) 加载配置 & 初始化（内含 DB、日志等）
-    let app_cfg = AppConfig::init("./config-online.toml").await;
+    // 支持通过 APP_CONFIG 指定外部配置路径，未设置则使用默认
+    let app_cfg = AppConfig::init_from_env("./config-online.toml").await;
 
     // 2) 读取 gRPC/HTTP 监听地址
     let grpc_cfg = app_cfg.grpc.clone().expect("grpc config missing");
@@ -54,7 +55,7 @@ async fn main() -> anyhow::Result<()> {
     let normalizer = Arc::new(RealNormalizer::new(default_cc));
 
     // 5) 基于 get_db() 的单池读仓库（主表 + 目录）
-    let pool = get_db().as_ref().clone();
+    let _pool = get_db().as_ref().clone();
     let client_repo = Arc::new(ClientRepoSqlx::new());
     let directory_repo = Arc::new(DirectoryRepoSqlx::new());
 
@@ -104,10 +105,35 @@ async fn main() -> anyhow::Result<()> {
         })
     };
 
+    // 9) HTTP Server 任务（Actix Web）放到独立线程运行，避免 Send 约束
+    {
+        let st = store.clone();
+        std::thread::spawn(move || {
+            actix_web::rt::System::new().block_on(async move {
+                let server = match HttpServer::new(move || {
+                    App::new()
+                        .app_data(web::Data::new(rest_online::AppState { store: st.clone() }))
+                        .configure(rest_online::config)
+                })
+                .bind(http_addr)
+                {
+                    Ok(s) => s,
+                    Err(e) => {
+                        warn!("http bind error: {}", e);
+                        return;
+                    }
+                };
+                if let Err(e) = server.run().await {
+                    warn!("http server error: {}", e);
+                }
+            });
+        });
+    }
+
 
     info!("hot_online_service started. grpc={}, http={}", grpc_addr, http_addr);
 
-    // 9) 等待 Ctrl+C 或子任务结束
+    // 10) 等待 Ctrl+C 或子任务结束（HTTP 随进程退出）
     tokio::select! {
         r = grpc_task => { r??; }
         _ = signal::ctrl_c() => {

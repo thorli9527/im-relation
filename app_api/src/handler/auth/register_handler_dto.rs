@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use validator::{Validate, ValidateEmail, ValidationError};
-use crate::grpc::auth::AuthType;
+use crate::grpc_hot_online::auth::AuthType;
 use crate::service::user_service::UserRegType;
 
 #[derive(Debug, Deserialize, ToSchema, Validate)]

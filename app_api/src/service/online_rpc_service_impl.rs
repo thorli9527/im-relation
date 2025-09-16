@@ -1,8 +1,8 @@
 use arc_swap::ArcSwap;
-use crate::grpc::online_service::online_service_client::OnlineServiceClient;
+use crate::grpc_hot_online::online_service::online_service_client::OnlineServiceClient;
 use tonic::Status;
-use crate::grpc::arb_server::arb_server_rpc_service_client::ArbServerRpcServiceClient;
-use crate::grpc::client_service::client_rpc_service_client::ClientRpcServiceClient;
+use crate::grpc_arb::arb_server::arb_server_rpc_service_client::ArbServerRpcServiceClient;
+use crate::grpc_hot_online::client_service::client_rpc_service_client::ClientRpcServiceClient;
 use std::sync::Arc;
 use ahash::HashMap;
 use tokio::sync::{Mutex, OnceCell};

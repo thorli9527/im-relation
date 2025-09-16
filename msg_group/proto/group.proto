@@ -1,0 +1,186 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package grouppb;
+
+// ===============
+// 基础枚举/模型（与后端一致）
+// ===============
+
+// 群成员角色
+enum GroupRoleType {
+  GRT_OWNER  = 0; // 群主
+  GRT_ADMIN  = 1; // 管理员
+  GRT_MEMBER = 2; // 普通成员
+}
+
+// 加群权限
+enum JoinPermission {
+  JP_ANYONE       = 0; // 任何人可加入
+  JP_NEED_APPROVAL= 1; // 需审批
+  JP_INVITE_ONLY  = 2; // 仅邀请
+  JP_CLOSED       = 3; // 关闭加入
+}
+
+// 群组类型
+enum GroupType {
+  GT_UNKNOWN = 0;
+  GT_NORMAL  = 1;
+  GT_SUPER   = 2;
+  GT_SYSTEM  = 3;
+}
+
+// 成员引用
+message MemberRef {
+  int64 user_id = 1;
+  string alias = 2; // 为空表示无别名
+  GroupRoleType role = 3;
+}
+
+// 群信息（查询返回）
+message GroupInfo {
+  int64 id = 1;
+  string name = 2;
+  string avatar = 3;
+  string description = 4;
+  string notice = 5;
+  JoinPermission join_permission = 6;
+  int64 owner_id = 7;
+  GroupType group_type = 8;
+  bool allow_search = 9;
+  bool enable = 10;
+  int64 created_at = 11;  // 毫秒时间戳
+  int64 updated_at = 12;  // 毫秒时间戳
+  uint32 member_count = 13;
+}
+
+// ===============
+// 管理/资料
+// ===============
+
+message CreateGroupReq {
+  int64 creator_id = 1;
+  string name = 2;
+  repeated int64 members = 3; // 初始成员（不含自己）
+  string avatar = 4;
+  string intro = 5;
+}
+message CreateGroupResp { int64 group_id = 1; }
+
+message UpdateGroupProfileReq {
+  int64 operator_id = 1;
+  int64 group_id = 2;
+  string name = 3;
+  string avatar = 4;
+  string intro = 5;
+}
+
+message DismissGroupReq {
+  int64 operator_id = 1; // 需为群主
+  int64 group_id = 2;
+}
+
+// ===============
+// 成员变更
+// ===============
+
+message JoinGroupReq {
+  int64 group_id = 1;
+  int64 user_id = 2;
+  string extra = 3;
+  string join_source = 4;
+  int64 inviter_id = 5; // 若被邀请
+  string inviter_extra = 6;
+  string inviter_join_source = 7;
+  int64 join_time_ms = 8; // 毫秒
+}
+
+message LeaveGroupReq {
+  int64 group_id = 1;
+  int64 user_id = 2;
+  string reason = 3;
+}
+
+message ApproveJoinReq {
+  int64 group_id = 1;
+  int64 operator_id = 2;
+  int64 applicant_id = 3;
+  bool accept = 4;
+  string remark = 5;
+}
+
+message InviteMembersReq {
+  int64 group_id = 1;
+  int64 operator_id = 2;
+  repeated int64 invitee_ids = 3;
+  string extra = 4;
+}
+
+message KickMemberReq {
+  int64 group_id = 1;
+  int64 operator_id = 2;
+  int64 target_id = 3;
+  string reason = 4;
+}
+
+message UpdateMemberAliasReq {
+  int64 group_id = 1;
+  int64 operator_id = 2;
+  int64 target_id = 3;
+  string alias = 4; // 空串 => 清空
+}
+
+message ChangeMemberRoleReq {
+  int64 group_id = 1;
+  int64 operator_id = 2;
+  int64 target_id = 3;
+  GroupRoleType role = 4;
+}
+
+// ===============
+// 查询
+// ===============
+
+message GetGroupReq { int64 group_id = 1; }
+
+message GetMembersReq {
+  int64 group_id = 1;
+  uint32 page = 2;      // 从 1 开始
+  uint32 page_size = 3; // 建议 1..=100
+}
+message GetMembersResp {
+  repeated MemberRef members = 1;
+  uint64 total = 2; // 可选填充
+}
+
+message CountMembersReq { int64 group_id = 1; }
+message CountMembersResp { uint64 count = 1; }
+
+message UserGroupsReq { int64 user_id = 1; }
+message UserGroupsResp { repeated int64 group_ids = 1; }
+
+// ===============
+// 服务
+// ===============
+service GroupBizService {
+  // 管理
+  rpc CreateGroup(CreateGroupReq) returns (CreateGroupResp);
+  rpc UpdateGroupProfile(UpdateGroupProfileReq) returns (google.protobuf.Empty);
+  rpc DismissGroup(DismissGroupReq) returns (google.protobuf.Empty);
+
+  // 成员
+  rpc JoinGroup(JoinGroupReq) returns (google.protobuf.Empty);
+  rpc LeaveGroup(LeaveGroupReq) returns (google.protobuf.Empty);
+  rpc ApproveJoin(ApproveJoinReq) returns (google.protobuf.Empty);
+  rpc InviteMembers(InviteMembersReq) returns (google.protobuf.Empty);
+  rpc KickMember(KickMemberReq) returns (google.protobuf.Empty);
+  rpc UpdateMemberAlias(UpdateMemberAliasReq) returns (google.protobuf.Empty);
+  rpc ChangeMemberRole(ChangeMemberRoleReq) returns (google.protobuf.Empty);
+
+  // 查询
+  rpc GetGroup(GetGroupReq) returns (GroupInfo);
+  rpc GetMembers(GetMembersReq) returns (GetMembersResp);
+  rpc CountMembers(CountMembersReq) returns (CountMembersResp);
+  rpc UserGroups(UserGroupsReq) returns (UserGroupsResp);
+}

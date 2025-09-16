@@ -1,4 +1,4 @@
-use crate::grpc::group_service::MemberRef;
+use crate::grpc_msg_group::group_service::MemberRef;
 use anyhow::Result;
 use async_trait::async_trait;
 use common::GroupId;

@@ -26,6 +26,14 @@ pub enum AddOutcome {
 #[async_trait]
 pub trait FriendRepo: Send + Sync + 'static {
     async fn add_friend(&self, user: UserId, friend: UserId, alias: Option<&str>) -> Result<AddOutcome>;
+    /// 原子地为双方建立好友关系，并刷新两侧计数（以实时 COUNT(*) 为准）。
+    async fn add_friend_both(
+        &self,
+        a: UserId,
+        b: UserId,
+        alias_for_a: Option<&str>,
+        alias_for_b: Option<&str>,
+    ) -> Result<()>;
     async fn remove_friend(&self, user: UserId, friend: UserId) -> Result<bool>;
     async fn set_alias(&self, user: UserId, friend: UserId, alias: Option<&str>) -> Result<bool>;
     async fn is_friend(&self, user: UserId, friend: UserId) -> Result<bool>;
@@ -147,6 +155,86 @@ impl FriendRepo for FriendStorage {
 
             Err(e) => Err(e).with_context(|| "add_friend: insert failed"),
         }
+    }
+
+    async fn add_friend_both(
+        &self,
+        a: UserId,
+        b: UserId,
+        alias_for_a: Option<&str>,
+        alias_for_b: Option<&str>,
+    ) -> Result<()> {
+        let mut tx = self.db().begin().await
+            .with_context(|| "add_friend_both: begin tx")?;
+
+        // 双向 UPSERT（幂等），别名按传入值覆盖
+        sqlx::query(
+            r#"
+            INSERT INTO friend_edge (user_id, friend_id, alias)
+            VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE alias=VALUES(alias), updated_at=CURRENT_TIMESTAMP
+            "#,
+        )
+            .bind(a as u64)
+            .bind(b as u64)
+            .bind(alias_for_a)
+            .execute(&mut *tx)
+            .await
+            .with_context(|| "add_friend_both: upsert A->B failed")?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO friend_edge (user_id, friend_id, alias)
+            VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE alias=VALUES(alias), updated_at=CURRENT_TIMESTAMP
+            "#,
+        )
+            .bind(b as u64)
+            .bind(a as u64)
+            .bind(alias_for_b)
+            .execute(&mut *tx)
+            .await
+            .with_context(|| "add_friend_both: upsert B->A failed")?;
+
+        // 计数以真实行数为准
+        let cnt_a: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM friend_edge WHERE user_id=?")
+            .bind(a as u64)
+            .fetch_one(&mut *tx)
+            .await
+            .with_context(|| "add_friend_both: count A failed")?;
+        sqlx::query(
+            r#"
+            INSERT INTO user_friends_meta (user_id, friend_count)
+            VALUES (?, ?)
+            ON DUPLICATE KEY UPDATE friend_count=VALUES(friend_count), updated_at=CURRENT_TIMESTAMP
+            "#,
+        )
+            .bind(a as u64)
+            .bind(cnt_a as u64)
+            .execute(&mut *tx)
+            .await
+            .with_context(|| "add_friend_both: upsert meta A failed")?;
+
+        let cnt_b: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM friend_edge WHERE user_id=?")
+            .bind(b as u64)
+            .fetch_one(&mut *tx)
+            .await
+            .with_context(|| "add_friend_both: count B failed")?;
+        sqlx::query(
+            r#"
+            INSERT INTO user_friends_meta (user_id, friend_count)
+            VALUES (?, ?)
+            ON DUPLICATE KEY UPDATE friend_count=VALUES(friend_count), updated_at=CURRENT_TIMESTAMP
+            "#,
+        )
+            .bind(b as u64)
+            .bind(cnt_b as u64)
+            .execute(&mut *tx)
+            .await
+            .with_context(|| "add_friend_both: upsert meta B failed")?;
+
+        tx.commit().await?;
+        Ok(())
     }
 
     async fn remove_friend(&self, user: UserId, friend: UserId) -> Result<bool> {
