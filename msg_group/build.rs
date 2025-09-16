@@ -5,12 +5,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tonic_build::configure()
         .build_server(true)
         .build_client(true)
-        .type_attribute(".", "#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]")
+        .type_attribute(
+            ".",
+            "#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]",
+        )
         .type_attribute(".", "#[serde(rename_all = \"camelCase\")]")
         .out_dir(out_dir)
-        .compile_protos(&["proto/group.proto", "proto/group_message.proto"], &["proto"]) ?;
+        .compile_protos(
+            &["proto/group.proto", "proto/group_message.proto"],
+            &["proto"],
+        )?;
 
     println!("cargo:rerun-if-changed=proto/group.proto");
     println!("cargo:rerun-if-changed=proto/group_message.proto");
+
+    std::fs::create_dir_all("src/grpc_arb/").ok();
+    tonic_build::configure()
+        .build_server(true)
+        .build_client(true)
+        .out_dir("src/grpc_arb/")
+        .compile_protos(
+            &["../arb-service/proto/arb_server.proto"],
+            &["../arb-service/proto"],
+        )?;
+    println!("cargo:rerun-if-changed=../arb-service/proto/arb_server.proto");
     Ok(())
 }

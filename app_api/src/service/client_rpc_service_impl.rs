@@ -1,45 +1,58 @@
-use tonic::Status;
-use crate::grpc_arb::arb_server::arb_server_rpc_service_client::ArbServerRpcServiceClient;
 use crate::grpc_hot_online::client_service::client_rpc_service_client::ClientRpcServiceClient;
-use std::sync::Arc;
-use ahash::HashMap;
-use arc_swap::ArcSwap;
-use tokio::sync::{Mutex, OnceCell};
-use tonic::transport::Channel;
+use common::grpc::GrpcClientManager;
+use once_cell::sync::OnceCell as SyncOnceCell;
+use tokio::sync::OnceCell;
+use tonic::transport::{Channel, Error as TransportError};
+use tonic::Status;
 
-static INSTANCE: OnceCell<Arc<ClientRpcServiceImpl>> = OnceCell::const_new();
+static CLIENT_MANAGER: OnceCell<
+    GrpcClientManager<ClientRpcServiceClient<Channel>, TransportError>,
+> = OnceCell::const_new();
+static DEFAULT_ADDR: SyncOnceCell<String> = SyncOnceCell::new();
 
-pub struct ClientRpcServiceImpl {
-    pub client: Arc<Mutex<ClientRpcServiceClient<Channel>>>,
-}
+pub struct ClientRpcClients;
 
-impl ClientRpcServiceImpl {
-    pub async fn new(address: &str) -> Result<ClientRpcServiceImpl, Status> {
-        // 创建 gRPC 客户端连接
-        let client = ClientRpcServiceClient::connect(address.to_string())
+impl ClientRpcClients {
+    pub async fn init(address: &str) -> Result<(), Status> {
+        CLIENT_MANAGER
+            .get_or_try_init(|| async {
+                Ok::<GrpcClientManager<_, _>, Status>(GrpcClientManager::new(
+                    |addr: String| async move { ClientRpcServiceClient::connect(addr).await },
+                ))
+            })
+            .await?;
+        DEFAULT_ADDR.get_or_init(|| address.to_string());
+
+        let manager = CLIENT_MANAGER.get().unwrap();
+        manager
+            .get(address)
             .await
-            .map_err(|e| Status::internal(format!("Failed to connect to gRPC server: {}", e)))?;
-
-        Ok(ClientRpcServiceImpl {
-            client: Arc::new(Mutex::new(client))
-        })
+            .map_err(|e| Status::internal(format!("client connect error: {}", e)))?;
+        Ok(())
     }
 
-    // 实现单例懒加载
-    pub async fn init(address: &str) -> Result<&'static Arc<ClientRpcServiceImpl>, Status> {
-        let instance = INSTANCE.get_or_try_init(|| async {
-            let service = ClientRpcServiceImpl::new(address).await?;
-            Ok::<Arc<ClientRpcServiceImpl>, Status>(Arc::new(service))
-        }).await?;
-
-        Ok(instance)
+    pub async fn get_default() -> Result<ClientRpcServiceClient<Channel>, Status> {
+        let addr = DEFAULT_ADDR
+            .get()
+            .ok_or_else(|| Status::internal("ClientRpcClients not initialized"))?
+            .clone();
+        Self::get(&addr).await
     }
 
-
-    // 提供获取实例的方法
-    pub fn get() -> Arc<Self> {
-        INSTANCE.get().unwrap().clone()
+    pub async fn get(address: &str) -> Result<ClientRpcServiceClient<Channel>, Status> {
+        let manager = CLIENT_MANAGER
+            .get()
+            .ok_or_else(|| Status::internal("ClientRpcClients not initialized"))?;
+        let client = manager
+            .get(address)
+            .await
+            .map_err(|e| Status::internal(format!("client connect error: {}", e)))?;
+        Ok(client.as_ref().clone())
     }
 
-
+    pub fn invalidate(address: &str) {
+        if let Some(manager) = CLIENT_MANAGER.get() {
+            manager.invalidate(address);
+        }
+    }
 }

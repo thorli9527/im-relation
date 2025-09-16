@@ -5,7 +5,7 @@
 //! - 编解码：业务载荷为 Protobuf，首帧握手使用 `AuthMsg`；
 //! - 上行：客户端发送 `ClientMsg`，服务端解析并上报给 `SessionManager`；
 //! - 下行：`SessionManager` 经分发后投递 `ServerMsg`，本模块编码为 Protobuf 后写回；
-//! - 鉴权：`validate_auth` 支持 token（Redis）与可选签名校验，并进行时间漂移容忍检查。
+//! - 鉴权：调用 hot_online_service 校验 session_token，确保设备唯一并遵守 15 天 TTL。
 
 use anyhow::Context;
 use bytes::BytesMut;
@@ -18,8 +18,14 @@ use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
+use crate::grpc_hot_online::online_service::{SessionTokenStatus, ValidateSessionTokenRequest};
 use crate::proto as socketpb;
-use socketpb::{AuthMsg as PbAuthMsg, ClientMsg as PbClientMsg, DeviceType as PbDeviceType, MsgKind as PbMsgKind, ServerMsg as PbServerMsg};
+use crate::service::grpc_clients;
+use crate::util::node_util::resolve_hot_online_addr;
+use socketpb::{
+    AuthMsg as PbAuthMsg, ClientMsg as PbClientMsg, DeviceType as PbDeviceType,
+    MsgKind as PbMsgKind, ServerMsg as PbServerMsg,
+};
 
 use crate::service::session::SessionManager;
 use crate::service::types::{ClientMsg, DeviceType, UserId};
@@ -45,7 +51,10 @@ pub async fn start_tcp_server() -> anyhow::Result<()> {
     let cfg = common::config::AppConfig::get();
     let server = cfg.get_server();
     let bind = format!("{}:{}", server.host, server.port);
-    let addr: SocketAddr = bind.parse().context("invalid socket bind address from config")?;
+    let addr: SocketAddr = bind
+        .parse()
+        .context("invalid socket bind address from config")?;
+    // 尝试在 Tokio runtime 上监听 TCP 端口（失败直接返回错误以便上层中止启动流程）。
     let listener = TcpListener::bind(addr).await.context("bind tcp listener")?;
     info!("tcp socket listening on {}", bind);
 
@@ -55,6 +64,7 @@ pub async fn start_tcp_server() -> anyhow::Result<()> {
                 Ok((stream, peer)) => {
                     // 低延迟：关闭 Nagle
                     let _ = stream.set_nodelay(true);
+                    // 每个连接交由独立任务处理，避免单连接阻塞影响其他客户端。
                     tokio::spawn(async move {
                         if let Err(e) = handle_conn(stream, peer).await {
                             warn!("conn {} closed with error: {:?}", peer, e);
@@ -74,30 +84,54 @@ pub async fn start_tcp_server() -> anyhow::Result<()> {
 /// 处理单个 TCP 连接：握手 → 写协程 → 读循环 → 清理
 async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow::Result<()> {
     let sm = SessionManager::get();
+    // 使用 LengthDelimitedCodec 将 TCP 字节流封装为“长度前缀帧”。
     let mut framed = Framed::new(stream, LengthDelimitedCodec::new());
 
     // 1) 握手：首帧必须是 AuthMsg（Protobuf 长度前缀）
-    let Some(first) = framed.next().await else { return Ok(()); };
+    let Some(first) = framed.next().await else {
+        // 对端主动断开或未发送任何内容，直接结束即可。
+        return Ok(());
+    };
     let first = first?;
     let auth = PbAuthMsg::decode(first.freeze())?;
     // 基本鉴权：token 校验（与 Redis 中的 user -> token 绑定一致）；可选 signature 验证
-    if !validate_auth(&auth).await.unwrap_or(false) {
-        warn!("{} auth failed: uid={} device={} ", peer, auth.user_id, auth.device_id);
-        return Ok(());
-    }
-    let device_type: DeviceType = (PbDeviceType::try_from(auth.device_type).unwrap_or(PbDeviceType::Unknown)).into();
+    let token_expiry_ms = match validate_auth(&auth).await {
+        Ok(Some(exp)) => exp,
+        Ok(None) => {
+            warn!(
+                "{} auth failed: uid={} device={} ",
+                peer, auth.user_id, auth.device_id
+            );
+            return Ok(());
+        }
+        Err(e) => {
+            warn!(
+                "{} auth validate error: uid={} device={} err={:?}",
+                peer, auth.user_id, auth.device_id, e
+            );
+            return Ok(());
+        }
+    };
+    let device_type: DeviceType =
+        (PbDeviceType::try_from(auth.device_type).unwrap_or(PbDeviceType::Unknown)).into();
     // 能力协商占位：记录加密能力（不影响现有流程）
     if auth.supports_encryption {
         info!(
             "{} client supports encryption; schemes={:?}",
-            peer,
-            auth.encryption_schemes
+            peer, auth.encryption_schemes
         );
     }
-    let (handle, mut rx) = sm.register(auth.user_id as UserId, device_type, auth.device_id.clone());
+    let (handle, mut rx) = sm.register(
+        auth.user_id as UserId,
+        device_type,
+        auth.device_id.clone(),
+        auth.token.clone(),
+        token_expiry_ms,
+    );
     let user_id = handle.user_id;
     let session_id = handle.session_id.clone();
 
+    // split 将 Framed 拆为 sink (写端) 与 stream (读端)，便于分别驱动写协程和读循环。
     let (mut sink, mut stream) = framed.split();
 
     // 断线重连快速补发：若客户端声明 resume 并带上 last_ack_id，则从 backlog 进行快速补发
@@ -114,7 +148,13 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
     // 2) 写协程：将 SessionManager 的下行 ServerMsg 转为 Protobuf 并写回
     let writer: JoinHandle<anyhow::Result<()>> = tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
-            let pb = PbServerMsg { id: msg.id, kind: msg.kind as i32, payload: msg.payload.clone(), ts_ms: msg.ts_ms };
+            // 将内部结构转换为 Protobuf，再交由 LengthDelimitedCodec 写入 TCP。
+            let pb = PbServerMsg {
+                id: msg.id,
+                kind: msg.kind as i32,
+                payload: msg.payload.clone(),
+                ts_ms: msg.ts_ms,
+            };
             let mut buf = BytesMut::with_capacity(pb.encoded_len());
             pb.encode(&mut buf)?; // 编码原始消息体，由 LengthDelimitedCodec 负责加长度前缀
             sink.send(buf.freeze()).await.context("send server msg")?;
@@ -127,8 +167,15 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
         match frame {
             Ok(bytes) => match PbClientMsg::decode(bytes.freeze()) {
                 Ok(pb) => {
+                    // 尝试将枚举值转换为定义的 MsgKind；未知值使用 MkUnknown 兜底。
                     let kind = PbMsgKind::try_from(pb.kind).unwrap_or(PbMsgKind::MkUnknown);
-                    let cmsg = ClientMsg { ack: pb.ack, client_id: pb.client_id, kind, payload: pb.payload };
+                    let cmsg = ClientMsg {
+                        ack: pb.ack,
+                        client_id: pb.client_id,
+                        kind,
+                        payload: pb.payload,
+                    };
+                    // 上报给 SessionManager：包含 ACK 处理与业务分发。
                     sm.on_client_msg(user_id, cmsg);
                 }
                 Err(e) => {
@@ -145,6 +192,7 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
     // 4) 清理：注销会话并等待写协程结束
     sm.unregister(&user_id, &session_id);
     // ensure writer ends
+    // 若写协程尚未结束（可能因 channel close），此处等待以释放资源。
     let _ = writer.await;
     Ok(())
 }
@@ -153,46 +201,34 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
 /// - token：与 Redis 中的 `app:token:{token}` 绑定进行校验（校验 id 一致性）；
 /// - 可选签名：如配置 md5_key，则校验 signature（简单示例，真实项目应替换更安全方案）；
 /// - 时间漂移：允许 5 分钟以内的时间偏差。
-async fn validate_auth(auth: &PbAuthHello) -> anyhow::Result<bool> {
-    // 1) token 验证（Redis 中保存的登录 token）
+async fn validate_auth(auth: &PbAuthMsg) -> anyhow::Result<Option<i64>> {
     if auth.token.is_empty() {
-        return Ok(false);
-    }
-    if let Some(pool) = try_get_redis_pool() {
-        let key = format!("app:token:{}", auth.token);
-        let mut conn = pool.get().await.ok();
-        if let Some(c) = conn.as_mut() {
-            use deadpool_redis::redis::AsyncCommands;
-            let val: Result<Option<String>, _> = c.get(&key).await;
-            if let Ok(opt) = val {
-                if let Some(json) = opt {
-                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&json) {
-                        if v.get("id").and_then(|x| x.as_i64()).unwrap_or_default() != auth.user_id {
-                            return Ok(false);
-                        }
-                    }
-                } else {
-                    return Ok(false);
-                }
-            } else {
-                return Ok(false);
-            }
-        } else {
-            return Ok(false);
-        }
+        return Ok(None);
     }
 
-    // 2) 可选 signature 验证（如果配置了密钥）
-    if !auth.signature.is_empty() {
-        if let Some(key) = common::config::AppConfig::get().get_sys().md5_key {
-            let expect = compute_sig(&key, auth);
-            if auth.signature != expect {
-                return Ok(false);
-            }
-        }
+    let addr = resolve_hot_online_addr().await?;
+    let mut client = grpc_clients::online_client(&addr).await?;
+    let resp = client
+        .validate_session_token(ValidateSessionTokenRequest {
+            session_token: auth.token.clone(),
+        })
+        .await?
+        .into_inner();
+
+    if resp.status != SessionTokenStatus::StsActive as i32 {
+        return Ok(None);
+    }
+    if resp.user_id != auth.user_id {
+        return Ok(None);
+    }
+    if resp.device_type != auth.device_type {
+        return Ok(None);
+    }
+    if resp.device_id != auth.device_id {
+        return Ok(None);
     }
 
-    // 3) 基本时间漂移检查（可选）
+    // 时间漂移容忍：仅用于日志记录，目前不拦截
     if auth.ts_ms != 0 {
         use std::time::{SystemTime, UNIX_EPOCH};
         let now = SystemTime::now()
@@ -200,35 +236,9 @@ async fn validate_auth(auth: &PbAuthHello) -> anyhow::Result<bool> {
             .unwrap_or_default()
             .as_millis() as i64;
         if (now - auth.ts_ms).abs() > 5 * 60 * 1000 {
-            // 时间漂移过大，可视情况拒绝；此处放行
+            log::warn!("auth timestamp drift detected: uid={}", auth.user_id);
         }
     }
-    Ok(true)
-}
 
-/// 计算简单签名（示例实现，非生产级）：连接 key/token/user_id/device_id/ts/nonce 后进行 SHA1
-fn compute_sig(key: &str, h: &PbAuthHello) -> Vec<u8> {
-    use sha1::{Digest, Sha1};
-    let mut s = String::new();
-    s.push_str(key);
-    s.push('|');
-    s.push_str(&h.token);
-    s.push('|');
-    s.push_str(&h.user_id.to_string());
-    s.push('|');
-    s.push_str(&h.device_id);
-    s.push('|');
-    s.push_str(&h.ts_ms.to_string());
-    s.push('|');
-    s.push_str(&hex::encode(&h.nonce));
-    let mut hasher = Sha1::new();
-    hasher.update(s.as_bytes());
-    hasher.finalize().to_vec()
-}
-
-/// 获取 Redis 连接池（在 AppConfig 初始化时已构建）
-fn try_get_redis_pool() -> Option<deadpool_redis::Pool> {
-    // 已在 common::config::AppConfig::init 中根据配置初始化了 Redis 连接池
-    let arc = common::redis::redis_pool::RedisPoolTools::get();
-    Some((**arc).clone())
+    Ok(Some(resp.expires_at as i64))
 }

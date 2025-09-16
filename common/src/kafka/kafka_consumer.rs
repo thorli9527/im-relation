@@ -7,16 +7,16 @@
 //! - 提交语义：handler 返回 Ok 才异步提交 offset（至少一次）
 //! - 关闭自动提交，交由业务控制
 
-use std::future::Future;
 use anyhow::Result;
 use log::warn;
+use std::future::Future;
 use std::sync::Arc;
 
+use crate::kafka::topic_info::TopicInfo;
+use crate::util::common_utils::build_md5;
 use rdkafka::config::ClientConfig;
 use rdkafka::consumer::{Consumer, StreamConsumer};
 use rdkafka::message::OwnedMessage;
-use crate::kafka::topic_info::TopicInfo;
-use crate::util::common_utils::build_md5;
 
 /// 启动 Kafka 消费循环
 ///
@@ -40,7 +40,7 @@ where
         .set("bootstrap.servers", broker)
         // 开启 SASL 认证（具体安全策略根据集群配置调整）
         .set("security.protocol", "SASL_PLAINTEXT") // 或 SASL_SSL
-        .set("sasl.mechanism", "PLAIN")             // 也可用 SCRAM-SHA-256/512
+        .set("sasl.mechanism", "PLAIN") // 也可用 SCRAM-SHA-256/512
         .set("sasl.username", "admin")
         .set("sasl.password", build_md5(&broker))
         // 关闭自动提交 offset

@@ -12,17 +12,21 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use log::{error, info};
-use rdkafka::message::Message;
 use prost::Message as _;
+use rdkafka::message::Message;
 
+use crate::proto::{KafkaSocketMsg, MsgKind as PbMsgKind};
 use crate::service::dispatcher::ShardedDispatcher;
 use crate::service::types::{SendOpts, ServerMsg, UserId};
-use crate::proto::{KafkaSocketMsg, MsgKind as PbMsgKind};
-use std::convert::TryFrom;
 use common::kafka::start_consumer;
-use common::kafka::topic_info::{MSG_SEND_FRIEND_TOPIC, MSG_SEND_GROUP_TOPIC, SYS_MSG_TOPIC_INFO, TopicInfo};
+use common::kafka::topic_info::{
+    TopicInfo, MSG_SEND_FRIEND_TOPIC, MSG_SEND_GROUP_TOPIC, SYS_MSG_TOPIC_INFO,
+};
+use std::convert::TryFrom;
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 /// 启动消费与分发流水线（参数来自配置文件 socket.*）
 ///
@@ -34,13 +38,23 @@ fn default_true() -> bool { true }
 /// 5) 分片任务再调用 `SessionManager::send_to_user` 完成扇出。
 pub async fn start_socket_pipeline() -> anyhow::Result<()> {
     let sock_cfg = common::config::AppConfig::get().get_socket();
-    let shard_count: usize = sock_cfg.dispatch_shards.unwrap_or_else(num_cpus::get).max(1);
+    let shard_count: usize = sock_cfg
+        .dispatch_shards
+        .unwrap_or_else(num_cpus::get)
+        .max(1);
     let shard_cap: usize = sock_cfg.dispatch_cap.unwrap_or(10_000);
-    let broker = sock_cfg.kafka_broker.unwrap_or_else(|| "127.0.0.1:9092".to_string());
-    let group_id = sock_cfg.kafka_group_id.unwrap_or_else(|| "socket-dispatcher".to_string());
+    let broker = sock_cfg
+        .kafka_broker
+        .unwrap_or_else(|| "127.0.0.1:9092".to_string());
+    let group_id = sock_cfg
+        .kafka_group_id
+        .unwrap_or_else(|| "socket-dispatcher".to_string());
 
     let dispatcher = ShardedDispatcher::new(shard_count, shard_cap);
-    info!("socket pipeline: shards={}, cap={} broker={} group={}", shard_count, shard_cap, broker, group_id);
+    info!(
+        "socket pipeline: shards={}, cap={} broker={} group={}",
+        shard_count, shard_cap, broker, group_id
+    );
 
     let topics: Vec<TopicInfo> = vec![
         MSG_SEND_FRIEND_TOPIC.clone(),
@@ -59,18 +73,45 @@ pub async fn start_socket_pipeline() -> anyhow::Result<()> {
                         Ok(kmsg) => {
                             let id = kmsg.id.unwrap_or_else(|| {
                                 use std::time::{SystemTime, UNIX_EPOCH};
-                                SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
+                                // 若生产端未提供 id，则现场生成毫秒时间戳，保证 ACK 链路可用。
+                                SystemTime::now()
+                                    .duration_since(UNIX_EPOCH)
+                                    .map(|d| d.as_millis() as i64)
+                                    .unwrap_or(0)
                             });
-                            let kind = PbMsgKind::try_from(kmsg.kind).unwrap_or(PbMsgKind::MkUnknown);
-                            let msg = ServerMsg { id, kind, payload: kmsg.payload, ts_ms: kmsg.ts_ms.unwrap_or(id) };
-                            let opts = SendOpts { require_ack: kmsg.require_ack.unwrap_or(true), expire: Duration::from_millis(kmsg.expire_ms.unwrap_or(10_000)), max_retry: kmsg.max_retry.unwrap_or(2) };
-                            if dispatcher.enqueue(kmsg.to as UserId, msg, opts) { Ok(()) } else { Err(anyhow!("dispatch queue full")) }
+                            let kind =
+                                PbMsgKind::try_from(kmsg.kind).unwrap_or(PbMsgKind::MkUnknown);
+                            let msg = ServerMsg {
+                                id,
+                                kind,
+                                payload: kmsg.payload,
+                                ts_ms: kmsg.ts_ms.unwrap_or(id),
+                            };
+                            let opts = SendOpts {
+                                require_ack: kmsg.require_ack.unwrap_or(true),
+                                expire: Duration::from_millis(kmsg.expire_ms.unwrap_or(10_000)),
+                                max_retry: kmsg.max_retry.unwrap_or(2),
+                            };
+                            // 将消息投递至分片队列，若队列已满则返回错误供 consumer 触发重试。
+                            if dispatcher.enqueue(kmsg.to as UserId, msg, opts) {
+                                Ok(())
+                            } else {
+                                Err(anyhow!("dispatch queue full"))
+                            }
                         }
-                        Err(e) => { error!("kafka payload decode error: {:?}", e); Err(anyhow!("decode")) }
+                        Err(e) => {
+                            // 序列化失败通常表示消息格式不兼容，直接记录错误并请求重试。
+                            error!("kafka payload decode error: {:?}", e);
+                            Err(anyhow!("decode"))
+                        }
                     }
-                } else { Err(anyhow!("empty payload")) }
+                } else {
+                    // Kafka 消息无 payload，返回错误让上层决定是否跳过或重试。
+                    Err(anyhow!("empty payload"))
+                }
             }
-        }).await; // never returns
+        })
+        .await; // never returns
     });
 
     Ok(())

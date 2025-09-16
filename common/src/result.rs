@@ -27,29 +27,53 @@ pub struct ApiResponse<T> {
 
 impl<T: Serialize> ApiResponse<T> {
     pub fn success(data: T) -> Self {
-        ApiResponse { code: 0, message: "success".to_string(), data: Some(data) }
+        ApiResponse {
+            code: 0,
+            message: "success".to_string(),
+            data: Some(data),
+        }
     }
 
     pub fn error(code: i32, msg: impl AsRef<str> + ToString) -> Self {
-        ApiResponse { code, message: msg.to_string(), data: None }
+        ApiResponse {
+            code,
+            message: msg.to_string(),
+            data: None,
+        }
     }
 }
 
 impl ApiResponse<Value> {
     pub fn json_ok() -> Self {
-        ApiResponse { code: 200, message: "success".to_string() ,data: None}
+        ApiResponse {
+            code: 200,
+            message: "success".to_string(),
+            data: None,
+        }
     }
     pub fn json(data: Value) -> Self {
-        ApiResponse { code: 200, message: "success".to_string(), data: Some(data) }
+        ApiResponse {
+            code: 200,
+            message: "success".to_string(),
+            data: Some(data),
+        }
     }
     pub fn json_error(code: i32, msg: impl AsRef<str> + ToString) -> Self {
-        ApiResponse { code, message: msg.to_string(), data: None }
+        ApiResponse {
+            code,
+            message: msg.to_string(),
+            data: None,
+        }
     }
 }
 
 impl ApiResponse<String> {
     pub fn success_ok() -> Self {
-        ApiResponse { code: 200, message: "success".to_string(), data: Option::None }
+        ApiResponse {
+            code: 200,
+            message: "success".to_string(),
+            data: Option::None,
+        }
     }
 }
 
@@ -94,6 +118,8 @@ impl<T: Serialize> Responder for ApiResponse<T> {
     type Body = BoxBody;
 
     fn respond_to(self, _req: &HttpRequest) -> HttpResponse<Self::Body> {
-        HttpResponse::Ok().insert_header((header::CONTENT_TYPE, "application/json")).json(self)
+        HttpResponse::Ok()
+            .insert_header((header::CONTENT_TYPE, "application/json"))
+            .json(self)
     }
 }

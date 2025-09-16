@@ -8,16 +8,25 @@
 use std::time::Duration;
 
 // 使用 common 中的 UserId 类型
-pub use common::UserId;
 /// 业务种类（与 TCP/Kafka 边界一致的枚举）
 pub use crate::proto::MsgKind;
+pub use common::UserId;
 /// 设备唯一标识（例如设备序列号、推送 token 等）
 pub type DeviceId = String;
 /// 设备类型（mobile/web/pc/unknown），用于多端登录策略
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum DeviceType { Mobile, Web, Pc, Unknown }
+pub enum DeviceType {
+    Mobile,
+    Web,
+    Pc,
+    Unknown,
+}
 
-impl Default for DeviceType { fn default() -> Self { DeviceType::Unknown } }
+impl Default for DeviceType {
+    fn default() -> Self {
+        DeviceType::Unknown
+    }
+}
 
 impl DeviceType {
     pub fn from_str(s: &str) -> Self {
@@ -81,6 +90,10 @@ pub struct SendOpts {
 
 impl Default for SendOpts {
     fn default() -> Self {
-        Self { require_ack: true, expire: Duration::from_secs(10), max_retry: 2 }
+        Self {
+            require_ack: true,
+            expire: Duration::from_secs(10),
+            max_retry: 2,
+        }
     }
 }

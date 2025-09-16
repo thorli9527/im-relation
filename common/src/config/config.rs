@@ -1,4 +1,5 @@
 use crate::errors::AppError;
+use crate::redis::redis_pool::RedisPoolTools;
 use config::Config;
 use log::LevelFilter;
 use once_cell::sync::OnceCell;
@@ -8,7 +9,6 @@ use sqlx::{MySql, Pool};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use crate::redis::redis_pool::RedisPoolTools;
 
 pub type MySqlPool = Pool<MySql>;
 
@@ -32,9 +32,11 @@ async fn init_db(url: &str) {
         .min_connections(8)
         .acquire_timeout(Duration::from_secs(5))
         .connect(url)
-        .await.expect("Failed to connect to MySQL");
+        .await
+        .expect("Failed to connect to MySQL");
     DB_INSTANCE
-        .set(Arc::new(pool)).expect("Failed to init DB_INSTANCE");  // <— 处理重复初始化
+        .set(Arc::new(pool))
+        .expect("Failed to init DB_INSTANCE"); // <— 处理重复初始化
 }
 
 static DB_INSTANCE: OnceCell<Arc<MySqlPool>> = OnceCell::new();
@@ -48,7 +50,9 @@ impl AppConfig {
             .add_source(config::Environment::with_prefix("APP").separator("_"))
             .build()
             .expect("Failed to build configuration");
-        let cfg = config.try_deserialize::<AppConfig>().expect("Failed to deserialize configuration");
+        let cfg = config
+            .try_deserialize::<AppConfig>()
+            .expect("Failed to deserialize configuration");
         return cfg;
     }
     /// 从环境变量 `APP_CONFIG` 读取配置文件路径；不存在则回退到传入默认路径
@@ -56,7 +60,7 @@ impl AppConfig {
         let path = std::env::var("APP_CONFIG").unwrap_or_else(|_| default_file.to_string());
         Self::init(&path).await
     }
-    pub async fn init(file: &str) ->Self{
+    pub async fn init(file: &str) -> Self {
         let instance = Self::new(&file.to_string());
         if instance.redis.is_some() {
             let redis_config = instance.clone().redis.unwrap();
@@ -74,8 +78,10 @@ impl AppConfig {
                 init_log(&log_lovel.clone().unwrap()).expect("init log error");
             }
         }
-        INSTANCE.set(Arc::new(instance.clone())).expect("INSTANCE already initialized");
-        return instance
+        INSTANCE
+            .set(Arc::new(instance.clone()))
+            .expect("INSTANCE already initialized");
+        return instance;
     }
 
     pub fn get_database(&self) -> DatabaseConfig {
@@ -87,7 +93,9 @@ impl AppConfig {
     pub fn get_sys(&self) -> SysConfig {
         self.sys.clone().unwrap_or_default()
     }
-    pub fn get_socket(&self) -> SocketConfig { self.socket.clone().unwrap_or_default() }
+    pub fn get_socket(&self) -> SocketConfig {
+        self.socket.clone().unwrap_or_default()
+    }
     /// 获取单例
     pub fn get() -> Arc<Self> {
         INSTANCE.get().expect("INSTANCE is not initialized").clone()
@@ -123,7 +131,6 @@ pub struct ServerConfig {
     pub host: String,
     pub port: u16,
 }
-
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct GrpcConfig {

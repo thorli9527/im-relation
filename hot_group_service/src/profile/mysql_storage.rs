@@ -7,14 +7,12 @@ use sqlx::{Executor, Row};
 
 /// 基于 sqlx::MySql 的群资料存储（写穿 + 可选CAS）
 #[derive(Clone)]
-pub struct MySqlGroupProfileStore {
-}
+pub struct MySqlGroupProfileStore {}
 
 impl MySqlGroupProfileStore {
     #[inline]
     pub fn new() -> Self {
-        Self {
-        }
+        Self {}
     }
 }
 
@@ -30,23 +28,23 @@ impl GroupProfileStorage for MySqlGroupProfileStore {
              WHERE id = ?
             "#,
         )
-            .bind(gid as u64)
-            .fetch_optional(&*pool)
-            .await?;
+        .bind(gid as u64)
+        .fetch_optional(&*pool)
+        .await?;
 
         Ok(rec.map(|r| GroupEntity {
-            id:             r.try_get::<u64, _>("id").unwrap_or_default() as i64,
-            name:           r.try_get::<String, _>("name").unwrap_or_default(),
-            avatar:         r.try_get::<String, _>("avatar").unwrap_or_default(),
-            description:    r.try_get::<String, _>("description").unwrap_or_default(),
-            notice:         r.try_get::<String, _>("notice").unwrap_or_default(),
-            join_permission:r.try_get::<i32, _>("join_permission").unwrap_or(0),
-            owner_id:       r.try_get::<u64, _>("owner_id").unwrap_or_default() as i64,
-            group_type:     r.try_get::<i32, _>("group_type").unwrap_or(0),
-            allow_search:   r.try_get::<bool, _>("allow_search").unwrap_or(true),
-            enable:         r.try_get::<bool, _>("enable").unwrap_or(true),
-            create_time:    r.try_get::<u64, _>("create_time").unwrap_or_default(),
-            update_time:    r.try_get::<u64, _>("update_time").unwrap_or_default(),
+            id: r.try_get::<u64, _>("id").unwrap_or_default() as i64,
+            name: r.try_get::<String, _>("name").unwrap_or_default(),
+            avatar: r.try_get::<String, _>("avatar").unwrap_or_default(),
+            description: r.try_get::<String, _>("description").unwrap_or_default(),
+            notice: r.try_get::<String, _>("notice").unwrap_or_default(),
+            join_permission: r.try_get::<i32, _>("join_permission").unwrap_or(0),
+            owner_id: r.try_get::<u64, _>("owner_id").unwrap_or_default() as i64,
+            group_type: r.try_get::<i32, _>("group_type").unwrap_or(0),
+            allow_search: r.try_get::<bool, _>("allow_search").unwrap_or(true),
+            enable: r.try_get::<bool, _>("enable").unwrap_or(true),
+            create_time: r.try_get::<u64, _>("create_time").unwrap_or_default(),
+            update_time: r.try_get::<u64, _>("update_time").unwrap_or_default(),
         }))
     }
 
@@ -68,20 +66,20 @@ impl GroupProfileStorage for MySqlGroupProfileStore {
                      WHERE id=? AND update_time=?
                     "#,
                 )
-                    .bind(&e.name)
-                    .bind(&e.avatar)
-                    .bind(&e.description)
-                    .bind(&e.notice)
-                    .bind(e.join_permission)
-                    .bind(e.owner_id as u64)
-                    .bind(e.group_type)
-                    .bind(e.allow_search)
-                    .bind(e.enable)
-                    .bind(e.update_time)
-                    .bind(e.id as u64)
-                    .bind(expect)
-                    .execute(&*pool)
-                    .await?;
+                .bind(&e.name)
+                .bind(&e.avatar)
+                .bind(&e.description)
+                .bind(&e.notice)
+                .bind(e.join_permission)
+                .bind(e.owner_id as u64)
+                .bind(e.group_type)
+                .bind(e.allow_search)
+                .bind(e.enable)
+                .bind(e.update_time)
+                .bind(e.id as u64)
+                .bind(expect)
+                .execute(&*pool)
+                .await?;
                 Ok(res.rows_affected() == 1)
             }
             // Upsert
@@ -106,20 +104,20 @@ impl GroupProfileStorage for MySqlGroupProfileStore {
                       update_time=VALUES(update_time)
                     "#,
                 )
-                    .bind(e.id as u64)
-                    .bind(&e.name)
-                    .bind(&e.avatar)
-                    .bind(&e.description)
-                    .bind(&e.notice)
-                    .bind(e.join_permission)
-                    .bind(e.owner_id as u64)
-                    .bind(e.group_type)
-                    .bind(e.allow_search)
-                    .bind(e.enable)
-                    .bind(e.create_time)
-                    .bind(e.update_time)
-                    .execute(&*pool)
-                    .await?;
+                .bind(e.id as u64)
+                .bind(&e.name)
+                .bind(&e.avatar)
+                .bind(&e.description)
+                .bind(&e.notice)
+                .bind(e.join_permission)
+                .bind(e.owner_id as u64)
+                .bind(e.group_type)
+                .bind(e.allow_search)
+                .bind(e.enable)
+                .bind(e.create_time)
+                .bind(e.update_time)
+                .execute(&*pool)
+                .await?;
                 Ok(true)
             }
         }

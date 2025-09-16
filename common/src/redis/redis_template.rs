@@ -1,13 +1,13 @@
 use crate::redis::redis_pool::RedisPoolTools;
+use crate::RedisPool;
 use anyhow::Result;
 use async_trait::async_trait;
 use deadpool_redis::redis;
 use deadpool_redis::redis::Pipeline;
 use once_cell::sync::OnceCell;
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::RedisPool;
 
 /// RedisTemplate 是 Redis 操作的统一入口点，封装了连接池并提供 Value/List/Hash 操作接口
 #[derive(Clone, Debug)]
@@ -23,31 +23,44 @@ impl RedisTemplate {
 
     pub fn init() {
         let instance = Self::new();
-        INSTANCE.set(Arc::new(instance)).expect("AgentService already initialized");
+        INSTANCE
+            .set(Arc::new(instance))
+            .expect("AgentService already initialized");
     }
 
     pub fn get() -> Arc<Self> {
-        INSTANCE.get().expect("GroupManager not initialized").clone()
+        INSTANCE
+            .get()
+            .expect("GroupManager not initialized")
+            .clone()
     }
     /// 获取 Value 类型操作接口实现
     pub fn ops_for_value(self: &Arc<Self>) -> impl ValueOps {
-        ValueOperations { redis: self.clone() }
+        ValueOperations {
+            redis: self.clone(),
+        }
     }
 
     /// 获取 List 类型操作接口实现
     pub fn ops_for_list(self: &Arc<Self>) -> impl ListOps {
-        ListOperations { redis: self.clone() }
+        ListOperations {
+            redis: self.clone(),
+        }
     }
 
     /// 获取 Hash 类型操作接口实现
     pub fn ops_for_hash(self: &Arc<Self>) -> impl HashOps {
-        HashOperations { redis: self.clone() }
+        HashOperations {
+            redis: self.clone(),
+        }
     }
 
     /// 执行一组命令作为 pipeline（非事务）
     /// 执行一组命令作为 pipeline（非事务）
     pub async fn execute_pipeline<F>(&self, pipe_fn: F) -> Result<()>
-    where F: FnOnce(&mut Pipeline) -> &mut Pipeline + Send {
+    where
+        F: FnOnce(&mut Pipeline) -> &mut Pipeline + Send,
+    {
         let mut conn = self.pool.get().await?;
         let mut pipe = redis::pipe();
         pipe_fn(&mut pipe);
@@ -57,7 +70,9 @@ impl RedisTemplate {
 
     /// 执行一组命令作为事务（MULTI/EXEC）
     pub async fn execute_transaction<F>(&self, _keys: &[&str], txn_fn: F) -> Result<()>
-    where F: FnOnce(&mut Pipeline) -> &mut Pipeline + Send {
+    where
+        F: FnOnce(&mut Pipeline) -> &mut Pipeline + Send,
+    {
         let mut conn = self.pool.get().await?;
         let mut pipe = redis::pipe();
         pipe.atomic();

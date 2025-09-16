@@ -1,9 +1,11 @@
 pub mod config;
 pub mod errors;
-pub mod util;
+pub mod grpc;
 pub mod kafka;
+pub mod node_util;
 pub mod redis;
 pub mod result;
+pub mod util;
 // note: message.proto moved to service crates
 use thiserror::Error;
 pub type RedisPool = deadpool_redis::Pool;
@@ -16,9 +18,9 @@ pub enum RelationError {
     InvalidUserId,
     #[error("retry")]
     Retry,
-    #[error("internal: {0}")] Internal(&'static str),
+    #[error("internal: {0}")]
+    Internal(&'static str),
 }
-
 
 /// 统一结果别名
 pub type MResult<T> = Result<T, MemberListError>;

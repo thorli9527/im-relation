@@ -34,10 +34,8 @@ tokio-util.workspace = true
 bytes.workspace = true
 futures-util.workspace = true
 tokio-stream.workspace = true
-deadpool-redis.workspace = true
-sha1.workspace = true
-hex.workspace = true
 twox-hash.workspace = true
+time.workspace = true
 
 [build-dependencies]
 prost-build = "0.14.1"

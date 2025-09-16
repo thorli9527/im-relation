@@ -8,8 +8,8 @@
 use std::sync::Arc;
 
 use log::warn;
-use tokio::sync::mpsc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use tokio::sync::mpsc;
 
 use crate::service::session::SessionManager;
 use crate::service::types::{SendOpts, ServerMsg, UserId};
@@ -17,11 +17,17 @@ use common::util::common_utils::hash_index;
 
 #[derive(Clone)]
 /// 内部分发单元：包含目标用户、下行消息与发送选项
-struct DispatchItem { user_id: UserId, msg: ServerMsg, opts: SendOpts }
+struct DispatchItem {
+    user_id: UserId,
+    msg: ServerMsg,
+    opts: SendOpts,
+}
 
 /// 有界分片调度器：把不同用户的消息分配到固定分片，降低锁竞争与相互影响
 #[derive(Clone)]
-pub struct ShardedDispatcher { shards: Arc<Vec<mpsc::Sender<DispatchItem>>> }
+pub struct ShardedDispatcher {
+    shards: Arc<Vec<mpsc::Sender<DispatchItem>>>,
+}
 
 impl ShardedDispatcher {
     /// 创建 N 个分片（每分片一个有界 `mpsc::channel` 作为背压队列），并各自启动消费任务
@@ -30,9 +36,12 @@ impl ShardedDispatcher {
         for i in 0..shard_count {
             let (tx, rx) = mpsc::channel::<DispatchItem>(cap);
             txs.push(tx);
+            // 每个分片由独立任务消费，避免单热点用户阻塞其它分片。
             tokio::spawn(run_shard(i, rx));
         }
-        Self { shards: Arc::new(txs) }
+        Self {
+            shards: Arc::new(txs),
+        }
     }
 
     /// 入队到一致性分片（依据 user_id 哈希），队列满返回 false
@@ -49,10 +58,14 @@ async fn run_shard(shard_id: usize, mut rx: mpsc::Receiver<DispatchItem>) {
     let sm = SessionManager::get();
     let mut dropped = 0usize;
     while let Some(item) = rx.recv().await {
+        // 直接调用 SessionManager 扇出消息；返回值代表成功推送到多少会话。
         let sent = sm.send_to_user(item.user_id, item.msg, item.opts);
         if sent == 0 {
             dropped += 1;
-            if dropped % 100 == 0 { warn!("shard={} dropped={} (no sessions)", shard_id, dropped); }
+            if dropped % 100 == 0 {
+                warn!("shard={} dropped={} (no sessions)", shard_id, dropped);
+            }
+            // 统计无在线会话时的丢弃次数，辅助排查全员离线等问题。
             DISPATCH_DROPS.fetch_add(1, Ordering::Relaxed);
         }
     }

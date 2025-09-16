@@ -150,9 +150,11 @@ pub async fn set_online_batch(
     }
 
     // 真正落地：一次分片一次写锁，吞吐高
-    state
-        .store
-        .set_online_many(body.items.iter().map(|it| (it.user_id as UserId, it.online)));
+    state.store.set_online_many(
+        body.items
+            .iter()
+            .map(|it| (it.user_id as UserId, it.online)),
+    );
 
     Ok(HttpResponse::Ok().json(BatchSetResp {
         ok: true,

@@ -37,6 +37,9 @@ enum NodeType {
   MSG_FRIEND = 6;
   // API 接入节点
   API_NODE=7;
+  // 好友关系节点
+  FRIEND_NODE=8;
+
 }
 
 

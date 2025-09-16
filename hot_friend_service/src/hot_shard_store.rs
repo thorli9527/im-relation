@@ -32,12 +32,8 @@ type InnerMap<K, V> = DashMap<K, V, BuildHasherDefault<FxHasher>>;
 type InnerMap<K, V> = DashMap<K, V>;
 
 /// 持久化回调签名：给定 (key, value) 执行异步持久化。
-pub type PersistFn<K, V> = Arc<
-    dyn Fn(K, V) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
-    + Send
-    + Sync
-    + 'static,
->;
+pub type PersistFn<K, V> =
+    Arc<dyn Fn(K, V) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>> + Send + Sync + 'static>;
 
 /// 热分片存储：DashMap 作为主存；moka 分段缓存仅存放“热键”的存在性（值用 `()`）。
 pub struct HotShardStore<K, V>
@@ -218,9 +214,9 @@ where
     pub fn new(rt: Handle) -> Self {
         Self {
             map: Arc::new(InnerMap::default()),
-            hot_capacity: 10_000,             // 合理的默认值（可覆盖）
-            tti: Duration::from_secs(60),     // 默认 TTI
-            segments: 32,                      // 默认分段（可按 CPU 调整）
+            hot_capacity: 10_000,         // 合理的默认值（可覆盖）
+            tti: Duration::from_secs(60), // 默认 TTI
+            segments: 32,                 // 默认分段（可按 CPU 调整）
             rt,
             persist: None,
         }

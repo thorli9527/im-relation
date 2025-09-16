@@ -18,14 +18,14 @@
 //! - 端到端 ACK + 超时重试保证“尽力送达”；
 //! - 队列满/无在线会话等异常路径会有节流日志与指标（可对接监控）。
 
-pub mod types;
-pub mod session;
 pub mod dispatcher;
-pub mod pipeline;
+pub mod grpc_clients;
 pub mod handler;
-pub mod arb_client_server;
+pub mod pipeline;
+pub mod session;
+pub mod types;
 
 // 对外再导出，维持原有对外 API
-pub use types::{ServerMsg, ClientMsg, SendOpts};
-pub use session::{SessionManager, SessionPolicy, MultiLoginPolicy};
 pub use pipeline::start_socket_pipeline;
+pub use session::{MultiLoginPolicy, SessionManager, SessionPolicy};
+pub use types::{ClientMsg, SendOpts, ServerMsg};

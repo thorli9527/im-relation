@@ -24,9 +24,9 @@ use common::{GroupId, MemberListError, UserId};
 /// 运行参数
 #[derive(Clone, Debug)]
 pub struct HotColdConfig {
-    pub hot_capacity: u64,         // 热点标记最大条数
-    pub hot_tti: Duration,         // 热点标记 TTI
-    pub persist_debounce: Duration // 写入去抖时间窗
+    pub hot_capacity: u64,          // 热点标记最大条数
+    pub hot_tti: Duration,          // 热点标记 TTI
+    pub persist_debounce: Duration, // 写入去抖时间窗
 }
 
 impl Default for HotColdConfig {
@@ -211,8 +211,15 @@ impl<S: GroupStorage> HotColdFacade<S> {
 
     // ========================= 写路径 =========================
 
-    pub async fn insert(&self, gid: GroupId, m: MemberRef) -> std::result::Result<(), MemberListError> {
-        let _ = self.ensure_hot(gid).await.map_err(|e| MemberListError::Internal(e.to_string()))?;
+    pub async fn insert(
+        &self,
+        gid: GroupId,
+        m: MemberRef,
+    ) -> std::result::Result<(), MemberListError> {
+        let _ = self
+            .ensure_hot(gid)
+            .await
+            .map_err(|e| MemberListError::Internal(e.to_string()))?;
         self.map.insert(gid, m)?;
         self.persist_async(gid);
         Ok(())
@@ -223,14 +230,24 @@ impl<S: GroupStorage> HotColdFacade<S> {
         gid: GroupId,
         members: Vec<MemberRef>,
     ) -> std::result::Result<(), MemberListError> {
-        let _ = self.ensure_hot(gid).await.map_err(|e| MemberListError::Internal(e.to_string()))?;
+        let _ = self
+            .ensure_hot(gid)
+            .await
+            .map_err(|e| MemberListError::Internal(e.to_string()))?;
         self.map.insert_many(gid, members)?;
         self.persist_async(gid);
         Ok(())
     }
 
-    pub async fn remove(&self, gid: GroupId, uid: UserId) -> std::result::Result<bool, MemberListError> {
-        let _ = self.ensure_hot(gid).await.map_err(|e| MemberListError::Internal(e.to_string()))?;
+    pub async fn remove(
+        &self,
+        gid: GroupId,
+        uid: UserId,
+    ) -> std::result::Result<bool, MemberListError> {
+        let _ = self
+            .ensure_hot(gid)
+            .await
+            .map_err(|e| MemberListError::Internal(e.to_string()))?;
         let removed = self.map.remove(gid, uid)?;
         if removed {
             self.persist_async(gid);
@@ -244,7 +261,10 @@ impl<S: GroupStorage> HotColdFacade<S> {
         uid: UserId,
         role: GroupRoleType,
     ) -> std::result::Result<(), MemberListError> {
-        let _ = self.ensure_hot(gid).await.map_err(|e| MemberListError::Internal(e.to_string()))?;
+        let _ = self
+            .ensure_hot(gid)
+            .await
+            .map_err(|e| MemberListError::Internal(e.to_string()))?;
         self.map.change_role(gid, uid, role)?;
         self.persist_async(gid);
         Ok(())
@@ -257,7 +277,10 @@ impl<S: GroupStorage> HotColdFacade<S> {
         uid: UserId,
         alias: Option<String>,
     ) -> std::result::Result<(), MemberListError> {
-        let _ = self.ensure_hot(gid).await.map_err(|e| MemberListError::Internal(e.to_string()))?;
+        let _ = self
+            .ensure_hot(gid)
+            .await
+            .map_err(|e| MemberListError::Internal(e.to_string()))?;
         self.map.change_alias(gid, uid, alias)?;
         self.persist_async(gid);
         Ok(())
@@ -315,9 +338,15 @@ impl<S: GroupStorage> HotColdFacade<S> {
 
     // ========================= 管理 =========================
 
-    pub fn all_keys(&self) -> Vec<GroupId> { self.map.all_keys() }
-    pub fn all_keys_by_shard(&self, idx: usize) -> Vec<GroupId> { self.map.all_keys_by_shard(idx) }
-    pub fn shard_count(&self) -> usize { self.map.shard_count() }
+    pub fn all_keys(&self) -> Vec<GroupId> {
+        self.map.all_keys()
+    }
+    pub fn all_keys_by_shard(&self, idx: usize) -> Vec<GroupId> {
+        self.map.all_keys_by_shard(idx)
+    }
+    pub fn shard_count(&self) -> usize {
+        self.map.shard_count()
+    }
 
     /// 立即刷盘所有热点群（优雅停机）
     pub async fn flush_all(&self) {

@@ -7,7 +7,7 @@ use sysinfo::System;
 const MIN_BUDGET_BYTES: u64 = 64 * 1024 * 1024; // 64 MiB
 /// 主存/热键预算拆分比例（总和建议 ≤ 1.0）
 const DEFAULT_SPLIT_MAIN: f64 = 0.85;
-const DEFAULT_SPLIT_HOT:  f64 = 0.15;
+const DEFAULT_SPLIT_HOT: f64 = 0.15;
 /// moka 分段上下限
 const DEFAULT_SEGMENTS_MIN: usize = 8;
 const DEFAULT_SEGMENTS_MAX: usize = 64;
@@ -15,7 +15,11 @@ const DEFAULT_SEGMENTS_MAX: usize = 64;
 const DEFAULT_MIN_HOT_PER_SHARD: u64 = 1024;
 
 /// 估算每条目的**总**内存占用（包含键、值、哈希/指针等开销）
-fn estimate_entry_bytes(avg_key_bytes: usize, avg_value_bytes: usize, overhead_factor: f64) -> usize {
+fn estimate_entry_bytes(
+    avg_key_bytes: usize,
+    avg_value_bytes: usize,
+    overhead_factor: f64,
+) -> usize {
     let overhead = overhead_factor.clamp(1.0, 4.0);
     let raw = avg_key_bytes.saturating_add(avg_value_bytes);
     ((raw as f64) * overhead).ceil() as usize
@@ -76,11 +80,11 @@ pub struct CacheAutoTune {
     pub tti: Duration,                // 热键 TTI
 
     // —— 观测字段（可选使用）——
-    pub budget_bytes: u64,            // 实际用于缓存的总预算（字节）
-    pub total_main_entries: u64,      // 预算推导出的主存总条目
-    pub total_hot_entries: u64,       // 预算推导出的热键总条目
-    pub per_entry_main_bytes: usize,  // 主存单条估算字节
-    pub per_entry_hot_bytes: usize,   // 热键单条估算字节
+    pub budget_bytes: u64,           // 实际用于缓存的总预算（字节）
+    pub total_main_entries: u64,     // 预算推导出的主存总条目
+    pub total_hot_entries: u64,      // 预算推导出的热键总条目
+    pub per_entry_main_bytes: usize, // 主存单条估算字节
+    pub per_entry_hot_bytes: usize,  // 热键单条估算字节
 }
 
 /// 自动根据内存与平均条目大小做参数规划（重构版）
@@ -92,7 +96,7 @@ pub fn auto_tune_cache(cfg: &AutoTuneConfig) -> CacheAutoTune {
     let hot_ratio = cfg.hot_ratio.clamp(0.0, 1.0);
 
     let split_main = cfg.split_main_ratio.clamp(0.0, 1.0);
-    let split_hot  = cfg.split_hot_ratio.clamp(0.0, 1.0);
+    let split_hot = cfg.split_hot_ratio.clamp(0.0, 1.0);
     // 若用户把两者调大，总和 > 1.0，则按比例归一化
     let (split_main, split_hot) = normalize_two(split_main, split_hot);
 
@@ -106,13 +110,15 @@ pub fn auto_tune_cache(cfg: &AutoTuneConfig) -> CacheAutoTune {
     let budget_bytes = calc_budget(total, avail, reserve, max_use);
 
     // 条目大小估算（主存 & 热键）
-    let per_entry_main = estimate_entry_bytes(cfg.avg_key_bytes, cfg.avg_value_bytes, cfg.overhead_factor) as f64;
+    let per_entry_main =
+        estimate_entry_bytes(cfg.avg_key_bytes, cfg.avg_value_bytes, cfg.overhead_factor) as f64;
     // 热键仅以 Key 为主，overhead 适当减少
-    let per_entry_hot  = estimate_entry_bytes(cfg.avg_key_bytes, 0, cfg.overhead_factor * 0.7) as f64;
+    let per_entry_hot =
+        estimate_entry_bytes(cfg.avg_key_bytes, 0, cfg.overhead_factor * 0.7) as f64;
 
     // 主存/热键预算拆分
     let main_budget_bytes = (budget_bytes as f64) * split_main;
-    let hot_budget_bytes  = (budget_bytes as f64) * split_hot;
+    let hot_budget_bytes = (budget_bytes as f64) * split_hot;
 
     // 预算转条目数（总量）
     let (total_main_entries, total_hot_entries) = calc_entries(
@@ -124,8 +130,12 @@ pub fn auto_tune_cache(cfg: &AutoTuneConfig) -> CacheAutoTune {
     );
 
     // 按分片均分，并给出下限防抖
-    let per_shard_main = ((total_main_entries as f64) / shards as f64).floor().max(1.0) as u64;
-    let per_shard_hot  = ((total_hot_entries  as f64) / shards as f64).floor().max(cfg.min_hot_per_shard as f64) as u64;
+    let per_shard_main = ((total_main_entries as f64) / shards as f64)
+        .floor()
+        .max(1.0) as u64;
+    let per_shard_hot = ((total_hot_entries as f64) / shards as f64)
+        .floor()
+        .max(cfg.min_hot_per_shard as f64) as u64;
 
     // segments：按 CPU 数取 2 的幂并夹在 [segments_min, segments_max]
     let per_shard_segments = calc_segments(cfg.segments_min, cfg.segments_max);
@@ -152,7 +162,9 @@ pub fn auto_tune_cache(cfg: &AutoTuneConfig) -> CacheAutoTune {
 fn calc_budget(total: u64, avail: u64, reserve: f64, max_use: f64) -> u64 {
     let usable_by_avail = (avail as f64) * (1.0 - reserve);
     let usable_by_total = (total as f64) * max_use;
-    let budget = usable_by_avail.min(usable_by_total).max(MIN_BUDGET_BYTES as f64);
+    let budget = usable_by_avail
+        .min(usable_by_total)
+        .max(MIN_BUDGET_BYTES as f64);
     budget as u64
 }
 
@@ -165,8 +177,8 @@ fn calc_entries(
     hot_ratio: f64,
 ) -> (u64, u64) {
     let total_main_entries = (main_budget_bytes / per_entry_main).floor().max(1.0) as u64;
-    let hot_by_mem         = (hot_budget_bytes  / per_entry_hot ).floor().max(1.0) as u64;
-    let hot_by_ratio       = ((total_main_entries as f64) * hot_ratio).floor().max(1.0) as u64;
+    let hot_by_mem = (hot_budget_bytes / per_entry_hot).floor().max(1.0) as u64;
+    let hot_by_ratio = ((total_main_entries as f64) * hot_ratio).floor().max(1.0) as u64;
     (total_main_entries, hot_by_mem.min(hot_by_ratio))
 }
 

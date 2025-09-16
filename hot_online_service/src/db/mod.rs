@@ -1,2 +1,2 @@
 pub mod mysql;
-pub  mod traits;
+pub mod traits;

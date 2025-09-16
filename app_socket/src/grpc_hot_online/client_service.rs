@@ -34,10 +34,8 @@ pub struct ClientEntity {
     pub user_type: i32,
     /// 扩展个人资料字段（低频使用），用于存储自定义信息（如个性签名、地址等）
     #[prost(map = "string, string", tag = "11")]
-    pub profile_fields: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::string::String,
-    >,
+    pub profile_fields:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
     /// 创建时间戳（毫秒级），由服务端生成
     #[prost(int64, tag = "12")]
     pub create_time: i64,
@@ -86,10 +84,8 @@ pub struct RegisterUserReq {
     pub user_type: i32,
     /// 扩展资料字段（可选）
     #[prost(map = "string, string", tag = "11")]
-    pub profile_fields: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::string::String,
-    >,
+    pub profile_fields:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
 /// / 修改密码请求
 /// / 用于用户更新登录密码
@@ -297,10 +293,10 @@ pub mod client_rpc_service_client {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
-    use tonic::codegen::*;
     use tonic::codegen::http::Uri;
+    use tonic::codegen::*;
     /// / 用户实体服务
     /// / 提供用户注册、信息查询、修改等核心功能
     #[derive(Debug, Clone)]
@@ -346,9 +342,8 @@ pub mod client_rpc_service_client {
                     <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::Body>,
-            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+            <T as tonic::codegen::Service<http::Request<tonic::body::Body>>>::Error:
+                Into<StdError> + std::marker::Send + std::marker::Sync,
         {
             ClientRpcServiceClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -388,23 +383,18 @@ pub mod client_rpc_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::FindByContentReq>,
         ) -> std::result::Result<tonic::Response<super::FindClientDto>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/client_service.ClientRpcService/findByEmail",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("client_service.ClientRpcService", "findByEmail"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "client_service.ClientRpcService",
+                "findByEmail",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 通过手机查询用户
@@ -412,23 +402,18 @@ pub mod client_rpc_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::FindByContentReq>,
         ) -> std::result::Result<tonic::Response<super::FindClientDto>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/client_service.ClientRpcService/findByPhone",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("client_service.ClientRpcService", "findByPhone"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "client_service.ClientRpcService",
+                "findByPhone",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 通过用户名查询用户
@@ -436,23 +421,17 @@ pub mod client_rpc_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::FindByContentReq>,
         ) -> std::result::Result<tonic::Response<super::FindClientDto>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/client_service.ClientRpcService/findByName",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/client_service.ClientRpcService/findByName");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("client_service.ClientRpcService", "findByName"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "client_service.ClientRpcService",
+                "findByName",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 用户注册：创建新用户账号，返回创建后的用户实体（不含密码）
@@ -460,21 +439,17 @@ pub mod client_rpc_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::RegisterUserReq>,
         ) -> std::result::Result<tonic::Response<super::ClientEntity>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/client_service.ClientRpcService/Register",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/client_service.ClientRpcService/Register");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("client_service.ClientRpcService", "Register"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "client_service.ClientRpcService",
+                "Register",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 修改密码：更新用户登录密码，返回操作结果
@@ -482,23 +457,18 @@ pub mod client_rpc_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::ChangePasswordReq>,
         ) -> std::result::Result<tonic::Response<super::ChangeResponse>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/client_service.ClientRpcService/ChangePassword",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("client_service.ClientRpcService", "ChangePassword"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "client_service.ClientRpcService",
+                "ChangePassword",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 更换手机号：更新或清除用户手机号，返回更新后的用户实体
@@ -506,23 +476,18 @@ pub mod client_rpc_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::ChangePhoneReq>,
         ) -> std::result::Result<tonic::Response<super::ClientEntity>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/client_service.ClientRpcService/ChangePhone",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("client_service.ClientRpcService", "ChangePhone"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "client_service.ClientRpcService",
+                "ChangePhone",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 更换邮箱：更新或清除用户邮箱，返回更新后的用户实体
@@ -530,23 +495,18 @@ pub mod client_rpc_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::ChangeEmailReq>,
         ) -> std::result::Result<tonic::Response<super::ClientEntity>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/client_service.ClientRpcService/ChangeEmail",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("client_service.ClientRpcService", "ChangeEmail"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "client_service.ClientRpcService",
+                "ChangeEmail",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 通用信息更新：支持部分字段更新，返回更新后的用户实体
@@ -554,23 +514,18 @@ pub mod client_rpc_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::UpdateClientReq>,
         ) -> std::result::Result<tonic::Response<super::ClientEntity>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/client_service.ClientRpcService/UpdateClient",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("client_service.ClientRpcService", "UpdateClient"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "client_service.ClientRpcService",
+                "UpdateClient",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 查询用户信息：根据用户ID查询详细信息
@@ -578,21 +533,17 @@ pub mod client_rpc_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::GetClientReq>,
         ) -> std::result::Result<tonic::Response<super::ClientEntity>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/client_service.ClientRpcService/GetClient",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/client_service.ClientRpcService/GetClient");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("client_service.ClientRpcService", "GetClient"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "client_service.ClientRpcService",
+                "GetClient",
+            ));
             self.inner.unary(req, path, codec).await
         }
     }

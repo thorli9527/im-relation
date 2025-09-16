@@ -323,7 +323,11 @@ impl FriendListEf {
 
     /// 分页（含别名）
     #[inline]
-    pub fn get_page_detailed(&self, page: usize, page_size: usize) -> Vec<(FriendId, Option<String>)> {
+    pub fn get_page_detailed(
+        &self,
+        page: usize,
+        page_size: usize,
+    ) -> Vec<(FriendId, Option<String>)> {
         if page_size == 0 {
             return Vec::new();
         }
@@ -401,9 +405,24 @@ impl FriendListEf {
     }
 
     // —— 轻量只读计数（给 MemberRelation 估算用）——
-    #[inline] pub fn base_len(&self) -> usize { self.base.read().len() }
-    #[inline] pub fn delta_add_len(&self) -> usize { self.delta_add.read().len() }
-    #[inline] pub fn delta_del_len(&self) -> usize { self.delta_del.read().len() }
-    #[inline] pub fn alias_add_len(&self) -> usize { self.alias_add.read().len() }
-    #[inline] pub fn alias_del_len(&self) -> usize { self.alias_del.read().len() }
+    #[inline]
+    pub fn base_len(&self) -> usize {
+        self.base.read().len()
+    }
+    #[inline]
+    pub fn delta_add_len(&self) -> usize {
+        self.delta_add.read().len()
+    }
+    #[inline]
+    pub fn delta_del_len(&self) -> usize {
+        self.delta_del.read().len()
+    }
+    #[inline]
+    pub fn alias_add_len(&self) -> usize {
+        self.alias_add.read().len()
+    }
+    #[inline]
+    pub fn alias_del_len(&self) -> usize {
+        self.alias_del.read().len()
+    }
 }

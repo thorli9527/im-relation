@@ -10,7 +10,11 @@ pub fn validate_password(pwd: &str) -> Result<(), ValidationError> {
     let has_letter = pwd.chars().any(|c| c.is_ascii_alphabetic());
     let has_digit = pwd.chars().any(|c| c.is_ascii_digit());
 
-    if has_letter && has_digit { Ok(()) } else { Err(ValidationError::new("密码必须包含字母和数字")) }
+    if has_letter && has_digit {
+        Ok(())
+    } else {
+        Err(ValidationError::new("密码必须包含字母和数字"))
+    }
 }
 
 /// ✅ 国际手机号校验（可接受 +86、+1、0086 格式）
@@ -19,7 +23,11 @@ pub fn validate_phone(phone: &str) -> Result<(), ValidationError> {
         static ref PHONE_RE: Regex = Regex::new(r"^\+?[0-9]{7,20}$").unwrap();
     }
 
-    if PHONE_RE.is_match(phone) { Ok(()) } else { Err(ValidationError::new("国际手机号格式错误")) }
+    if PHONE_RE.is_match(phone) {
+        Ok(())
+    } else {
+        Err(ValidationError::new("国际手机号格式错误"))
+    }
 }
 pub fn validate_username(value: &str) -> Result<(), ValidationError> {
     let len = value.len();
@@ -45,5 +53,9 @@ pub fn validate_username(value: &str) -> Result<(), ValidationError> {
 
 /// ✅ 邮箱格式校验（基于 validator 库）
 pub fn validate_email_str(email: &str) -> Result<(), ValidationError> {
-    if email.validate_email() { Ok(()) } else { Err(ValidationError::new("邮箱格式错误")) }
+    if email.validate_email() {
+        Ok(())
+    } else {
+        Err(ValidationError::new("邮箱格式错误"))
+    }
 }

@@ -1,8 +1,12 @@
-use std::sync::Arc;
-use log::{info, warn};
+use crate::dao::{
+    get_friend_request_by_id, mark_friend_request_decision, upsert_friend_request, FriendRequestRow,
+};
+use crate::grpc_msg_friend::msg_friend_service::{
+    self, friend_biz_service_server::FriendBizService,
+};
 use crate::server::server_grpc::Services;
-use crate::grpc_msg_friend::msg_friend_service::{self, friend_biz_service_server::FriendBizService};
-use crate::dao::{FriendRequestRow, upsert_friend_request, get_friend_request_by_id, mark_friend_request_decision};
+use log::{info, warn};
+use std::sync::Arc;
 
 /// MsgFriendServiceImpl
 ///
@@ -28,7 +32,9 @@ pub struct MsgFriendServiceImpl {
 
 impl MsgFriendServiceImpl {
     /// 构造函数：传入共享的 `Services`（包含 HF 客户端、DB 连接等）。
-    pub fn new(inner: Arc<Services>) -> Self { Self { inner } }
+    pub fn new(inner: Arc<Services>) -> Self {
+        Self { inner }
+    }
 }
 
 #[tonic::async_trait]
@@ -77,9 +83,17 @@ impl FriendBizService for MsgFriendServiceImpl {
             .map_err(|e| tonic::Status::internal(format!("query friend_request failed: {e}")))?;
         if let Some(row) = req_row {
             // 记录决定
-            let _ = mark_friend_request_decision(self.inner.pool(), row.id, r.decided_at, r.accept, r.remark.clone())
-                .await
-                .map_err(|e| tonic::Status::internal(format!("update friend_request decision failed: {e}")))?;
+            let _ = mark_friend_request_decision(
+                self.inner.pool(),
+                row.id,
+                r.decided_at,
+                r.accept,
+                r.remark.clone(),
+            )
+            .await
+            .map_err(|e| {
+                tonic::Status::internal(format!("update friend_request decision failed: {e}"))
+            })?;
 
             if r.accept {
                 if let Some(cli) = self.inner.friend_client() {
@@ -92,7 +106,9 @@ impl FriendBizService for MsgFriendServiceImpl {
                         alias_for_user: row.remark.clone(),
                         alias_for_friend: r.remark.clone(),
                     };
-                    let _ = cli.clone().add_friend(req).await.map_err(|e| tonic::Status::internal(format!("add_friend both failed: {e}")))?;
+                    let _ = cli.clone().add_friend(req).await.map_err(|e| {
+                        tonic::Status::internal(format!("add_friend both failed: {e}"))
+                    })?;
                 } else {
                     warn!("FriendBizService: friend_client not configured; accept ignored for request_id={}", row.id);
                 }
@@ -100,7 +116,10 @@ impl FriendBizService for MsgFriendServiceImpl {
                 info!("FriendBizService: request rejected: id={}", row.id);
             }
         } else {
-            warn!("FriendBizService: HandleFriendRequest but request not found: id={}", r.request_id);
+            warn!(
+                "FriendBizService: HandleFriendRequest but request not found: id={}",
+                r.request_id
+            );
         }
         Ok(tonic::Response::new(()))
     }
@@ -112,8 +131,15 @@ impl FriendBizService for MsgFriendServiceImpl {
     ) -> Result<tonic::Response<()>, tonic::Status> {
         let r = request.into_inner();
         if let Some(cli) = self.inner.friend_client() {
-            let req = crate::grpc_hot_friend::friend_service::RemoveFriendReq { user_id: r.operator_user_id, friend_id: r.friend_user_id };
-            let _ = cli.clone().remove_friend(req).await.map_err(|e| tonic::Status::internal(format!("remove_friend failed: {e}")))?;
+            let req = crate::grpc_hot_friend::friend_service::RemoveFriendReq {
+                user_id: r.operator_user_id,
+                friend_id: r.friend_user_id,
+            };
+            let _ = cli
+                .clone()
+                .remove_friend(req)
+                .await
+                .map_err(|e| tonic::Status::internal(format!("remove_friend failed: {e}")))?;
         } else {
             warn!("FriendBizService: friend_client not configured; DeleteFriend ignored");
         }
@@ -129,8 +155,15 @@ impl FriendBizService for MsgFriendServiceImpl {
     ) -> Result<tonic::Response<()>, tonic::Status> {
         let r = request.into_inner();
         if let Some(cli) = self.inner.friend_client() {
-            let req = crate::grpc_hot_friend::friend_service::UpdateFriendAliasReq { user_id: r.user_id, friend_id: r.friend_user_id, alias: Some(r.remark) };
-            let _ = cli.clone().update_friend_alias(req).await.map_err(|e| tonic::Status::internal(format!("update_friend_alias failed: {e}")))?;
+            let req = crate::grpc_hot_friend::friend_service::UpdateFriendAliasReq {
+                user_id: r.user_id,
+                friend_id: r.friend_user_id,
+                alias: Some(r.remark),
+            };
+            let _ =
+                cli.clone().update_friend_alias(req).await.map_err(|e| {
+                    tonic::Status::internal(format!("update_friend_alias failed: {e}"))
+                })?;
         } else {
             warn!("FriendBizService: friend_client not configured; UpdateFriendRemark ignored");
         }

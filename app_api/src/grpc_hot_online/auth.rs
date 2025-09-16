@@ -154,20 +154,26 @@ pub struct OfflineStatueMsg {
 /// 📦 设备类型枚举
 /// ================================
 /// 用于标识客户端的来源类型，有助于服务端区分平台特性、限流策略等
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[derive(
+    serde::Serialize,
+    serde::Deserialize,
+    utoipa::ToSchema,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    ::prost::Enumeration,
+)]
 #[repr(i32)]
 pub enum DeviceType {
-    /// 默认未知设备类型，建议作为兜底处理
-    DeviceUnknown = 0,
-    /// 移动端设备，如 Android / iOS 客户端
+    Unknown = 0,
     Mobile = 1,
-    /// 桌面应用程序，如 Electron、原生桌面端
-    Desktop = 2,
-    /// 浏览器 Web 客户端（H5）
     Web = 3,
-    /// 智能音箱、IoT 设备等
-    All = 100,
+    Pc = 4,
 }
 impl DeviceType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -176,21 +182,19 @@ impl DeviceType {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            Self::DeviceUnknown => "DEVICE_UNKNOWN",
+            Self::Unknown => "UNKNOWN",
             Self::Mobile => "MOBILE",
-            Self::Desktop => "DESKTOP",
             Self::Web => "WEB",
-            Self::All => "ALL",
+            Self::Pc => "PC",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
-            "DEVICE_UNKNOWN" => Some(Self::DeviceUnknown),
+            "UNKNOWN" => Some(Self::Unknown),
             "MOBILE" => Some(Self::Mobile),
-            "DESKTOP" => Some(Self::Desktop),
             "WEB" => Some(Self::Web),
-            "ALL" => Some(Self::All),
+            "PC" => Some(Self::Pc),
             _ => None,
         }
     }

@@ -16,16 +16,28 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use futures::{StreamExt, TryStreamExt};
+use rand::RngCore;
 use serde_json::Value as JsonValue;
 use sqlx::{mysql::MySqlRow, MySql, Pool, QueryBuilder, Row};
+use std::convert::TryFrom;
+use time::format_description::FormatItem;
+use time::macros::format_description;
+use time::{Duration as TimeDuration, OffsetDateTime};
 
 // 全局数据库连接池
 use common::config::get_db;
 
-use crate::db::traits::{ClientReadRepo, DirectoryReadRepo};
+use crate::db::traits::{
+    ClientReadRepo, DirectoryReadRepo, SessionTokenRecord, SessionTokenRepo, SessionTokenUpsert,
+    SessionTokenUpsertResult,
+};
+use crate::grpc_hot_online::auth::DeviceType;
 use crate::grpc_hot_online::client_service::ClientEntity;
+
+const MYSQL_TS_FORMAT: &[FormatItem<'static>] =
+    format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]");
 
 // ====================== 行 -> 结构体 映射 ======================
 
@@ -77,7 +89,7 @@ fn row_to_entity(r: &MySqlRow) -> Result<ClientEntity> {
                 .collect(),
             _ => HashMap::new(),
         };
-    let password =r.try_get("password").context("missing 'password'")?;
+    let password = r.try_get("password").context("missing 'password'")?;
     // 秒级时间戳（UNIX_TIMESTAMP(...) 已在投影里转换）
     let create_time: i64 = r.try_get("create_time").context("missing 'create_time'")?;
     let update_time: i64 = r.try_get("update_time").context("missing 'update_time'")?;
@@ -257,7 +269,12 @@ impl DirectoryRepoSqlx {
     /// 通用查询：按给定 SQL 和参数获取 id（state=1 过滤在 SQL 中写明）
     /// 使用 HRTB：for<'q> Encode<'q, MySql>，以支持 &str / &[u8] / String / Vec<u8> 等。
     #[inline]
-    async fn get_id_by_key<T>(&self, sql: &str, param: T, label: &'static str) -> Result<Option<i64>>
+    async fn get_id_by_key<T>(
+        &self,
+        sql: &str,
+        param: T,
+        label: &'static str,
+    ) -> Result<Option<i64>>
     where
         T: Send + for<'q> sqlx::Encode<'q, MySql> + sqlx::Type<MySql>,
     {
@@ -285,7 +302,7 @@ impl DirectoryReadRepo for DirectoryRepoSqlx {
             email_norm,
             "get_id_by_email",
         )
-            .await
+        .await
     }
 
     async fn get_id_by_phone(&self, phone_norm: &[u8]) -> Result<Option<i64>> {
@@ -297,7 +314,7 @@ impl DirectoryReadRepo for DirectoryRepoSqlx {
             phone_norm,
             "get_id_by_phone",
         )
-            .await
+        .await
     }
 
     async fn get_id_by_name(&self, name_norm: &str) -> Result<Option<i64>> {
@@ -309,7 +326,7 @@ impl DirectoryReadRepo for DirectoryRepoSqlx {
             name_norm,
             "get_id_by_name",
         )
-            .await
+        .await
     }
 }
 
@@ -322,4 +339,234 @@ pub fn build_client_repo() -> ClientRepoSqlx {
 
 pub fn build_directory_repo() -> DirectoryRepoSqlx {
     DirectoryRepoSqlx::new()
+}
+
+#[derive(Clone)]
+pub struct SessionRepoSqlx {
+    pool: Pool<MySql>,
+}
+
+impl SessionRepoSqlx {
+    pub fn new() -> Self {
+        Self {
+            pool: get_db().as_ref().clone(),
+        }
+    }
+}
+
+fn generate_session_token() -> String {
+    let mut buf = [0u8; 32];
+    let mut rng = rand::rng();
+    rng.fill_bytes(&mut buf);
+    hex::encode(buf)
+}
+
+fn map_device_type(value: i32) -> DeviceType {
+    DeviceType::try_from(value).unwrap_or(DeviceType::Unknown)
+}
+
+#[async_trait::async_trait]
+impl SessionTokenRepo for SessionRepoSqlx {
+    async fn upsert_session_token(
+        &self,
+        payload: SessionTokenUpsert,
+    ) -> Result<SessionTokenUpsertResult> {
+        let SessionTokenUpsert {
+            user_id,
+            device_type,
+            device_id,
+            login_ip,
+            user_agent,
+        } = payload;
+
+        let mut tx = self.pool.begin().await?;
+        let existing = sqlx::query(
+            r#"
+                SELECT session_token
+                FROM user_session
+                WHERE user_id = ? AND device_type = ? AND device_id = ?
+                FOR UPDATE
+            "#,
+        )
+        .bind(user_id)
+        .bind(device_type as i32)
+        .bind(&device_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+
+        let previous_token = existing
+            .and_then(|row| row.try_get::<Vec<u8>, _>("session_token").ok())
+            .and_then(|bytes| String::from_utf8(bytes).ok());
+
+        let new_token = generate_session_token();
+        let expires_at = OffsetDateTime::now_utc() + TimeDuration::days(15);
+        let expires_at_str = expires_at
+            .format(&MYSQL_TS_FORMAT)
+            .map_err(|e| anyhow!(e))?;
+
+        sqlx::query(
+            r#"
+                INSERT INTO user_session
+                    (user_id, device_type, device_id, session_token, status,
+                     issued_at, expires_at, last_seen_at, login_ip, login_user_agent)
+                VALUES
+                    (?, ?, ?, ?, 1, NOW(3), ?, NOW(3), ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    session_token = VALUES(session_token),
+                    status = 1,
+                    issued_at = NOW(3),
+                    expires_at = VALUES(expires_at),
+                    last_seen_at = NOW(3),
+                    login_ip = VALUES(login_ip),
+                    login_user_agent = VALUES(login_user_agent)
+            "#,
+        )
+        .bind(user_id)
+        .bind(device_type as i32)
+        .bind(&device_id)
+        .bind(new_token.as_bytes())
+        .bind(&expires_at_str)
+        .bind(login_ip)
+        .bind(user_agent)
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+
+        Ok(SessionTokenUpsertResult {
+            session_token: new_token,
+            expires_at,
+            previous_token,
+        })
+    }
+
+    async fn validate_session_token(&self, token: &str) -> Result<Option<SessionTokenRecord>> {
+        let row = sqlx::query(
+            r#"
+                SELECT user_id, device_type, device_id, status, expires_at, last_seen_at
+                FROM user_session
+                WHERE session_token = ?
+            "#,
+        )
+        .bind(token.as_bytes())
+        .fetch_optional(&self.pool)
+        .await?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        let user_id: i64 = row.try_get("user_id")?;
+        let device_type_val: i32 = row.try_get("device_type")?;
+        let device_id: String = row.try_get("device_id")?;
+        let mut status: i32 = row.try_get("status")?;
+        let expires_at_str: String = row.try_get("expires_at")?;
+        let expires_at =
+            OffsetDateTime::parse(&expires_at_str, &MYSQL_TS_FORMAT).map_err(|e| anyhow!(e))?;
+        let last_seen_str: String = row.try_get("last_seen_at")?;
+        let last_seen_at =
+            OffsetDateTime::parse(&last_seen_str, &MYSQL_TS_FORMAT).map_err(|e| anyhow!(e))?;
+        let now = OffsetDateTime::now_utc();
+        if expires_at <= now && status == 1 {
+            sqlx::query(
+                "UPDATE user_session SET status = 3, expires_at = NOW(3) WHERE session_token = ?",
+            )
+            .bind(token.as_bytes())
+            .execute(&self.pool)
+            .await?;
+            status = 3;
+        }
+
+        Ok(Some(SessionTokenRecord {
+            user_id,
+            device_type: map_device_type(device_type_val),
+            device_id,
+            session_token: token.to_string(),
+            status,
+            expires_at,
+            last_seen_at,
+        }))
+    }
+
+    async fn revoke_session_token_by_token(&self, token: &str) -> Result<Option<String>> {
+        let affected = sqlx::query(
+            r#"
+                UPDATE user_session
+                SET status = 2, expires_at = NOW(3), last_seen_at = NOW(3)
+                WHERE session_token = ?
+            "#,
+        )
+        .bind(token.as_bytes())
+        .execute(&self.pool)
+        .await?;
+
+        if affected.rows_affected() == 0 {
+            return Ok(None);
+        }
+        Ok(Some(token.to_string()))
+    }
+
+    async fn revoke_session_token_by_device(
+        &self,
+        user_id: i64,
+        device_type: DeviceType,
+        device_id: &str,
+    ) -> Result<Option<String>> {
+        let row = sqlx::query(
+            r#"
+                SELECT session_token
+                FROM user_session
+                WHERE user_id = ? AND device_type = ? AND device_id = ?
+            "#,
+        )
+        .bind(user_id)
+        .bind(device_type as i32)
+        .bind(device_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        sqlx::query(
+            r#"
+                UPDATE user_session
+                SET status = 2, expires_at = NOW(3), last_seen_at = NOW(3)
+                WHERE user_id = ? AND device_type = ? AND device_id = ?
+            "#,
+        )
+        .bind(user_id)
+        .bind(device_type as i32)
+        .bind(device_id)
+        .execute(&self.pool)
+        .await?;
+        let token = row
+            .try_get::<Vec<u8>, _>("session_token")
+            .ok()
+            .and_then(|bytes| String::from_utf8(bytes).ok());
+        Ok(token)
+    }
+
+    async fn touch_tokens(&self, tokens: &[String]) -> Result<u64> {
+        if tokens.is_empty() {
+            return Ok(0);
+        }
+        let mut builder = QueryBuilder::new(
+            "UPDATE user_session SET last_seen_at = NOW(3) WHERE session_token IN (",
+        );
+        let mut separated = builder.separated(", ");
+        for token in tokens {
+            separated.push_bind(token.as_bytes());
+        }
+        drop(separated);
+        builder.push(")");
+        let query = builder.build();
+        let result = query.execute(&self.pool).await?;
+        Ok(result.rows_affected())
+    }
+}
+
+pub fn build_session_repo() -> SessionRepoSqlx {
+    SessionRepoSqlx::new()
 }

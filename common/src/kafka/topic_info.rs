@@ -19,10 +19,13 @@ impl TopicInfo {
 /// 在线消息 Topic
 pub static ONLINE_TOPIC_INFO: Lazy<TopicInfo> = Lazy::new(|| TopicInfo::new("online", 50, 2));
 /// 发送好友消息 Topic
-pub static MSG_SEND_FRIEND_TOPIC: Lazy<TopicInfo> = Lazy::new(|| TopicInfo::new("msg-send-friend", 100, 3));
+pub static MSG_SEND_FRIEND_TOPIC: Lazy<TopicInfo> =
+    Lazy::new(|| TopicInfo::new("msg-send-friend", 100, 3));
 /// 发送群消息 Topic
-pub static MSG_SEND_GROUP_TOPIC: Lazy<TopicInfo> = Lazy::new(|| TopicInfo::new("msg-send-group", 100, 3));
+pub static MSG_SEND_GROUP_TOPIC: Lazy<TopicInfo> =
+    Lazy::new(|| TopicInfo::new("msg-send-group", 100, 3));
 ///用户心跳 / 活跃状态更新 Topic
-pub static USER_PRESENCE_TOPIC_INFO: Lazy<TopicInfo> =Lazy::new(|| TopicInfo::new("user-presence", 30, 2));
+pub static USER_PRESENCE_TOPIC_INFO: Lazy<TopicInfo> =
+    Lazy::new(|| TopicInfo::new("user-presence", 30, 2));
 ///系统消息
 pub static SYS_MSG_TOPIC_INFO: Lazy<TopicInfo> = Lazy::new(|| TopicInfo::new("sys-msg", 100, 3));

@@ -2,9 +2,18 @@ fn main() {
     // 生成 hot_online_service 的客户端桩到固定目录
     std::fs::create_dir_all("src/grpc_hot_online/").ok();
     tonic_build::configure()
-        .type_attribute("client_service.ClientEntity", "#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]")
-        .type_attribute("client_service.ClientEntity", "#[serde(rename_all = \"camelCase\")]")
-        .type_attribute("auth.DeviceType", "#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]")
+        .type_attribute(
+            "client_service.ClientEntity",
+            "#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]",
+        )
+        .type_attribute(
+            "client_service.ClientEntity",
+            "#[serde(rename_all = \"camelCase\")]",
+        )
+        .type_attribute(
+            "auth.DeviceType",
+            "#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]",
+        )
         .build_server(false)
         .build_client(true)
         .out_dir("src/grpc_hot_online/")

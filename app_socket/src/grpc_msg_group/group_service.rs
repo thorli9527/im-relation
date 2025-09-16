@@ -406,10 +406,10 @@ pub mod group_service_client {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
-    use tonic::codegen::*;
     use tonic::codegen::http::Uri;
+    use tonic::codegen::*;
     /// 群组服务接口定义：提供群成员增删改查、跨群查询、分片管理等能力
     #[derive(Debug, Clone)]
     pub struct GroupServiceClient<T> {
@@ -454,9 +454,8 @@ pub mod group_service_client {
                     <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::Body>,
-            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+            <T as tonic::codegen::Service<http::Request<tonic::body::Body>>>::Error:
+                Into<StdError> + std::marker::Send + std::marker::Sync,
         {
             GroupServiceClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -497,18 +496,12 @@ pub mod group_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::CreateGroupReq>,
         ) -> std::result::Result<tonic::Response<super::CommonResp>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/group_service.GroupService/CreateGroup",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/group_service.GroupService/CreateGroup");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("group_service.GroupService", "CreateGroup"));
@@ -519,41 +512,29 @@ pub mod group_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::UpdateGroupProfileReq>,
         ) -> std::result::Result<tonic::Response<super::CommonResp>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/group_service.GroupService/UpdateGroupProfile",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("group_service.GroupService", "UpdateGroupProfile"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "group_service.GroupService",
+                "UpdateGroupProfile",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn get_group(
             &mut self,
             request: impl tonic::IntoRequest<super::IdReq>,
         ) -> std::result::Result<tonic::Response<super::GroupInfo>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/group_service.GroupService/GetGroup",
-            );
+            let path = http::uri::PathAndQuery::from_static("/group_service.GroupService/GetGroup");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("group_service.GroupService", "GetGroup"));
@@ -564,21 +545,17 @@ pub mod group_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::DismissGroupReq>,
         ) -> std::result::Result<tonic::Response<super::CommonResp>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/group_service.GroupService/DismissGroup",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/group_service.GroupService/DismissGroup");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("group_service.GroupService", "DismissGroup"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "group_service.GroupService",
+                "DismissGroup",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 添加单个成员
@@ -586,18 +563,11 @@ pub mod group_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::InsertReq>,
         ) -> std::result::Result<tonic::Response<super::InsertResp>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/group_service.GroupService/Insert",
-            );
+            let path = http::uri::PathAndQuery::from_static("/group_service.GroupService/Insert");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("group_service.GroupService", "Insert"));
@@ -608,18 +578,12 @@ pub mod group_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::InsertManyReq>,
         ) -> std::result::Result<tonic::Response<super::InsertManyResp>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/group_service.GroupService/InsertMany",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/group_service.GroupService/InsertMany");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("group_service.GroupService", "InsertMany"));
@@ -630,18 +594,11 @@ pub mod group_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::RemoveReq>,
         ) -> std::result::Result<tonic::Response<super::RemoveResp>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/group_service.GroupService/Remove",
-            );
+            let path = http::uri::PathAndQuery::from_static("/group_service.GroupService/Remove");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("group_service.GroupService", "Remove"));
@@ -652,18 +609,12 @@ pub mod group_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::ChangeRoleReq>,
         ) -> std::result::Result<tonic::Response<super::ChangeRoleResp>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/group_service.GroupService/ChangeRole",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/group_service.GroupService/ChangeRole");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("group_service.GroupService", "ChangeRole"));
@@ -673,22 +624,13 @@ pub mod group_service_client {
         pub async fn change_alias(
             &mut self,
             request: impl tonic::IntoRequest<super::ChangeAliasReq>,
-        ) -> std::result::Result<
-            tonic::Response<super::ChangeAliasResp>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::ChangeAliasResp>, tonic::Status> {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/group_service.GroupService/ChangeAlias",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/group_service.GroupService/ChangeAlias");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("group_service.GroupService", "ChangeAlias"));
@@ -699,18 +641,11 @@ pub mod group_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::GetPageReq>,
         ) -> std::result::Result<tonic::Response<super::GetPageResp>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/group_service.GroupService/GetPage",
-            );
+            let path = http::uri::PathAndQuery::from_static("/group_service.GroupService/GetPage");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("group_service.GroupService", "GetPage"));
@@ -721,18 +656,11 @@ pub mod group_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::GetAllReq>,
         ) -> std::result::Result<tonic::Response<super::GetAllResp>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/group_service.GroupService/GetAll",
-            );
+            let path = http::uri::PathAndQuery::from_static("/group_service.GroupService/GetAll");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("group_service.GroupService", "GetAll"));
@@ -743,18 +671,11 @@ pub mod group_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::CountReq>,
         ) -> std::result::Result<tonic::Response<super::CountResp>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/group_service.GroupService/Count",
-            );
+            let path = http::uri::PathAndQuery::from_static("/group_service.GroupService/Count");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("group_service.GroupService", "Count"));
@@ -765,18 +686,12 @@ pub mod group_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::UserGroupsReq>,
         ) -> std::result::Result<tonic::Response<super::UserGroupsResp>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/group_service.GroupService/UserGroups",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/group_service.GroupService/UserGroups");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("group_service.GroupService", "UserGroups"));
@@ -787,18 +702,11 @@ pub mod group_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::AllKeysReq>,
         ) -> std::result::Result<tonic::Response<super::AllKeysResp>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/group_service.GroupService/AllKeys",
-            );
+            let path = http::uri::PathAndQuery::from_static("/group_service.GroupService/AllKeys");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("group_service.GroupService", "AllKeys"));
@@ -808,25 +716,19 @@ pub mod group_service_client {
         pub async fn all_keys_by_shard(
             &mut self,
             request: impl tonic::IntoRequest<super::AllKeysByShardReq>,
-        ) -> std::result::Result<
-            tonic::Response<super::AllKeysByShardResp>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::AllKeysByShardResp>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/group_service.GroupService/AllKeysByShard",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/group_service.GroupService/AllKeysByShard");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("group_service.GroupService", "AllKeysByShard"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "group_service.GroupService",
+                "AllKeysByShard",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 清空群成员
@@ -834,18 +736,11 @@ pub mod group_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::ClearReq>,
         ) -> std::result::Result<tonic::Response<super::ClearResp>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/group_service.GroupService/Clear",
-            );
+            let path = http::uri::PathAndQuery::from_static("/group_service.GroupService/Clear");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("group_service.GroupService", "Clear"));

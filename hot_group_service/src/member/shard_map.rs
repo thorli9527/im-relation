@@ -19,7 +19,9 @@ struct Shard {
 }
 impl Default for Shard {
     fn default() -> Self {
-        Self { inner: DashMap::with_hasher(RandomState::new()) }
+        Self {
+            inner: DashMap::with_hasher(RandomState::new()),
+        }
     }
 }
 
@@ -84,11 +86,15 @@ impl ShardMap {
     }
 
     #[inline]
-    fn shard_idx(&self, gid: GroupId) -> usize { (gid as usize) & self.shard_mask }
+    fn shard_idx(&self, gid: GroupId) -> usize {
+        (gid as usize) & self.shard_mask
+    }
 
     /// 分片总数
     #[inline]
-    pub fn shard_count(&self) -> usize { self.shard_mask + 1 }
+    pub fn shard_count(&self) -> usize {
+        self.shard_mask + 1
+    }
 
     /// group 是否存在
     #[inline]
@@ -103,17 +109,26 @@ impl ShardMap {
         if let Some(w) = shard.inner.get(&gid) {
             return w.clone();
         }
-        shard.inner.entry(gid).or_insert_with(|| Arc::new(MemberListWrapper::new_simple())).clone()
+        shard
+            .inner
+            .entry(gid)
+            .or_insert_with(|| Arc::new(MemberListWrapper::new_simple()))
+            .clone()
     }
 
     #[inline]
     fn push_group_unique(list: &mut SmallVec<[GroupId; 8]>, gid: GroupId) {
-        if !list.iter().any(|&g| g == gid) { list.push(gid); }
+        if !list.iter().any(|&g| g == gid) {
+            list.push(gid);
+        }
     }
 
     #[inline]
     fn bump_ver(&self, gid: GroupId) {
-        let e = self.group_ver.entry(gid).or_insert_with(|| AtomicU64::new(0));
+        let e = self
+            .group_ver
+            .entry(gid)
+            .or_insert_with(|| AtomicU64::new(0));
         e.fetch_add(1, Ordering::Relaxed);
         // 主动使该 gid 的旧页失效，释放缓存压力
         self.invalidate_gid_pages(gid);
@@ -121,7 +136,10 @@ impl ShardMap {
 
     #[inline]
     fn current_ver(&self, gid: GroupId) -> u64 {
-        self.group_ver.get(&gid).map(|v| v.load(Ordering::Relaxed)).unwrap_or(0)
+        self.group_ver
+            .get(&gid)
+            .map(|v| v.load(Ordering::Relaxed))
+            .unwrap_or(0)
     }
 
     /// 主动剔除某个 gid 的所有旧分页（减少过期页堆积）
@@ -142,8 +160,13 @@ impl ShardMap {
     #[inline]
     fn index_remove(&self, uid: UserId, gid: GroupId) {
         if let Some(mut v) = self.user_to_groups.get_mut(&uid) {
-            if let Some(pos) = v.iter().position(|&g| g == gid) { v.remove(pos); }
-            if v.is_empty() { drop(v); self.user_to_groups.remove(&uid); }
+            if let Some(pos) = v.iter().position(|&g| g == gid) {
+                v.remove(pos);
+            }
+            if v.is_empty() {
+                drop(v);
+                self.user_to_groups.remove(&uid);
+            }
         }
     }
 
@@ -163,8 +186,14 @@ impl ShardMap {
         Ok(())
     }
 
-    pub fn insert_many(&self, gid: GroupId, members: Vec<MemberRef>) -> Result<(), MemberListError> {
-        if members.is_empty() { return Ok(()); }
+    pub fn insert_many(
+        &self,
+        gid: GroupId,
+        members: Vec<MemberRef>,
+    ) -> Result<(), MemberListError> {
+        if members.is_empty() {
+            return Ok(());
+        }
         let wrapper = self.get_or_create_wrapper(gid);
         wrapper.add_many_slice(&members)?;
         for m in members {
@@ -188,7 +217,12 @@ impl ShardMap {
         }
     }
 
-    pub fn change_role(&self, gid: GroupId, uid: UserId, role: GroupRoleType) -> Result<(), MemberListError> {
+    pub fn change_role(
+        &self,
+        gid: GroupId,
+        uid: UserId,
+        role: GroupRoleType,
+    ) -> Result<(), MemberListError> {
         let shard = &self.shards[self.shard_idx(gid)];
         if let Some(wrapper) = shard.inner.get(&gid) {
             wrapper.change_role(uid, role)?;
@@ -198,7 +232,12 @@ impl ShardMap {
     }
 
     /// 修改/清空别名
-    pub fn change_alias(&self, gid: GroupId, uid: UserId, alias: Option<String>) -> Result<(), MemberListError> {
+    pub fn change_alias(
+        &self,
+        gid: GroupId,
+        uid: UserId,
+        alias: Option<String>,
+    ) -> Result<(), MemberListError> {
         let shard = &self.shards[self.shard_idx(gid)];
         if let Some(wrapper) = shard.inner.get(&gid) {
             wrapper.change_alias(uid, alias)?;
@@ -250,7 +289,8 @@ impl ShardMap {
 
     /// 兼容旧接口：返回 Vec<MemberRef>
     pub fn get_page(&self, gid: GroupId, page: usize, page_size: usize) -> Option<Vec<MemberRef>> {
-        self.get_page_arc(gid, page, page_size).map(|arc_slice| arc_slice.deref().to_vec())
+        self.get_page_arc(gid, page, page_size)
+            .map(|arc_slice| arc_slice.deref().to_vec())
     }
 
     /// 返回全量成员（零拷贝切片）
@@ -261,7 +301,10 @@ impl ShardMap {
 
     /// 某用户的所有群组
     pub fn user_group_list(&self, uid: UserId) -> Vec<GroupId> {
-        self.user_to_groups.get(&uid).map(|v| v.iter().copied().collect()).unwrap_or_default()
+        self.user_to_groups
+            .get(&uid)
+            .map(|v| v.iter().copied().collect())
+            .unwrap_or_default()
     }
 
     /// 全部群组ID
@@ -269,7 +312,9 @@ impl ShardMap {
         let cap: usize = self.shards.iter().map(|s| s.inner.len()).sum();
         let mut keys = Vec::with_capacity(cap);
         for shard in self.shards.iter() {
-            for e in shard.inner.iter() { keys.push(*e.key()); }
+            for e in shard.inner.iter() {
+                keys.push(*e.key());
+            }
         }
         keys.sort_unstable();
         keys
@@ -277,9 +322,13 @@ impl ShardMap {
 
     /// 指定分片的群组ID
     pub fn all_keys_by_shard(&self, idx: usize) -> Vec<GroupId> {
-        if idx >= self.shards.len() { return Vec::new(); }
+        if idx >= self.shards.len() {
+            return Vec::new();
+        }
         let mut v = Vec::with_capacity(self.shards[idx].inner.len());
-        for e in self.shards[idx].inner.iter() { v.push(*e.key()); }
+        for e in self.shards[idx].inner.iter() {
+            v.push(*e.key());
+        }
         v.sort_unstable();
         v
     }

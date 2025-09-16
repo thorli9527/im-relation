@@ -42,7 +42,11 @@ impl OnlineStore {
             .map(|_| OnlineShard::default())
             .collect::<Vec<_>>()
             .into_boxed_slice();
-        Self { shards: Arc::new(shards), mask, is_pow2 }
+        Self {
+            shards: Arc::new(shards),
+            mask,
+            is_pow2,
+        }
     }
 
     #[inline]
@@ -53,7 +57,11 @@ impl OnlineStore {
     #[inline]
     fn shard_idx_of(&self, uid: UserId) -> usize {
         let u = uid as u64 as usize;
-        if self.is_pow2 { u & self.mask } else { u % self.shards.len() }
+        if self.is_pow2 {
+            u & self.mask
+        } else {
+            u % self.shards.len()
+        }
     }
 
     /// 设置在线状态（写快路径：仅在状态改变时升级为写锁）

@@ -16,7 +16,9 @@ pub struct AliasPool {
 
 impl AliasPool {
     pub fn new() -> Self {
-        Self { pool: RwLock::new(HashMap::new()) }
+        Self {
+            pool: RwLock::new(HashMap::new()),
+        }
     }
 
     /// 放入并返回共享引用；多次传入相同文本将返回同一 Arc<str>

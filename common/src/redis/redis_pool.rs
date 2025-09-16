@@ -1,7 +1,7 @@
 // src/common/redis_pool.rs
 
 use crate::RedisPool;
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use deadpool_redis::{Config, Runtime};
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
@@ -26,7 +26,9 @@ impl RedisPoolTools {
         let cfg = Config::from_url(redis_url);
         let raw_pool = cfg.create_pool(Some(Runtime::Tokio1))?;
         let instance = Self::new(Arc::new(raw_pool));
-        INSTANCE.set(instance).map_err(|_| anyhow!("Redis pool already initialized"))
+        INSTANCE
+            .set(instance)
+            .map_err(|_| anyhow!("Redis pool already initialized"))
     }
 
     /// 获取全局 RedisPool 实例引用

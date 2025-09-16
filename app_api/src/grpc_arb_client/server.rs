@@ -6,15 +6,16 @@ use crate::util::node_util::NodeUtil;
 use async_trait::async_trait;
 use tonic::{Request, Response, Status};
 
-pub struct ArbClientServiceImpl {
-}
+type ArbServerClient = ArbServerRpcServiceClient<tonic::transport::Channel>;
+
+pub struct ArbClientServiceImpl;
 
 impl ArbClientServiceImpl {
     pub fn new() -> Self {
-        Self {
-        }
+        Self
     }
 }
+
 #[async_trait]
 impl ArbClientRpcService for ArbClientServiceImpl {
     async fn sync_data(&self, request: Request<BytesBlob>) -> Result<Response<CommonResp>, Status> {
@@ -29,11 +30,14 @@ impl ArbClientRpcService for ArbClientServiceImpl {
                 })
                 .await?;
             let list = list_rep.into_inner();
-            NodeUtil::get().reset_list(NodeType::SocketNode, list.nodes);
+            NodeUtil::get().reset_list(
+                NodeType::SocketNode as i32,
+                list.nodes.into_iter().map(|n| n.node_addr).collect(),
+            );
         }
         Ok(Response::new(CommonResp {
             success: true,
-            message: "".to_string(),
+            message: String::new(),
         }))
     }
 }

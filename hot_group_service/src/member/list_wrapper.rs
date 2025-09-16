@@ -8,8 +8,8 @@ use common::{MemberListError, UserId};
 #[derive(Debug, Default)]
 pub struct MemberListWrapper {
     members: RwLock<RB64>,
-    owners:  RwLock<RB64>,
-    admins:  RwLock<RB64>,
+    owners: RwLock<RB64>,
+    admins: RwLock<RB64>,
     aliases: RwLock<HashMap<u64, String>>, // 别名（可按需换成分片化结构）
 }
 
@@ -17,8 +17,8 @@ impl MemberListWrapper {
     pub fn new_simple() -> Self {
         Self {
             members: RwLock::new(RB64::new()),
-            owners:  RwLock::new(RB64::new()),
-            admins:  RwLock::new(RB64::new()),
+            owners: RwLock::new(RB64::new()),
+            admins: RwLock::new(RB64::new()),
             aliases: RwLock::new(HashMap::new()),
         }
     }
@@ -32,7 +32,9 @@ impl MemberListWrapper {
     }
 
     #[inline]
-    fn role_to_i32(role: GroupRoleType) -> i32 { role as i32 }
+    fn role_to_i32(role: GroupRoleType) -> i32 {
+        role as i32
+    }
 
     #[inline]
     fn role_from_i32(v: i32) -> GroupRoleType {
@@ -42,9 +44,13 @@ impl MemberListWrapper {
 
     #[inline]
     fn role_of(owners: &RB64, admins: &RB64, uid: u64) -> GroupRoleType {
-        if owners.contains(uid) { GroupRoleType::Owner }
-        else if admins.contains(uid) { GroupRoleType::Admin }
-        else { GroupRoleType::Member }
+        if owners.contains(uid) {
+            GroupRoleType::Owner
+        } else if admins.contains(uid) {
+            GroupRoleType::Admin
+        } else {
+            GroupRoleType::Member
+        }
     }
 
     #[inline]
@@ -56,9 +62,18 @@ impl MemberListWrapper {
     #[inline]
     fn set_role_bits(owners: &mut RB64, admins: &mut RB64, uid: u64, role: GroupRoleType) {
         match role {
-            GroupRoleType::Owner => { owners.insert(uid); admins.remove(uid); }
-            GroupRoleType::Admin => { admins.insert(uid); owners.remove(uid); }
-            _ => { owners.remove(uid); admins.remove(uid); }
+            GroupRoleType::Owner => {
+                owners.insert(uid);
+                admins.remove(uid);
+            }
+            GroupRoleType::Admin => {
+                admins.insert(uid);
+                owners.remove(uid);
+            }
+            _ => {
+                owners.remove(uid);
+                admins.remove(uid);
+            }
         }
     }
 
@@ -76,8 +91,12 @@ impl MemberListWrapper {
         Self::set_role_bits(&mut o, &mut a, uid, Self::role_from_i32(member.role));
 
         match member.alias {
-            Some(alias) if !alias.is_empty() => { al.insert(uid, alias); }
-            _ => { al.remove(&uid); } // 空或未设置则清空
+            Some(alias) if !alias.is_empty() => {
+                al.insert(uid, alias);
+            }
+            _ => {
+                al.remove(&uid);
+            } // 空或未设置则清空
         }
 
         Ok(())
@@ -95,8 +114,12 @@ impl MemberListWrapper {
             m.insert(uid);
             Self::set_role_bits(&mut o, &mut a, uid, Self::role_from_i32(member.role));
             match &member.alias {
-                Some(alias) if !alias.is_empty() => { al.insert(uid, alias.clone()); }
-                _ => { al.remove(&uid); }
+                Some(alias) if !alias.is_empty() => {
+                    al.insert(uid, alias.clone());
+                }
+                _ => {
+                    al.remove(&uid);
+                }
             }
         }
         Ok(())
@@ -159,15 +182,23 @@ impl MemberListWrapper {
     }
 
     /// 修改/清空别名（None 或 空字符串 => 清空）；仅允许群内成员
-    pub fn change_alias<S: AsRef<str>>(&self, user_id: UserId, alias: Option<S>) -> Result<(), MemberListError> {
+    pub fn change_alias<S: AsRef<str>>(
+        &self,
+        user_id: UserId,
+        alias: Option<S>,
+    ) -> Result<(), MemberListError> {
         let uid = Self::to_u64(user_id)?;
         if !self.members.read().contains(uid) {
             return Err(MemberListError::NotFound);
         }
         let mut al = self.aliases.write();
         match alias {
-            Some(s) if !s.as_ref().is_empty() => { al.insert(uid, s.as_ref().to_string()); }
-            _ => { al.remove(&uid); }
+            Some(s) if !s.as_ref().is_empty() => {
+                al.insert(uid, s.as_ref().to_string());
+            }
+            _ => {
+                al.remove(&uid);
+            }
         }
         Ok(())
     }
@@ -200,7 +231,9 @@ impl MemberListWrapper {
     }
 
     #[inline]
-    pub fn len(&self) -> usize { self.members.read().len() as usize }
+    pub fn len(&self) -> usize {
+        self.members.read().len() as usize
+    }
 
     /// 导出所有成员（包含角色与别名）
     pub fn get_all(&self) -> Vec<MemberRef> {
@@ -224,11 +257,15 @@ impl MemberListWrapper {
 
     /// 分页导出（按 RB64 的有序迭代，稳定分页）
     pub fn get_page(&self, page: usize, page_size: usize) -> Vec<MemberRef> {
-        if page_size == 0 { return Vec::new(); }
+        if page_size == 0 {
+            return Vec::new();
+        }
         let m = self.members.read();
         let total = m.len() as usize;
         let start = page.saturating_mul(page_size);
-        if start >= total { return Vec::new(); }
+        if start >= total {
+            return Vec::new();
+        }
 
         let o = self.owners.read();
         let a = self.admins.read();

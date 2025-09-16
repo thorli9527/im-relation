@@ -83,7 +83,9 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         {
             // 补偿：写入 job 表
             let msg = format!("{}", e);
-            if let Err(job_err) = enqueue_friend_add_job(uid, fid, alias_for_user, alias_for_friend, &msg).await {
+            if let Err(job_err) =
+                enqueue_friend_add_job(uid, fid, alias_for_user, alias_for_friend, &msg).await
+            {
                 eprintln!("friend add compensation enqueue failed: {}", job_err);
             }
             return Err(Self::internal(e, "add_friend/write"));
@@ -173,15 +175,24 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         }))
     }
 
-    async fn get_friends_detailed(&self, request: Request<GetFriendsDetailedReq>) -> Result<Response<GetFriendsDetailedResp>, Status> {
+    async fn get_friends_detailed(
+        &self,
+        request: Request<GetFriendsDetailedReq>,
+    ) -> Result<Response<GetFriendsDetailedResp>, Status> {
         todo!()
     }
 
-    async fn get_friends_page_detailed(&self, request: Request<GetFriendsPageDetailedReq>) -> Result<Response<GetFriendsPageDetailedResp>, Status> {
+    async fn get_friends_page_detailed(
+        &self,
+        request: Request<GetFriendsPageDetailedReq>,
+    ) -> Result<Response<GetFriendsPageDetailedResp>, Status> {
         todo!()
     }
 
-    async fn update_friend_alias(&self, request: Request<UpdateFriendAliasReq>) -> Result<Response<UpdateFriendAliasResp>, Status> {
+    async fn update_friend_alias(
+        &self,
+        request: Request<UpdateFriendAliasReq>,
+    ) -> Result<Response<UpdateFriendAliasResp>, Status> {
         todo!()
     }
 
@@ -212,7 +223,9 @@ async fn enqueue_friend_add_job(
 ) -> anyhow::Result<()> {
     let pool = get_db();
     let mut msg = error_msg.to_string();
-    if msg.len() > 500 { msg.truncate(500); }
+    if msg.len() > 500 {
+        msg.truncate(500);
+    }
     sqlx::query(
         r#"INSERT INTO friend_add_jobs (user_id, friend_id, alias_for_user, alias_for_friend, error_msg, status)
            VALUES (?, ?, ?, ?, ?, 0)"#,

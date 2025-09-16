@@ -176,10 +176,10 @@ pub mod friend_service_client {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
-    use tonic::codegen::*;
     use tonic::codegen::http::Uri;
+    use tonic::codegen::*;
     #[derive(Debug, Clone)]
     pub struct FriendServiceClient<T> {
         inner: tonic::client::Grpc<T>,
@@ -223,9 +223,8 @@ pub mod friend_service_client {
                     <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::Body>,
-            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+            <T as tonic::codegen::Service<http::Request<tonic::body::Body>>>::Error:
+                Into<StdError> + std::marker::Send + std::marker::Sync,
         {
             FriendServiceClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -264,18 +263,12 @@ pub mod friend_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::AddFriendReq>,
         ) -> std::result::Result<tonic::Response<super::AddFriendResp>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/friend_service.FriendService/AddFriend",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/friend_service.FriendService/AddFriend");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("friend_service.FriendService", "AddFriend"));
@@ -284,43 +277,30 @@ pub mod friend_service_client {
         pub async fn remove_friend(
             &mut self,
             request: impl tonic::IntoRequest<super::RemoveFriendReq>,
-        ) -> std::result::Result<
-            tonic::Response<super::RemoveFriendResp>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::RemoveFriendResp>, tonic::Status> {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/friend_service.FriendService/RemoveFriend",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/friend_service.FriendService/RemoveFriend");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("friend_service.FriendService", "RemoveFriend"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "friend_service.FriendService",
+                "RemoveFriend",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn is_friend(
             &mut self,
             request: impl tonic::IntoRequest<super::IsFriendReq>,
         ) -> std::result::Result<tonic::Response<super::IsFriendResp>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/friend_service.FriendService/IsFriend",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/friend_service.FriendService/IsFriend");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("friend_service.FriendService", "IsFriend"));
@@ -331,154 +311,112 @@ pub mod friend_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::GetFriendsReq>,
         ) -> std::result::Result<tonic::Response<super::GetFriendsResp>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/friend_service.FriendService/GetFriends",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/friend_service.FriendService/GetFriends");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("friend_service.FriendService", "GetFriends"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "friend_service.FriendService",
+                "GetFriends",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn get_friends_page(
             &mut self,
             request: impl tonic::IntoRequest<super::GetFriendsPageReq>,
-        ) -> std::result::Result<
-            tonic::Response<super::GetFriendsPageResp>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::GetFriendsPageResp>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/friend_service.FriendService/GetFriendsPage",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("friend_service.FriendService", "GetFriendsPage"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "friend_service.FriendService",
+                "GetFriendsPage",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 新增：带别名的查询
         pub async fn get_friends_detailed(
             &mut self,
             request: impl tonic::IntoRequest<super::GetFriendsDetailedReq>,
-        ) -> std::result::Result<
-            tonic::Response<super::GetFriendsDetailedResp>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::GetFriendsDetailedResp>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/friend_service.FriendService/GetFriendsDetailed",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("friend_service.FriendService", "GetFriendsDetailed"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "friend_service.FriendService",
+                "GetFriendsDetailed",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn get_friends_page_detailed(
             &mut self,
             request: impl tonic::IntoRequest<super::GetFriendsPageDetailedReq>,
-        ) -> std::result::Result<
-            tonic::Response<super::GetFriendsPageDetailedResp>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::GetFriendsPageDetailedResp>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/friend_service.FriendService/GetFriendsPageDetailed",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "friend_service.FriendService",
-                        "GetFriendsPageDetailed",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "friend_service.FriendService",
+                "GetFriendsPageDetailed",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 新增：更新别名与清空
         pub async fn update_friend_alias(
             &mut self,
             request: impl tonic::IntoRequest<super::UpdateFriendAliasReq>,
-        ) -> std::result::Result<
-            tonic::Response<super::UpdateFriendAliasResp>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::UpdateFriendAliasResp>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/friend_service.FriendService/UpdateFriendAlias",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("friend_service.FriendService", "UpdateFriendAlias"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "friend_service.FriendService",
+                "UpdateFriendAlias",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn clear_friends(
             &mut self,
             request: impl tonic::IntoRequest<super::ClearFriendsReq>,
-        ) -> std::result::Result<
-            tonic::Response<super::ClearFriendsResp>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::ClearFriendsResp>, tonic::Status> {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/friend_service.FriendService/ClearFriends",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/friend_service.FriendService/ClearFriends");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("friend_service.FriendService", "ClearFriends"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "friend_service.FriendService",
+                "ClearFriends",
+            ));
             self.inner.unary(req, path, codec).await
         }
     }

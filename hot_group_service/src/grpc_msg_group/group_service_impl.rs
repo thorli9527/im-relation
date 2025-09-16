@@ -5,7 +5,14 @@ use log::{info, warn};
 use sqlx::mysql::MySqlPool;
 use tonic::{Request, Response, Status};
 
-use crate::grpc_msg_group::group_service::{group_service_server::GroupService as GrpcGroupService, AllKeysByShardReq, AllKeysByShardResp, AllKeysReq, AllKeysResp, ChangeAliasReq, ChangeAliasResp, ChangeRoleReq, ChangeRoleResp, ClearReq, ClearResp, CommonResp, CountReq, CountResp, CreateGroupReq, DismissGroupReq, GetAllReq, GetAllResp, GetPageReq, GetPageResp, GroupInfo, GroupRoleType, IdReq, InsertManyReq, InsertManyResp, InsertReq, InsertResp, MemberRef, RemoveReq, RemoveResp, UpdateGroupProfileReq, UserGroupsReq, UserGroupsResp};
+use crate::grpc_msg_group::group_service::{
+    group_service_server::GroupService as GrpcGroupService, AllKeysByShardReq, AllKeysByShardResp,
+    AllKeysReq, AllKeysResp, ChangeAliasReq, ChangeAliasResp, ChangeRoleReq, ChangeRoleResp,
+    ClearReq, ClearResp, CommonResp, CountReq, CountResp, CreateGroupReq, DismissGroupReq,
+    GetAllReq, GetAllResp, GetPageReq, GetPageResp, GroupInfo, GroupRoleType, IdReq, InsertManyReq,
+    InsertManyResp, InsertReq, InsertResp, MemberRef, RemoveReq, RemoveResp, UpdateGroupProfileReq,
+    UserGroupsReq, UserGroupsResp,
+};
 use crate::hot_cold::HotColdFacade;
 use crate::profile::{GroupProfileCache, MySqlGroupProfileStore};
 use crate::store::GroupStorage;
@@ -16,7 +23,7 @@ use common::MemberListError;
 
 #[derive(Clone)]
 pub struct GroupServiceImpl<S: GroupStorage> {
-    facade:  Arc<HotColdFacade<S>>,                         // 成员热层（带写穿）
+    facade: Arc<HotColdFacade<S>>, // 成员热层（带写穿）
     profile: Arc<GroupProfileCache<MySqlGroupProfileStore>>, // 群信息 L1 写穿
 }
 
@@ -30,11 +37,19 @@ impl<S: GroupStorage> GroupServiceImpl<S> {
 
     #[inline]
     fn now_ms() -> u64 {
-        SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64
     }
 
     #[inline]
-    fn ok() -> CommonResp { CommonResp { success: true, message: String::new() } }
+    fn ok() -> CommonResp {
+        CommonResp {
+            success: true,
+            message: String::new(),
+        }
+    }
 
     #[inline]
     fn map_hot_err(e: MemberListError) -> Status {
@@ -44,8 +59,9 @@ impl<S: GroupStorage> GroupServiceImpl<S> {
             MemberListError::PermissionDenied(msg) => Status::permission_denied(msg),
             MemberListError::PreconditionFailed(msg) => Status::failed_precondition(msg),
             MemberListError::InvalidArgument(msg) => Status::invalid_argument(msg),
-            MemberListError::InvalidUserId | MemberListError::InvalidGroupId =>
-                Status::invalid_argument(e.to_string()),
+            MemberListError::InvalidUserId | MemberListError::InvalidGroupId => {
+                Status::invalid_argument(e.to_string())
+            }
             MemberListError::TooManyMembers => Status::resource_exhausted(e.to_string()),
             _ => Status::internal(e.to_string()),
         }
@@ -70,21 +86,33 @@ where
         let owner_uid = r.creator_uid;
 
         // 1) 热层：Owner + 初始成员（去重）
-        let owner = MemberRef { id: owner_uid, alias: None, role: GroupRoleType::Owner as i32 };
+        let owner = MemberRef {
+            id: owner_uid,
+            alias: None,
+            role: GroupRoleType::Owner as i32,
+        };
         if let Err(e) = self.facade.insert(gid, owner).await {
-            if !matches!(e, MemberListError::AlreadyExists) { return Err(Self::map_hot_err(e)); }
+            if !matches!(e, MemberListError::AlreadyExists) {
+                return Err(Self::map_hot_err(e));
+            }
         }
         use std::collections::HashSet;
         let mut seen = HashSet::from([owner_uid]);
         let mut batch = Vec::new();
         for uid in r.members {
             if seen.insert(uid) {
-                batch.push(MemberRef { id: uid, alias: None, role: GroupRoleType::Member as i32 });
+                batch.push(MemberRef {
+                    id: uid,
+                    alias: None,
+                    role: GroupRoleType::Member as i32,
+                });
             }
         }
         if !batch.is_empty() {
             if let Err(e) = self.facade.insert_many(gid, batch).await {
-                if !matches!(e, MemberListError::AlreadyExists) { return Err(Self::map_hot_err(e)); }
+                if !matches!(e, MemberListError::AlreadyExists) {
+                    return Err(Self::map_hot_err(e));
+                }
             }
         }
 
@@ -104,7 +132,9 @@ where
             create_time: now,
             update_time: now,
         };
-        self.profile.upsert(entity, None).await
+        self.profile
+            .upsert(entity, None)
+            .await
             .map_err(|e| Status::internal(format!("create_group profile upsert: {e}")))?;
 
         info!("create_group ok (write-through): gid={gid}, owner={owner_uid}");
@@ -121,15 +151,19 @@ where
 
         // 1) 权限：Owner/Admin
         if !auth_is_owner_or_admin(&self.facade, gid, operator).await? {
-            return Err(Status::permission_denied("no permission to update group profile"));
+            return Err(Status::permission_denied(
+                "no permission to update group profile",
+            ));
         }
 
         // 2) 读当前资料（多数缓存返回 Arc<GroupEntity>）
-        let cur = match self.profile.get_or_load(gid)
+        let cur = match self
+            .profile
+            .get_or_load(gid)
             .await
             .map_err(|e| Status::internal(e.to_string()))?
         {
-            Some(x) => x,               // x: Arc<GroupEntity>
+            Some(x) => x, // x: Arc<GroupEntity>
             None => return Err(Status::not_found("group not found")),
         };
 
@@ -163,7 +197,10 @@ where
         }
 
         if !changed {
-            return Ok(Response::new(CommonResp { success: true, message: "no changes".into() }));
+            return Ok(Response::new(CommonResp {
+                success: true,
+                message: "no changes".into(),
+            }));
         }
 
         // 如果由存储层自动更新时间，这里可以不设；否则本地更新
@@ -174,17 +211,17 @@ where
 
         // 5) CAS 写穿（传入旧的 update_time）
         self.profile
-            .upsert(patch, Some(prev_update))   // ← 这里现在是 GroupEntity，不是 Arc<_>
+            .upsert(patch, Some(prev_update)) // ← 这里现在是 GroupEntity，不是 Arc<_>
             .await
             .map_err(|_| Status::failed_precondition("conflict, please retry"))?;
 
-        Ok(Response::new(CommonResp { success: true, message: String::new() }))
+        Ok(Response::new(CommonResp {
+            success: true,
+            message: String::new(),
+        }))
     }
 
-    async fn get_group(
-        &self,
-        request: Request<IdReq>,
-    ) -> Result<Response<GroupInfo>, Status> {
+    async fn get_group(&self, request: Request<IdReq>) -> Result<Response<GroupInfo>, Status> {
         let req = request.into_inner();
         let gid = req.ref_id;
 
@@ -195,7 +232,7 @@ where
             .await
             .map_err(|e| Status::internal(e.to_string()))?
         {
-            Some(p) => p,              // 通常是 Arc<GroupEntity>
+            Some(p) => p, // 通常是 Arc<GroupEntity>
             None => return Err(Status::not_found("group not found")),
         };
 
@@ -204,18 +241,18 @@ where
 
         // 3) 组装返回（字段名按你的 GroupInfo 定义调整）
         let gi = GroupInfo {
-            id:            profile.id,
-            name:          profile.name.clone(),
-            avatar:        profile.avatar.clone(),
-            description:   profile.description.clone(),
-            notice:        profile.notice.clone(),
+            id: profile.id,
+            name: profile.name.clone(),
+            avatar: profile.avatar.clone(),
+            description: profile.description.clone(),
+            notice: profile.notice.clone(),
             join_permission: profile.join_permission,
-            owner_id:      profile.owner_id,
-            group_type:    profile.group_type,
-            allow_search:  profile.allow_search,
-            enable:        profile.enable,
-            create_time:   profile.create_time,
-            update_time:   profile.update_time,
+            owner_id: profile.owner_id,
+            group_type: profile.group_type,
+            allow_search: profile.allow_search,
+            enable: profile.enable,
+            create_time: profile.create_time,
+            update_time: profile.update_time,
             member_cnt, // 如果你的 GroupInfo 没这个字段，请删掉
         };
 
@@ -235,7 +272,9 @@ where
         // 1) 清成员（热层会触发冷侧清理）
         self.facade.clear(gid).await;
         // 2) 群信息删除
-        self.profile.delete(gid).await
+        self.profile
+            .delete(gid)
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
         Ok(Response::new(Self::ok()))
     }
@@ -245,9 +284,14 @@ where
     async fn insert(&self, req: Request<InsertReq>) -> Result<Response<InsertResp>, Status> {
         let r = req.into_inner();
         let gid = r.group_id;
-        let member = r.member.ok_or_else(|| Status::invalid_argument("member is required"))?;
-        self.facade.insert(gid, member).await.map_err(Self::map_hot_err)?;
-        Ok(Response::new(InsertResp{}))
+        let member = r
+            .member
+            .ok_or_else(|| Status::invalid_argument("member is required"))?;
+        self.facade
+            .insert(gid, member)
+            .await
+            .map_err(Self::map_hot_err)?;
+        Ok(Response::new(InsertResp {}))
     }
 
     async fn insert_many(
@@ -256,13 +300,20 @@ where
     ) -> Result<Response<InsertManyResp>, Status> {
         let r = req.into_inner();
         let gid = r.group_id;
-        self.facade.insert_many(gid, r.members).await.map_err(Self::map_hot_err)?;
-        Ok(Response::new(InsertManyResp{}))
+        self.facade
+            .insert_many(gid, r.members)
+            .await
+            .map_err(Self::map_hot_err)?;
+        Ok(Response::new(InsertManyResp {}))
     }
 
     async fn remove(&self, req: Request<RemoveReq>) -> Result<Response<RemoveResp>, Status> {
         let r = req.into_inner();
-        let removed = self.facade.remove(r.group_id, r.user_id).await.map_err(Self::map_hot_err)?;
+        let removed = self
+            .facade
+            .remove(r.group_id, r.user_id)
+            .await
+            .map_err(Self::map_hot_err)?;
         Ok(Response::new(RemoveResp { removed }))
     }
 
@@ -274,8 +325,11 @@ where
         let Some(role) = GroupRoleType::from_i32(r.role) else {
             return Err(Status::invalid_argument("invalid role"));
         };
-        self.facade.change_role(r.group_id, r.user_id, role).await.map_err(Self::map_hot_err)?;
-        Ok(Response::new(ChangeRoleResp{}))
+        self.facade
+            .change_role(r.group_id, r.user_id, role)
+            .await
+            .map_err(Self::map_hot_err)?;
+        Ok(Response::new(ChangeRoleResp {}))
     }
 
     async fn change_alias(
@@ -283,8 +337,11 @@ where
         req: Request<ChangeAliasReq>,
     ) -> Result<Response<ChangeAliasResp>, Status> {
         let r = req.into_inner();
-        self.facade.change_alias(r.group_id, r.user_id, r.alias).await.map_err(Self::map_hot_err)?;
-        Ok(Response::new(ChangeAliasResp{}))
+        self.facade
+            .change_alias(r.group_id, r.user_id, r.alias)
+            .await
+            .map_err(Self::map_hot_err)?;
+        Ok(Response::new(ChangeAliasResp {}))
     }
 
     // ---------- 成员读 ----------
@@ -335,14 +392,16 @@ where
     async fn clear(&self, req: Request<ClearReq>) -> Result<Response<ClearResp>, Status> {
         let r = req.into_inner();
         self.facade.clear(r.group_id).await;
-        Ok(Response::new(ClearResp{}))
+        Ok(Response::new(ClearResp {}))
     }
 }
 
 // ---------------- 权限辅助 ----------------
 
 async fn auth_is_owner_or_admin<S: GroupStorage>(
-    facade: &HotColdFacade<S>, gid: i64, uid: i64,
+    facade: &HotColdFacade<S>,
+    gid: i64,
+    uid: i64,
 ) -> Result<bool, Status> {
     let members = facade.get_all(gid).await;
     for m in members {
@@ -356,7 +415,9 @@ async fn auth_is_owner_or_admin<S: GroupStorage>(
 }
 
 async fn auth_is_owner<S: GroupStorage>(
-    facade: &HotColdFacade<S>, gid: i64, uid: i64,
+    facade: &HotColdFacade<S>,
+    gid: i64,
+    uid: i64,
 ) -> Result<bool, Status> {
     let members = facade.get_all(gid).await;
     for m in members {

@@ -1,4 +1,3 @@
-
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -6,7 +5,8 @@
 pub enum UserLogType {
     Phone = 1,
     Email = 2,
-    QRCode=3,
+    QRCode = 3,
+    LoginName = 4,
 }
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -27,6 +27,7 @@ pub enum UserAuthOpt {
 pub enum UserRegType {
     Phone = 1,
     Email = 2,
+    LoginName = 3,
     // Nft = 3,
 }
 impl UserRegType {
@@ -35,9 +36,16 @@ impl UserRegType {
         match value {
             1 => Some(Self::Phone),
             2 => Some(Self::Email),
+            3 => Some(Self::LoginName),
             _ => None, // 处理未知数值的情况
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct SessionTokenInfo {
+    pub token: String,
+    pub expires_at: u64,
 }
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -48,12 +56,12 @@ pub enum ResetPasswordType {
     Email = 2,
 }
 
+use crate::grpc_hot_online::auth::{AuthType, DeviceType};
+use crate::grpc_hot_online::client_service::ClientEntity;
 use async_trait::async_trait;
 use common::UserId;
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
-use crate::grpc_hot_online::auth::{AuthType, DeviceType};
-use crate::grpc_hot_online::client_service::ClientEntity;
 
 #[derive(Clone, Debug)]
 pub struct UserService {}
@@ -68,12 +76,17 @@ impl UserService {
     }
     pub fn init() {
         let instance = UserService::new();
-        INSTANCE.set(Arc::new(instance)).expect("INSTANCE already initialized");
+        INSTANCE
+            .set(Arc::new(instance))
+            .expect("INSTANCE already initialized");
     }
 
     /// 获取全局实例（未初始化会 panic）
     pub fn get() -> Arc<Self> {
-        INSTANCE.get().expect("UserManager is not initialized").clone()
+        INSTANCE
+            .get()
+            .expect("UserManager is not initialized")
+            .clone()
     }
 }
 
@@ -81,7 +94,14 @@ static INSTANCE: OnceCell<Arc<UserService>> = OnceCell::new();
 
 #[async_trait]
 pub trait UserServiceAuthOpt: Send + Sync {
-    async fn login_by_type(&self, password: &str, reg_type: &UserRegType, target: &str, device_type: &DeviceType) -> anyhow::Result<String>;
+    async fn login_by_type(
+        &self,
+        login_type: &UserLogType,
+        target: &str,
+        password: &str,
+        device_type: &DeviceType,
+        device_id: &str,
+    ) -> anyhow::Result<(ClientEntity, SessionTokenInfo)>;
     /// 登录用户，将用户标记为在线，并进行必要的缓存更新和事件通知
     async fn login(
         &self,
@@ -90,9 +110,10 @@ pub trait UserServiceAuthOpt: Send + Sync {
         auth_content: &str,
         password: &str,
         device_type: &DeviceType,
-    ) -> anyhow::Result<(String, ClientEntity)>;
+        device_id: &str,
+    ) -> anyhow::Result<(SessionTokenInfo, ClientEntity)>;
 
-    async fn logout(&self,  user_id: UserId, device_type: &DeviceType) -> anyhow::Result<()>;
+    async fn logout(&self, user_id: UserId, device_type: &DeviceType) -> anyhow::Result<()>;
     /// 注册新用户
     async fn build_register_code(
         &self,
@@ -103,5 +124,4 @@ pub trait UserServiceAuthOpt: Send + Sync {
     ) -> anyhow::Result<String>; // 返回注册时返回的uuid
 
     async fn register_verify_code(&self, uuid: &str, code: &str) -> anyhow::Result<()>;
-
 }

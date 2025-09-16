@@ -1,20 +1,20 @@
+use crate::grpc_hot_online::auth::AuthType;
+use crate::service::user_service::UserRegType;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use validator::{Validate, ValidateEmail, ValidationError};
-use crate::grpc_hot_online::auth::AuthType;
-use crate::service::user_service::UserRegType;
 
 #[derive(Debug, Deserialize, ToSchema, Validate)]
 pub struct RegisterRequest {
     ///昵称
     #[validate(length(min = 4, message = "昵称至少4位"))]
     pub name: String,
-    /// 密码（至少8位，含字母和数字）
-    #[validate(length(min = 8, message = "密码至少8位"))]
+    /// 密码（至少6位，含字母和数字）
+    #[validate(length(min = 6, message = "密码至少8位"))]
     #[validate(custom(function = "validate_password"))]
     pub password: String,
 
-    /// 注册类型：1=Phone，2=Email，3=NFT
+    /// 注册类型：1=Phone，2=Email，3=LoginName
     pub reg_type: UserRegType,
 
     /// 目标值：手机号 / 邮箱 / NFT 地址
@@ -22,7 +22,6 @@ pub struct RegisterRequest {
     #[validate(custom(function = "validate_target"))]
     pub target: String,
 }
-
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct RegisterResponse {
@@ -33,11 +32,22 @@ pub struct RegisterResponse {
 fn validate_target(value: &str) -> Result<(), ValidationError> {
     if value.contains('@') {
         // 假设为邮箱
-        if value.validate_email() { Ok(()) } else { Err(ValidationError::new("邮箱格式无效")) }
+        if value.validate_email() {
+            Ok(())
+        } else {
+            Err(ValidationError::new("邮箱格式无效"))
+        }
     } else {
         // 假设为手机号，匹配国际电话格式 +86188xxx 或 001-xxx
         let phone_re = regex::Regex::new(r"^\+?[0-9]{7,20}$").unwrap();
-        if phone_re.is_match(value) { Ok(()) } else { Err(ValidationError::new("国际电话格式错误")) }
+        if phone_re.is_match(value) {
+            return Ok(());
+        }
+        let username_re = regex::Regex::new(r"^[A-Za-z0-9_]{3,32}$").unwrap();
+        if username_re.is_match(value) {
+            return Ok(());
+        }
+        Err(ValidationError::new("登录名格式错误"))
     }
 }
 // 密码至少包含字母和数字
@@ -45,15 +55,19 @@ fn validate_password(pwd: &str) -> Result<(), ValidationError> {
     let has_letter = pwd.chars().any(|c| c.is_ascii_alphabetic());
     let has_digit = pwd.chars().any(|c| c.is_ascii_digit());
 
-    if has_letter && has_digit { Ok(()) } else { Err(ValidationError::new("密码必须包含字母和数字")) }
+    if has_letter && has_digit {
+        Ok(())
+    } else {
+        Err(ValidationError::new("密码必须包含字母和数字"))
+    }
 }
 fn validate_username(username: &str) -> Result<(), ValidationError> {
     return common::util::validate::validate_username(username);
 }
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct RegisterVerifyRequest {
-    /// 验证码
-    #[validate(length(min = 6, message = "验证码格式错误"))]
+    /// 验证码（手机号/邮箱必填，登录名可留空）
+    #[validate(custom(function = "validate_verify_code"))]
     pub code: String,
     /// 验证码 Redis ID（服务端注册返回的 reg_id）
     #[validate(length(min = 8, message = "注册 ID 无效"))]
@@ -64,5 +78,17 @@ pub struct RegisterVerifyRequest {
 fn validate_password_strength(pwd: &str) -> Result<(), ValidationError> {
     let has_letter = pwd.chars().any(|c| c.is_ascii_alphabetic());
     let has_digit = pwd.chars().any(|c| c.is_ascii_digit());
-    if has_letter && has_digit { Ok(()) } else { Err(ValidationError::new("密码必须包含字母和数字")) }
+    if has_letter && has_digit {
+        Ok(())
+    } else {
+        Err(ValidationError::new("密码必须包含字母和数字"))
+    }
+}
+
+fn validate_verify_code(code: &str) -> Result<(), ValidationError> {
+    if code.is_empty() || code.len() == 6 {
+        Ok(())
+    } else {
+        Err(ValidationError::new("验证码格式错误"))
+    }
 }

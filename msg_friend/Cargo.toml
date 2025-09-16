@@ -17,6 +17,7 @@ twox-hash.workspace = true
 log.workspace = true
 utoipa.workspace = true
 chrono.workspace = true
+once_cell.workspace = true
 
 [features]
 default = []

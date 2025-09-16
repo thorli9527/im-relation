@@ -22,7 +22,10 @@ pub struct MySqlStore {
 impl MySqlStore {
     /// 默认 chunk_size = 1000，通常比较安全
     pub fn new() -> Self {
-        Self { pool: get_db(), chunk_size: 1000 }
+        Self {
+            pool: get_db(),
+            chunk_size: 1000,
+        }
     }
 
     /// 自定义批量 chunk 大小（至少为 1）
@@ -57,12 +60,12 @@ impl MySqlStore {
                 LIMIT ?
                 "#,
             )
-                .bind(gid as u64)
-                .bind(u64::try_from(after).unwrap_or_default())
-                .bind(limit)
-                .fetch_all(self.pool())
-                .await
-                .with_context(|| format!("seek_members (cursor) failed, group_id={}", gid))?
+            .bind(gid as u64)
+            .bind(u64::try_from(after).unwrap_or_default())
+            .bind(limit)
+            .fetch_all(self.pool())
+            .await
+            .with_context(|| format!("seek_members (cursor) failed, group_id={}", gid))?
         } else {
             sqlx::query(
                 r#"
@@ -73,11 +76,11 @@ impl MySqlStore {
                 LIMIT ?
                 "#,
             )
-                .bind(gid as u64)
-                .bind(limit)
-                .fetch_all(self.pool())
-                .await
-                .with_context(|| format!("seek_members (first) failed, group_id={}", gid))?
+            .bind(gid as u64)
+            .bind(limit)
+            .fetch_all(self.pool())
+            .await
+            .with_context(|| format!("seek_members (first) failed, group_id={}", gid))?
         };
 
         let mut out = Vec::with_capacity(rows.len());
@@ -90,7 +93,11 @@ impl MySqlStore {
             let role = i32::try_from(role_i64).context("seek_members: role overflow")?;
 
             let id_i64 = uid_u64 as i64;
-            out.push(MemberRef { id: id_i64, alias, role });
+            out.push(MemberRef {
+                id: id_i64,
+                alias,
+                role,
+            });
             next_cursor = Some(id_i64); // 本页最后一条
         }
 
@@ -110,15 +117,19 @@ impl MySqlStore {
             ORDER BY user_id ASC
             "#,
         )
-            .bind(gid as u64)
-            .fetch(self.pool());
+        .bind(gid as u64)
+        .fetch(self.pool());
 
         while let Some(r) = rows.try_next().await? {
             let uid: u64 = r.try_get("user_id")?;
             let alias: Option<String> = r.try_get("alias")?;
             let role_i64: i64 = r.try_get("role")?;
             let role = i32::try_from(role_i64)?;
-            handle(MemberRef { id: uid as i64, alias, role })?;
+            handle(MemberRef {
+                id: uid as i64,
+                alias,
+                role,
+            })?;
         }
         Ok(())
     }
@@ -172,10 +183,15 @@ impl GroupStorage for MySqlStore {
             WHERE group_id = ?
             "#,
         )
-            .bind(gid as u64)
-            .fetch_all(&mut *tx)
-            .await
-            .with_context(|| format!("save_group(diff): fetch member members failed, group_id={}", gid))?;
+        .bind(gid as u64)
+        .fetch_all(&mut *tx)
+        .await
+        .with_context(|| {
+            format!(
+                "save_group(diff): fetch member members failed, group_id={}",
+                gid
+            )
+        })?;
 
         // DB -> HashMap<uid, (alias, role)>
         let mut db_map: HashMap<i64, (Option<String>, i32)> = HashMap::with_capacity(db_rows.len());
@@ -183,15 +199,20 @@ impl GroupStorage for MySqlStore {
             let uid_u64: u64 = r.try_get("user_id")?;
             let alias_db: Option<String> = r.try_get("alias")?;
             let role_i64: i64 = r.try_get("role")?;
-            let role_i32 = i32::try_from(role_i64)
-                .with_context(|| format!("save_group(diff): member role overflow, v={}", role_i64))?;
+            let role_i32 = i32::try_from(role_i64).with_context(|| {
+                format!("save_group(diff): member role overflow, v={}", role_i64)
+            })?;
             db_map.insert(uid_u64 as i64, (alias_db, role_i32));
         }
 
         // 内存 -> HashMap<uid, (alias, role)>（后写覆盖先写；空串 -> None）
-        let mut mem_map: HashMap<i64, (Option<String>, i32)> = HashMap::with_capacity(members.len());
+        let mut mem_map: HashMap<i64, (Option<String>, i32)> =
+            HashMap::with_capacity(members.len());
         for m in members {
-            let alias_norm = m.alias.as_ref().and_then(|s| if s.is_empty() { None } else { Some(s.clone()) });
+            let alias_norm =
+                m.alias
+                    .as_ref()
+                    .and_then(|s| if s.is_empty() { None } else { Some(s.clone()) });
             mem_map.insert(m.id, (alias_norm, m.role));
         }
 
@@ -219,8 +240,11 @@ impl GroupStorage for MySqlStore {
         // --- 3) 执行差异写入（分批） ---
         // 3.1 删除
         for chunk in to_del.chunks(self.chunk_size) {
-            if chunk.is_empty() { continue; }
-            let mut sql = String::from("DELETE FROM group_member WHERE group_id=? AND user_id IN (");
+            if chunk.is_empty() {
+                continue;
+            }
+            let mut sql =
+                String::from("DELETE FROM group_member WHERE group_id=? AND user_id IN (");
             sql.push_str(&vec!["?"; chunk.len()].join(","));
             sql.push(')');
 
@@ -228,17 +252,18 @@ impl GroupStorage for MySqlStore {
             for uid in chunk {
                 q = q.bind(u64::try_from(*uid).unwrap_or_default());
             }
-            q.execute(&mut *tx)
-                .await
-                .with_context(|| format!("save_group(diff): delete chunk failed, group_id={}", gid))?;
+            q.execute(&mut *tx).await.with_context(|| {
+                format!("save_group(diff): delete chunk failed, group_id={}", gid)
+            })?;
         }
 
         // 3.2 新增
         for chunk in to_add.chunks(self.chunk_size) {
-            if chunk.is_empty() { continue; }
-            let mut sql = String::from(
-                "INSERT INTO group_member (group_id, user_id, alias, role) VALUES ",
-            );
+            if chunk.is_empty() {
+                continue;
+            }
+            let mut sql =
+                String::from("INSERT INTO group_member (group_id, user_id, alias, role) VALUES ");
             sql.push_str(&vec!["(?,?,?,?)"; chunk.len()].join(","));
 
             let mut q = sqlx::query(&sql);
@@ -249,15 +274,16 @@ impl GroupStorage for MySqlStore {
                     .bind(alias_opt.as_ref()) // Option<&String> -> NULL/值
                     .bind(i64::from(*role));
             }
-            let _res: MySqlQueryResult = q
-                .execute(&mut *tx)
-                .await
-                .with_context(|| format!("save_group(diff): insert chunk failed, group_id={}", gid))?;
+            let _res: MySqlQueryResult = q.execute(&mut *tx).await.with_context(|| {
+                format!("save_group(diff): insert chunk failed, group_id={}", gid)
+            })?;
         }
 
         // 3.3 变更（alias/role）
         for chunk in to_upd.chunks(self.chunk_size) {
-            if chunk.is_empty() { continue; }
+            if chunk.is_empty() {
+                continue;
+            }
             for (uid, alias_opt, role) in chunk {
                 sqlx::query(
                     r#"
@@ -266,18 +292,18 @@ impl GroupStorage for MySqlStore {
                     WHERE group_id = ? AND user_id = ?
                     "#,
                 )
-                    .bind(alias_opt.as_ref()) // Option<&String>
-                    .bind(i64::from(*role))
-                    .bind(gid as u64)
-                    .bind(u64::try_from(*uid).unwrap_or_default())
-                    .execute(&mut *tx)
-                    .await
-                    .with_context(|| {
-                        format!(
-                            "save_group(diff): update (alias/role) failed, group_id={}, user_id={}",
-                            gid, uid
-                        )
-                    })?;
+                .bind(alias_opt.as_ref()) // Option<&String>
+                .bind(i64::from(*role))
+                .bind(gid as u64)
+                .bind(u64::try_from(*uid).unwrap_or_default())
+                .execute(&mut *tx)
+                .await
+                .with_context(|| {
+                    format!(
+                        "save_group(diff): update (alias/role) failed, group_id={}, user_id={}",
+                        gid, uid
+                    )
+                })?;
             }
         }
 
@@ -291,11 +317,16 @@ impl GroupStorage for MySqlStore {
               updated_at = CURRENT_TIMESTAMP
             "#,
         )
-            .bind(gid as u64)
-            .bind(members.len() as u64)
-            .execute(&mut *tx)
-            .await
-            .with_context(|| format!("save_group(diff): upsert group_meta failed, group_id={}", gid))?;
+        .bind(gid as u64)
+        .bind(members.len() as u64)
+        .execute(&mut *tx)
+        .await
+        .with_context(|| {
+            format!(
+                "save_group(diff): upsert group_meta failed, group_id={}",
+                gid
+            )
+        })?;
 
         tx.commit().await?;
         Ok(())
@@ -329,9 +360,9 @@ impl GroupStorage for MySqlStore {
             ORDER BY group_id ASC
             "#,
         )
-            .bind(u64::try_from(uid).unwrap_or_default())
-            .fetch_all(self.pool())
-            .await?;
+        .bind(u64::try_from(uid).unwrap_or_default())
+        .fetch_all(self.pool())
+        .await?;
 
         if rows.is_empty() {
             return Ok(None);

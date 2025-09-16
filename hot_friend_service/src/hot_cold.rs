@@ -127,7 +127,9 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
         self.storage
             .add_friend_both(a, b, alias_for_a, alias_for_b)
             .await
-            .with_context(|| format!("add_friend_both: repo.add_friend_both failed a={a}, b={b}"))?;
+            .with_context(|| {
+                format!("add_friend_both: repo.add_friend_both failed a={a}, b={b}")
+            })?;
 
         // 更新两侧热存
         for (uid, fid) in [(a, b), (b, a)] {
@@ -151,7 +153,9 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
             .storage
             .remove_friend(uid, fid)
             .await
-            .with_context(|| format!("remove_friend: repo.remove_friend failed, uid={uid}, fid={fid}"))?;
+            .with_context(|| {
+                format!("remove_friend: repo.remove_friend failed, uid={uid}, fid={fid}")
+            })?;
 
         // 更新热存（无论是否删除成功，都确保缓存存在并刷新热度）
         let mut list = if let Some(v) = self.store(uid).get(&uid) {

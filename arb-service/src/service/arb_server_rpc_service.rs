@@ -6,13 +6,13 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
 use tokio::time::{timeout, Duration};
-use tonic::{Request, Response, Status};
 use tonic::transport::Uri;
+use tonic::{Request, Response, Status};
 
 use crate::grpc_arb::arb_server::arb_server_rpc_service_server::ArbServerRpcService;
 use crate::grpc_arb::arb_server::{
-    BaseRequest, CommonResp, NodeInfo, NodeInfoList, QueryNodeReq, RegisterRequest,
-    NodeType, BytesBlob, SyncDataType,
+    BaseRequest, BytesBlob, CommonResp, NodeInfo, NodeInfoList, NodeType, QueryNodeReq,
+    RegisterRequest, SyncDataType,
 };
 use crate::grpc_arb::client::connect_client;
 
@@ -67,9 +67,9 @@ impl ArbServerRpcServiceImpl {
 
     /// 检查节点是否已注册
     fn check_node_existence(&self, node_type: &NodeType, node_addr: &str) -> bool {
-        self.node_list
-            .get(node_type)
-            .map_or(false, |nodes| nodes.iter().any(|n| n.node_addr == node_addr))
+        self.node_list.get(node_type).map_or(false, |nodes| {
+            nodes.iter().any(|n| n.node_addr == node_addr)
+        })
     }
 
     // ------------------------------
@@ -104,7 +104,8 @@ impl ArbServerRpcServiceImpl {
     /// 新增超时控制（5秒）避免无响应节点阻塞
     async fn sync_to_nodes(&self, exclude_addr: &str, blob: BytesBlob) {
         // 收集所有非自身节点
-        let nodes: Vec<NodeInfo> = self.node_list
+        let nodes: Vec<NodeInfo> = self
+            .node_list
             .iter()
             .flat_map(|entry| entry.value().clone())
             .filter(|n| n.node_addr != exclude_addr)
@@ -128,12 +129,11 @@ impl ArbServerRpcServiceImpl {
                 // 连接并同步数据（5秒超时）
                 let result = timeout(Duration::from_secs(5), async {
                     match connect_client(&addr).await {
-                        Ok(mut client) => {
-                            client.sync_data(Request::new(blob)).await
-                        }
+                        Ok(mut client) => client.sync_data(Request::new(blob)).await,
                         Err(e) => Err(Status::unavailable(format!("连接失败: {}", e))),
                     }
-                }).await;
+                })
+                .await;
 
                 // 处理结果
                 match result {
@@ -233,7 +233,8 @@ impl ArbServerRpcService for ArbServerRpcServiceImpl {
         let node_type = Self::parse_node_type(req.node_type)?;
 
         // 获取对应类型的节点列表（无则返回空列表）
-        let nodes = self.node_list
+        let nodes = self
+            .node_list
             .get(&node_type)
             .map(|list| list.clone())
             .unwrap_or_default();

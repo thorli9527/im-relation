@@ -15,10 +15,7 @@ pub struct DeviceKeysRow {
     pub updated_at: i64,
 }
 
-pub async fn upsert_device_keys(
-    pool: &Pool<MySql>,
-    row: &DeviceKeysRow,
-) -> Result<u64> {
+pub async fn upsert_device_keys(pool: &Pool<MySql>, row: &DeviceKeysRow) -> Result<u64> {
     let r = sqlx::query(
         r#"REPLACE INTO device_keys
         (user_id, device_id, identity_curve, identity_pub, signed_pre_id, signed_pre_pub, signed_pre_sig, one_time_pre_keys, updated_at)
@@ -59,4 +56,3 @@ pub async fn fetch_device_bundles(pool: &Pool<MySql>, user_id: i64) -> Result<Ve
     }
     Ok(out)
 }
-

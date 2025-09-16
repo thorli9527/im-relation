@@ -19,7 +19,10 @@ fn main() {
         .build_server(true)
         .build_client(true)
         .out_dir("src/grpc_arb/")
-        .compile_protos(&["../arb-service/proto/arb_server.proto"], &["../arb-service/proto"]) // arb proto
+        .compile_protos(
+            &["../arb-service/proto/arb_server.proto"],
+            &["../arb-service/proto"],
+        ) // arb proto
         .expect("Failed to compile arb_server.proto");
     println!("cargo:rerun-if-changed=../arb-service/proto/arb_server.proto");
     println!("cargo:rerun-if-changed=../arb-service/proto");
@@ -29,7 +32,10 @@ fn main() {
         .build_server(false)
         .build_client(true)
         .out_dir("src/grpc_msg_friend/")
-        .compile_protos(&["../msg_friend/proto/friend.proto"], &["../msg_friend/proto"]) // friend biz proto
+        .compile_protos(
+            &["../msg_friend/proto/friend.proto"],
+            &["../msg_friend/proto"],
+        ) // friend biz proto
         .expect("Failed to compile friend.proto");
     println!("cargo:rerun-if-changed=../msg_friend/proto/friend.proto");
     println!("cargo:rerun-if-changed=../msg_friend/proto");
@@ -39,7 +45,10 @@ fn main() {
         .build_server(false)
         .build_client(true)
         .out_dir("src/grpc_hot_friend/")
-        .compile_protos(&["../hot_friend_service/proto/friend_service.proto"], &["../hot_friend_service/proto"]) 
+        .compile_protos(
+            &["../hot_friend_service/proto/friend_service.proto"],
+            &["../hot_friend_service/proto"],
+        )
         .expect("Failed to compile friend_service.proto");
     println!("cargo:rerun-if-changed=../hot_friend_service/proto/friend_service.proto");
     println!("cargo:rerun-if-changed=../hot_friend_service/proto");
@@ -49,7 +58,10 @@ fn main() {
         .build_server(false)
         .build_client(true)
         .out_dir("src/grpc_msg_group/")
-        .compile_protos(&["../hot_group_service/proto/group_service.proto"], &["../hot_group_service/proto"]) 
+        .compile_protos(
+            &["../hot_group_service/proto/group_service.proto"],
+            &["../hot_group_service/proto"],
+        )
         .expect("Failed to compile group_service.proto");
     println!("cargo:rerun-if-changed=../hot_group_service/proto/group_service.proto");
     println!("cargo:rerun-if-changed=../hot_group_service/proto");
@@ -59,11 +71,14 @@ fn main() {
         .build_server(false)
         .build_client(true)
         .out_dir("src/grpc_hot_online/")
-        .compile_protos(&[
-            "../hot_online_service/proto/online.proto",
-            "../hot_online_service/proto/auth.proto",
-            "../hot_online_service/proto/client_entity.proto",
-        ], &["../hot_online_service/proto"]) 
+        .compile_protos(
+            &[
+                "../hot_online_service/proto/online.proto",
+                "../hot_online_service/proto/auth.proto",
+                "../hot_online_service/proto/client_entity.proto",
+            ],
+            &["../hot_online_service/proto"],
+        )
         .expect("Failed to compile online/auth/client_entity protos");
     println!("cargo:rerun-if-changed=../hot_online_service/proto/online.proto");
     println!("cargo:rerun-if-changed=../hot_online_service/proto/auth.proto");

@@ -7,6 +7,7 @@ use log::info;
 pub async fn start_web_server(bind: &str) -> anyhow::Result<()> {
     let addr: std::net::SocketAddr = bind.parse()?;
     // Placeholder; integrate a real HTTP router here.
+    // 当前仅输出日志，保持接口契约，后续可替换为真实 HTTP/WebSocket 服务。
     info!("Web server placeholder bound: {}", addr);
     Ok(())
 }

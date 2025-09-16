@@ -1,7 +1,9 @@
+use crate::grpc_hot_online::auth::DeviceType;
 use crate::grpc_hot_online::client_service::ClientEntity;
 // hot_online_service/src/member/traits.rs
 use anyhow::Result;
 use async_trait::async_trait;
+use time::OffsetDateTime;
 
 /// 只读：从分片主表 `client` 读取用户实体
 #[async_trait]
@@ -33,4 +35,52 @@ pub trait DirectoryReadRepo: Clone + Send + Sync + 'static {
 
     /// 用户名目录（通常不含 state 列），未命中返回 None
     async fn get_id_by_name(&self, username_norm: &str) -> Result<Option<i64>>;
+}
+
+#[derive(Clone, Debug)]
+pub struct SessionTokenUpsert {
+    pub user_id: i64,
+    pub device_type: DeviceType,
+    pub device_id: String,
+    pub login_ip: Option<Vec<u8>>,
+    pub user_agent: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct SessionTokenRecord {
+    pub user_id: i64,
+    pub device_type: DeviceType,
+    pub device_id: String,
+    pub session_token: String,
+    pub status: i32,
+    pub expires_at: OffsetDateTime,
+    pub last_seen_at: OffsetDateTime,
+}
+
+#[derive(Clone, Debug)]
+pub struct SessionTokenUpsertResult {
+    pub session_token: String,
+    pub expires_at: OffsetDateTime,
+    pub previous_token: Option<String>,
+}
+
+#[async_trait]
+pub trait SessionTokenRepo: Clone + Send + Sync + 'static {
+    async fn upsert_session_token(
+        &self,
+        payload: SessionTokenUpsert,
+    ) -> Result<SessionTokenUpsertResult>;
+
+    async fn validate_session_token(&self, token: &str) -> Result<Option<SessionTokenRecord>>;
+
+    async fn revoke_session_token_by_token(&self, token: &str) -> Result<Option<String>>;
+
+    async fn revoke_session_token_by_device(
+        &self,
+        user_id: i64,
+        device_type: DeviceType,
+        device_id: &str,
+    ) -> Result<Option<String>>;
+
+    async fn touch_tokens(&self, tokens: &[String]) -> Result<u64>;
 }

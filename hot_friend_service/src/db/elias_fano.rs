@@ -3,13 +3,13 @@ use std::cmp::max;
 /// Elias–Fano 编码的有序集合（u64），支持顺序迭代/分页/contains（线性）
 #[derive(Debug, Clone)]
 pub struct EliasFano {
-    n: usize,          // 元素个数
-    l: u8,             // 低位位宽 L
+    n: usize,               // 元素个数
+    l: u8,                  // 低位位宽 L
     lo32: Option<Vec<u32>>, // L ≤ 32 时使用
     lo64: Option<Vec<u64>>, // L  > 32 时使用
-    hi_bits: Vec<u64>, // 一元编码的高位 bitvector（长度 = n + max_hi + 1）
-    hi_len: usize,     // hi_bits 的总 bit 位数
-    max_value: u64,    // 最大值（便于统计）
+    hi_bits: Vec<u64>,      // 一元编码的高位 bitvector（长度 = n + max_hi + 1）
+    hi_len: usize,          // hi_bits 的总 bit 位数
+    max_value: u64,         // 最大值（便于统计）
 }
 
 impl EliasFano {
@@ -20,11 +20,13 @@ impl EliasFano {
         let u = max_value.saturating_add(1);
 
         // L = floor(log2(U/n))，但至少 0，最多 63
-        let l = if n == 0 || u <= 1 { 0 }
-        else {
+        let l = if n == 0 || u <= 1 {
+            0
+        } else {
             let ratio = u / (n as u64);
             (63 - ratio.leading_zeros()) as u8 // ~= floor(log2(ratio))
-        }.min(63);
+        }
+        .min(63);
 
         let lo_mask: u64 = if l == 64 { u64::MAX } else { (1u64 << l) - 1 };
         let mut max_hi: u64 = 0;
@@ -62,15 +64,29 @@ impl EliasFano {
             hi_bits[word] |= 1u64 << bit;
         }
 
-        Self { n, l, lo32, lo64, hi_bits, hi_len, max_value }
+        Self {
+            n,
+            l,
+            lo32,
+            lo64,
+            hi_bits,
+            hi_len,
+            max_value,
+        }
     }
 
     #[inline]
-    pub fn len(&self) -> usize { self.n }
+    pub fn len(&self) -> usize {
+        self.n
+    }
     #[inline]
-    pub fn is_empty(&self) -> bool { self.n == 0 }
+    pub fn is_empty(&self) -> bool {
+        self.n == 0
+    }
     #[inline]
-    pub fn max_value(&self) -> u64 { self.max_value }
+    pub fn max_value(&self) -> u64 {
+        self.max_value
+    }
 
     /// 顺序迭代器（升序），零拷贝
     pub fn iter(&self) -> EliasFanoIter<'_> {
@@ -79,7 +95,11 @@ impl EliasFano {
             idx: 0,
             ones_seen: 0usize,
             word_idx: 0,
-            word: if !self.hi_bits.is_empty() { self.hi_bits[0] } else { 0 },
+            word: if !self.hi_bits.is_empty() {
+                self.hi_bits[0]
+            } else {
+                0
+            },
             bit_base: 0usize,
         }
     }
@@ -88,8 +108,12 @@ impl EliasFano {
     pub fn contains(&self, target: u64) -> bool {
         let mut it = self.iter();
         while let Some(v) = it.next() {
-            if v == target { return true; }
-            if v > target { return false; }
+            if v == target {
+                return true;
+            }
+            if v > target {
+                return false;
+            }
         }
         false
     }
@@ -102,17 +126,19 @@ impl EliasFano {
 
 pub struct EliasFanoIter<'a> {
     ef: &'a EliasFano,
-    idx: usize,        // 当前要读取的第 idx 个（0..n）
-    ones_seen: usize,  // 已经遇到的 1 的数量（== idx）
-    word_idx: usize,   // 当前扫描的 hi_bits word 下标
-    word: u64,         // 当前 word 值（剩余未消费 bits）
-    bit_base: usize,   // 当前 word 的全局 bit 起点（word_idx * 64）
+    idx: usize,       // 当前要读取的第 idx 个（0..n）
+    ones_seen: usize, // 已经遇到的 1 的数量（== idx）
+    word_idx: usize,  // 当前扫描的 hi_bits word 下标
+    word: u64,        // 当前 word 值（剩余未消费 bits）
+    bit_base: usize,  // 当前 word 的全局 bit 起点（word_idx * 64）
 }
 
 impl<'a> Iterator for EliasFanoIter<'a> {
     type Item = u64;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.idx >= self.ef.n { return None; }
+        if self.idx >= self.ef.n {
+            return None;
+        }
 
         // 找到下一个 1 的全局位置 pos
         let mut pos_global: usize;

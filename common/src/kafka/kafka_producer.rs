@@ -1,3 +1,5 @@
+use crate::kafka::topic_info::TopicInfo;
+use crate::util::common_utils::build_md5;
 use anyhow::{anyhow, Result};
 use once_cell::sync::OnceCell;
 use prost::Message;
@@ -7,8 +9,6 @@ use rdkafka::ClientConfig;
 use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
-use crate::kafka::topic_info::TopicInfo;
-use crate::util::common_utils::build_md5;
 
 #[derive(Clone)]
 pub struct KafkaInstanceService {
@@ -17,7 +17,9 @@ pub struct KafkaInstanceService {
 }
 impl fmt::Debug for KafkaInstanceService {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("KafkaGroupService").field("producer", &"FutureProducer(...)").finish()
+        f.debug_struct("KafkaGroupService")
+            .field("producer", &"FutureProducer(...)")
+            .finish()
     }
 }
 impl KafkaInstanceService {
@@ -28,7 +30,10 @@ impl KafkaInstanceService {
     pub async fn shutdown(&self) {
         use rdkafka::producer::Producer;
 
-        log::info!("Shutting down KafkaInstanceService for broker [{}]", self.broker_addr);
+        log::info!(
+            "Shutting down KafkaInstanceService for broker [{}]",
+            self.broker_addr
+        );
 
         // producer 是线程安全的，flush 是 sync 的，可在 tokio 阻塞中调用
         let producer = self.producer.clone();
@@ -83,7 +88,10 @@ impl KafkaInstanceService {
         if let Err(e) = Self::create_topics_or_exit(&brokers, &dynamic_topics).await {
             log::error!("❌ Kafka topic 创建失败: {e}");
         } else {
-            log::info!("✅ KafkaGroupService 初始化完成，topic 数量 = {}", dynamic_topics.len());
+            log::info!(
+                "✅ KafkaGroupService 初始化完成，topic 数量 = {}",
+                dynamic_topics.len()
+            );
         }
     }
     /// 异步创建多个 topic，如果已存在则退出程序
@@ -137,7 +145,9 @@ impl KafkaInstanceService {
         // 2️⃣ 编码 Protobuf 数据到后续部分
         message.encode(&mut payload)?;
         // 3️⃣ 构造 Kafka Record
-        let record = FutureRecord::to(topic).payload(&payload).key(message_id_str);
+        let record = FutureRecord::to(topic)
+            .payload(&payload)
+            .key(message_id_str);
         let timeout = Duration::from_millis(50);
 
         match self.producer.send(record, timeout).await {
@@ -158,7 +168,10 @@ impl KafkaInstanceService {
 
     /// 获取单例
     pub fn get() -> Arc<Self> {
-        SERVICE.get().expect("KafkaService is not initialized").clone()
+        SERVICE
+            .get()
+            .expect("KafkaService is not initialized")
+            .clone()
     }
 }
 

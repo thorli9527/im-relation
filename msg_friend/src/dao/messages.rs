@@ -19,7 +19,10 @@ pub struct EncryptedMessageRecord {
     pub content: Vec<u8>,
 }
 
-pub async fn insert_encrypted_message(pool: &Pool<MySql>, rec: &EncryptedMessageRecord) -> Result<()> {
+pub async fn insert_encrypted_message(
+    pool: &Pool<MySql>,
+    rec: &EncryptedMessageRecord,
+) -> Result<()> {
     // 使用单表分区（由数据库层通过分区键进行路由），应用侧始终写入同一逻辑表
     sqlx::query(
         r#"INSERT INTO message_info
@@ -44,7 +47,10 @@ pub async fn insert_encrypted_message(pool: &Pool<MySql>, rec: &EncryptedMessage
     Ok(())
 }
 
-pub async fn get_message_by_id(pool: &Pool<MySql>, msg_id: i64) -> Result<Option<EncryptedMessageRecord>> {
+pub async fn get_message_by_id(
+    pool: &Pool<MySql>,
+    msg_id: i64,
+) -> Result<Option<EncryptedMessageRecord>> {
     let row = sqlx::query(
         r#"SELECT msg_id, sender_id, receiver_id, content_type, created_at,
                    scheme, key_id, nonce, msg_no, aad, ciphertext, content
@@ -69,11 +75,22 @@ pub async fn get_message_by_id(pool: &Pool<MySql>, msg_id: i64) -> Result<Option
     }))
 }
 
-pub async fn mark_delivered(_pool: &Pool<MySql>, _msg_id: i64, _ts: i64) -> Result<u64> { Ok(0) }
+pub async fn mark_delivered(_pool: &Pool<MySql>, _msg_id: i64, _ts: i64) -> Result<u64> {
+    Ok(0)
+}
 
-pub async fn mark_read(_pool: &Pool<MySql>, _msg_id: i64, _ts: i64) -> Result<u64> { Ok(0) }
+pub async fn mark_read(_pool: &Pool<MySql>, _msg_id: i64, _ts: i64) -> Result<u64> {
+    Ok(0)
+}
 
-pub async fn recall_message(_pool: &Pool<MySql>, _msg_id: i64, _ts: i64, _reason: Option<&str>) -> Result<u64> { Ok(0) }
+pub async fn recall_message(
+    _pool: &Pool<MySql>,
+    _msg_id: i64,
+    _ts: i64,
+    _reason: Option<&str>,
+) -> Result<u64> {
+    Ok(0)
+}
 
 pub async fn copy_message_as_forward(
     pool: &Pool<MySql>,

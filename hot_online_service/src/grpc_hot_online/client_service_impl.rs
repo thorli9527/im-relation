@@ -13,7 +13,7 @@ use crate::db::traits::{ClientReadRepo, DirectoryReadRepo};
 use crate::grpc_hot_online::client_service::client_rpc_service_server::ClientRpcService;
 use crate::grpc_hot_online::client_service::{
     ChangeEmailReq, ChangePasswordReq, ChangePhoneReq, ChangeResponse, ClientEntity,
-    FindByContentReq, FindClientDto, GetClientReq, RegisterUserReq, UpdateClientReq
+    FindByContentReq, FindClientDto, GetClientReq, RegisterUserReq, UpdateClientReq,
 };
 use crate::hot_cold::{ClientHot, Normalizer};
 
@@ -97,7 +97,8 @@ where
                 .bind(email_norm)
                 .fetch_optional(tx.as_mut())
                 .await
-                .map_err(|e| Status::internal(format!("select uid_email: {e}")))? {
+                .map_err(|e| Status::internal(format!("select uid_email: {e}")))?
+        {
             if existing != id {
                 return Err(Status::already_exists("email already used"));
             }
@@ -129,7 +130,8 @@ where
                 .bind(phone_norm)
                 .fetch_optional(tx.as_mut())
                 .await
-                .map_err(|e| Status::internal(format!("select uid_phone: {e}")))? {
+                .map_err(|e| Status::internal(format!("select uid_phone: {e}")))?
+        {
             if existing != id {
                 return Err(Status::already_exists("phone already used"));
             }
@@ -155,12 +157,12 @@ where
         name_norm: &str,
         id: i64,
     ) -> Result<(), Status> {
-        if let Some(existing) =
-            sqlx::query_scalar::<_, i64>("SELECT id FROM uid_name WHERE name=?")
-                .bind(name_norm)
-                .fetch_optional(tx.as_mut())
-                .await
-                .map_err(|e| Status::internal(format!("select uid_name: {e}")))? {
+        if let Some(existing) = sqlx::query_scalar::<_, i64>("SELECT id FROM uid_name WHERE name=?")
+            .bind(name_norm)
+            .fetch_optional(tx.as_mut())
+            .await
+            .map_err(|e| Status::internal(format!("select uid_name: {e}")))?
+        {
             if existing != id {
                 return Err(Status::already_exists("username already used"));
             }
@@ -228,7 +230,10 @@ where
     N: Normalizer,
     I: IdAllocator,
 {
-    async fn find_by_email(&self, request: Request<FindByContentReq>) -> Result<Response<FindClientDto>, Status> {
+    async fn find_by_email(
+        &self,
+        request: Request<FindByContentReq>,
+    ) -> Result<Response<FindClientDto>, Status> {
         let req = request.into_inner();
         let content = req.content;
 
@@ -237,7 +242,8 @@ where
         }
 
         // 通过热层查询用户
-        let client_opt = self.hot
+        let client_opt = self
+            .hot
             .get_by_email(&content)
             .await
             .map_err(|e| Status::internal(format!("find by email failed: {}", e)))?;
@@ -247,14 +253,18 @@ where
                 // 触发在线状态更新
                 self.touch_online(client.id);
                 let entity = (*client).clone();
-                Ok(Response::new(FindClientDto{client: Some(entity)}))
-            },
-            None =>
-                Ok(Response::new(FindClientDto{client: None})),
+                Ok(Response::new(FindClientDto {
+                    client: Some(entity),
+                }))
+            }
+            None => Ok(Response::new(FindClientDto { client: None })),
         }
     }
 
-    async fn find_by_phone(&self, request: Request<FindByContentReq>) -> Result<Response<FindClientDto>, Status> {
+    async fn find_by_phone(
+        &self,
+        request: Request<FindByContentReq>,
+    ) -> Result<Response<FindClientDto>, Status> {
         let req = request.into_inner();
         let content = req.content;
 
@@ -263,7 +273,8 @@ where
         }
 
         // 通过热层查询用户
-        let client_opt = self.hot
+        let client_opt = self
+            .hot
             .get_by_phone(&content)
             .await
             .map_err(|e| Status::internal(format!("find by phone failed: {}", e)))?;
@@ -273,14 +284,18 @@ where
                 // 触发在线状态更新
                 self.touch_online(client.id);
                 let entity = (*client).clone();
-                Ok(Response::new(FindClientDto{client: Some(entity)}))
-            },
-            None =>
-                Ok(Response::new(FindClientDto{client: None})),
+                Ok(Response::new(FindClientDto {
+                    client: Some(entity),
+                }))
+            }
+            None => Ok(Response::new(FindClientDto { client: None })),
         }
     }
 
-    async fn find_by_name(&self, request: Request<FindByContentReq>) -> Result<Response<FindClientDto>, Status> {
+    async fn find_by_name(
+        &self,
+        request: Request<FindByContentReq>,
+    ) -> Result<Response<FindClientDto>, Status> {
         let req = request.into_inner();
         let content = req.content;
 
@@ -289,7 +304,8 @@ where
         }
 
         // 通过热层查询用户
-        let client_opt = self.hot
+        let client_opt = self
+            .hot
             .get_by_name(&content)
             .await
             .map_err(|e| Status::internal(format!("find by name failed: {}", e)))?;
@@ -299,10 +315,11 @@ where
                 // 触发在线状态更新
                 self.touch_online(client.id);
                 let entity = (*client).clone();
-                Ok(Response::new(FindClientDto{client: Some(entity)}))
-            },
-            None =>
-                Ok(Response::new(FindClientDto{client: None})),
+                Ok(Response::new(FindClientDto {
+                    client: Some(entity),
+                }))
+            }
+            None => Ok(Response::new(FindClientDto { client: None })),
         }
     }
 
@@ -385,19 +402,19 @@ where
             )
         "#,
         )
-            .bind(id)
-            .bind(&r.name)
-            .bind(&r.password) // 直接存储明文密码
-            .bind(r.language.as_deref())
-            .bind(&r.avatar)
-            .bind(r.allow_add_friend as i32)
-            .bind(r.gender as i32)
-            .bind(r.user_type as i32)
-            .bind(email_norm.as_ref().map(|b| b.as_ref()))
-            .bind(phone_norm.as_ref().map(|b| b.as_ref()))
-            .execute(cli_tx.as_mut())
-            .await
-            .map_err(|e| Status::internal(format!("insert client: {e}")))?;
+        .bind(id)
+        .bind(&r.name)
+        .bind(&r.password) // 直接存储明文密码
+        .bind(r.language.as_deref())
+        .bind(&r.avatar)
+        .bind(r.allow_add_friend as i32)
+        .bind(r.gender as i32)
+        .bind(r.user_type as i32)
+        .bind(email_norm.as_ref().map(|b| b.as_ref()))
+        .bind(phone_norm.as_ref().map(|b| b.as_ref()))
+        .execute(cli_tx.as_mut())
+        .await
+        .map_err(|e| Status::internal(format!("insert client: {e}")))?;
 
         cli_tx
             .commit()
@@ -434,9 +451,12 @@ where
             .fetch_optional(db)
             .await
             .map_err(|e| Status::internal(format!("load password: {e}")))?;
-        let Some(row) = row else { return Err(Status::not_found("id not found")); };
-        let stored: String =
-            row.try_get("password").map_err(|e| Status::internal(format!("row: {e}")))?;
+        let Some(row) = row else {
+            return Err(Status::not_found("id not found"));
+        };
+        let stored: String = row
+            .try_get("password")
+            .map_err(|e| Status::internal(format!("row: {e}")))?;
 
         if let Some(old) = r.old_password.as_deref() {
             if !old.is_empty() {
@@ -455,11 +475,11 @@ where
              SET password=?, updated_at=NOW(3), version=version+1 \
              WHERE id=?",
         )
-            .bind(new_password)
-            .bind(r.id)
-            .execute(db)
-            .await
-            .map_err(|e| Status::internal(format!("update password: {e}")))?;
+        .bind(new_password)
+        .bind(r.id)
+        .execute(db)
+        .await
+        .map_err(|e| Status::internal(format!("update password: {e}")))?;
 
         Ok(Response::new(ChangeResponse { success: true }))
     }
@@ -494,7 +514,8 @@ where
             .await
             .map_err(|e| Status::internal(format!("dir begin: {e}")))?;
         if let Some(ref pn) = new_phone_norm {
-            self.upsert_uid_phone(&mut dir_tx, pn.as_ref(), r.id).await?;
+            self.upsert_uid_phone(&mut dir_tx, pn.as_ref(), r.id)
+                .await?;
         }
         if let Some(op) = old_phone.as_deref() {
             let opn = self
@@ -509,14 +530,22 @@ where
             .begin()
             .await
             .map_err(|e| Status::internal(format!("client begin: {e}")))?;
-        sqlx::query("UPDATE client SET phone_norm=?, updated_at=NOW(3), version=version+1 WHERE id=?")
-            .bind(new_phone_norm.as_ref().map(|b| b.as_ref()))
-            .bind(r.id)
-            .execute(cli_tx.as_mut())
+        sqlx::query(
+            "UPDATE client SET phone_norm=?, updated_at=NOW(3), version=version+1 WHERE id=?",
+        )
+        .bind(new_phone_norm.as_ref().map(|b| b.as_ref()))
+        .bind(r.id)
+        .execute(cli_tx.as_mut())
+        .await
+        .map_err(|e| Status::internal(format!("update client.phone: {e}")))?;
+        cli_tx
+            .commit()
             .await
-            .map_err(|e| Status::internal(format!("update client.phone: {e}")))?;
-        cli_tx.commit().await.map_err(|e| Status::internal(format!("client commit: {e}")))?;
-        dir_tx.commit().await.map_err(|e| Status::internal(format!("dir commit: {e}")))?;
+            .map_err(|e| Status::internal(format!("client commit: {e}")))?;
+        dir_tx
+            .commit()
+            .await
+            .map_err(|e| Status::internal(format!("dir commit: {e}")))?;
 
         // 热层维护（内含 refresh）
         self.hot
@@ -562,7 +591,8 @@ where
             .await
             .map_err(|e| Status::internal(format!("dir begin: {e}")))?;
         if let Some(ref en) = new_email_norm {
-            self.upsert_uid_email(&mut dir_tx, en.as_ref(), r.id).await?;
+            self.upsert_uid_email(&mut dir_tx, en.as_ref(), r.id)
+                .await?;
         }
         if let Some(oe) = old_email.as_deref() {
             let oen = self
@@ -577,14 +607,22 @@ where
             .begin()
             .await
             .map_err(|e| Status::internal(format!("client begin: {e}")))?;
-        sqlx::query("UPDATE client SET email_norm=?, updated_at=NOW(3), version=version+1 WHERE id=?")
-            .bind(new_email_norm.as_ref().map(|b| b.as_ref()))
-            .bind(r.id)
-            .execute(cli_tx.as_mut())
+        sqlx::query(
+            "UPDATE client SET email_norm=?, updated_at=NOW(3), version=version+1 WHERE id=?",
+        )
+        .bind(new_email_norm.as_ref().map(|b| b.as_ref()))
+        .bind(r.id)
+        .execute(cli_tx.as_mut())
+        .await
+        .map_err(|e| Status::internal(format!("update client.email: {e}")))?;
+        cli_tx
+            .commit()
             .await
-            .map_err(|e| Status::internal(format!("update client.email: {e}")))?;
-        cli_tx.commit().await.map_err(|e| Status::internal(format!("client commit: {e}")))?;
-        dir_tx.commit().await.map_err(|e| Status::internal(format!("dir commit: {e}")))?;
+            .map_err(|e| Status::internal(format!("client commit: {e}")))?;
+        dir_tx
+            .commit()
+            .await
+            .map_err(|e| Status::internal(format!("dir commit: {e}")))?;
 
         self.hot
             .on_change_email(old_email.as_deref(), r.new_email.as_deref(), r.id)
@@ -629,8 +667,14 @@ where
                 "allow_add_friend" => set_policy = true,
                 "gender" => set_gender = true,
                 "user_type" => set_user_type = true,
-                "profile_fields" => return Err(Status::invalid_argument("profile_fields not allowed")),
-                other => return Err(Status::invalid_argument(format!("field not allowed: {other}"))),
+                "profile_fields" => {
+                    return Err(Status::invalid_argument("profile_fields not allowed"))
+                }
+                other => {
+                    return Err(Status::invalid_argument(format!(
+                        "field not allowed: {other}"
+                    )))
+                }
             }
         }
         if !(set_name || set_lang || set_avatar || set_policy || set_gender || set_user_type) {
@@ -659,7 +703,8 @@ where
                 .begin()
                 .await
                 .map_err(|e| Status::internal(format!("dir begin: {e}")))?;
-            self.upsert_uid_name(&mut dir_tx, new_name_norm, patch.id).await?;
+            self.upsert_uid_name(&mut dir_tx, new_name_norm, patch.id)
+                .await?;
             if let Some(ref on) = old_name {
                 if on != &patch.name {
                     let on_b = self
@@ -683,31 +728,51 @@ where
         let mut first = true;
 
         if set_name {
-            if !first { qb.push(", "); } first = false;
+            if !first {
+                qb.push(", ");
+            }
+            first = false;
             qb.push("name=").push_bind(&patch.name);
         }
         if set_lang {
-            if !first { qb.push(", "); } first = false;
+            if !first {
+                qb.push(", ");
+            }
+            first = false;
             qb.push("language=").push_bind(patch.language.as_deref());
         }
         if set_avatar {
-            if !first { qb.push(", "); } first = false;
+            if !first {
+                qb.push(", ");
+            }
+            first = false;
             qb.push("avatar=").push_bind(&patch.avatar);
         }
         if set_policy {
-            if !first { qb.push(", "); } first = false;
-            qb.push("allow_add_friend=").push_bind(patch.allow_add_friend);
+            if !first {
+                qb.push(", ");
+            }
+            first = false;
+            qb.push("allow_add_friend=")
+                .push_bind(patch.allow_add_friend);
         }
         if set_gender {
-            if !first { qb.push(", "); } first = false;
+            if !first {
+                qb.push(", ");
+            }
+            first = false;
             qb.push("gender=").push_bind(patch.gender);
         }
         if set_user_type {
-            if !first { qb.push(", "); } first = false;
+            if !first {
+                qb.push(", ");
+            }
+            first = false;
             qb.push("user_type=").push_bind(patch.user_type);
         }
 
-        qb.push(", updated_at=NOW(3), version=version+1 WHERE id=").push_bind(patch.id);
+        qb.push(", updated_at=NOW(3), version=version+1 WHERE id=")
+            .push_bind(patch.id);
         qb.build()
             .execute(db)
             .await

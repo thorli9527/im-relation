@@ -37,7 +37,10 @@ pub async fn upsert_friend_request(pool: &Pool<MySql>, row: &FriendRequestRow) -
     Ok(r.rows_affected())
 }
 
-pub async fn get_friend_request_by_id(pool: &Pool<MySql>, req_id: i64) -> Result<Option<FriendRequestRow>> {
+pub async fn get_friend_request_by_id(
+    pool: &Pool<MySql>,
+    req_id: i64,
+) -> Result<Option<FriendRequestRow>> {
     let row = sqlx::query(
         r#"SELECT id, from_user_id, to_user_id, reason, source, created_at, decided_at, accepted, remark
             FROM friend_requests WHERE id = ?"#,

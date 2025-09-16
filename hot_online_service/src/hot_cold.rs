@@ -38,67 +38,66 @@ struct RouteStats {
     /// 目录查询（加载）尝试次数：仅在缓存 miss 且进入加载闭包时增加
     load_attempt: CachePadded<AtomicU64>,
     /// 目录查询成功次数（返回 Ok）
-    load_ok:      CachePadded<AtomicU64>,
+    load_ok: CachePadded<AtomicU64>,
     /// 目录查询失败次数（返回 Err），失败不会写路由缓存
-    load_err:     CachePadded<AtomicU64>,
+    load_err: CachePadded<AtomicU64>,
     /// 路由为 Some(id) 的返回计数（可能来自缓存，也可能是刚加载成功）
-    some:         CachePadded<AtomicU64>,
+    some: CachePadded<AtomicU64>,
     /// 路由为 None 的返回计数（负缓存命中）
-    none:         CachePadded<AtomicU64>,
+    none: CachePadded<AtomicU64>,
 }
 
 /// 全量指标集合
 #[derive(Default)]
 struct Stats {
     // ---------------- by_id 路径 ----------------
-
     /// by_id 本地命中次数（contains_key 粗粒度命中）
-    by_id_hit:          CachePadded<AtomicU64>,
+    by_id_hit: CachePadded<AtomicU64>,
     /// by_id 本地未命中次数
-    by_id_miss:         CachePadded<AtomicU64>,
+    by_id_miss: CachePadded<AtomicU64>,
     /// by_id 加载尝试次数：仅在 miss 并触发 try_get_with 闭包时增加
     by_id_load_attempt: CachePadded<AtomicU64>,
     /// by_id 加载成功次数（包括 get_by_ids 聚合回灌）
-    by_id_load_ok:      CachePadded<AtomicU64>,
+    by_id_load_ok: CachePadded<AtomicU64>,
     /// by_id 加载失败次数（not found / DB Error 等）
-    by_id_load_err:     CachePadded<AtomicU64>,
+    by_id_load_err: CachePadded<AtomicU64>,
 
     // ---------------- 路由路径（目录） ----------------
     route_email: RouteStats,
     route_phone: RouteStats,
-    route_name:  RouteStats,
+    route_name: RouteStats,
 }
 
 /// 公开导出的快照（复制原子值，便于对接监控）
 #[derive(Debug, Clone)]
 pub struct StatsSnapshot {
     // by_id
-    pub by_id_hit:          u64,
-    pub by_id_miss:         u64,
+    pub by_id_hit: u64,
+    pub by_id_miss: u64,
     pub by_id_load_attempt: u64,
-    pub by_id_load_ok:      u64,
-    pub by_id_load_err:     u64,
+    pub by_id_load_ok: u64,
+    pub by_id_load_err: u64,
 
     // email
     pub email_load_attempt: u64,
-    pub email_load_ok:      u64,
-    pub email_load_err:     u64,
-    pub email_some:         u64,
-    pub email_none:         u64,
+    pub email_load_ok: u64,
+    pub email_load_err: u64,
+    pub email_some: u64,
+    pub email_none: u64,
 
     // phone
     pub phone_load_attempt: u64,
-    pub phone_load_ok:      u64,
-    pub phone_load_err:     u64,
-    pub phone_some:         u64,
-    pub phone_none:         u64,
+    pub phone_load_ok: u64,
+    pub phone_load_err: u64,
+    pub phone_some: u64,
+    pub phone_none: u64,
 
     // name
-    pub name_load_attempt:  u64,
-    pub name_load_ok:       u64,
-    pub name_load_err:      u64,
-    pub name_some:          u64,
-    pub name_none:          u64,
+    pub name_load_attempt: u64,
+    pub name_load_ok: u64,
+    pub name_load_err: u64,
+    pub name_some: u64,
+    pub name_none: u64,
 }
 
 impl Stats {
@@ -111,29 +110,29 @@ impl Stats {
     /// 读取快照（Relaxed 足够：只做观测，不参与同步）
     fn snapshot(&self) -> StatsSnapshot {
         StatsSnapshot {
-            by_id_hit:          self.by_id_hit.load(Ordering::Relaxed),
-            by_id_miss:         self.by_id_miss.load(Ordering::Relaxed),
+            by_id_hit: self.by_id_hit.load(Ordering::Relaxed),
+            by_id_miss: self.by_id_miss.load(Ordering::Relaxed),
             by_id_load_attempt: self.by_id_load_attempt.load(Ordering::Relaxed),
-            by_id_load_ok:      self.by_id_load_ok.load(Ordering::Relaxed),
-            by_id_load_err:     self.by_id_load_err.load(Ordering::Relaxed),
+            by_id_load_ok: self.by_id_load_ok.load(Ordering::Relaxed),
+            by_id_load_err: self.by_id_load_err.load(Ordering::Relaxed),
 
             email_load_attempt: self.route_email.load_attempt.load(Ordering::Relaxed),
-            email_load_ok:      self.route_email.load_ok.load(Ordering::Relaxed),
-            email_load_err:     self.route_email.load_err.load(Ordering::Relaxed),
-            email_some:         self.route_email.some.load(Ordering::Relaxed),
-            email_none:         self.route_email.none.load(Ordering::Relaxed),
+            email_load_ok: self.route_email.load_ok.load(Ordering::Relaxed),
+            email_load_err: self.route_email.load_err.load(Ordering::Relaxed),
+            email_some: self.route_email.some.load(Ordering::Relaxed),
+            email_none: self.route_email.none.load(Ordering::Relaxed),
 
             phone_load_attempt: self.route_phone.load_attempt.load(Ordering::Relaxed),
-            phone_load_ok:      self.route_phone.load_ok.load(Ordering::Relaxed),
-            phone_load_err:     self.route_phone.load_err.load(Ordering::Relaxed),
-            phone_some:         self.route_phone.some.load(Ordering::Relaxed),
-            phone_none:         self.route_phone.none.load(Ordering::Relaxed),
+            phone_load_ok: self.route_phone.load_ok.load(Ordering::Relaxed),
+            phone_load_err: self.route_phone.load_err.load(Ordering::Relaxed),
+            phone_some: self.route_phone.some.load(Ordering::Relaxed),
+            phone_none: self.route_phone.none.load(Ordering::Relaxed),
 
-            name_load_attempt:  self.route_name.load_attempt.load(Ordering::Relaxed),
-            name_load_ok:       self.route_name.load_ok.load(Ordering::Relaxed),
-            name_load_err:      self.route_name.load_err.load(Ordering::Relaxed),
-            name_some:          self.route_name.some.load(Ordering::Relaxed),
-            name_none:          self.route_name.none.load(Ordering::Relaxed),
+            name_load_attempt: self.route_name.load_attempt.load(Ordering::Relaxed),
+            name_load_ok: self.route_name.load_ok.load(Ordering::Relaxed),
+            name_load_err: self.route_name.load_err.load(Ordering::Relaxed),
+            name_some: self.route_name.some.load(Ordering::Relaxed),
+            name_none: self.route_name.none.load(Ordering::Relaxed),
         }
     }
 }
@@ -178,7 +177,9 @@ pub struct RealNormalizer {
 impl RealNormalizer {
     /// 创建一个真实 Normalizer。示例：`RealNormalizer::new("86")`
     pub fn new(default_country_cc: impl Into<String>) -> Self {
-        Self { default_country_cc: default_country_cc.into() }
+        Self {
+            default_country_cc: default_country_cc.into(),
+        }
     }
 
     /// Unicode NFKC + to_lowercase + trim（对 email/local、name 等通用）
@@ -193,10 +194,17 @@ impl RealNormalizer {
         let mut out = String::with_capacity(s.len());
         let mut plus_seen = false;
         for (i, ch) in s.chars().enumerate() {
-            if ch.is_ascii_digit() { out.push(ch); continue; }
+            if ch.is_ascii_digit() {
+                out.push(ch);
+                continue;
+            }
             if ch == '+' {
-                if i != 0 || plus_seen { bail!("invalid '+' position in phone"); }
-                plus_seen = true; out.push('+'); continue;
+                if i != 0 || plus_seen {
+                    bail!("invalid '+' position in phone");
+                }
+                plus_seen = true;
+                out.push('+');
+                continue;
             }
             // 其他字符忽略
         }
@@ -205,17 +213,29 @@ impl RealNormalizer {
 
     /// 归一化为 E.164：处理 "00"→"+"；无前缀时按 default_cc 补全；校验长度区间
     fn to_e164(mut s: String, default_cc: &str) -> Result<String> {
-        if s.is_empty() { return Ok(s); }
-        if s.starts_with("00") { s.replace_range(0..2, "+"); }
+        if s.is_empty() {
+            return Ok(s);
+        }
+        if s.starts_with("00") {
+            s.replace_range(0..2, "+");
+        }
         if s.starts_with('+') {
-            if !s[1..].chars().all(|c| c.is_ascii_digit()) { bail!("phone contains non-digits after '+'"); }
+            if !s[1..].chars().all(|c| c.is_ascii_digit()) {
+                bail!("phone contains non-digits after '+'");
+            }
         } else {
-            if !s.chars().all(|c| c.is_ascii_digit()) { bail!("phone contains non-digits"); }
-            if default_cc.is_empty() { bail!("no country code and no default_cc configured"); }
+            if !s.chars().all(|c| c.is_ascii_digit()) {
+                bail!("phone contains non-digits");
+            }
+            if default_cc.is_empty() {
+                bail!("no country code and no default_cc configured");
+            }
             s = format!("+{}{}", default_cc, s);
         }
         let digits_len = s.len() - 1;
-        if !(8..=15).contains(&digits_len) { bail!("phone digits length not in 8..=15"); }
+        if !(8..=15).contains(&digits_len) {
+            bail!("phone digits length not in 8..=15");
+        }
         Ok(s)
     }
 }
@@ -226,40 +246,56 @@ static RE_SPACES: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s+").expect("compile 
 impl Normalizer for RealNormalizer {
     fn email_norm(&self, raw: &str) -> Result<Bytes> {
         let trimmed = raw.trim();
-        if trimmed.is_empty() { return Ok(Bytes::new()); }
+        if trimmed.is_empty() {
+            return Ok(Bytes::new());
+        }
 
         // local@domain：local 小写，domain 走 IDNA
         let lowered = Self::nfkc_lower_trim(trimmed);
         let parts: Vec<&str> = lowered.split('@').collect();
-        if parts.len() != 2 { bail!("invalid email: missing '@'"); }
+        if parts.len() != 2 {
+            bail!("invalid email: missing '@'");
+        }
         let (local, domain) = (parts[0], parts[1]);
-        if local.is_empty() || domain.is_empty() { bail!("invalid email: empty local or domain"); }
+        if local.is_empty() || domain.is_empty() {
+            bail!("invalid email: empty local or domain");
+        }
 
         // 域名部分转 ASCII
-        let domain_ascii =idna::domain_to_ascii(domain)
-            .map_err(|e| anyhow!("idna to_ascii failed: {e}"))?;
+        let domain_ascii =
+            idna::domain_to_ascii(domain).map_err(|e| anyhow!("idna to_ascii failed: {e}"))?;
 
         // 粗校验长度
-        if local.len() > 64 { bail!("invalid email: local too long"); }
+        if local.len() > 64 {
+            bail!("invalid email: local too long");
+        }
         let email_ascii = format!("{local}@{domain_ascii}");
-        if email_ascii.len() > 254 { bail!("invalid email: too long"); }
+        if email_ascii.len() > 254 {
+            bail!("invalid email: too long");
+        }
 
         Ok(Bytes::from(email_ascii))
     }
 
     fn phone_norm(&self, raw: &str) -> Result<Bytes> {
         let trimmed = raw.trim();
-        if trimmed.is_empty() { return Ok(Bytes::new()); }
+        if trimmed.is_empty() {
+            return Ok(Bytes::new());
+        }
         let s = trimmed.nfkc().collect::<String>();
         let stripped = Self::strip_phone_chars(&s)?;
-        if stripped.is_empty() { return Ok(Bytes::new()); } // 全是噪声字符
+        if stripped.is_empty() {
+            return Ok(Bytes::new());
+        } // 全是噪声字符
         let e164 = Self::to_e164(stripped, &self.default_country_cc)?;
         Ok(Bytes::from(e164))
     }
 
     fn name_norm(&self, raw: &str) -> Result<Bytes> {
         let s = Self::nfkc_lower_trim(raw);
-        if s.is_empty() { return Ok(Bytes::new()); }
+        if s.is_empty() {
+            return Ok(Bytes::new());
+        }
         let collapsed = RE_SPACES.replace_all(&s, " ");
         Ok(Bytes::from(collapsed.trim().to_string()))
     }
@@ -289,7 +325,7 @@ pub struct ClientHot<R, D, N> {
     /// 路由缓存：统一 Option<i64> 表示正/负命中（None=确认不存在）
     email_to_id: Cache<Bytes, Option<i64>>,
     phone_to_id: Cache<Bytes, Option<i64>>,
-    name_to_id:  Cache<Bytes, Option<i64>>,
+    name_to_id: Cache<Bytes, Option<i64>>,
 
     /// 观测：cache-line padding 的计数器
     stats: Arc<Stats>,
@@ -347,7 +383,7 @@ where
             by_id,
             email_to_id: build_route(),
             phone_to_id: build_route(),
-            name_to_id:  build_route(),
+            name_to_id: build_route(),
             stats: Arc::new(Stats::default()),
         }
     }
@@ -418,7 +454,9 @@ where
         let mut misses = Vec::new();
 
         for &id in ids {
-            if !seen.insert(id) { continue; } // 去重
+            if !seen.insert(id) {
+                continue;
+            } // 去重
             if self.by_id.contains_key(&id) {
                 Stats::inc(&self.stats.by_id_hit);
                 present_ids.push(id);
@@ -430,12 +468,14 @@ where
 
         // 2) 并发拉取命中值（get() 不触发装载；竞态 None 会被过滤）
         let mut hits: Vec<Arc<ClientEntity>> = stream::iter(
-            present_ids.into_iter().map(|id| async move { self.by_id.get(&id).await })
+            present_ids
+                .into_iter()
+                .map(|id| async move { self.by_id.get(&id).await }),
         )
-            .buffer_unordered(128)
-            .filter_map(|opt| async move { opt })
-            .collect()
-            .await;
+        .buffer_unordered(128)
+        .filter_map(|opt| async move { opt })
+        .collect()
+        .await;
 
         // 3) 无 miss 直接返回
         if misses.is_empty() {
@@ -453,8 +493,12 @@ where
         let ok_cnt = fetched.len() as u64;
         let miss_cnt = misses.len() as u64;
         if ok_cnt > 0 {
-            self.stats.by_id_load_ok.fetch_add(ok_cnt, Ordering::Relaxed);
-            self.stats.by_id_load_attempt.fetch_add(ok_cnt, Ordering::Relaxed);
+            self.stats
+                .by_id_load_ok
+                .fetch_add(ok_cnt, Ordering::Relaxed);
+            self.stats
+                .by_id_load_attempt
+                .fetch_add(ok_cnt, Ordering::Relaxed);
         }
         if miss_cnt > ok_cnt {
             self.stats
@@ -483,7 +527,10 @@ where
     /// - 路由缓存 miss 时查询目录（get_id_by_email），成功后写入 Some/None；
     /// - 目录失败不上缓存（保持下次可重试）。
     pub async fn get_by_email(&self, raw: &str) -> Result<Option<Arc<ClientEntity>>> {
-        let norm = self.normalizer.email_norm(raw).context("normalize email failed")?;
+        let norm = self
+            .normalizer
+            .email_norm(raw)
+            .context("normalize email failed")?;
         if norm.is_empty() {
             return Ok(None);
         }
@@ -523,7 +570,10 @@ where
 
     /// 通过 phone 查询：逻辑同上
     pub async fn get_by_phone(&self, raw: &str) -> Result<Option<Arc<ClientEntity>>> {
-        let norm = self.normalizer.phone_norm(raw).context("normalize phone failed")?;
+        let norm = self
+            .normalizer
+            .phone_norm(raw)
+            .context("normalize phone failed")?;
         if norm.is_empty() {
             return Ok(None);
         }
@@ -563,7 +613,10 @@ where
 
     /// 通过 name 查询：逻辑同上；额外做 UTF-8 校验（规范化产物是 Bytes）
     pub async fn get_by_name(&self, raw: &str) -> Result<Option<Arc<ClientEntity>>> {
-        let norm = self.normalizer.name_norm(raw).context("normalize name failed")?;
+        let norm = self
+            .normalizer
+            .name_norm(raw)
+            .context("normalize name failed")?;
         if norm.is_empty() {
             return Ok(None);
         }
@@ -608,9 +661,18 @@ where
     /// - 如 DB 存在：覆盖插入；
     /// - 如 DB 不存在：主动失效。
     pub async fn refresh_by_id(&self, id: i64) -> Result<()> {
-        match self.repo.get_by_id(id).await.context("repo.get_by_id failed in refresh_by_id")? {
-            Some(ent) => { self.by_id.insert(id, Arc::new(ent)).await; }
-            None => { self.by_id.invalidate(&id).await; }
+        match self
+            .repo
+            .get_by_id(id)
+            .await
+            .context("repo.get_by_id failed in refresh_by_id")?
+        {
+            Some(ent) => {
+                self.by_id.insert(id, Arc::new(ent)).await;
+            }
+            None => {
+                self.by_id.invalidate(&id).await;
+            }
         }
         Ok(())
     }
@@ -619,43 +681,79 @@ where
     /// - old_raw 存在且可规范化：失效旧键；
     /// - new_raw 存在且可规范化：写入正缓存 Some(id)；
     /// - 最后刷新 by_id。
-    pub async fn on_change_email(&self, old_raw: Option<&str>, new_raw: Option<&str>, id: i64) -> Result<()> {
+    pub async fn on_change_email(
+        &self,
+        old_raw: Option<&str>,
+        new_raw: Option<&str>,
+        id: i64,
+    ) -> Result<()> {
         if let Some(old) = old_raw {
             if let Ok(k) = self.normalizer.email_norm(old) {
-                if !k.is_empty() { self.email_to_id.invalidate(&k).await; }
+                if !k.is_empty() {
+                    self.email_to_id.invalidate(&k).await;
+                }
             }
         }
         if let Some(new_) = new_raw {
-            let k = self.normalizer.email_norm(new_).context("normalize new email failed")?;
-            if !k.is_empty() { self.email_to_id.insert(k, Some(id)).await; }
+            let k = self
+                .normalizer
+                .email_norm(new_)
+                .context("normalize new email failed")?;
+            if !k.is_empty() {
+                self.email_to_id.insert(k, Some(id)).await;
+            }
         }
         self.refresh_by_id(id).await
     }
 
     /// 手机号变更：逻辑同上
-    pub async fn on_change_phone(&self, old_raw: Option<&str>, new_raw: Option<&str>, id: i64) -> Result<()> {
+    pub async fn on_change_phone(
+        &self,
+        old_raw: Option<&str>,
+        new_raw: Option<&str>,
+        id: i64,
+    ) -> Result<()> {
         if let Some(old) = old_raw {
             if let Ok(k) = self.normalizer.phone_norm(old) {
-                if !k.is_empty() { self.phone_to_id.invalidate(&k).await; }
+                if !k.is_empty() {
+                    self.phone_to_id.invalidate(&k).await;
+                }
             }
         }
         if let Some(new_) = new_raw {
-            let k = self.normalizer.phone_norm(new_).context("normalize new phone failed")?;
-            if !k.is_empty() { self.phone_to_id.insert(k, Some(id)).await; }
+            let k = self
+                .normalizer
+                .phone_norm(new_)
+                .context("normalize new phone failed")?;
+            if !k.is_empty() {
+                self.phone_to_id.insert(k, Some(id)).await;
+            }
         }
         self.refresh_by_id(id).await
     }
 
     /// 用户名变更：逻辑同上；name_norm 的 Bytes 需是 UTF-8（由规范化保证）
-    pub async fn on_change_name(&self, old_raw: Option<&str>, new_raw: Option<&str>, id: i64) -> Result<()> {
+    pub async fn on_change_name(
+        &self,
+        old_raw: Option<&str>,
+        new_raw: Option<&str>,
+        id: i64,
+    ) -> Result<()> {
         if let Some(old) = old_raw {
             if let Ok(k) = self.normalizer.name_norm(old) {
-                if !k.is_empty() { self.name_to_id.invalidate(&k).await; }
+                if !k.is_empty() {
+                    self.name_to_id.invalidate(&k).await;
+                }
             }
         }
         if let Some(new_) = new_raw {
-            let k = self.normalizer.name_norm(new_).context("normalize new name failed")?;
-            if !k.is_empty() { self.name_to_id.insert(k, Some(id)).await; }
+            let k = self
+                .normalizer
+                .name_norm(new_)
+                .context("normalize new name failed")?;
+            if !k.is_empty() {
+                self.name_to_id.insert(k, Some(id)).await;
+            }
         }
         self.refresh_by_id(id).await
     }
