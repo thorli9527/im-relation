@@ -154,20 +154,8 @@ pub struct OfflineStatueMsg {
 /// 📦 设备类型枚举
 /// ================================
 /// 用于标识客户端的来源类型，有助于服务端区分平台特性、限流策略等
-#[derive(
-    serde::Serialize,
-    serde::Deserialize,
-    utoipa::ToSchema,
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    ::prost::Enumeration,
-)]
+#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum DeviceType {
     Unknown = 0,
