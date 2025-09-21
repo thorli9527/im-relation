@@ -1,23 +1,26 @@
+use std::mem;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::{anyhow, Context, Result};
+use common::config::AppConfig;
+use log::{info, warn};
+use tokio::signal;
+use tonic::service::Routes;
+use tonic::transport::Server;
+
 use crate::db::mysql::{ClientRepoSqlx, DirectoryRepoSqlx, SessionRepoSqlx};
+use crate::grpc_arb::arb_server::arb_client_rpc_service_server::ArbClientRpcServiceServer;
 use crate::grpc_arb::arb_server::NodeType;
 use crate::grpc_arb_client::integration;
-use crate::grpc_arb_client::server::start_arb_client_server;
+use crate::grpc_arb_client::server::ArbClientImpl;
 use crate::grpc_hot_online::client_service::client_rpc_service_server::ClientRpcServiceServer;
 use crate::grpc_hot_online::client_service_impl::{ClientEntityServiceImpl, DummyIdAlloc};
 use crate::grpc_hot_online::online_service::online_service_server::OnlineServiceServer;
 use crate::grpc_hot_online::online_service_impl::OnLineServiceImpl;
 use crate::hot_cold::{ClientHot, ClientHotConfig, RealNormalizer};
 use crate::online_store::OnlineStore;
-use actix_web::{web, App, HttpServer};
-use anyhow::{anyhow, Context, Result};
-use common::config::{get_db, AppConfig};
-use log::{info, warn};
-use tokio::signal;
-use tonic::transport::Server;
 
 pub async fn start() -> Result<()> {
     let cfg = AppConfig::get();
@@ -25,19 +28,29 @@ pub async fn start() -> Result<()> {
         .grpc
         .as_ref()
         .ok_or_else(|| anyhow!("grpc config missing"))?;
-    let client_addr = grpc_cfg
-        .client_addr
-        .as_ref()
-        .ok_or_else(|| anyhow!("grpc.client_addr missing"))?;
-    let grpc_addr: SocketAddr = client_addr.parse().context("invalid gRPC bind address")?;
-
     let http_cfg = cfg
         .server
         .as_ref()
         .ok_or_else(|| anyhow!("server config missing"))?;
-    let http_addr: SocketAddr = format!("{}:{}", http_cfg.host, http_cfg.port)
+
+    let bind_addr_str = format!("{}:{}", http_cfg.host, http_cfg.port);
+    let bind_addr: SocketAddr = bind_addr_str
         .parse()
-        .context("invalid http host:port")?;
+        .with_context(|| format!("invalid http host:port: {}", bind_addr_str))?;
+
+    if let Some(client_addr) = &grpc_cfg.client_addr {
+        if client_addr != &bind_addr_str {
+            warn!(
+                "grpc.client_addr ({}) != server host:port ({}); using HTTP port for binding",
+                client_addr, bind_addr_str
+            );
+        }
+    } else {
+        warn!(
+            "grpc.client_addr missing; defaulting to HTTP port {} for registration",
+            bind_addr_str
+        );
+    }
 
     let shard_count = std::env::var("ONLINE_SHARDS")
         .ok()
@@ -89,48 +102,36 @@ pub async fn start() -> Result<()> {
     let client_svc =
         ClientEntityServiceImpl::new(hot, normalizer.clone(), DummyIdAlloc, Some(online_touch));
 
-    let grpc_task = {
-        let online_svc = online_svc;
-        let client_svc = client_svc;
-        tokio::spawn(async move {
-            Server::builder()
-                .add_service(OnlineServiceServer::new(online_svc))
-                .add_service(ClientRpcServiceServer::new(client_svc))
-                .serve(grpc_addr)
-                .await
-                .map_err(anyhow::Error::from)
-        })
+    let rest_state = crate::rest_online::AppState {
+        store: store.clone(),
     };
+    let rest_router = crate::rest_online::router(rest_state);
 
-    let st = store.clone();
-    tokio::spawn(async move {
-        let _ = HttpServer::new(move || {
-            App::new()
-                .app_data(web::Data::new(crate::rest_online::AppState {
-                    store: st.clone(),
-                }))
-                .configure(crate::rest_online::config)
-        })
-        .bind(http_addr)
-        .expect("http bind error")
-        .run()
-        .await;
-    });
+    let mut routes = Routes::new(OnlineServiceServer::new(online_svc))
+        .add_service(ClientRpcServiceServer::new(client_svc))
+        .add_service(ArbClientRpcServiceServer::new(ArbClientImpl::default()));
+
+    let router_slot = routes.axum_router_mut();
+    *router_slot = mem::take(router_slot).fallback_service(rest_router);
 
     info!(
-        "hot_online_service started. grpc={}, http={}",
-        client_addr, http_addr
+        "hot_online_service listening on {} (HTTP + gRPC)",
+        bind_addr_str
     );
 
-    start_arb_client_server(client_addr).await?;
     integration::start(NodeType::OnlineNode).await?;
 
-    tokio::select! {
-        r = grpc_task => { r??; }
-        _ = signal::ctrl_c() => {
+    Server::builder()
+        .accept_http1(true)
+        .add_routes(routes)
+        .serve_with_shutdown(bind_addr, async {
+            if let Err(err) = signal::ctrl_c().await {
+                warn!("failed to listen for shutdown signal: {}", err);
+            }
             warn!("Ctrl+C received, shutting down...");
-        }
-    }
+        })
+        .await
+        .map_err(anyhow::Error::from)?;
 
     Ok(())
 }

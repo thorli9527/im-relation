@@ -2,7 +2,7 @@
 //!
 //! 设计目标（入站 → 路由 → 回执）：
 //! - 去重：仅使用“客户端消息ID”（client_id）为相同消息提供幂等保护；
-//! - 动态路由：通过 NodeUtil 与 arb-service 动态发现 msg_friend 节点，按 userId 做一致性选择；
+//! - 动态路由：通过 NodeUtil 与 arb_service 动态发现 msg_friend 节点，按 userId 做一致性选择；
 //! - 关系操作：201..205 通过 hot_friend_service 完成增删改（申请/受理/删除/备注）；
 //! - 成功回执：业务处理成功后，向客户端下发简化 ACK（ServerMsg.kind= MkAck，ServerMsg.id = client_id）；
 //! - 非阻塞：handler 内部使用 tokio::spawn，不阻塞接入线程。

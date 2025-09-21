@@ -26,13 +26,13 @@ fn build_server() {
         .build_client(true)
         .out_dir("src/grpc_arb/")
         .compile_protos(
-            &["../arb-service/proto/arb_server.proto"],
-            &["../arb-service/proto"],
+            &["../arb_service/proto/arb_server.proto"],
+            &["../arb_service/proto"],
         )
         .expect("💥 Arb proto 编译失败！");
 
-    println!("cargo:rerun-if-changed=../arb-service/proto/arb_server.proto");
-    println!("cargo:rerun-if-changed=../arb-service/proto");
+    println!("cargo:rerun-if-changed=../arb_service/proto/arb_server.proto");
+    println!("cargo:rerun-if-changed=../arb_service/proto");
 }
 fn build_client() {
     tonic_build::configure()

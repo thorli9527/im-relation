@@ -4,7 +4,6 @@ port = 9600
 
 [sys]
 log_leve = "info"
-
 [socket]
 # ACK 分片数（不配置则为 CPU 核数）
 ack_shards = 0

@@ -105,6 +105,7 @@ impl AppConfig {
 
 pub fn init_log(log_lovel: &str) -> Result<(), AppError> {
     let mut builder = env_logger::Builder::new();
+    builder.target(env_logger::Target::Stdout);
     let filter = builder.filter(None, LevelFilter::from_str(log_lovel).unwrap());
     filter.init();
     Ok(())

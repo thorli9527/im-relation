@@ -12,7 +12,7 @@
 - `hot_online_service`：在线状态服务（gRPC/REST）
 - `hot_group_service`：群组服务（使用分片与成员列表封装）
 - `hot_friend_service`：好友服务
-- `arb-service`：仲裁/桥接服务
+- `arb_service`：仲裁/桥接服务
 - `app_api`：对外 API 服务
 - `app_socket`：Socket 客户端/服务相关
 - `msg_gateway`：消息网关（如有）

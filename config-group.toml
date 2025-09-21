@@ -2,7 +2,6 @@
 url = "mysql://root:73411bf9-a4a9-4a8a-9716-8935d3@127.0.0.1:3306/group"
 [grpc]
 server_addr = "127.0.0.1:9000"
-client_addr = "127.0.0.1:8003"
 [server]
 host = "127.0.0.1"
 port = 8003

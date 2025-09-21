@@ -2,6 +2,7 @@ pub mod device_keys;
 pub mod friend_requests;
 pub mod messages;
 
+#[allow(unused_imports)]
 pub use messages::{
     copy_message_as_forward, get_message_by_id, insert_encrypted_message, mark_delivered,
     mark_read, recall_message, EncryptedMessageRecord,

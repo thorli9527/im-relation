@@ -14,18 +14,18 @@ fn main() {
     std::fs::create_dir_all("src/grpc_hot_friend/").ok();
     std::fs::create_dir_all("src/grpc_msg_group/").ok();
     std::fs::create_dir_all("src/grpc_hot_online/").ok();
-    // arb-service
+    // arb_service
     tonic_build::configure()
         .build_server(true)
         .build_client(true)
         .out_dir("src/grpc_arb/")
         .compile_protos(
-            &["../arb-service/proto/arb_server.proto"],
-            &["../arb-service/proto"],
+            &["../arb_service/proto/arb_server.proto"],
+            &["../arb_service/proto"],
         ) // arb proto
         .expect("Failed to compile arb_server.proto");
-    println!("cargo:rerun-if-changed=../arb-service/proto/arb_server.proto");
-    println!("cargo:rerun-if-changed=../arb-service/proto");
+    println!("cargo:rerun-if-changed=../arb_service/proto/arb_server.proto");
+    println!("cargo:rerun-if-changed=../arb_service/proto");
 
     // FriendBizService（msg_friend）
     tonic_build::configure()

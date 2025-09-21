@@ -26,7 +26,12 @@ pub async fn start(node_type: NodeType) -> anyhow::Result<()> {
         .ok_or_else(|| anyhow::anyhow!("arb server addr missing"))?;
     let client_addr = grpc_cfg
         .client_addr
-        .as_ref()
+        .clone()
+        .or_else(|| {
+            cfg.server
+                .as_ref()
+                .map(|http| format!("{}:{}", http.host, http.port))
+        })
         .ok_or_else(|| anyhow::anyhow!("client addr missing"))?;
 
     MANAGER

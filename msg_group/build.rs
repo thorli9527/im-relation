@@ -1,5 +1,5 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let out_dir = "src/grpc/";
+    let out_dir = "src/grpc_msg_group/";
     std::fs::create_dir_all(out_dir).ok();
 
     tonic_build::configure()
@@ -11,13 +11,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .type_attribute(".", "#[serde(rename_all = \"camelCase\")]")
         .out_dir(out_dir)
-        .compile_protos(
-            &["proto/group.proto", "proto/group_message.proto"],
-            &["proto"],
-        )?;
+        .compile_protos(&["proto/group.proto"], &["proto"])?;
 
     println!("cargo:rerun-if-changed=proto/group.proto");
-    println!("cargo:rerun-if-changed=proto/group_message.proto");
 
     std::fs::create_dir_all("src/grpc_arb/").ok();
     tonic_build::configure()
@@ -25,9 +21,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_client(true)
         .out_dir("src/grpc_arb/")
         .compile_protos(
-            &["../arb-service/proto/arb_server.proto"],
-            &["../arb-service/proto"],
+            &["../arb_service/proto/arb_server.proto"],
+            &["../arb_service/proto"],
         )?;
-    println!("cargo:rerun-if-changed=../arb-service/proto/arb_server.proto");
+    println!("cargo:rerun-if-changed=../arb_service/proto/arb_server.proto");
     Ok(())
 }

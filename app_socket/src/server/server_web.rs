@@ -12,10 +12,10 @@ pub async fn start_web_server(bind: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Start the gRPC Arb client server (arb-service push endpoint).
-/// This exposes `ArbClientRpcService` so arb-service can notify this node.
+/// Start the gRPC Arb client server (arb_service push endpoint).
+/// This exposes `ArbClientRpcService` so arb_service can notify this node.
 pub async fn start_arb_client_grpc(bind: &str) -> anyhow::Result<()> {
-    crate::service::arb_client_server::start_arb_client_server(bind).await
+    crate::grpc_arb_client::server::start_arb_client_server(bind).await
 }
 
 // 说明：合并同端口（Web+gRPC）的兼容入口已移除，按需分别启动。

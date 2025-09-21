@@ -1,20 +1,23 @@
+use std::mem;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::grpc_arb::arb_server::arb_client_rpc_service_server::ArbClientRpcServiceServer;
 use crate::grpc_arb::arb_server::NodeType;
 use crate::grpc_arb_client::integration;
-use crate::grpc_arb_client::server::start_arb_client_server;
+use crate::grpc_arb_client::server::ArbClientImpl;
 use crate::grpc_hot_friend::friend_service::friend_service_server::FriendServiceServer;
 use crate::hot_cold::HotColdFriendFacade;
 use crate::service::friend_service_impl::FriendServiceImpl;
 use crate::store::mysql::FriendStorage;
-use actix_web::{get, App, HttpResponse, HttpServer};
 use anyhow::{anyhow, Context, Result};
+use axum::{routing::get, Json, Router};
 use common::config::{get_db, AppConfig};
 use common::UserId;
 use log::warn;
 use tokio::signal;
+use tonic::service::Routes;
 use tonic::transport::Server;
 
 pub async fn start() -> Result<()> {
@@ -23,11 +26,28 @@ pub async fn start() -> Result<()> {
         .grpc
         .as_ref()
         .ok_or_else(|| anyhow!("grpc config missing"))?;
-    let client_addr = grpc_cfg
-        .client_addr
+    let http_cfg = cfg
+        .server
         .as_ref()
-        .ok_or_else(|| anyhow!("grpc.client_addr missing"))?;
-    let grpc_addr: SocketAddr = client_addr.parse().context("Failed to parse GRPC_ADDR")?;
+        .ok_or_else(|| anyhow!("server config missing"))?;
+    let bind_addr_str = format!("{}:{}", http_cfg.host, http_cfg.port);
+    let bind_addr: SocketAddr = bind_addr_str
+        .parse()
+        .with_context(|| format!("invalid http host:port: {}", bind_addr_str))?;
+
+    if let Some(client_addr) = &grpc_cfg.client_addr {
+        if client_addr != &bind_addr_str {
+            warn!(
+                "grpc.client_addr ({}) != server host:port ({}); using HTTP port for binding",
+                client_addr, bind_addr_str
+            );
+        }
+    } else {
+        warn!(
+            "grpc.client_addr missing; defaulting to HTTP port {} for registration",
+            bind_addr_str
+        );
+    }
 
     let avg_key_bytes = std::mem::size_of::<UserId>();
     let avg_value_bytes = env_parse("AVG_VALUE_BYTES", 256usize);
@@ -52,7 +72,7 @@ pub async fn start() -> Result<()> {
     let plan: crate::autotune::CacheAutoTune = crate::autotune::auto_tune_cache(&tune_cfg);
 
     let pool = get_db();
-    crate::db::apply_schema_from_ddl(&pool, include_str!("../migrations/mysql_schema.sql")).await?;
+    // crate::db::apply_schema_from_ddl(&pool, include_str!("../migrations/mysql_schema.sql")).await?;
 
     let storage = Arc::new(FriendStorage::from_pool(pool.clone()));
     let facade = Arc::new(HotColdFriendFacade::new(
@@ -80,35 +100,29 @@ pub async fn start() -> Result<()> {
         });
     }
 
-    let http_cfg = cfg
-        .server
-        .as_ref()
-        .ok_or_else(|| anyhow!("server config missing"))?;
-    let http_addr: SocketAddr = format!("{}:{}", http_cfg.host, http_cfg.port)
-        .parse()
-        .context("invalid http host:port")?;
-
-    #[get("/healthz")]
-    async fn healthz() -> actix_web::HttpResponse {
-        HttpResponse::Ok().json(serde_json::json!({"ok": true}))
+    async fn healthz() -> Json<serde_json::Value> {
+        Json(serde_json::json!({"ok": true}))
     }
-    actix_web::rt::System::new().block_on(async move {
-        HttpServer::new(|| App::new().service(healthz))
-            .bind(http_addr)
-            .expect("http bind error")
-            .run()
-            .await
-            .expect("http server error");
-    });
 
-    start_arb_client_server(client_addr).await?;
     integration::start(NodeType::FriendNode).await?;
 
     let svc = FriendServiceImpl::<FriendStorage> { facade };
+    let rest_router = Router::new().route("/healthz", get(healthz));
+
+    let mut routes = Routes::new(FriendServiceServer::new(svc))
+        .add_service(ArbClientRpcServiceServer::new(ArbClientImpl::default()));
+
+    let router_slot = routes.axum_router_mut();
+    *router_slot = mem::take(router_slot).fallback_service(rest_router);
+
     Server::builder()
-        .add_service(FriendServiceServer::new(svc))
-        .serve_with_shutdown(grpc_addr, async {
-            let _ = signal::ctrl_c().await;
+        .accept_http1(true)
+        .add_routes(routes)
+        .serve_with_shutdown(bind_addr, async {
+            if let Err(err) = signal::ctrl_c().await {
+                warn!("failed to listen for shutdown signal: {}", err);
+            }
+            warn!("Ctrl+C received, shutting down...");
         })
         .await?;
 

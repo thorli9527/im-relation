@@ -39,10 +39,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_client(true)
         .out_dir("src/grpc_arb/")
         .compile_protos(
-            &["../arb-service/proto/arb_server.proto"],
-            &["../arb-service/proto"],
+            &["../arb_service/proto/arb_server.proto"],
+            &["../arb_service/proto"],
         )?;
-    println!("cargo:rerun-if-changed=../arb-service/proto/arb_server.proto");
+    println!("cargo:rerun-if-changed=../arb_service/proto/arb_server.proto");
 
     Ok(())
 }

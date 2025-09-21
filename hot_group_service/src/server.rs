@@ -1,21 +1,24 @@
+use std::mem;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::grpc_arb::arb_server::arb_client_rpc_service_server::ArbClientRpcServiceServer;
 use crate::grpc_arb::arb_server::NodeType;
 use crate::grpc_arb_client::integration;
-use crate::grpc_arb_client::server::start_arb_client_server;
+use crate::grpc_arb_client::server::ArbClientImpl;
 use crate::grpc_msg_group::group_service::group_service_server::GroupServiceServer;
 use crate::grpc_msg_group::group_service_impl::GroupServiceImpl;
 use crate::hot_cold::{HotColdConfig, HotColdFacade};
 use crate::member::shard_map::ShardMap;
 use crate::profile::{GroupProfileCache, MySqlGroupProfileStore};
 use crate::store::mysql::MySqlStore;
-use actix_web::{get, App, HttpResponse, HttpServer};
 use anyhow::{anyhow, Context, Result};
+use axum::{routing::get, Json, Router};
 use common::config::{get_db, AppConfig};
 use log::{info, warn};
 use tokio::signal;
+use tonic::service::Routes;
 use tonic::transport::Server;
 
 pub async fn start() -> Result<()> {
@@ -24,11 +27,28 @@ pub async fn start() -> Result<()> {
         .grpc
         .as_ref()
         .ok_or_else(|| anyhow!("grpc config missing"))?;
-    let client_addr = grpc_cfg
-        .client_addr
+    let http_cfg = cfg
+        .server
         .as_ref()
-        .ok_or_else(|| anyhow!("grpc.client_addr missing"))?;
-    let addr: SocketAddr = client_addr.parse().context("invalid gRPC bind address")?;
+        .ok_or_else(|| anyhow!("server config missing"))?;
+    let bind_addr_str = format!("{}:{}", http_cfg.host, http_cfg.port);
+    let bind_addr: SocketAddr = bind_addr_str
+        .parse()
+        .with_context(|| format!("invalid http host:port: {}", bind_addr_str))?;
+
+    if let Some(client_addr) = &grpc_cfg.client_addr {
+        if client_addr != &bind_addr_str {
+            warn!(
+                "grpc.client_addr ({}) != server host:port ({}); using HTTP port for binding",
+                client_addr, bind_addr_str
+            );
+        }
+    } else {
+        warn!(
+            "grpc.client_addr missing; defaulting to HTTP port {} for registration",
+            bind_addr_str
+        );
+    }
 
     let hot_mem_model = crate::hot_capacity::HotMemModel {
         bytes_per_member: env_parse("HOT_BYTES_PER_MEMBER", 128usize),
@@ -72,42 +92,37 @@ pub async fn start() -> Result<()> {
         profile_l1_tti_secs,
     ));
 
-    #[get("/healthz")]
-    async fn healthz() -> actix_web::HttpResponse {
-        HttpResponse::Ok().json(serde_json::json!({"ok": true}))
+    async fn healthz() -> Json<serde_json::Value> {
+        Json(serde_json::json!({"ok": true}))
     }
-    let http_cfg = cfg
-        .server
-        .as_ref()
-        .ok_or_else(|| anyhow!("server config missing"))?;
-    let http_addr: SocketAddr = format!("{}:{}", http_cfg.host, http_cfg.port)
-        .parse()
-        .context("invalid http host:port")?;
-    actix_web::rt::System::new().block_on(async move {
-        HttpServer::new(|| App::new().service(healthz))
-            .bind(http_addr)
-            .expect("http bind error")
-            .run()
-            .await
-            .expect("http server error");
-    });
 
     info!(
         "hot cache decided: cap={}, tti={}s, shard_count={}, per_group_shard={}, {}",
         hot_capacity, hot_tti_secs, shard_count, per_group_shard, debug_line
     );
 
-    start_arb_client_server(client_addr).await?;
     integration::start(NodeType::GroupNode).await?;
 
     let svc_impl = GroupServiceImpl::new(facade.clone(), profile_cache.clone());
     let svc = GroupServiceServer::new(svc_impl);
+    let rest_router = Router::new().route("/healthz", get(healthz));
+
+    let mut routes =
+        Routes::new(svc).add_service(ArbClientRpcServiceServer::new(ArbClientImpl::default()));
+
+    let router_slot = routes.axum_router_mut();
+    *router_slot = mem::take(router_slot).fallback_service(rest_router);
+
+    let shutdown_facade = facade.clone();
     Server::builder()
-        .add_service(svc)
-        .serve_with_shutdown(addr, async {
-            let _ = signal::ctrl_c().await;
+        .accept_http1(true)
+        .add_routes(routes)
+        .serve_with_shutdown(bind_addr, async move {
+            if let Err(err) = signal::ctrl_c().await {
+                warn!("failed to listen for shutdown signal: {}", err);
+            }
             warn!("shutting down... flushing hot groups");
-            facade.flush_all().await;
+            shutdown_facade.flush_all().await;
             warn!("flush done. bye");
         })
         .await?;

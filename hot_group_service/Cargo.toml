@@ -16,7 +16,7 @@ dashmap.workspace = true
 smallvec.workspace = true
 parking_lot.workspace = true
 roaring.workspace = true
-actix-web.workspace = true
+axum = { version = "0.7.9", features = ["macros"] }
 sqlx.workspace = true
 moka.workspace = true
 prost.workspace = true

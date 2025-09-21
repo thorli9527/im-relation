@@ -118,11 +118,10 @@ impl KafkaInstanceService {
             match result {
                 Ok(name) => println!("✅ Created topic: {}", name),
                 Err((name, err)) if err.to_string().contains("TopicAlreadyExists") => {
-                    if err.to_string().contains("TopicAlreadyExists") {
-                        continue;
-                    }
+                    log::info!("Kafka topic '{}' already exists: {}", name, err);
                 }
                 Err((name, err)) => {
+                    log::error!("Kafka topic '{}' creation failed: {}", name, err);
                     std::process::exit(1);
                 }
             }

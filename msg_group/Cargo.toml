@@ -10,6 +10,13 @@ prost-types.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 utoipa.workspace = true
+anyhow.workspace = true
+tokio.workspace = true
+once_cell.workspace = true
+log.workspace = true
+common = { path = "../common" }
+sqlx.workspace = true
+axum = { version = "0.7.9", features = ["macros"] }
 
 [build-dependencies]
 tonic-build.workspace = true
