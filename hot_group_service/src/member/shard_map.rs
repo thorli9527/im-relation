@@ -8,8 +8,8 @@ use dashmap::DashMap;
 use moka::sync::{Cache, CacheBuilder};
 use smallvec::SmallVec;
 
-use crate::grpc_msg_group::group_service::{GroupRoleType, MemberRef};
 use crate::member::list_wrapper::MemberListWrapper;
+use common::grpc::grpc_hot_group::group_service::{GroupRoleType, MemberRef};
 use common::{GroupId, MemberListError, UserId};
 
 /// 单个分片：gid -> 成员包装器
@@ -339,6 +339,15 @@ impl ShardMap {
             .inner
             .get(&gid)
             .map(|w| w.get_all())
+            .unwrap_or_default()
+    }
+
+    /// 群管理员列表（Owner + Admin）
+    pub fn get_managers_by_key(&self, gid: GroupId) -> Vec<MemberRef> {
+        self.shards[self.shard_idx(gid)]
+            .inner
+            .get(&gid)
+            .map(|w| w.get_managers())
             .unwrap_or_default()
     }
 

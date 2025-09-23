@@ -1,3 +1,5 @@
+//! 可选的好友消息搜索索引（使用 tantivy），默认关闭。
+
 #[cfg(feature = "tantivy")]
 pub mod friend_index {
     use std::path::Path;
@@ -5,6 +7,7 @@ pub mod friend_index {
     use anyhow::Result;
     use crate::dao::EncryptedMessageRecord;
 
+    /// 简单的消息索引器。
     pub struct Indexer {
         index: Index,
         f_msg_id: tantivy::schema::Field,
@@ -15,6 +18,7 @@ pub mod friend_index {
     }
 
     impl Indexer {
+        /// 打开或创建索引目录。
         pub fn open_or_create<P: AsRef<Path>>(path: P) -> Result<Self> {
             let mut sb = SchemaBuilder::new();
             let f_msg_id = sb.add_i64_field("msg_id", FAST | STORED);
@@ -23,10 +27,15 @@ pub mod friend_index {
             let f_timestamp = sb.add_i64_field("timestamp", FAST);
             let f_key_id = sb.add_text_field("key_id", TEXT);
             let schema: Schema = sb.build();
-            let index = if path.as_ref().exists() { Index::open_in_dir(&path)? } else { Index::create_in_dir(&path, schema.clone())? };
+            let index = if path.as_ref().exists() {
+                Index::open_in_dir(&path)?
+            } else {
+                Index::create_in_dir(&path, schema.clone())?
+            };
             Ok(Self { index, f_msg_id, f_sender_id, f_receiver_id, f_timestamp, f_key_id })
         }
 
+        /// 将消息写入索引。
         pub fn index_record(&self, rec: &EncryptedMessageRecord) -> Result<()> {
             let mut doc = Document::default();
             doc.add_i64(self.f_msg_id, rec.msg_id);

@@ -1,4 +1,6 @@
-use actix_web::{HttpResponse, ResponseError};
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use axum::Json;
 use log::error;
 use serde::Serialize;
 use std::io;
@@ -61,69 +63,62 @@ impl From<validator::ValidationErrors> for AppError {
         AppError::BizError(format!("参数验证失败: {}", e))
     }
 }
-impl ResponseError for AppError {
-    fn error_response(&self) -> HttpResponse {
-        let (status, msg) = match self {
-            AppError::NotFound => (actix_web::http::StatusCode::NOT_FOUND, self.to_string()),
-            AppError::ConversionError => (
-                actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-                self.to_string(),
-            ),
-            AppError::Validation(_) => (actix_web::http::StatusCode::BAD_REQUEST, self.to_string()),
-            AppError::Unauthorized(msg) => {
-                (actix_web::http::StatusCode::UNAUTHORIZED, msg.to_string())
-            }
-            AppError::Forbidden => (actix_web::http::StatusCode::FORBIDDEN, self.to_string()),
-            AppError::Conflict => (actix_web::http::StatusCode::CONFLICT, self.to_string()),
-            AppError::RateLimited => (
-                actix_web::http::StatusCode::TOO_MANY_REQUESTS,
-                self.to_string(),
-            ),
+impl AppError {
+    fn status_and_message(&self) -> (StatusCode, String) {
+        match self {
+            AppError::NotFound => (StatusCode::NOT_FOUND, self.to_string()),
+            AppError::ConversionError => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
+            AppError::Validation(_) => (StatusCode::BAD_REQUEST, self.to_string()),
+            AppError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, msg.to_string()),
+            AppError::Forbidden => (StatusCode::FORBIDDEN, self.to_string()),
+            AppError::Conflict => (StatusCode::CONFLICT, self.to_string()),
+            AppError::RateLimited => (StatusCode::TOO_MANY_REQUESTS, self.to_string()),
             AppError::FileUpload(_) | AppError::ExternalApi(_) => {
-                (actix_web::http::StatusCode::BAD_GATEWAY, self.to_string())
+                (StatusCode::BAD_GATEWAY, self.to_string())
             }
-
             AppError::Io(e) => {
-                error!("{:?}", e);
+                error!("IO error: {e:?}");
                 (
-                    actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    StatusCode::INTERNAL_SERVER_ERROR,
                     "Service error".to_string(),
                 )
             }
             AppError::Json(e) => {
-                error!("{:?}", e);
+                error!("JSON error: {e:?}");
                 (
-                    actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    StatusCode::INTERNAL_SERVER_ERROR,
                     "Service error".to_string(),
                 )
             }
             AppError::Internal(e) => {
-                error!("{:?}", e);
+                error!("Internal error: {e:?}");
                 (
-                    actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    StatusCode::INTERNAL_SERVER_ERROR,
                     "Service error".to_string(),
                 )
             }
-
             AppError::BizError(e) => {
-                error!("{:?}", e);
-                (
-                    actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-                    e.to_string(),
-                )
+                error!("Biz error: {e:?}");
+                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
             }
-            e => {
-                error!("{:?}", e);
+            other => {
+                error!("Unhandled error: {other:?}");
                 (
-                    actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    StatusCode::INTERNAL_SERVER_ERROR,
                     "Service error".to_string(),
                 )
             }
-        };
+        }
+    }
+}
 
-        HttpResponse::build(status).json(ErrorResponse {
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        let (status, message) = self.status_and_message();
+        let body = Json(ErrorResponse {
             code: status.as_u16(),
-            message: msg,
-        })
+            message,
+        });
+        (status, body).into_response()
     }
 }

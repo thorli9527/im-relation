@@ -1,17 +1,14 @@
-use crate::grpc_hot_online::auth::{AuthType, DeviceType};
-use crate::grpc_hot_online::client_service::{
-    client_rpc_service_client::ClientRpcServiceClient, ClientEntity, FindByContentReq,
-    RegisterUserReq, UserType,
-};
-use crate::grpc_hot_online::online_service::UpsertSessionTokenRequest;
-use crate::service::client_rpc_service_impl::ClientRpcClients;
+use crate::service::grpc_gateway;
 use crate::service::user_service::{
     SessionTokenInfo, UserLogType, UserRegType, UserService, UserServiceAuthOpt,
 };
-use crate::service::OnlineRpcServiceImpl;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use common::config::AppConfig;
+use common::grpc::grpc_hot_online::online_service::{
+    client_rpc_service_client::ClientRpcServiceClient, AuthType, ClientEntity, DeviceType,
+    FindByContentReq, RegisterUserReq, UpsertSessionTokenRequest, UserType,
+};
 use common::redis::redis_pool::RedisPoolTools;
 use common::util::common_utils::{build_md5_with_key, build_uuid};
 use common::UserId;
@@ -125,9 +122,7 @@ impl UserServiceAuthOpt for UserService {
         let reg_type =
             Self::reg_type_from_login(login_type).ok_or_else(|| anyhow!("Invalid auth type"))?;
 
-        let mut client = ClientRpcClients::get_default()
-            .await
-            .map_err(|e| anyhow!(e.to_string()))?;
+        let mut client = grpc_gateway::get_client_rpc_client().await?;
 
         let mut entity = Self::fetch_client_by_reg_type(&mut client, reg_type, target)
             .await?
@@ -139,9 +134,7 @@ impl UserServiceAuthOpt for UserService {
         }
         entity.password.clear();
 
-        let mut online_client = OnlineRpcServiceImpl::get_default()
-            .await
-            .map_err(|e| anyhow!(e.to_string()))?;
+        let mut online_client = grpc_gateway::get_online_client().await?;
         let token_resp = online_client
             .upsert_session_token(UpsertSessionTokenRequest {
                 user_id: entity.id,
@@ -196,9 +189,7 @@ impl UserServiceAuthOpt for UserService {
         reg_type: &UserRegType,
         target: &str,
     ) -> anyhow::Result<String> {
-        let mut client = ClientRpcClients::get_default()
-            .await
-            .map_err(|e| anyhow!(e.to_string()))?;
+        let mut client = grpc_gateway::get_client_rpc_client().await?;
         let key = &AppConfig::get().sys.clone().unwrap().md5_key.unwrap();
 
         let meta = UserService::ensure_register_target(&mut client, reg_type, name, target).await?;
@@ -257,9 +248,7 @@ impl UserServiceAuthOpt for UserService {
             .await
             .map_err(|e| anyhow!("Failed to delete redis key: {}", e.to_string()))?;
 
-        let mut client = ClientRpcClients::get_default()
-            .await
-            .map_err(|e| anyhow!(e.to_string()))?;
+        let mut client = grpc_gateway::get_client_rpc_client().await?;
         match verify_session.reg_type {
             UserRegType::Phone => {
                 let phone = verify_session

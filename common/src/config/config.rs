@@ -17,7 +17,8 @@ pub struct AppConfig {
     pub database: Option<DatabaseConfig>,
     pub server: Option<ServerConfig>,
     pub sys: Option<SysConfig>,
-    pub grpc: Option<GrpcConfig>,
+    #[serde(alias = "grpc")]
+    pub arb: Option<ArbConfig>,
     pub redis: Option<RedisConfig>,
     pub socket: Option<SocketConfig>,
 }
@@ -96,6 +97,14 @@ impl AppConfig {
     pub fn get_socket(&self) -> SocketConfig {
         self.socket.clone().unwrap_or_default()
     }
+
+    pub fn get_arb(&self) -> ArbConfig {
+        self.arb.clone().unwrap_or_default()
+    }
+
+    pub fn arb(&self) -> Option<&ArbConfig> {
+        self.arb.as_ref()
+    }
     /// 获取单例
     pub fn get() -> Arc<Self> {
         INSTANCE.get().expect("INSTANCE is not initialized").clone()
@@ -109,6 +118,13 @@ pub fn init_log(log_lovel: &str) -> Result<(), AppError> {
     let filter = builder.filter(None, LevelFilter::from_str(log_lovel).unwrap());
     filter.init();
     Ok(())
+}
+
+/// Fetches the optional arbitration access token configured for arbitration-aware gateways.
+pub fn grpc_access_token() -> Option<String> {
+    AppConfig::get()
+        .arb()
+        .and_then(|cfg| cfg.access_token.clone())
 }
 static INSTANCE: OnceCell<Arc<AppConfig>> = OnceCell::new();
 
@@ -134,9 +150,9 @@ pub struct ServerConfig {
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]
-pub struct GrpcConfig {
+pub struct ArbConfig {
     pub server_addr: Option<String>,
-    pub client_addr: Option<String>,
+    pub access_token: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]
@@ -158,4 +174,8 @@ pub struct SocketConfig {
     pub kafka_broker: Option<String>,
     /// Kafka 消费组（优先使用此配置）
     pub kafka_group_id: Option<String>,
+    /// HTTP 服务监听 Host（仲裁同步/健康检查用），缺省继承 server.host。
+    pub http_host: Option<String>,
+    /// HTTP 服务监听端口，缺省为 server.port + 100。
+    pub http_port: Option<u16>,
 }

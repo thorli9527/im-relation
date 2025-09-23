@@ -3,30 +3,25 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::grpc_arb::arb_server::arb_client_rpc_service_server::ArbClientRpcServiceServer;
-use crate::grpc_arb::arb_server::NodeType;
-use crate::grpc_arb_client::integration;
-use crate::grpc_arb_client::server::ArbClientImpl;
-use crate::grpc_msg_group::group_service::group_service_server::GroupServiceServer;
-use crate::grpc_msg_group::group_service_impl::GroupServiceImpl;
 use crate::hot_cold::{HotColdConfig, HotColdFacade};
 use crate::member::shard_map::ShardMap;
 use crate::profile::{GroupProfileCache, MySqlGroupProfileStore};
+use crate::service::group_service_impl::GroupServiceImpl;
 use crate::store::mysql::MySqlStore;
 use anyhow::{anyhow, Context, Result};
 use axum::{routing::get, Json, Router};
+use common::arb::{ArbHttpClient, BaseRequest, NodeType, RegisterRequest};
 use common::config::{get_db, AppConfig};
+use common::grpc::grpc_hot_group::group_service::group_service_server::GroupServiceServer;
+use common::service::arb_client;
 use log::{info, warn};
-use tokio::signal;
+use tokio::{signal, time};
 use tonic::service::Routes;
 use tonic::transport::Server;
 
 pub async fn start() -> Result<()> {
     let cfg = AppConfig::get();
-    let grpc_cfg = cfg
-        .grpc
-        .as_ref()
-        .ok_or_else(|| anyhow!("grpc config missing"))?;
+    let arb_cfg = cfg.arb().ok_or_else(|| anyhow!("arb config missing"))?;
     let http_cfg = cfg
         .server
         .as_ref()
@@ -36,19 +31,7 @@ pub async fn start() -> Result<()> {
         .parse()
         .with_context(|| format!("invalid http host:port: {}", bind_addr_str))?;
 
-    if let Some(client_addr) = &grpc_cfg.client_addr {
-        if client_addr != &bind_addr_str {
-            warn!(
-                "grpc.client_addr ({}) != server host:port ({}); using HTTP port for binding",
-                client_addr, bind_addr_str
-            );
-        }
-    } else {
-        warn!(
-            "grpc.client_addr missing; defaulting to HTTP port {} for registration",
-            bind_addr_str
-        );
-    }
+    let client_addr = bind_addr_str.clone();
 
     let hot_mem_model = crate::hot_capacity::HotMemModel {
         bytes_per_member: env_parse("HOT_BYTES_PER_MEMBER", 128usize),
@@ -101,14 +84,25 @@ pub async fn start() -> Result<()> {
         hot_capacity, hot_tti_secs, shard_count, per_group_shard, debug_line
     );
 
-    integration::start(NodeType::GroupNode).await?;
+    if let Some(server_addr) = &arb_cfg.server_addr {
+        let arb_http = ArbHttpClient::new(server_addr.clone(), arb_cfg.access_token.clone())?;
+        arb_http
+            .register_node(&RegisterRequest {
+                node_addr: client_addr.clone(),
+                node_type: NodeType::GroupNode as i32,
+                kafka_addr: None,
+            })
+            .await?;
+
+        spawn_heartbeat(arb_http.clone(), client_addr.clone());
+    }
 
     let svc_impl = GroupServiceImpl::new(facade.clone(), profile_cache.clone());
     let svc = GroupServiceServer::new(svc_impl);
     let rest_router = Router::new().route("/healthz", get(healthz));
 
-    let mut routes =
-        Routes::new(svc).add_service(ArbClientRpcServiceServer::new(ArbClientImpl::default()));
+    let mut routes = Routes::new(svc);
+    arb_client::attach_http_gateway(&mut routes);
 
     let router_slot = routes.axum_router_mut();
     *router_slot = mem::take(router_slot).fallback_service(rest_router);
@@ -138,4 +132,23 @@ where
         .ok()
         .and_then(|s| s.parse::<T>().ok())
         .unwrap_or(default)
+}
+
+fn spawn_heartbeat(client: ArbHttpClient, node_addr: String) {
+    tokio::spawn(async move {
+        let mut interval = time::interval(Duration::from_secs(10));
+        loop {
+            interval.tick().await;
+            if let Err(err) = client
+                .heartbeat(&BaseRequest {
+                    node_addr: node_addr.clone(),
+                    node_type: NodeType::GroupNode as i32,
+                })
+                .await
+            {
+                warn!("arb heartbeat failed: {}", err);
+                time::sleep(Duration::from_secs(3)).await;
+            }
+        }
+    });
 }

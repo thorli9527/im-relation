@@ -1,0 +1,338 @@
+syntax = "proto3";
+
+// 包名（生成代码时会对应到命名空间）
+package group_service;
+
+// ---------------------- 基础类型与模型 ----------------------
+
+// -----------------------------------------------------------------------------
+// hot_group_service::group_service.proto
+//
+// 说明：
+//  - 该 proto 定义了“热存储”服务暴露的 gRPC 接口，所有成员增删改查都在此处完成；
+//  - 字段注释覆盖关键业务语义，便于调用方（msg_group、管理后台、控制台等）生成联机文档；
+//  - 每个字段都紧贴热层真实结构（MySQL 按位枚举、成员别名可选、时间戳单位等）。
+// -----------------------------------------------------------------------------
+
+// 群成员角色类型（与数据库/内存中的角色编码对齐）
+enum GroupRoleType {
+  // 群主
+  Owner  = 0;
+  // 管理员
+  Admin  = 1;
+  // 普通成员
+  Member = 2;
+}
+/**
+ * 加群权限控制类型
+ */
+enum JoinPermission {
+  // 任何人可加入
+  ANYONE = 0;
+  // 加群需审批
+  NEED_APPROVAL = 1;
+  // 仅允许邀请加入
+  INVITE_ONLY = 2;
+  // 不允许加入
+  CLOSED = 3;
+}
+/**
+ * 群组类型
+ */
+enum GroupType {
+  // 未知
+  UNKNOWN_GROUP_TYPE = 0;
+  // 普通群组
+  NORMAL_GROUP = 1;
+  // 超级群组
+  SUPER_GROUP = 2;
+  // 系统群组
+  SYSTEM_GROUP = 3;
+}
+
+// 群成员引用信息
+message MemberRef {
+  // 成员用户ID
+  int64 id = 1;
+  // 群内别名（可选，不传或空表示无别名）
+  optional string alias = 2;
+  // 成员角色（0=Owner, 1=Admin, 2=Member）
+  GroupRoleType role = 3;
+}
+
+// ---------------------- 成员增删改 ----------------------
+
+// 插入单个成员
+message InsertReq {
+  // 群组ID
+  int64 group_id = 1;
+  // 要添加的成员信息（可携带 alias）
+  MemberRef member = 2;
+}
+message InsertResp {}
+
+// 批量插入成员
+message InsertManyReq {
+  // 群组ID
+  int64 group_id = 1;
+  // 成员列表（成员可各自携带 alias）
+  repeated MemberRef members = 2;
+}
+message InsertManyResp {}
+
+// 移除成员
+message RemoveReq {
+  // 群组ID
+  int64 group_id = 1;
+  // 要移除的用户ID
+  int64 user_id = 2;
+}
+message RemoveResp {
+  // 是否实际删除成功（false 表示成员不存在）
+  bool removed = 1;
+}
+
+// 修改成员角色
+message ChangeRoleReq {
+  // 群组ID
+  int64 group_id = 1;
+  // 用户ID
+  int64 user_id = 2;
+  // 新角色（0/1/2）
+  GroupRoleType role = 3;
+}
+message ChangeRoleResp {}
+
+// 修改成员别名（新增）
+message ChangeAliasReq {
+  // 群组ID
+  int64 group_id = 1;
+  // 用户ID
+  int64 user_id = 2;
+  // 新别名（为空或不传表示清空别名）
+  optional string alias = 3;
+}
+message ChangeAliasResp {}
+
+// ---------------------- 成员查询 ----------------------
+
+// 分页获取群成员
+message GetPageReq {
+  // 群组ID
+  int64 group_id = 1;
+  // 页码（从 0 或 1 开始，取决于实现）
+  uint64 page = 2;
+  // 每页成员数量
+  uint64 page_size = 3;
+}
+message GetPageResp {
+  // 成员列表（包含 alias）
+  repeated MemberRef members = 1;
+}
+
+// 获取群内全部成员
+message GetAllReq {
+  // 群组ID
+  int64 group_id = 1;
+}
+message GetAllResp {
+  // 成员列表（包含 alias）
+  repeated MemberRef members = 1;
+}
+
+/// 获取群管理员列表（包含群主与管理员角色）
+message GetManagersReq {
+  int64 group_id = 1;
+}
+message GetManagersResp {
+  repeated MemberRef managers = 1;
+}
+
+// 获取群成员数量
+message CountReq {
+  // 群组ID
+  int64 group_id = 1;
+}
+message CountResp {
+  // 成员总数
+  uint64 count = 1;
+}
+
+// ---------------------- 跨群查询 ----------------------
+
+// 获取用户所在的所有群组
+message UserGroupsReq {
+  // 用户ID
+  int64 user_id = 1;
+}
+message UserGroupsResp {
+  // 群组ID列表
+  repeated int64 group_ids = 1;
+}
+
+// 获取所有群组ID（全局）
+message AllKeysReq {}
+message AllKeysResp {
+  // 群组ID列表
+  repeated int64 group_ids = 1;
+}
+
+// 按分片索引获取群组ID
+message AllKeysByShardReq {
+  // 分片下标（与服务器分片数匹配）
+  uint64 shard_idx = 1;
+}
+message AllKeysByShardResp {
+  // 群组ID列表
+  repeated int64 group_ids = 1;
+}
+
+// ---------------------- 群管理 ----------------------
+
+// 清空群成员
+message ClearReq {
+  // 群组ID
+  int64 group_id = 1;
+}
+message ClearResp {}
+/**
+ * 通用响应
+ */
+message CommonResp {
+  // 是否成功
+  bool success = 1;
+  // 提示或错误信息
+  string message = 2;
+}
+
+/**
+ * ID 请求
+ */
+message IdReq {
+  // 引用ID（用户ID、群ID等）
+  int64 ref_id = 1;
+}
+
+/**
+ * 创建群组请求
+ * 用于创建一个新群组，由 creator_uid 发起。
+ */
+message CreateGroupReq {
+  // 消息唯一 ID（用于日志追踪、幂等等）
+  int64 id = 1;
+  // 创建者的用户 ID，自动成为群主
+  int64 creator_uid = 2;
+  // 群名称
+  string name = 3;
+  // 初始群成员 UID 列表（不包含自己）
+  repeated int64 members = 4;
+  // 群头像（可选）
+  optional string avatar = 5;
+  // 群简介（可选）
+  optional string intro = 6;
+}
+
+/**
+ * 修改群资料请求
+ * 包括名称、头像、简介的更新，操作者需要有权限（如群主、管理员）。
+ */
+message UpdateGroupProfileReq {
+  // 操作者 UID（必须具备权限）
+  int64 operator_uid = 2;
+  // 目标群 ID
+  int64 group_id = 3;
+  // 新的群名称（可选）
+  optional string name = 4;
+  // 新头像（可选）
+  optional string avatar = 5;
+  // 新简介（可选）
+  optional string intro = 6;
+}
+/**
+ * 解散群请求
+ * 仅群主可调用该接口，执行后群组彻底删除。
+ */
+message DismissGroupReq {
+  int64 id = 1;
+  // 群主 UID
+  int64 owner_uid = 2;
+  int64 group_id = 3;
+}
+
+
+message GroupInfo {
+  // 群ID
+  int64 id = 1;
+  // 群名称
+  string name = 2;
+  // 群头像
+  string avatar = 3;
+  // 群简介
+  string description = 4;
+  // 群公告
+  string notice = 5;
+  // 加群权限
+  JoinPermission join_permission = 6;
+  // 群主ID
+  int64 owner_id = 7;
+  // 群类型
+  GroupType group_type = 8;
+  // 是否可搜索
+  bool allow_search = 9;
+  // 是否启用
+  bool enable = 10;
+  // 创建时间
+  uint64 create_time = 11;
+  // 更新时间
+  uint64 update_time = 12;
+  // 群成员数量
+  uint32 member_cnt=13;
+}
+// ---------------------- 服务定义 ----------------------
+
+// 群组服务接口定义：提供群成员增删改查、跨群查询、分片管理等能力。
+//
+// 设计要点：
+//  - 所有写操作都以成员热层为准，成功后异步写穿冷存；
+//  - 查询接口区分分页/全量/管理员列表，避免一次性拉取过大数据；
+//  - Clear/AllKeys 等接口主要给治理工具使用，普通业务通常无需调用。
+service GroupService {
+  // 创建群组：写入热层并写穿冷存，将 creator 注册为群主，其余成员默认普通成员。
+  rpc CreateGroup(CreateGroupReq) returns (CommonResp);
+  // 更新群资料：变更名称、头像或简介，要求操作者具备 Owner/Admin 权限。
+  rpc UpdateGroupProfile(UpdateGroupProfileReq) returns (CommonResp);
+  // 查询群资料：返回 GroupInfo 快照（含基础配置与成员数量）。
+  rpc GetGroup(IdReq) returns (GroupInfo);
+  // 解散群：仅群主可调用，移除所有成员并关闭群。
+  rpc DismissGroup(DismissGroupReq) returns (CommonResp);
+  // 添加单个成员：通常由 admin/owner 邀请或业务批量导入触发。
+  rpc Insert(InsertReq) returns (InsertResp);
+  // 批量添加成员：建议用于初始化导入或同步场景，内部自动去重。
+  rpc InsertMany(InsertManyReq) returns (InsertManyResp);
+  // 移除成员：踢人或退群，经由热层同步清理索引。
+  rpc Remove(RemoveReq) returns (RemoveResp);
+  // 修改成员角色：Owner 可调整成员权限（含升降级）。
+  rpc ChangeRole(ChangeRoleReq) returns (ChangeRoleResp);
+  // 修改成员别名：支持新增或清空群内备注。
+  rpc ChangeAlias(ChangeAliasReq) returns (ChangeAliasResp);
+  // 分页获取群成员：按 user_id 升序分页，适用于大群定向展示。
+  rpc GetPage(GetPageReq) returns (GetPageResp);
+  // 获取群全部成员：返回完整列表，适合后台批量导出（注意大群使用）。
+  rpc GetAll(GetAllReq) returns (GetAllResp);
+  // 获取管理员列表：返回群主与管理员集合，常用于审批通知。
+  rpc GetManagers(GetManagersReq) returns (GetManagersResp);
+  // 获取成员数量：返回当前统计值。
+  rpc Count(CountReq) returns (CountResp);
+
+  // 查询用户加入的群：用于个人群列表、同步校验等场景。
+  rpc UserGroups(UserGroupsReq) returns (UserGroupsResp);
+
+  // 拉取全部群 ID：治理/运维任务使用，通常配合分页或分片。
+  rpc AllKeys(AllKeysReq) returns (AllKeysResp);
+
+  // 按分片拉取群 ID：配合 shard 信息执行分布式任务。
+  rpc AllKeysByShard(AllKeysByShardReq) returns (AllKeysByShardResp);
+
+  // 清空群成员：敬请慎用，主要面向治理或重置流程。
+  rpc Clear(ClearReq) returns (ClearResp);
+}

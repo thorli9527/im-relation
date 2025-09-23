@@ -1,3 +1,5 @@
+//! 好友消息相关的数据访问模块。
+
 pub mod device_keys;
 pub mod friend_requests;
 pub mod messages;

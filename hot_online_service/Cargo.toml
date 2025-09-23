@@ -21,7 +21,7 @@ dashmap.workspace = true
 smallvec.workspace = true
 parking_lot.workspace = true
 roaring.workspace = true
-axum = { version = "0.7.9", features = ["macros"] }
+axum.workspace = true
 sqlx.workspace = true
 moka = { version = "0.12.10", default-features = false, features = ["future"] }
 singleflight={ version = "0.3.0"}

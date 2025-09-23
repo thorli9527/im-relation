@@ -10,8 +10,8 @@ use common::config::get_db;
 use common::util::common_utils::build_snow_id;
 
 use crate::db::traits::{ClientReadRepo, DirectoryReadRepo};
-use crate::grpc_hot_online::client_service::client_rpc_service_server::ClientRpcService;
-use crate::grpc_hot_online::client_service::{
+use crate::grpc_hot_online::online_service::client_rpc_service_server::ClientRpcService;
+use crate::grpc_hot_online::online_service::{
     ChangeEmailReq, ChangePasswordReq, ChangePhoneReq, ChangeResponse, ClientEntity,
     FindByContentReq, FindClientDto, GetClientReq, RegisterUserReq, UpdateClientReq,
 };

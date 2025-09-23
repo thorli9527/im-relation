@@ -1,5 +1,4 @@
-use crate::grpc_hot_online::auth::DeviceType;
-use crate::grpc_hot_online::client_service::ClientEntity;
+use crate::grpc_hot_online::online_service::{ClientEntity, DeviceType};
 // hot_online_service/src/member/traits.rs
 use anyhow::Result;
 use async_trait::async_trait;

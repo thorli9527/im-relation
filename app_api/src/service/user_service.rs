@@ -56,9 +56,8 @@ pub enum ResetPasswordType {
     Email = 2,
 }
 
-use crate::grpc_hot_online::auth::{AuthType, DeviceType};
-use crate::grpc_hot_online::client_service::ClientEntity;
 use async_trait::async_trait;
+use common::grpc::grpc_hot_online::online_service::{AuthType, ClientEntity, DeviceType};
 use common::UserId;
 use once_cell::sync::OnceCell;
 use std::sync::Arc;

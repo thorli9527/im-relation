@@ -2,7 +2,7 @@ use parking_lot::RwLock;
 use roaring::RoaringTreemap as RB64;
 use std::collections::HashMap;
 
-use crate::grpc_msg_group::group_service::{GroupRoleType, MemberRef};
+use common::grpc::grpc_hot_group::group_service::{GroupRoleType, MemberRef};
 use common::{MemberListError, UserId};
 
 #[derive(Debug, Default)]
@@ -252,6 +252,38 @@ impl MemberListWrapper {
                 role: Self::role_to_i32(role),
             });
         }
+        out
+    }
+
+    /// 仅导出管理角色（群主 + 管理员）。
+    pub fn get_managers(&self) -> Vec<MemberRef> {
+        let o = self.owners.read();
+        let a = self.admins.read();
+        let al = self.aliases.read();
+
+        let mut out = Vec::with_capacity(o.len() as usize + a.len() as usize);
+
+        for uid in o.iter() {
+            let alias = al.get(&uid).cloned();
+            out.push(MemberRef {
+                id: uid as i64,
+                alias,
+                role: GroupRoleType::Owner as i32,
+            });
+        }
+
+        for uid in a.iter() {
+            if o.contains(uid) {
+                continue;
+            }
+            let alias = al.get(&uid).cloned();
+            out.push(MemberRef {
+                id: uid as i64,
+                alias,
+                role: GroupRoleType::Admin as i32,
+            });
+        }
+
         out
     }
 

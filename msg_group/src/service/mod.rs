@@ -1,5 +1,9 @@
-pub mod biz;
-pub mod msg;
+//! 对外暴露的业务服务实现。
 
-pub use biz::GroupBizServiceImpl;
-pub use msg::GroupMsgServiceImpl;
+pub mod group_biz_service;
+pub mod group_msg_service;
+
+pub mod hot_group_client;
+
+pub use group_biz_service::GroupBizServiceImpl;
+pub use group_msg_service::GroupMsgServiceImpl;

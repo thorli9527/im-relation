@@ -1,21 +1,18 @@
-//! Web (HTTP/WebSocket) and gRPC (arb client) server entry
+//! Web (HTTP/WebSocket) and arbitration sync entrypoints.
 
+use std::net::SocketAddr;
+
+use anyhow::Result;
+use common::service::arb_client;
 use log::info;
 
-/// Start the Web server at `bind`.
-/// Swap in your preferred framework (Axum, Actix, etc.).
-pub async fn start_web_server(bind: &str) -> anyhow::Result<()> {
-    let addr: std::net::SocketAddr = bind.parse()?;
-    // Placeholder; integrate a real HTTP router here.
-    // 当前仅输出日志，保持接口契约，后续可替换为真实 HTTP/WebSocket 服务。
-    info!("Web server placeholder bound: {}", addr);
+/// Start the lightweight HTTP server that exposes `/arb/server/sync`.
+///
+/// Delegates to the shared helper in `common::service::arb_client`, which spawns an Axum server
+/// handling arb-sync callbacks. Additional HTTP/WebSocket routes can be layered here later on.
+pub async fn start_web_server(bind: &str) -> Result<()> {
+    let addr: SocketAddr = bind.parse()?;
+    info!("arb sync HTTP server listening on {}", addr);
+    arb_client::start_arb_client_server(bind).await?;
     Ok(())
 }
-
-/// Start the gRPC Arb client server (arb_service push endpoint).
-/// This exposes `ArbClientRpcService` so arb_service can notify this node.
-pub async fn start_arb_client_grpc(bind: &str) -> anyhow::Result<()> {
-    crate::grpc_arb_client::server::start_arb_client_server(bind).await
-}
-
-// 说明：合并同端口（Web+gRPC）的兼容入口已移除，按需分别启动。

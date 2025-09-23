@@ -1,3 +1,4 @@
+pub mod arb;
 pub mod config;
 pub mod errors;
 pub mod grpc;
@@ -5,6 +6,7 @@ pub mod kafka;
 pub mod node_util;
 pub mod redis;
 pub mod result;
+pub mod service;
 pub mod util;
 // note: message.proto moved to service crates
 use thiserror::Error;

@@ -7,30 +7,19 @@
 //! - 这里仅负责基础设施启动；WebSocket 连接建立/读写建议在 web 层调用
 //!   `SessionManager::register/on_client_msg/unregister` 三个方法进行集成。
 
-// 旧 grpc 模块已移除，改用分类模块
-mod grpc_arb;
-mod grpc_arb_client;
-mod grpc_hot_friend;
-mod grpc_hot_online;
-mod grpc_msg_friend;
-mod grpc_msg_group;
-pub mod proto;
 mod server;
 pub mod service;
 pub mod util; // new unified server module
-use crate::grpc_arb::arb_server::NodeType;
-use crate::grpc_arb_client::integration;
-use crate::grpc_arb_client::server::start_arb_client_server;
 
 use common::config::AppConfig;
 use service::{start_socket_pipeline, MultiLoginPolicy, SessionManager, SessionPolicy};
+use std::env;
 use tokio::signal;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // 加载配置（支持 APP_CONFIG 环境变量覆盖配置文件路径）
     let _cfg = AppConfig::init_from_env("./config-socket.toml").await;
-    let cfg = AppConfig::get();
     // 初始化会话管理策略：默认“每设备类型单端 + 最大 5 会话/用户”
     let policy = SessionPolicy {
         multi_login: MultiLoginPolicy::SinglePerDeviceType,
@@ -38,20 +27,31 @@ async fn main() -> anyhow::Result<()> {
     };
     let _sm = SessionManager::init(policy);
 
-    let grpc_cfg = cfg
-        .grpc
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("grpc config missing"))?;
-    let client_addr = grpc_cfg
-        .client_addr
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("grpc.client_addr missing"))?;
+    let cfg = AppConfig::get();
+    let server_cfg = cfg.get_server();
+    let socket_cfg = cfg.get_socket();
 
-    start_arb_client_server(client_addr).await?;
-    integration::start(NodeType::SocketNode).await?;
+    let tcp_host = server_cfg.host.clone();
+    let tcp_port = server_cfg.port;
+    let tcp_bind = format!("{}:{}", tcp_host, tcp_port);
+
+    let http_host = socket_cfg
+        .http_host
+        .clone()
+        .unwrap_or_else(|| tcp_host.clone());
+    let default_http_port = tcp_port.saturating_add(100);
+    let http_port = socket_cfg.http_port.unwrap_or(default_http_port);
+    let http_bind = format!("{}:{}", http_host, http_port);
+
+    // HTTP server handles arb sync callbacks and optional future Web/WebSocket endpoints.
+    server::server_web::start_web_server(&http_bind).await?;
 
     // 启动 TCP 监听（长度前缀 JSON 协议，端口来自配置文件）
     server::start_tcp_server().await?;
+
+    let advertise_http = env::var("SOCKET_HTTP_ADDR").unwrap_or_else(|_| http_bind.clone());
+    let advertise_tcp = env::var("SOCKET_TCP_ADDR").unwrap_or_else(|_| tcp_bind.clone());
+    server::server_arb::register_with_arb(&advertise_http, &advertise_tcp).await?;
 
     // 启动消费/分发流水线：Kafka → mpsc 分片 → SessionManager
     start_socket_pipeline().await?;

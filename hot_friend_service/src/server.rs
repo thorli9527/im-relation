@@ -3,29 +3,24 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::grpc_arb::arb_server::arb_client_rpc_service_server::ArbClientRpcServiceServer;
-use crate::grpc_arb::arb_server::NodeType;
-use crate::grpc_arb_client::integration;
-use crate::grpc_arb_client::server::ArbClientImpl;
-use crate::grpc_hot_friend::friend_service::friend_service_server::FriendServiceServer;
 use crate::hot_cold::HotColdFriendFacade;
 use crate::service::friend_service_impl::FriendServiceImpl;
 use crate::store::mysql::FriendStorage;
 use anyhow::{anyhow, Context, Result};
 use axum::{routing::get, Json, Router};
+use common::arb::{ArbHttpClient, BaseRequest, NodeType, RegisterRequest};
 use common::config::{get_db, AppConfig};
+use common::grpc::grpc_hot_friend::friend_service::friend_service_server::FriendServiceServer;
+use common::service::arb_client;
 use common::UserId;
 use log::warn;
-use tokio::signal;
+use tokio::{signal, time};
 use tonic::service::Routes;
 use tonic::transport::Server;
 
 pub async fn start() -> Result<()> {
     let cfg = AppConfig::get();
-    let grpc_cfg = cfg
-        .grpc
-        .as_ref()
-        .ok_or_else(|| anyhow!("grpc config missing"))?;
+    let arb_cfg = cfg.arb().ok_or_else(|| anyhow!("arb config missing"))?;
     let http_cfg = cfg
         .server
         .as_ref()
@@ -35,19 +30,7 @@ pub async fn start() -> Result<()> {
         .parse()
         .with_context(|| format!("invalid http host:port: {}", bind_addr_str))?;
 
-    if let Some(client_addr) = &grpc_cfg.client_addr {
-        if client_addr != &bind_addr_str {
-            warn!(
-                "grpc.client_addr ({}) != server host:port ({}); using HTTP port for binding",
-                client_addr, bind_addr_str
-            );
-        }
-    } else {
-        warn!(
-            "grpc.client_addr missing; defaulting to HTTP port {} for registration",
-            bind_addr_str
-        );
-    }
+    let client_addr = bind_addr_str.clone();
 
     let avg_key_bytes = std::mem::size_of::<UserId>();
     let avg_value_bytes = env_parse("AVG_VALUE_BYTES", 256usize);
@@ -72,7 +55,6 @@ pub async fn start() -> Result<()> {
     let plan: crate::autotune::CacheAutoTune = crate::autotune::auto_tune_cache(&tune_cfg);
 
     let pool = get_db();
-    // crate::db::apply_schema_from_ddl(&pool, include_str!("../migrations/mysql_schema.sql")).await?;
 
     let storage = Arc::new(FriendStorage::from_pool(pool.clone()));
     let facade = Arc::new(HotColdFriendFacade::new(
@@ -104,16 +86,28 @@ pub async fn start() -> Result<()> {
         Json(serde_json::json!({"ok": true}))
     }
 
-    integration::start(NodeType::FriendNode).await?;
-
     let svc = FriendServiceImpl::<FriendStorage> { facade };
     let rest_router = Router::new().route("/healthz", get(healthz));
 
-    let mut routes = Routes::new(FriendServiceServer::new(svc))
-        .add_service(ArbClientRpcServiceServer::new(ArbClientImpl::default()));
+    let mut routes = Routes::new(FriendServiceServer::new(svc));
+    arb_client::attach_http_gateway(&mut routes);
 
     let router_slot = routes.axum_router_mut();
     *router_slot = mem::take(router_slot).fallback_service(rest_router);
+
+    if let Some(server_addr) = &arb_cfg.server_addr {
+        let arb_http = ArbHttpClient::new(server_addr.clone(), arb_cfg.access_token.clone())?;
+        arb_http
+            .register_node(&RegisterRequest {
+                node_addr: client_addr.clone(),
+                node_type: NodeType::FriendNode as i32,
+                kafka_addr: None,
+            })
+            .await?;
+        spawn_heartbeat(arb_http.clone(), client_addr.clone());
+    } else {
+        warn!("arb.server_addr missing; skip arb registration");
+    }
 
     Server::builder()
         .accept_http1(true)
@@ -137,4 +131,23 @@ where
         .ok()
         .and_then(|s| s.parse::<T>().ok())
         .unwrap_or(default)
+}
+
+fn spawn_heartbeat(client: ArbHttpClient, node_addr: String) {
+    tokio::spawn(async move {
+        let mut interval = time::interval(Duration::from_secs(10));
+        loop {
+            interval.tick().await;
+            if let Err(err) = client
+                .heartbeat(&BaseRequest {
+                    node_addr: node_addr.clone(),
+                    node_type: NodeType::FriendNode as i32,
+                })
+                .await
+            {
+                warn!("arb heartbeat failed: {}", err);
+                time::sleep(Duration::from_secs(3)).await;
+            }
+        }
+    });
 }

@@ -16,9 +16,9 @@ use log::{debug, error, info};
 use moka::sync::{Cache, CacheBuilder};
 use tokio::{runtime::Handle, time::sleep};
 
-use crate::grpc_msg_group::group_service::{GroupRoleType, MemberRef};
 use crate::member::shard_map::ShardMap;
 use crate::store::GroupStorage;
+use common::grpc::grpc_hot_group::group_service::{GroupRoleType, MemberRef};
 use common::{GroupId, MemberListError, UserId};
 
 /// 运行参数
@@ -316,6 +316,11 @@ impl<S: GroupStorage> HotColdFacade<S> {
     pub async fn get_all(&self, gid: GroupId) -> Vec<MemberRef> {
         let _ = self.ensure_hot(gid).await;
         self.map.get_member_by_key(gid)
+    }
+
+    pub async fn get_managers(&self, gid: GroupId) -> Result<Vec<MemberRef>> {
+        self.ensure_hot(gid).await?;
+        Ok(self.map.get_managers_by_key(gid))
     }
 
     pub async fn count(&self, gid: GroupId) -> usize {

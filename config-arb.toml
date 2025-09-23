@@ -1,5 +1,3 @@
-[grpc]
-server_addr = "127.0.0.1:9000"
 [server]
 host = "127.0.0.1"
 port = 8000

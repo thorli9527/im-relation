@@ -21,7 +21,7 @@
 
 ## 快速开始
 
-已添加 `Makefile` 与 `rust-toolchain.toml`，推荐通过 `make` 快速操作：
+仓库固定使用 Rust `1.90.0`（见 `rust-toolchain.toml`），请确保本地安装对应工具链。已提供 `Makefile`，推荐通过 `make` 快速操作：
 
 ```bash
 # 构建（debug 模式）
@@ -72,6 +72,14 @@ make run-main
 
 - 格式化：`make fmt`（使用 `rustfmt`）
 - 静态检查：`make clippy`（开启 `-D warnings`）
+
+## Typing 状态接入说明
+
+- Socket 层现已支持好友与群聊的 `Typing` 状态。
+- 服务端在接收到 `Typing` 消息后，会在 5 秒 TTL 内保持状态并广播给目标用户/群在线会话，无需客户端 ACK。
+- 若 5 秒内未再收到更新，会自动下发 `TYPING_NONE` 状态，客户端需据此清理 UI。
+- 客户端应至多每秒上报 5 次 `Typing`，超出频率会被限流丢弃。
+- 群聊需在 `notify_user_ids` 中包含需通知的成员 ID，服务端会自动补齐发送者自身。
 
 ## 忽略文件
 

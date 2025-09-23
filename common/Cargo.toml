@@ -4,7 +4,6 @@ version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-actix-web.workspace = true
 # ========================
 # 🗄 数据库与缓存
 # ========================
@@ -33,6 +32,8 @@ futures.workspace = true
 anyhow.workspace = true                        # 错误处理工具
 once_cell.workspace = true                     # 静态懒加载
 thiserror.workspace = true
+axum.workspace = true
+reqwest.workspace = true
 # ========================
 # 🔧 序列化、验证、工具
 # ========================
@@ -43,6 +44,7 @@ rand = "0.9.1"                                  # 随机数生成器
 twox-hash.workspace = true                     # 高效 HashMap 用哈希函数
 sha1.workspace = true                          # SHA-1 哈希函数
 bytes = "1.10.1"                                # 字节缓存处理
+serde_bytes = "0.11.14"
 
 # ========================
 # 📘 OpenAPI 文档生成
@@ -64,7 +66,6 @@ num_enum.workspace = true                      # 数值枚举转换支持
 tonic.workspace = true
 prost-types.workspace = true
 tracing.workspace = true
-actix-service.workspace = true
 config = { workspace = true }
 deadpool-redis.workspace = true
 env_logger.workspace = true

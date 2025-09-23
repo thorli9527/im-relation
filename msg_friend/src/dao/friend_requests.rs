@@ -1,22 +1,35 @@
+//! 好友申请相关的数据访问函数。
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool, Row};
 
+/// 好友申请记录结构。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FriendRequestRow {
+    /// 申请 ID（雪花或外部生成）。
     pub id: i64,
+    /// 发起申请的用户。
     pub from_user_id: i64,
+    /// 接收申请的用户。
     pub to_user_id: i64,
+    /// 申请理由。
     pub reason: String,
+    /// 来源枚举（例如扫码、手机号等）。
     pub source: i32,
+    /// 创建时间戳（毫秒）。
     pub created_at: i64,
+    /// 审批时间（毫秒）。
     pub decided_at: Option<i64>,
+    /// 审批结果。
     pub accepted: Option<bool>,
+    /// 申请备注（可能由申请人填写）。
     pub remark: Option<String>,
 }
 
-// 表结构迁移已移动至 migrations/mysql_schema.sql
+// 表结构迁移已移动至 migrations/mysql_schema.sql。
 
+/// 插入或更新好友申请记录。
 pub async fn upsert_friend_request(pool: &Pool<MySql>, row: &FriendRequestRow) -> Result<u64> {
     let r = sqlx::query(
         r#"REPLACE INTO friend_requests
@@ -37,6 +50,7 @@ pub async fn upsert_friend_request(pool: &Pool<MySql>, row: &FriendRequestRow) -
     Ok(r.rows_affected())
 }
 
+/// 根据申请 ID 查询记录。
 pub async fn get_friend_request_by_id(
     pool: &Pool<MySql>,
     req_id: i64,
@@ -61,6 +75,7 @@ pub async fn get_friend_request_by_id(
     }))
 }
 
+/// 记录审批结果（接受/拒绝）。
 pub async fn mark_friend_request_decision(
     pool: &Pool<MySql>,
     req_id: i64,

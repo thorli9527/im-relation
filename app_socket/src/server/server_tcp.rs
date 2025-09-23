@@ -1,4 +1,3 @@
-//! TCP 服务器实现（由 `tcp.rs` 迁移重构）
 //!
 //! 线路与协议：
 //! - 传输：`tokio` TCP + `LengthDelimitedCodec`（长度前缀帧）；
@@ -18,11 +17,13 @@ use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
-use crate::grpc_hot_online::online_service::{SessionTokenStatus, ValidateSessionTokenRequest};
-use crate::proto as socketpb;
+use common::grpc::grpc_socket::socket as socket_proto;
 use crate::service::grpc_clients;
 use crate::util::node_util::resolve_hot_online_addr;
-use socketpb::{
+use common::grpc::grpc_hot_online::online_service::{
+    SessionTokenStatus, ValidateSessionTokenRequest,
+};
+use socket_proto::{
     AuthMsg as PbAuthMsg, ClientMsg as PbClientMsg, DeviceType as PbDeviceType,
     MsgKind as PbMsgKind, ServerMsg as PbServerMsg,
 };

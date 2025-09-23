@@ -1,3 +1,6 @@
+[arb]
+server_addr = "127.0.0.1:8000"
+# access_token = "change-me"  # 可选：如仲裁服务启用鉴权
 [server]
 host = "0.0.0.0"
 port = 9600
@@ -16,3 +19,5 @@ dispatch_cap = 10000
 # Kafka 参数（建议配置文件统一管理，移除 env 依赖）
 kafka_broker = "127.0.0.1:9092"
 kafka_group_id = "socket-dispatcher"
+# HTTP 服务端口（用于 /arb/server/sync），缺省 server.port + 100
+http_port = 9700

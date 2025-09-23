@@ -744,9 +744,15 @@ enum TypingState {
 // 正在输入
 message Typing {
   int64 from_user_id = 1;
-  int64 to_user_id = 2;
   TypingState state = 3;
   int64 at = 4;
+
+  oneof target {
+    int64 to_user_id = 2;
+    int64 group_id = 5;
+  }
+
+  repeated int64 notify_user_ids = 6;
 }
 
 // ===============
@@ -771,31 +777,3 @@ message EncryptedContent {
   // 发送方本地单调消息序号（防重放/乱序）
   uint64 msg_no = 7;
 }
-
-//好友通信 所有服务
-// FriendMsgService 已迁移至 msg_friend/proto/friend.proto
-
-//群组通信 所有服务
-service GroupMsgService {
-  // 发送消息
-  rpc SendMessage(Content) returns (google.protobuf.Empty);
-  // 群消息已读上报
-  rpc ReportMsgRead(MsgRead) returns (google.protobuf.Empty);
-  // 群消息送达回执确认
-  rpc AckMsgDelivered(MsgDeliveredAck) returns (google.protobuf.Empty);
-  // 群消息已读回执确认
-  rpc AckMsgRead(MsgReadAck) returns (google.protobuf.Empty);
-  // 群消息撤回
-  rpc RecallMsg(MsgRecall) returns (google.protobuf.Empty);
-  // 群消息转发
-  rpc ForwardMsg(MsgForward) returns (google.protobuf.Empty);
-
-}
-
-// ===============
-// 最小设备密钥 RPC（密钥托管与分发，仅存公钥/预共享）
-// ===============
-
-// 设备密钥相关类型已迁移至 msg_friend/proto/friend.proto
-
-// KeyService 已迁移至 msg_friend/proto/friend.proto

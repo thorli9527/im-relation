@@ -3,6 +3,7 @@
 //! - `server_tcp`：核心 TCP 接入层（长度前缀 + Protobuf）；
 //! - `server_web`：预留 Web/HTTP 服务入口，同时复用 arb-client gRPC 启动器。
 
+pub mod server_arb;
 pub mod server_tcp;
 pub mod server_web;
 

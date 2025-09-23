@@ -18,7 +18,6 @@ dashmap.workspace = true
 smallvec.workspace = true
 parking_lot.workspace = true
 roaring.workspace = true
-actix-web.workspace = true
 sqlx.workspace = true
 moka.workspace = true
 prost.workspace = true

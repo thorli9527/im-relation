@@ -5,7 +5,9 @@ use std::time::Duration;
 use ahash::AHashMap;
 use dashmap::DashMap;
 use once_cell::sync::OnceCell;
+use prost::Message;
 use tokio::sync::mpsc;
+use tokio::time::sleep;
 
 use crate::service::handler::{FriendHandler, GroupHandler, Handler as _, SystemHandler};
 use crate::service::types::{
@@ -18,6 +20,7 @@ use super::ack::AckShards;
 use super::handle::SessionHandle;
 use super::metrics::METRICS;
 use super::policy::{MultiLoginPolicy, SessionPolicy};
+use common::grpc::message::{self as msgpb, typing::Target as TypingTarget, TypingState};
 
 /// 会话管理：维护用户到若干连接的映射，负责扇出、ACK 上报与注销
 #[derive(Clone)]
@@ -32,9 +35,95 @@ pub struct SessionManager {
     token_index: Arc<DashMap<String, (UserId, SessionId)>>,
     /// session_id -> session_token
     session_tokens: Arc<DashMap<SessionId, String>>,
+    /// 会话维度的正在输入状态缓存
+    typing: Arc<DashMap<SceneKey, DashMap<UserId, TypingEntry>>>,
 }
 
 static INSTANCE: OnceCell<SessionManager> = OnceCell::new();
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum SceneKey {
+    Direct { a: UserId, b: UserId },
+    Group { group_id: i64 },
+}
+
+impl SceneKey {
+    pub fn direct_from(a: UserId, b: UserId) -> Self {
+        if a <= b {
+            SceneKey::Direct { a, b }
+        } else {
+            SceneKey::Direct { a: b, b: a }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct TypingEntry {
+    state: TypingState,
+    session_id: Option<SessionId>,
+    expires_at_ms: i64,
+    last_emit_ms: i64,
+    window_start_ms: i64,
+    window_hits: u32,
+    recipients: Arc<Vec<UserId>>,
+}
+
+impl TypingEntry {
+    fn new(now_ms: i64, recipients: Arc<Vec<UserId>>) -> Self {
+        Self {
+            state: TypingState::TypingNone,
+            session_id: None,
+            expires_at_ms: now_ms,
+            last_emit_ms: 0,
+            window_start_ms: now_ms,
+            window_hits: 0,
+            recipients,
+        }
+    }
+
+    fn register(
+        &mut self,
+        state: TypingState,
+        session_id: Option<&str>,
+        now_ms: i64,
+    ) -> TypingUpdateResult {
+        if now_ms.saturating_sub(self.window_start_ms) >= 1_000 {
+            self.window_start_ms = now_ms;
+            self.window_hits = 0;
+        }
+        self.window_hits += 1;
+        if self.window_hits > TYPING_RATE_LIMIT_PER_SEC {
+            return TypingUpdateResult::RateLimited;
+        }
+
+        self.expires_at_ms = now_ms + TYPING_TTL_MS;
+        if let Some(id) = session_id {
+            self.session_id = Some(id.to_string());
+        }
+
+        let should_emit =
+            self.state != state || now_ms.saturating_sub(self.last_emit_ms) >= TYPING_DEBOUNCE_MS;
+        self.state = state;
+        if should_emit {
+            self.last_emit_ms = now_ms;
+            TypingUpdateResult::Emit
+        } else {
+            TypingUpdateResult::Debounced
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TypingUpdateResult {
+    Emit,
+    Debounced,
+    RateLimited,
+}
+
+const TYPING_TTL_MS: i64 = 5_000;
+const TYPING_DEBOUNCE_MS: i64 = 500;
+const TYPING_RATE_LIMIT_PER_SEC: u32 = 5;
+const TYPING_GC_INTERVAL_MS: u64 = 1_000;
 
 impl SessionManager {
     /// 初始化并启动后台 ACK 重试循环（全局单例）
@@ -42,8 +131,14 @@ impl SessionManager {
         let cfg = common::config::AppConfig::get();
         let sock = cfg.get_socket();
         let shards = sock.ack_shards.unwrap_or_else(num_cpus::get).max(1);
-        let retry_ms = sock.ack_retry_ms.unwrap_or(500);
-        let sm = Self {
+        let retry_ms = sock.ack_retry_ms.unwrap_or(500) as u64;
+        let manager = Self::build(policy, shards, retry_ms);
+        let _ = INSTANCE.set(manager.clone());
+        manager
+    }
+
+    fn build(policy: SessionPolicy, shards: usize, retry_ms: u64) -> Self {
+        let manager = Self {
             sessions: Arc::new(DashMap::new()),
             acks: AckShards::new(shards, Duration::from_millis(retry_ms)),
             policy,
@@ -51,9 +146,10 @@ impl SessionManager {
             recent_client_ids: Arc::new(DashMap::new()),
             token_index: Arc::new(DashMap::new()),
             session_tokens: Arc::new(DashMap::new()),
+            typing: Arc::new(DashMap::new()),
         };
-        let _ = INSTANCE.set(sm.clone());
-        sm
+        manager.spawn_typing_gc();
+        manager
     }
 
     /// 获取单例句柄
@@ -157,6 +253,7 @@ impl SessionManager {
             }
         }
         self.remove_token_mapping(session_id, None);
+        self.clear_typing_for_session(session_id);
     }
 
     fn remove_token_mapping(&self, session_id: &str, token_hint: Option<&str>) {
@@ -168,7 +265,7 @@ impl SessionManager {
     }
 
     fn notify_kick(&self, handle: &SessionHandle, reason: &str) {
-        let now_ms = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as i64;
+        let now_ms = current_millis();
         let payload = json!({
             "event": "session_kick",
             "reason": reason,
@@ -182,6 +279,243 @@ impl SessionManager {
             ts_ms: now_ms,
         };
         let _ = handle.send(msg);
+    }
+
+    fn spawn_typing_gc(&self) {
+        let manager = self.clone();
+        tokio::spawn(async move {
+            let interval = Duration::from_millis(TYPING_GC_INTERVAL_MS);
+            loop {
+                sleep(interval).await;
+                manager.expire_typing_internal();
+            }
+        });
+    }
+
+    fn sanitize_recipients(&self, actor: UserId, recipients: &[UserId]) -> Arc<Vec<UserId>> {
+        let mut dedup = recipients.to_vec();
+        if !dedup.iter().any(|uid| *uid == actor) {
+            dedup.push(actor);
+        }
+        dedup.sort_unstable();
+        dedup.dedup();
+        Arc::new(dedup)
+    }
+
+    fn update_typing_internal(
+        &self,
+        scene: SceneKey,
+        actor: UserId,
+        session_id: Option<&str>,
+        state: TypingState,
+        at_ms: i64,
+        recipients: &[UserId],
+    ) {
+        let now_ms = current_millis();
+        let recipients = self.sanitize_recipients(actor, recipients);
+
+        if state == TypingState::TypingNone {
+            if let Some(scene_map) = self.typing.get(&scene) {
+                let removed = scene_map.remove(&actor).map(|(_, entry)| entry);
+                drop(scene_map);
+                if let Some(entry) = removed {
+                    METRICS
+                        .typing_updates
+                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    self.broadcast_typing(
+                        &scene,
+                        actor,
+                        TypingState::TypingNone,
+                        at_ms,
+                        entry.recipients.as_ref(),
+                    );
+                }
+                if let Some(empty) = self.typing.get(&scene) {
+                    if empty.is_empty() {
+                        self.typing.remove(&scene);
+                    }
+                }
+            }
+            return;
+        }
+
+        let scene_map = self
+            .typing
+            .entry(scene.clone())
+            .or_insert_with(DashMap::new);
+
+        let mut emit_targets: Option<Arc<Vec<UserId>>> = None;
+        {
+            let mut entry = scene_map
+                .entry(actor)
+                .or_insert_with(|| TypingEntry::new(now_ms, recipients.clone()));
+            entry.recipients = recipients.clone();
+            match entry.register(state, session_id, now_ms) {
+                TypingUpdateResult::Emit => {
+                    emit_targets = Some(entry.recipients.clone());
+                }
+                TypingUpdateResult::Debounced => {}
+                TypingUpdateResult::RateLimited => {
+                    METRICS
+                        .typing_rate_limited
+                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    return;
+                }
+            }
+        }
+
+        if let Some(targets) = emit_targets {
+            METRICS
+                .typing_updates
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            self.broadcast_typing(&scene, actor, state, at_ms, targets.as_ref());
+        }
+    }
+
+    fn broadcast_typing(
+        &self,
+        scene: &SceneKey,
+        actor: UserId,
+        state: TypingState,
+        at_ms: i64,
+        recipients: &[UserId],
+    ) {
+        if recipients.is_empty() {
+            return;
+        }
+
+        let target = match scene {
+            SceneKey::Direct { a, b } => {
+                let other = if actor == *a { *b } else { *a };
+                if actor != *a && actor != *b {
+                    return;
+                }
+                Some(TypingTarget::ToUserId(other))
+            }
+            SceneKey::Group { group_id } => Some(TypingTarget::GroupId(*group_id)),
+        };
+
+        let typing_msg = msgpb::Typing {
+            from_user_id: actor,
+            state: state as i32,
+            at: at_ms,
+            target,
+            notify_user_ids: recipients.to_vec(),
+        };
+
+        let mut buf = Vec::with_capacity(typing_msg.encoded_len());
+        if typing_msg.encode(&mut buf).is_err() {
+            return;
+        }
+
+        let msg = ServerMsg {
+            id: current_millis(),
+            kind: match scene {
+                SceneKey::Direct { .. } => MsgKind::MkFriendTyping,
+                SceneKey::Group { .. } => MsgKind::MkGroupTyping,
+            },
+            payload: buf,
+            ts_ms: at_ms,
+        };
+
+        let mut fanout = 0u64;
+        for uid in recipients.iter().copied() {
+            if let Some(sessions) = self.sessions.get(&uid) {
+                for (_, handle) in sessions.iter() {
+                    if handle.send(msg.clone()) {
+                        fanout += 1;
+                    }
+                }
+                drop(sessions);
+            }
+        }
+        if fanout > 0 {
+            METRICS
+                .typing_fanout
+                .fetch_add(fanout, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+
+    fn expire_typing_internal(&self) {
+        let now_ms = current_millis();
+        let scenes: Vec<SceneKey> = self
+            .typing
+            .iter()
+            .map(|entry| entry.key().clone())
+            .collect();
+
+        for scene in scenes {
+            let mut expired: Vec<(UserId, Arc<Vec<UserId>>)> = Vec::new();
+            if let Some(scene_map) = self.typing.get_mut(&scene) {
+                let users: Vec<UserId> = scene_map.iter().map(|entry| *entry.key()).collect();
+                for uid in users {
+                    if let Some(entry) = scene_map.get(&uid) {
+                        if entry.expires_at_ms <= now_ms {
+                            expired.push((uid, entry.recipients.clone()));
+                        }
+                    }
+                }
+                for (uid, _) in &expired {
+                    scene_map.remove(uid);
+                }
+                if scene_map.is_empty() {
+                    self.typing.remove(&scene);
+                }
+            }
+            for (uid, recipients) in expired {
+                METRICS
+                    .typing_expired
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                self.broadcast_typing(
+                    &scene,
+                    uid,
+                    TypingState::TypingNone,
+                    now_ms,
+                    recipients.as_ref(),
+                );
+            }
+        }
+    }
+
+    fn clear_typing_for_session(&self, session_id: &str) {
+        let scenes: Vec<SceneKey> = self
+            .typing
+            .iter()
+            .map(|entry| entry.key().clone())
+            .collect();
+        for scene in scenes {
+            let mut affected: Vec<(UserId, Arc<Vec<UserId>>)> = Vec::new();
+            if let Some(scene_map) = self.typing.get_mut(&scene) {
+                let users: Vec<UserId> = scene_map
+                    .iter()
+                    .filter_map(|entry| {
+                        entry
+                            .value()
+                            .session_id
+                            .as_ref()
+                            .filter(|sid| sid.as_str() == session_id)
+                            .map(|_| *entry.key())
+                    })
+                    .collect();
+                for uid in &users {
+                    if let Some((_, entry)) = scene_map.remove(uid) {
+                        affected.push((*uid, entry.recipients.clone()));
+                    }
+                }
+                if scene_map.is_empty() {
+                    self.typing.remove(&scene);
+                }
+            }
+            for (uid, recipients) in affected {
+                self.broadcast_typing(
+                    &scene,
+                    uid,
+                    TypingState::TypingNone,
+                    current_millis(),
+                    recipients.as_ref(),
+                );
+            }
+        }
     }
 
     /// 向用户的所有在线会话扇出一条消息（可选 ACK 跟踪）
@@ -243,6 +577,46 @@ impl SessionManager {
         // 其他类型：暂不处理
     }
 
+    /// 更新点对点会话的 Typing 状态。
+    pub fn update_direct_typing(
+        &self,
+        actor: UserId,
+        peer: UserId,
+        session_id: Option<&str>,
+        state: TypingState,
+        at_ms: i64,
+    ) {
+        let recipients = [actor, peer];
+        self.update_typing_internal(
+            SceneKey::direct_from(actor, peer),
+            actor,
+            session_id,
+            state,
+            at_ms,
+            &recipients,
+        );
+    }
+
+    /// 更新群会话的 Typing 状态。
+    pub fn update_group_typing(
+        &self,
+        group_id: i64,
+        actor: UserId,
+        session_id: Option<&str>,
+        state: TypingState,
+        at_ms: i64,
+        notify_user_ids: &[UserId],
+    ) {
+        self.update_typing_internal(
+            SceneKey::Group { group_id },
+            actor,
+            session_id,
+            state,
+            at_ms,
+            notify_user_ids,
+        );
+    }
+
     /// 仅向指定会话重发比 last_ack_id 更新的最近消息（断线重连快速补发）
     pub fn resend_since(
         &self,
@@ -268,4 +642,162 @@ impl SessionManager {
 
 fn crate_uuid() -> String {
     common::util::common_utils::build_uuid()
+}
+
+fn current_millis() -> i64 {
+    (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as i64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::service::session::policy::SessionPolicy;
+    use crate::service::types::{DeviceId, DeviceType};
+    use common::grpc::message::{self as msgpb, typing};
+    use std::sync::atomic::Ordering;
+    use tokio::time::{timeout, Duration};
+
+    fn register_session(
+        manager: &SessionManager,
+        user: UserId,
+        device: DeviceType,
+        device_id: DeviceId,
+        token: &str,
+    ) -> (SessionHandle, tokio::sync::mpsc::Receiver<ServerMsg>) {
+        manager.register(user, device, device_id, token.to_string(), 0)
+    }
+
+    #[tokio::test]
+    async fn typing_direct_multi_device() {
+        let manager = SessionManager::build(SessionPolicy::default(), 1, 100);
+
+        let (handle_a1, mut rx_a1) =
+            register_session(&manager, 1, DeviceType::Mobile, "dev_a1".into(), "tok_a1");
+        let (_handle_a2, mut rx_a2) =
+            register_session(&manager, 1, DeviceType::Web, "dev_a2".into(), "tok_a2");
+        let (_handle_b, mut rx_b) =
+            register_session(&manager, 2, DeviceType::Mobile, "dev_b".into(), "tok_b");
+
+        manager.update_direct_typing(
+            1,
+            2,
+            Some(&handle_a1.session_id),
+            TypingState::TypingText,
+            current_millis(),
+        );
+
+        let msg_a1 = timeout(Duration::from_millis(200), rx_a1.recv())
+            .await
+            .expect("a1 timeout")
+            .expect("a1 none");
+        assert_eq!(msg_a1.kind, MsgKind::MkFriendTyping);
+
+        let msg_a2 = timeout(Duration::from_millis(200), rx_a2.recv())
+            .await
+            .expect("a2 timeout")
+            .expect("a2 none");
+        assert_eq!(msg_a2.kind, MsgKind::MkFriendTyping);
+
+        let msg_b = timeout(Duration::from_millis(200), rx_b.recv())
+            .await
+            .expect("b timeout")
+            .expect("b none");
+        let typing = msgpb::Typing::decode(msg_b.payload.as_slice()).unwrap();
+        assert!(matches!(typing.target, Some(typing::Target::ToUserId(1))));
+    }
+
+    #[tokio::test]
+    async fn typing_group_broadcast() {
+        let manager = SessionManager::build(SessionPolicy::default(), 1, 100);
+        let (_actor, mut rx_actor) = register_session(
+            &manager,
+            10,
+            DeviceType::Mobile,
+            "actor".into(),
+            "tok_actor",
+        );
+        let (_m1, mut rx_m1) =
+            register_session(&manager, 11, DeviceType::Mobile, "m1".into(), "tok_m1");
+
+        manager.update_group_typing(
+            99,
+            10,
+            None,
+            TypingState::TypingVoice,
+            current_millis(),
+            &[10, 11],
+        );
+
+        let msg_actor = timeout(Duration::from_millis(200), rx_actor.recv())
+            .await
+            .expect("actor timeout")
+            .expect("actor none");
+        assert_eq!(msg_actor.kind, MsgKind::MkGroupTyping);
+
+        let msg_m1 = timeout(Duration::from_millis(200), rx_m1.recv())
+            .await
+            .expect("m1 timeout")
+            .expect("m1 none");
+        let typing = msgpb::Typing::decode(msg_m1.payload.as_slice()).unwrap();
+        assert!(matches!(typing.target, Some(typing::Target::GroupId(99))));
+    }
+
+    #[tokio::test]
+    async fn typing_ttl_triggers_none() {
+        let manager = SessionManager::build(SessionPolicy::default(), 1, 100);
+        let (handle_a, mut rx_a) =
+            register_session(&manager, 21, DeviceType::Mobile, "dev_a".into(), "tok_a");
+        let (_handle_b, mut rx_b) =
+            register_session(&manager, 22, DeviceType::Mobile, "dev_b".into(), "tok_b");
+
+        manager.update_direct_typing(
+            21,
+            22,
+            Some(&handle_a.session_id),
+            TypingState::TypingText,
+            current_millis(),
+        );
+
+        let _ = timeout(Duration::from_millis(200), rx_a.recv()).await;
+        let _ = timeout(Duration::from_millis(200), rx_b.recv()).await;
+
+        let scene = SceneKey::direct_from(21, 22);
+        if let Some(scene_map) = manager.typing.get(&scene) {
+            if let Some(mut entry) = scene_map.get_mut(&21) {
+                entry.expires_at_ms = current_millis() - 1;
+            }
+        }
+        manager.expire_typing_internal();
+
+        let msg_b = timeout(Duration::from_millis(200), rx_b.recv())
+            .await
+            .expect("expire timeout")
+            .expect("expire none");
+        let typing = msgpb::Typing::decode(msg_b.payload.as_slice()).unwrap();
+        assert_eq!(typing.state, TypingState::TypingNone as i32);
+    }
+
+    #[tokio::test]
+    async fn typing_rate_limit_records_metric() {
+        METRICS.typing_rate_limited.store(0, Ordering::Relaxed);
+
+        let manager = SessionManager::build(SessionPolicy::default(), 1, 100);
+        let (handle_a, _) =
+            register_session(&manager, 31, DeviceType::Mobile, "dev_a".into(), "tok_a");
+
+        for _ in 0..8 {
+            manager.update_direct_typing(
+                31,
+                32,
+                Some(&handle_a.session_id),
+                TypingState::TypingText,
+                current_millis(),
+            );
+        }
+
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        let limited = METRICS.typing_rate_limited.load(Ordering::Relaxed);
+        assert!(limited >= 1);
+    }
 }

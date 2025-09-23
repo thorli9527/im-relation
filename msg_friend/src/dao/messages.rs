@@ -1,7 +1,10 @@
+//! 好友消息持久化操作。
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool, Row};
 
+/// 加密消息记录。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EncryptedMessageRecord {
     pub msg_id: i64,
@@ -9,7 +12,6 @@ pub struct EncryptedMessageRecord {
     pub receiver_id: i64,
     pub content_type: i32,
     pub created_at: i64,
-
     pub scheme: String,
     pub key_id: String,
     pub nonce: Vec<u8>,
@@ -19,11 +21,12 @@ pub struct EncryptedMessageRecord {
     pub content: Vec<u8>,
 }
 
+/// 写入加密消息（message_info 表）。
 pub async fn insert_encrypted_message(
     pool: &Pool<MySql>,
     rec: &EncryptedMessageRecord,
 ) -> Result<()> {
-    // 使用单表分区（由数据库层通过分区键进行路由），应用侧始终写入同一逻辑表
+    // 使用单表分区（由数据库层通过分区键进行路由），应用侧始终写入同一逻辑表。
     sqlx::query(
         r#"INSERT INTO message_info
             (msg_id, sender_id, receiver_id, content_type, created_at,
@@ -47,6 +50,7 @@ pub async fn insert_encrypted_message(
     Ok(())
 }
 
+/// 根据消息 ID 查询加密消息。
 pub async fn get_message_by_id(
     pool: &Pool<MySql>,
     msg_id: i64,
@@ -75,14 +79,17 @@ pub async fn get_message_by_id(
     }))
 }
 
+/// 标记消息已送达（占位）。
 pub async fn mark_delivered(_pool: &Pool<MySql>, _msg_id: i64, _ts: i64) -> Result<u64> {
     Ok(0)
 }
 
+/// 标记消息已读（占位）。
 pub async fn mark_read(_pool: &Pool<MySql>, _msg_id: i64, _ts: i64) -> Result<u64> {
     Ok(0)
 }
 
+/// 撤回消息（占位）。
 pub async fn recall_message(
     _pool: &Pool<MySql>,
     _msg_id: i64,
@@ -92,6 +99,7 @@ pub async fn recall_message(
     Ok(0)
 }
 
+/// 将历史消息复制为新消息（用于转发）。
 pub async fn copy_message_as_forward(
     pool: &Pool<MySql>,
     src_msg_id: i64,

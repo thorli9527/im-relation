@@ -165,6 +165,33 @@ impl KafkaInstanceService {
         }
     }
 
+    pub async fn send_message<M: Message>(
+        &self,
+        message: &M,
+        message_id: &str,
+        topic: &str,
+    ) -> Result<()> {
+        let mut payload = Vec::with_capacity(message.encoded_len());
+        message.encode(&mut payload)?;
+        let record = FutureRecord::to(topic).payload(&payload).key(message_id);
+        let timeout = Duration::from_millis(50);
+
+        match self.producer.send(record, timeout).await {
+            Ok(delivery) => {
+                log::info!(
+                    "✅ Kafka message sent to partition: {}, offset: {}",
+                    delivery.partition,
+                    delivery.offset
+                );
+                Ok(())
+            }
+            Err((err, _)) => {
+                log::error!("❌ Kafka Protobuf 发送失败: {:?}", err);
+                Err(anyhow!(err))
+            }
+        }
+    }
+
     /// 获取单例
     pub fn get() -> Arc<Self> {
         SERVICE

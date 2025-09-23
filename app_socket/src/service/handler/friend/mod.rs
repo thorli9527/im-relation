@@ -14,14 +14,18 @@ mod msg_handler;
 use std::hash::Hasher;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use log::info;
+use log::{info, warn};
+use prost::Message;
+use std::convert::TryFrom;
 use twox_hash::XxHash64;
 
-use crate::grpc_arb::arb_server::NodeType;
 use crate::service::grpc_clients;
 use crate::service::session::SessionManager;
 use crate::service::types::{ClientMsg, MessageId, MsgKind, SendOpts, ServerMsg, UserId};
 use crate::util::node_util::{fetch_msg_friend_addr, NodeUtil};
+use common::arb::NodeType;
+use common::grpc::message::{self as msg_message, typing::Target as TypingTarget, TypingState};
+use time::OffsetDateTime;
 
 use super::Handler;
 
@@ -54,6 +58,12 @@ impl Handler for FriendHandler {
         let ref_id: Option<MessageId> = msg.client_id;
         if let Some(id) = ref_id {
             if SessionManager::get().seen_or_track_client_id(&user, id) {
+                return;
+            }
+        }
+
+        if msg.kind == MsgKind::MkFriendTyping {
+            if handle_friend_typing(user, &msg.payload) {
                 return;
             }
         }
@@ -127,3 +137,47 @@ impl Handler for FriendHandler {
 }
 
 pub type FriendMsgHandler = FriendHandler;
+
+fn handle_friend_typing(user: UserId, payload: &[u8]) -> bool {
+    match msg_message::Typing::decode(payload) {
+        Ok(typing) => {
+            let state = TypingState::try_from(typing.state).unwrap_or(TypingState::TypingNone);
+            let at_ms = if typing.at == 0 {
+                (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as i64
+            } else {
+                typing.at
+            };
+            match typing.target {
+                Some(TypingTarget::ToUserId(peer)) => {
+                    SessionManager::get().update_direct_typing(user, peer, None, state, at_ms);
+                    true
+                }
+                Some(TypingTarget::GroupId(group_id)) => {
+                    SessionManager::get().update_group_typing(
+                        group_id,
+                        user,
+                        None,
+                        state,
+                        at_ms,
+                        &typing.notify_user_ids,
+                    );
+                    true
+                }
+                None => {
+                    warn!(
+                        "FriendHandler: Typing missing target uid={} state={:?}",
+                        user, state
+                    );
+                    false
+                }
+            }
+        }
+        Err(err) => {
+            warn!(
+                "FriendHandler: Typing decode failed uid={} err={}",
+                user, err
+            );
+            false
+        }
+    }
+}

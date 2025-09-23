@@ -1,20 +1,11 @@
-use actix_web::{get, web, Responder};
+use axum::{routing::get, Router};
 use common::errors::AppError;
-use common::result::result;
+use common::result::{result, ApiResponse};
 
-pub fn configure(cfg: &mut web::ServiceConfig) {
-    cfg.service(status);
+pub fn router() -> Router {
+    Router::new().route("/status", get(status))
 }
-#[utoipa::path(
-    get,
-    path = "/status",
-    tag = "Common",
-    summary = "Get the status of the service",
-    responses(
-        (status = 200, description = "Hello response", body = String)
-    )
-)]
-#[get("/status")]
-async fn status() -> Result<impl Responder, AppError> {
+
+async fn status() -> Result<ApiResponse<String>, AppError> {
     Ok(result())
 }

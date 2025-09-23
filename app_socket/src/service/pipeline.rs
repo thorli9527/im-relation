@@ -4,7 +4,7 @@
 //!
 //! 关键点：
 //! - 主题列表：好友单聊、群聊、系统消息；
-//! - 载荷结构 `KafkaSocketMsg` 与 `ServerMsg` 映射；
+//! - 载荷结构 `KafkaMsg` 与 `ServerMsg` 映射；
 //! - 入队成功才确认消费（在 common 的 consumer 封装内处理），保证至少一次投递；
 //! - `id` 缺省使用当前毫秒时间戳，便于追踪与客户端 ACK 对齐。
 
@@ -15,7 +15,7 @@ use log::{error, info};
 use prost::Message as _;
 use rdkafka::message::Message;
 
-use crate::proto::{KafkaSocketMsg, MsgKind as PbMsgKind};
+use common::grpc::grpc_socket::socket::{KafkaMsg, MsgKind as PbMsgKind};
 use crate::service::dispatcher::ShardedDispatcher;
 use crate::service::types::{SendOpts, ServerMsg, UserId};
 use common::kafka::start_consumer;
@@ -33,7 +33,7 @@ fn default_true() -> bool {
 /// 流程：
 /// 1) 初始化分片调度器（分片数与队列容量来自配置或默认值）；
 /// 2) 启动 Kafka 消费任务，消费主题：好友单聊/群聊/系统消息；
-/// 3) 解析 Kafka payload（`KafkaSocketMsg`），映射为 `ServerMsg` 与 `SendOpts`；
+/// 3) 解析 Kafka payload（`KafkaMsg`），映射为 `ServerMsg` 与 `SendOpts`；
 /// 4) 入队分片调度器（入队成功才确认消费，保证至少一次）；
 /// 5) 分片任务再调用 `SessionManager::send_to_user` 完成扇出。
 pub async fn start_socket_pipeline() -> anyhow::Result<()> {
@@ -69,7 +69,7 @@ pub async fn start_socket_pipeline() -> anyhow::Result<()> {
             async move {
                 // 入队成功才提交 offset（common 实现里）
                 if let Some(payload) = owned.payload() {
-                    match KafkaSocketMsg::decode(payload) {
+                    match KafkaMsg::decode(payload) {
                         Ok(kmsg) => {
                             let id = kmsg.id.unwrap_or_else(|| {
                                 use std::time::{SystemTime, UNIX_EPOCH};

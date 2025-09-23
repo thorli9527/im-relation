@@ -1,3 +1,11 @@
+pub mod grpc_hot_friend;
+pub mod grpc_hot_group;
+pub mod grpc_hot_online;
+pub mod grpc_msg_friend;
+pub mod grpc_msg_group;
+pub mod grpc_socket;
+pub mod message;
+
 use dashmap::DashMap;
 use futures::future::BoxFuture;
 use std::future::Future;

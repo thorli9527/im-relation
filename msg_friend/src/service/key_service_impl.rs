@@ -1,8 +1,10 @@
+//! 设备密钥 gRPC 服务实现。
+
 use tonic::{Request, Response, Status};
 
 use crate::dao::{fetch_device_bundles, upsert_device_keys, DeviceKeysRow};
-use crate::grpc_msg_friend::msg_friend_service as msgpb;
 use crate::server::server_grpc::Services;
+use common::grpc::grpc_msg_friend::msg_friend_service as msgpb;
 
 #[tonic::async_trait]
 impl msgpb::key_service_server::KeyService for Services {

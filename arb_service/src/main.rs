@@ -1,32 +1,34 @@
-mod grpc_arb;
 mod service;
+mod web;
 
 use anyhow::{Context, Result};
 use common::config::AppConfig;
-use grpc_arb::arb_server::arb_server_rpc_service_server::ArbServerRpcServiceServer;
-use service::arb_server_rpc_service::ArbServerRpcServiceImpl;
+use service::arb_service::ArbService;
 use std::net::SocketAddr;
-use tonic::transport::Server;
+use tokio::net::TcpListener;
 
+/// 仲裁服务的入口，加载配置并启动 HTTP 接入层。
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
+    // 预先从配置文件与环境变量加载应用配置。
     AppConfig::init_from_env("./config-arb.toml").await;
 
+    // cfg 为全局配置快照，grpc_cfg 提供仲裁服务监听参数。
     let cfg = AppConfig::get();
-    let grpc_cfg = cfg.grpc.as_ref().context("grpc config missing")?;
-    let server_addr = grpc_cfg
-        .server_addr
-        .as_ref()
-        .context("grpc.server_addr missing")?;
-    let addr: SocketAddr = server_addr.parse().context("invalid gRPC server address")?;
+    let server_cfg = cfg.server.as_ref().context("server config missing")?;
+    let bind_addr = format!("{}:{}", server_cfg.host, server_cfg.port);
+    let addr: SocketAddr = bind_addr.parse().context("invalid arb server address")?;
 
-    let svc = ArbServerRpcServiceImpl::new();
+    // service 注入访问令牌，用于下游 HTTP 同步认证。
+    let service = ArbService::new(cfg.arb().and_then(|c| c.access_token.clone()));
+    // router 构造所有仲裁相关路由，并带入服务上下文。
+    let router = web::router(service);
 
-    Server::builder()
-        .add_service(ArbServerRpcServiceServer::new(svc))
-        .serve(addr)
+    // listener 绑定端口后，交由 axum::serve 处理请求生命周期。
+    let listener = TcpListener::bind(addr).await.context("bind arb server")?;
+    axum::serve(listener, router.into_make_service())
         .await
-        .context("gRPC server failed")?;
+        .context("arb http server failed")?;
 
     Ok(())
 }

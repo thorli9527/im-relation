@@ -1,6 +1,5 @@
-use actix_web::body::BoxBody;
-use actix_web::http::header;
-use actix_web::{HttpRequest, HttpResponse, Responder};
+use axum::response::{IntoResponse, Response};
+use axum::{http::StatusCode, Json};
 use serde::Serialize;
 use serde_json::Value;
 use std::fmt::Debug;
@@ -114,12 +113,8 @@ pub fn result_error(message: &str) -> ApiResponse<String> {
 pub fn result_error_code(message: &str, code: i32) -> ApiResponse<String> {
     ApiResponse::<String>::error(code, message)
 }
-impl<T: Serialize> Responder for ApiResponse<T> {
-    type Body = BoxBody;
-
-    fn respond_to(self, _req: &HttpRequest) -> HttpResponse<Self::Body> {
-        HttpResponse::Ok()
-            .insert_header((header::CONTENT_TYPE, "application/json"))
-            .json(self)
+impl<T: Serialize> IntoResponse for ApiResponse<T> {
+    fn into_response(self) -> Response {
+        (StatusCode::OK, Json(self)).into_response()
     }
 }

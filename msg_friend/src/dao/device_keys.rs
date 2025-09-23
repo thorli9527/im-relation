@@ -1,7 +1,10 @@
+//! 设备密钥（Double Ratchet 预共享材料）相关操作。
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool, Row};
 
+/// 设备密钥记录。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeviceKeysRow {
     pub user_id: i64,
@@ -11,10 +14,12 @@ pub struct DeviceKeysRow {
     pub signed_pre_id: i32,
     pub signed_pre_pub: Vec<u8>,
     pub signed_pre_sig: Vec<u8>,
-    pub one_time_pre_keys: Option<Vec<u8>>, // JSON bytes
+    /// one-time pre-keys（序列化 JSON）。
+    pub one_time_pre_keys: Option<Vec<u8>>,
     pub updated_at: i64,
 }
 
+/// 插入或更新设备密钥。
 pub async fn upsert_device_keys(pool: &Pool<MySql>, row: &DeviceKeysRow) -> Result<u64> {
     let r = sqlx::query(
         r#"REPLACE INTO device_keys
@@ -35,6 +40,7 @@ pub async fn upsert_device_keys(pool: &Pool<MySql>, row: &DeviceKeysRow) -> Resu
     Ok(r.rows_affected())
 }
 
+/// 获取指定用户的全部设备密钥。
 pub async fn fetch_device_bundles(pool: &Pool<MySql>, user_id: i64) -> Result<Vec<DeviceKeysRow>> {
     let rows = sqlx::query(r#"SELECT user_id, device_id, identity_curve, identity_pub, signed_pre_id, signed_pre_pub, signed_pre_sig, one_time_pre_keys, updated_at FROM device_keys WHERE user_id = ?"#)
         .bind(user_id)

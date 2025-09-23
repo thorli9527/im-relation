@@ -1,56 +1,30 @@
-use crate::grpc_arb::arb_server::{NodeType, QueryNodeReq, RegisterRequest};
-use crate::service::arb_server_service::ArbServerService;
-use crate::service::client_rpc_service_impl::ClientRpcClients;
 use crate::util::node_util::NodeUtil;
-use tonic::Request;
+use common::arb::NodeType;
 
-pub mod arb_server_service;
-pub mod client_rpc_service_impl;
-mod online_rpc_service_impl;
-pub use online_rpc_service_impl::OnlineRpcServiceImpl;
+pub mod grpc_gateway;
 pub mod user_service;
 pub mod user_service_impl;
 
+/// Initialize service-level shared state.
+///
+/// Currently this loads node lists from optional environment variables:
+/// - `SOCKET_NODE_ADDRS`: comma-separated endpoints for socket nodes
+/// - `ONLINE_NODE_ADDRS`: comma-separated endpoints for online/client RPC nodes
 pub async fn init() {
-    ArbServerService::init()
-        .await
-        .expect("ArbServerService init");
-    let arb_server_service = ArbServerService::get();
-    let mut client = arb_server_service.client.lock().await;
-    client
-        .register_node(RegisterRequest {
-            node_addr: "".to_string(),
-            node_type: NodeType::ApiNode as i32,
-            kafka_addr: None,
-        })
-        .await
-        .unwrap();
+    load_nodes_from_env(NodeType::SocketNode, "SOCKET_NODE_ADDRS");
+    load_nodes_from_env(NodeType::OnlineNode, "ONLINE_NODE_ADDRS");
+}
 
-    let arb_server_service = ArbServerService::get();
-    let mut client = arb_server_service.client.lock().await;
-
-    let list_rep = client
-        .list_all_nodes(QueryNodeReq {
-            node_type: NodeType::SocketNode as i32,
-        })
-        .await
-        .unwrap();
-
-    let list = list_rep.into_inner();
-    for node in list.nodes {
-        NodeUtil::get().insert_node(NodeType::SocketNode as i32, node.node_addr);
-    }
-
-    let list_rep = client
-        .list_all_nodes(QueryNodeReq {
-            node_type: NodeType::OnlineNode as i32,
-        })
-        .await
-        .unwrap();
-    let list = list_rep.into_inner();
-    for node in list.nodes {
-        ClientRpcClients::init(&node.node_addr).await.unwrap();
-        OnlineRpcServiceImpl::init(&node.node_addr).await.unwrap();
-        break;
+fn load_nodes_from_env(kind: NodeType, env_key: &str) {
+    if let Ok(value) = std::env::var(env_key) {
+        let addrs: Vec<String> = value
+            .split(',')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string())
+            .collect();
+        if !addrs.is_empty() {
+            NodeUtil::get().reset_list(kind as i32, addrs);
+        }
     }
 }

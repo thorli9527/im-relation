@@ -1,4 +1,3 @@
-use crate::grpc_hot_online::auth::AuthType;
 use crate::service::user_service::UserRegType;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;

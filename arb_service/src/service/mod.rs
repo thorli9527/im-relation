@@ -1,1 +1,1 @@
-pub mod arb_server_rpc_service;
+pub mod arb_service;

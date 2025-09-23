@@ -1,10 +1,12 @@
+//! 好友业务 gRPC 服务实现：处理好友请求、删除、备注等逻辑。
+
 use crate::dao::{
     get_friend_request_by_id, mark_friend_request_decision, upsert_friend_request, FriendRequestRow,
 };
-use crate::grpc_msg_friend::msg_friend_service::{
+use crate::server::server_grpc::Services;
+use common::grpc::grpc_msg_friend::msg_friend_service::{
     self, friend_biz_service_server::FriendBizService,
 };
-use crate::server::server_grpc::Services;
 use log::{info, warn};
 use std::sync::Arc;
 
@@ -100,7 +102,7 @@ impl FriendBizService for MsgFriendServiceImpl {
                     // 双方别名：
                     // - 申请时 remark（row.remark）作为 from->to 的别名
                     // - 受理时 remark（r.remark）作为 to->from 的别名
-                    let req = crate::grpc_hot_friend::friend_service::AddFriendReq {
+                    let req = common::grpc::grpc_hot_friend::friend_service::AddFriendReq {
                         user_id: row.from_user_id,
                         friend_id: row.to_user_id,
                         alias_for_user: row.remark.clone(),
@@ -131,7 +133,7 @@ impl FriendBizService for MsgFriendServiceImpl {
     ) -> Result<tonic::Response<()>, tonic::Status> {
         let r = request.into_inner();
         if let Some(cli) = self.inner.friend_client() {
-            let req = crate::grpc_hot_friend::friend_service::RemoveFriendReq {
+            let req = common::grpc::grpc_hot_friend::friend_service::RemoveFriendReq {
                 user_id: r.operator_user_id,
                 friend_id: r.friend_user_id,
             };
@@ -155,7 +157,7 @@ impl FriendBizService for MsgFriendServiceImpl {
     ) -> Result<tonic::Response<()>, tonic::Status> {
         let r = request.into_inner();
         if let Some(cli) = self.inner.friend_client() {
-            let req = crate::grpc_hot_friend::friend_service::UpdateFriendAliasReq {
+            let req = common::grpc::grpc_hot_friend::friend_service::UpdateFriendAliasReq {
                 user_id: r.user_id,
                 friend_id: r.friend_user_id,
                 alias: Some(r.remark),

@@ -1,49 +1,67 @@
 //! 节点发现辅助：通过仲裁服务获取并缓存节点地址。
 
-use crate::grpc_arb::arb_server::{NodeType, QueryNodeReq};
-use crate::grpc_arb::client::connect_server;
 use anyhow::{anyhow, Result};
+use common::arb::ArbHttpClient;
+use common::arb::{NodeInfo, NodeInfoList, NodeType, QueryNodeReq};
 use common::config::AppConfig;
 pub use common::node_util::NodeUtil;
 
-fn resolve_arb_addr() -> Result<String> {
+fn resolve_arb_server_addr() -> Result<String> {
     AppConfig::get()
-        .grpc
-        .as_ref()
-        .and_then(|g| g.client_addr.clone())
-        .ok_or_else(|| anyhow!("grpc.client_addr missing"))
+        .arb()
+        .and_then(|g| g.server_addr.clone())
+        .ok_or_else(|| anyhow!("arb.server_addr missing"))
+}
+
+fn resolve_access_token() -> Option<String> {
+    AppConfig::get().arb().and_then(|g| g.access_token.clone())
+}
+
+fn effective_addr(node_type: NodeType, node: &NodeInfo) -> String {
+    match node_type {
+        NodeType::SocketNode => node
+            .kafka_addr
+            .clone()
+            .unwrap_or_else(|| node.node_addr.clone()),
+        _ => node.node_addr.clone(),
+    }
+}
+
+async fn fetch_nodes(node_type: NodeType) -> Result<NodeInfoList> {
+    let addr = resolve_arb_server_addr()?;
+    let client = ArbHttpClient::new(addr, resolve_access_token())?;
+    client
+        .list_all_nodes(&QueryNodeReq {
+            node_type: node_type as i32,
+        })
+        .await
+        .map_err(Into::into)
 }
 
 pub async fn fetch_msg_friend_addr() -> Result<Option<String>> {
-    let server = resolve_arb_addr()?;
-    let mut cli = connect_server(&server).await?;
-    let req = QueryNodeReq {
-        node_type: NodeType::MsgFriend as i32,
-    };
-    let nodes = cli.list_all_nodes(req).await?.into_inner().nodes;
-    if !nodes.is_empty() {
-        NodeUtil::get().reset_list(
-            NodeType::MsgFriend as i32,
-            nodes.iter().map(|n| n.node_addr.clone()).collect(),
-        );
+    let list = fetch_nodes(NodeType::MsgFriend).await?;
+    let addrs: Vec<String> = list
+        .nodes
+        .iter()
+        .map(|node| effective_addr(NodeType::MsgFriend, node))
+        .collect();
+    if !addrs.is_empty() {
+        NodeUtil::get().reset_list(NodeType::MsgFriend as i32, addrs.clone());
     }
-    Ok(nodes.into_iter().map(|n| n.node_addr).next())
+    Ok(addrs.into_iter().next())
 }
 
 pub async fn fetch_node_addr(node_type: NodeType) -> Result<Option<String>> {
-    let server = resolve_arb_addr()?;
-    let mut cli = connect_server(&server).await?;
-    let req = QueryNodeReq {
-        node_type: node_type as i32,
-    };
-    let nodes = cli.list_all_nodes(req).await?.into_inner().nodes;
-    if !nodes.is_empty() {
-        NodeUtil::get().reset_list(
-            node_type as i32,
-            nodes.iter().map(|n| n.node_addr.clone()).collect(),
-        );
+    let list = fetch_nodes(node_type).await?;
+    let addrs: Vec<String> = list
+        .nodes
+        .iter()
+        .map(|node| effective_addr(node_type, node))
+        .collect();
+    if !addrs.is_empty() {
+        NodeUtil::get().reset_list(node_type as i32, addrs.clone());
     }
-    Ok(nodes.into_iter().map(|n| n.node_addr).next())
+    Ok(addrs.into_iter().next())
 }
 
 pub async fn resolve_hot_friend_addr() -> Result<String> {

@@ -16,7 +16,7 @@ once_cell.workspace = true
 log.workspace = true
 common = { path = "../common" }
 sqlx.workspace = true
-axum = { version = "0.7.9", features = ["macros"] }
+axum.workspace = true
 
 [build-dependencies]
 tonic-build.workspace = true

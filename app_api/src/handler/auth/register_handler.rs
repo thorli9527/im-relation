@@ -1,24 +1,21 @@
-use crate::grpc_hot_online::client_service::FindByContentReq;
+use axum::{extract::Json, routing::post, Router};
+use serde_json::json;
+use validator::Validate;
+
 use crate::handler::auth::register_handler_dto::{
     RegisterRequest, RegisterResponse, RegisterVerifyRequest,
 };
 use crate::service::user_service::{UserService, UserServiceAuthOpt};
-use actix_web::web::ServiceConfig;
-use actix_web::{post, web, Responder};
-use common::config::AppConfig;
 use common::errors::AppError;
-use common::redis::redis_pool::RedisPoolTools;
 use common::result::ApiResponse;
-use common::util::common_utils::{build_md5_with_key, build_uuid};
-use deadpool_redis::redis::AsyncCommands;
 use log::error;
-use serde_json::json;
-use std::time::Duration;
-use validator::Validate;
 
-pub fn configure(cfg: &mut ServiceConfig) {
-    cfg.service(auth_register_verify);
+pub fn router() -> Router {
+    Router::new()
+        .route("/auth/register/build/code", post(build_register_code))
+        .route("/auth/register/verify_code", post(auth_register_verify))
 }
+
 #[utoipa::path(
     post,
     path = "/auth/register/build/code",
@@ -30,13 +27,11 @@ pub fn configure(cfg: &mut ServiceConfig) {
         (status = 500, description = "服务内部错误")
     )
 )]
-#[post("/auth/register/build/code")]
 pub async fn build_register_code(
-    payload: web::Json<RegisterRequest>,
-) -> Result<impl Responder, AppError> {
-    // 参数校验
+    Json(payload): Json<RegisterRequest>,
+) -> Result<ApiResponse<serde_json::Value>, AppError> {
     if let Err(errs) = payload.validate() {
-        let msg = format!("validate.error, {}", errs.to_string());
+        let msg = format!("validate.error, {}", errs);
         return Ok(ApiResponse::json_error(400, msg));
     }
 
@@ -49,12 +44,11 @@ pub async fn build_register_code(
             &payload.target,
         )
         .await?;
-    let body = json!({
-        "regId": uuid.to_string(),
-    });
-    // 返回 uuid 给前端
-    return Ok(ApiResponse::success(body));
+
+    let body = json!({ "regId": uuid.to_string() });
+    Ok(ApiResponse::json(body))
 }
+
 #[utoipa::path(
     post,
     path = "/auth/register/verify_code",
@@ -66,20 +60,17 @@ pub async fn build_register_code(
         (status = 500, description = "服务内部错误")
     )
 )]
-#[post("/auth/register/verify_code")]
 pub async fn auth_register_verify(
-    req: web::Json<RegisterVerifyRequest>,
-) -> Result<impl Responder, AppError> {
+    Json(req): Json<RegisterVerifyRequest>,
+) -> Result<ApiResponse<serde_json::Value>, AppError> {
     if let Err(errs) = req.validate() {
-        error!(
-            "RegisterVerifyRequest validation failed: {}",
-            errs.to_string()
-        );
+        error!("RegisterVerifyRequest validation failed: {}", errs);
         return Ok(ApiResponse::json_error(400, "system.error"));
     }
+
     let user_service = UserService::get();
     user_service
         .register_verify_code(&req.reg_id, &req.code)
         .await?;
-    return Ok(ApiResponse::json_ok());
+    Ok(ApiResponse::json_ok())
 }
