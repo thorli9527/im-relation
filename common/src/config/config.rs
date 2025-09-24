@@ -1,5 +1,6 @@
 use crate::errors::AppError;
 use crate::redis::redis_pool::RedisPoolTools;
+use anyhow::anyhow;
 use config::Config;
 use log::LevelFilter;
 use once_cell::sync::OnceCell;
@@ -105,6 +106,17 @@ impl AppConfig {
     pub fn arb(&self) -> Option<&ArbConfig> {
         self.arb.as_ref()
     }
+
+    pub fn arb_server_addr(&self) -> Option<String> {
+        self.arb
+            .as_ref()
+            .and_then(|cfg| {
+                cfg.server_addr
+                    .clone()
+                    .or_else(|| cfg.url.as_ref().and_then(|u| u.host.clone()))
+            })
+            .or_else(|| self.server.as_ref()?.http_addr())
+    }
     /// 获取单例
     pub fn get() -> Arc<Self> {
         INSTANCE.get().expect("INSTANCE is not initialized").clone()
@@ -144,20 +156,40 @@ pub struct SysConfig {
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]
+pub struct EndpointConfig {
+    pub host: Option<String>,
+    pub port: Option<u16>,
+    pub addr: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
 pub struct ServerConfig {
-    pub host: String,
-    pub port: u16,
+    #[serde(default)]
+    pub host: Option<String>,
+    #[serde(default)]
+    pub port: Option<u16>,
+    #[serde(default)]
+    pub grpc: Option<EndpointConfig>,
+    #[serde(default)]
+    pub http: Option<EndpointConfig>,
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ArbConfig {
     pub server_addr: Option<String>,
     pub access_token: Option<String>,
+    #[serde(default)]
+    pub url: Option<ArbUrlConfig>,
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct RedisConfig {
     pub url: String,
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct ArbUrlConfig {
+    pub host: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]
@@ -178,4 +210,56 @@ pub struct SocketConfig {
     pub http_host: Option<String>,
     /// HTTP 服务监听端口，缺省为 server.port + 100。
     pub http_port: Option<u16>,
+}
+
+impl EndpointConfig {
+    fn resolve_with_defaults(
+        &self,
+        default_host: Option<&String>,
+        default_port: Option<&u16>,
+    ) -> Option<String> {
+        if let Some(addr) = &self.addr {
+            return Some(addr.clone());
+        }
+        let host = self.host.as_ref().or(default_host)?;
+        let port = self.port.or(default_port.copied())?;
+        Some(format!("{}:{}", host, port))
+    }
+}
+
+impl ServerConfig {
+    fn legacy_addr(&self) -> Option<String> {
+        self.host
+            .as_ref()
+            .zip(self.port)
+            .map(|(host, port)| format!("{}:{}", host, port))
+    }
+
+    pub fn grpc_addr(&self) -> Option<String> {
+        match &self.grpc {
+            Some(endpoint) => {
+                endpoint.resolve_with_defaults(self.host.as_ref(), self.port.as_ref())
+            }
+            None => self.legacy_addr(),
+        }
+    }
+
+    pub fn http_addr(&self) -> Option<String> {
+        match &self.http {
+            Some(endpoint) => {
+                endpoint.resolve_with_defaults(self.host.as_ref(), self.port.as_ref())
+            }
+            None => self.legacy_addr(),
+        }
+    }
+
+    pub fn require_grpc_addr(&self) -> anyhow::Result<String> {
+        self.grpc_addr()
+            .ok_or_else(|| anyhow!("server.grpc host/port not configured"))
+    }
+
+    pub fn require_http_addr(&self) -> anyhow::Result<String> {
+        self.http_addr()
+            .ok_or_else(|| anyhow!("server.http host/port not configured"))
+    }
 }

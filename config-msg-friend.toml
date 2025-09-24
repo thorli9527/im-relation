@@ -1,16 +1,15 @@
 [database]
 url = "mysql://root:73411bf9-a4a9-4a8a-9716-8935d3@127.0.0.1:3306/msg_friend"
-
-[arb]
-server_addr = "127.0.0.1:8000"
-
-[server]
+[server.grpc]
 host = "127.0.0.1"
 port = 8102
-
+[server.http]
+host = "127.0.0.1"
+port = 8302
+[arb.url]
+host = "http://127.0.0.1:8005"
 [socket]
 kafka_broker = "127.0.0.1:9092"
 kafka_group_id = "msg-friend-dispatcher"
-
 [sys]
 log_leve = "warn"  # trace debug info error warn

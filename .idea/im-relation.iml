@@ -13,6 +13,7 @@
       <sourceFolder url="file://$MODULE_DIR$/msg_friend/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/msg_gateway/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/msg_group/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/arb_service/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

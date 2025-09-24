@@ -21,6 +21,7 @@
 pub mod dispatcher;
 pub mod grpc_clients;
 pub mod handler;
+pub mod node_discovery;
 pub mod pipeline;
 pub mod session;
 pub mod types;

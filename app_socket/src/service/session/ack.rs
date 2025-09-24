@@ -12,26 +12,35 @@ use crate::service::types::{MessageId, SendOpts, ServerMsg, UserId};
 use super::manager::SessionManager;
 use super::metrics::METRICS;
 
+/// 记录待确认消息及其重试上下文。
 #[derive(Clone, Debug)]
 pub(super) struct PendingAck {
+    /// 完整缓存消息体，用于重试扇出
     pub(super) msg: ServerMsg,
+    /// 已尝试发送次数
     pub(super) attempts: u32,
+    /// 超过该时间后不再重试
     pub(super) expire_at: Instant,
+    /// 发送选项（包含过期、最大重试次数等）
     pub(super) opts: SendOpts,
+    /// 目标用户 ID，便于从管理器重发
     pub(super) target_user: UserId,
 }
 
-/// ACK 分片与到期调度（DelayQueue）
+/// ACK 分片与到期调度（DelayQueue），通过哈希分片降低锁竞争。
 #[derive(Clone)]
 pub(super) struct AckShards {
     inner: Arc<AckShardsInner>,
 }
 
 struct AckShardsInner {
+    /// 每个分片的命令通道
     shard_tx: Vec<mpsc::Sender<AckCmd>>,
+    /// 分片数量，用于取模
     shard_count: usize,
 }
 
+/// 分片任务接收的指令，包含新增追踪和确认回调。
 #[derive(Debug)]
 pub(super) enum AckCmd {
     Track { id: MessageId, entry: PendingAck },
@@ -39,6 +48,7 @@ pub(super) enum AckCmd {
 }
 
 impl AckShards {
+    /// 根据配置创建分片，并为每个分片启动一个后台任务负责 DelayQueue 调度。
     pub(super) fn new(shard_count: usize, retry_interval: Duration) -> Self {
         let mut txs = Vec::with_capacity(shard_count);
         for _sid in 0..shard_count {
@@ -99,11 +109,13 @@ impl AckShards {
     }
 
     #[inline]
+    /// 根据消息 ID 计算落在的分片。
     fn shard(&self, id: MessageId) -> &mpsc::Sender<AckCmd> {
         let idx = (id as usize).wrapping_mul(0x9e3779b1) % self.inner.shard_count;
         &self.inner.shard_tx[idx]
     }
 
+    /// 当消息第一次发送且需要 ACK 时记录分片状态，后续若失败将由后台任务判断是否重试。
     pub(super) fn track_if_new(&self, msg: &ServerMsg, opts: &SendOpts, target_user: UserId) {
         let id = msg.id;
         let entry = PendingAck {
@@ -117,6 +129,7 @@ impl AckShards {
         let _ = self.shard(id).try_send(AckCmd::Track { id, entry });
     }
 
+    /// 客户端确认后移除对应记录，取消后续重试。
     pub(super) fn ack(&self, id: MessageId) {
         // 客户端确认后立即从分片中移除，避免多次重试。
         let _ = self.shard(id).try_send(AckCmd::Ack { id });

@@ -1,16 +1,16 @@
-use std::mem;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
-use common::arb::{ArbHttpClient, BaseRequest, NodeType, RegisterRequest};
+use axum::Router;
+use common::arb::NodeType;
 use common::config::AppConfig;
 use common::service::arb_client;
 use log::{info, warn};
-use tokio::{signal, time};
+use tokio::signal;
+use tokio_util::sync::CancellationToken;
 use tonic::service::Routes;
-use tonic::transport::Server;
 
 use crate::db::mysql::{ClientRepoSqlx, DirectoryRepoSqlx, SessionRepoSqlx};
 use crate::grpc_hot_online::client_service_impl::{ClientEntityServiceImpl, DummyIdAlloc};
@@ -18,22 +18,37 @@ use crate::grpc_hot_online::online_service::client_rpc_service_server::ClientRpc
 use crate::grpc_hot_online::online_service::online_service_server::OnlineServiceServer;
 use crate::hot_cold::{ClientHot, ClientHotConfig, RealNormalizer};
 use crate::online_store::OnlineStore;
+use crate::rest_online;
 use crate::service::online_service_impl::OnLineServiceImpl;
+
+mod server_grpc;
+mod server_web;
 
 pub async fn start() -> Result<()> {
     let cfg = AppConfig::get();
-    let arb_cfg = cfg.arb().ok_or_else(|| anyhow!("arb config missing"))?;
-    let http_cfg = cfg
+    let server_cfg = cfg
         .server
         .as_ref()
         .ok_or_else(|| anyhow!("server config missing"))?;
 
-    let bind_addr_str = format!("{}:{}", http_cfg.host, http_cfg.port);
-    let bind_addr: SocketAddr = bind_addr_str
-        .parse()
-        .with_context(|| format!("invalid http host:port: {}", bind_addr_str))?;
+    let grpc_addr_str = server_cfg
+        .require_grpc_addr()
+        .context("server.grpc missing host/port")?;
+    let http_addr_str = server_cfg
+        .require_http_addr()
+        .context("server.http missing host/port")?;
 
-    let client_addr = bind_addr_str.clone();
+    let grpc_addr: SocketAddr = grpc_addr_str
+        .parse()
+        .with_context(|| format!("invalid grpc host:port: {}", grpc_addr_str))?;
+    let http_addr: SocketAddr = http_addr_str
+        .parse()
+        .with_context(|| format!("invalid http host:port: {}", http_addr_str))?;
+
+    let advertise_addr = std::env::var("ONLINE_GRPC_ADDR")
+        .ok()
+        .filter(|addr| !addr.is_empty())
+        .unwrap_or_else(|| grpc_addr_str.clone());
 
     let shard_count = std::env::var("ONLINE_SHARDS")
         .ok()
@@ -85,65 +100,56 @@ pub async fn start() -> Result<()> {
     let client_svc =
         ClientEntityServiceImpl::new(hot, normalizer.clone(), DummyIdAlloc, Some(online_touch));
 
-    let rest_state = crate::rest_online::AppState {
+    let rest_state = rest_online::AppState {
         store: store.clone(),
     };
-    let rest_router = crate::rest_online::router(rest_state);
+    let rest_router = rest_online::router(rest_state);
+    let http_router: Router = rest_router.merge(arb_client::http_router());
 
-    let mut routes = Routes::new(OnlineServiceServer::new(online_svc))
+    let routes = Routes::new(OnlineServiceServer::new(online_svc))
         .add_service(ClientRpcServiceServer::new(client_svc));
-    arb_client::attach_http_gateway(&mut routes);
-
-    let router_slot = routes.axum_router_mut();
-    *router_slot = mem::take(router_slot).fallback_service(rest_router);
 
     info!(
-        "hot_online_service listening on {} (HTTP + gRPC)",
-        bind_addr_str
+        "hot_online_service listening on grpc={} http={}",
+        grpc_addr_str, http_addr_str
     );
 
-    if let Some(server_addr) = &arb_cfg.server_addr {
-        let arb_http = ArbHttpClient::new(server_addr.clone(), arb_cfg.access_token.clone())?;
-        arb_http
-            .register_node(&RegisterRequest {
-                node_addr: client_addr.clone(),
-                node_type: NodeType::OnlineNode as i32,
-                kafka_addr: None,
-            })
-            .await?;
-        spawn_heartbeat(arb_http.clone(), client_addr.clone());
+    arb_client::register_node(NodeType::OnlineNode, advertise_addr.clone(), None).await?;
+
+    let cancel_token = CancellationToken::new();
+    let http_cancel = cancel_token.clone();
+    let grpc_cancel = cancel_token.clone();
+
+    let mut http_future = Box::pin(server_web::serve(http_addr, http_router, async move {
+        http_cancel.cancelled().await;
+    }));
+
+    let mut grpc_future = Box::pin(server_grpc::serve(grpc_addr, routes, async move {
+        grpc_cancel.cancelled().await;
+        warn!("Ctrl+C received, shutting down...");
+    }));
+
+    tokio::select! {
+        res = &mut http_future => {
+            res.with_context(|| "http server exited unexpectedly")?;
+            cancel_token.cancel();
+        }
+        res = &mut grpc_future => {
+            res.with_context(|| "grpc server exited unexpectedly")?;
+            cancel_token.cancel();
+        }
+        _ = signal::ctrl_c() => {
+            warn!("Ctrl+C received, shutting down...");
+            cancel_token.cancel();
+        }
     }
 
-    Server::builder()
-        .accept_http1(true)
-        .add_routes(routes)
-        .serve_with_shutdown(bind_addr, async {
-            if let Err(err) = signal::ctrl_c().await {
-                warn!("failed to listen for shutdown signal: {}", err);
-            }
-            warn!("Ctrl+C received, shutting down...");
-        })
+    http_future
         .await
-        .map_err(anyhow::Error::from)?;
+        .with_context(|| "http server shutdown failed")?;
+    grpc_future
+        .await
+        .with_context(|| "grpc server shutdown failed")?;
 
     Ok(())
-}
-
-fn spawn_heartbeat(client: ArbHttpClient, node_addr: String) {
-    tokio::spawn(async move {
-        let mut interval = time::interval(Duration::from_secs(10));
-        loop {
-            interval.tick().await;
-            if let Err(err) = client
-                .heartbeat(&BaseRequest {
-                    node_addr: node_addr.clone(),
-                    node_type: NodeType::OnlineNode as i32,
-                })
-                .await
-            {
-                warn!("arb heartbeat failed: {}", err);
-                time::sleep(Duration::from_secs(3)).await;
-            }
-        }
-    });
 }

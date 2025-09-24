@@ -17,12 +17,12 @@ use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
-use common::grpc::grpc_socket::socket as socket_proto;
 use crate::service::grpc_clients;
-use crate::util::node_util::resolve_hot_online_addr;
+use crate::service::node_discovery::resolve_hot_online_addr;
 use common::grpc::grpc_hot_online::online_service::{
     SessionTokenStatus, ValidateSessionTokenRequest,
 };
+use common::grpc::grpc_socket::socket as socket_proto;
 use socket_proto::{
     AuthMsg as PbAuthMsg, ClientMsg as PbClientMsg, DeviceType as PbDeviceType,
     MsgKind as PbMsgKind, ServerMsg as PbServerMsg,
@@ -51,12 +51,13 @@ impl From<PbDeviceType> for DeviceType {
 pub async fn start_tcp_server() -> anyhow::Result<()> {
     let cfg = common::config::AppConfig::get();
     let server = cfg.get_server();
-    let bind = format!("{}:{}", server.host, server.port);
-    let addr: SocketAddr = bind
-        .parse()
-        .context("invalid socket bind address from config")?;
+    let bind = server
+        .require_grpc_addr()
+        .context("server.grpc missing host/port for socket TCP listener")?;
     // 尝试在 Tokio runtime 上监听 TCP 端口（失败直接返回错误以便上层中止启动流程）。
-    let listener = TcpListener::bind(addr).await.context("bind tcp listener")?;
+    let listener = TcpListener::bind(&bind)
+        .await
+        .context("bind tcp listener")?;
     info!("tcp socket listening on {}", bind);
 
     tokio::spawn(async move {

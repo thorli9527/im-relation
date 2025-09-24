@@ -9,6 +9,8 @@ use std::time::Duration;
 
 // 使用 common 中的 UserId 类型
 /// 业务种类（与 TCP/Kafka 边界一致的枚举）
+// Ensure the `common` crate is included in Cargo.toml and accessible in your project.
+// If `common` is a local module, use `mod common;` at the crate root or adjust the path accordingly.
 pub use common::grpc::grpc_socket::socket::MsgKind;
 pub use common::UserId;
 /// 设备唯一标识（例如设备序列号、推送 token 等）

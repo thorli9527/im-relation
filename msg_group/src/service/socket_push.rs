@@ -1,7 +1,4 @@
-//! Kafka 推送工具：将业务通知转发给 socket 服务。
-
 use std::sync::Arc;
-
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use common::kafka::kafka_producer::KafkaInstanceService;
@@ -13,7 +10,6 @@ use tonic::Status;
 use crate::socket::{KafkaMsg, MsgKind};
 
 /// 向 socket 分发通道推送消息。
-///
 /// 若未配置 Kafka，则静默忽略（返回 Ok）。
 pub async fn push_socket_message<M: Message>(
     kafka: Option<&Arc<KafkaInstanceService>>,

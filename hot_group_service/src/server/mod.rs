@@ -1,37 +1,52 @@
-use std::mem;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
+
+use anyhow::{anyhow, Context, Result};
+use axum::{routing::get, Json, Router};
+use common::arb::NodeType;
+use common::config::{get_db, AppConfig};
+use common::grpc::grpc_hot_group::group_service::group_service_server::GroupServiceServer;
+use common::service::arb_client;
+use log::{info, warn};
+use tokio::signal;
+use tokio_util::sync::CancellationToken;
+use tonic::service::Routes;
 
 use crate::hot_cold::{HotColdConfig, HotColdFacade};
 use crate::member::shard_map::ShardMap;
 use crate::profile::{GroupProfileCache, MySqlGroupProfileStore};
 use crate::service::group_service_impl::GroupServiceImpl;
 use crate::store::mysql::MySqlStore;
-use anyhow::{anyhow, Context, Result};
-use axum::{routing::get, Json, Router};
-use common::arb::{ArbHttpClient, BaseRequest, NodeType, RegisterRequest};
-use common::config::{get_db, AppConfig};
-use common::grpc::grpc_hot_group::group_service::group_service_server::GroupServiceServer;
-use common::service::arb_client;
-use log::{info, warn};
-use tokio::{signal, time};
-use tonic::service::Routes;
-use tonic::transport::Server;
+
+mod server_grpc;
+mod server_web;
 
 pub async fn start() -> Result<()> {
     let cfg = AppConfig::get();
-    let arb_cfg = cfg.arb().ok_or_else(|| anyhow!("arb config missing"))?;
-    let http_cfg = cfg
+    let server_cfg = cfg
         .server
         .as_ref()
         .ok_or_else(|| anyhow!("server config missing"))?;
-    let bind_addr_str = format!("{}:{}", http_cfg.host, http_cfg.port);
-    let bind_addr: SocketAddr = bind_addr_str
-        .parse()
-        .with_context(|| format!("invalid http host:port: {}", bind_addr_str))?;
 
-    let client_addr = bind_addr_str.clone();
+    let grpc_addr_str = server_cfg
+        .require_grpc_addr()
+        .context("server.grpc missing host/port")?;
+    let http_addr_str = server_cfg
+        .require_http_addr()
+        .context("server.http missing host/port")?;
+
+    let grpc_addr: SocketAddr = grpc_addr_str
+        .parse()
+        .with_context(|| format!("invalid grpc host:port: {}", grpc_addr_str))?;
+    let http_addr: SocketAddr = http_addr_str
+        .parse()
+        .with_context(|| format!("invalid http host:port: {}", http_addr_str))?;
+
+    let advertise_addr = std::env::var("GROUP_GRPC_ADDR")
+        .ok()
+        .filter(|addr| !addr.is_empty())
+        .unwrap_or_else(|| grpc_addr_str.clone());
 
     let hot_mem_model = crate::hot_capacity::HotMemModel {
         bytes_per_member: env_parse("HOT_BYTES_PER_MEMBER", 128usize),
@@ -75,53 +90,64 @@ pub async fn start() -> Result<()> {
         profile_l1_tti_secs,
     ));
 
-    async fn healthz() -> Json<serde_json::Value> {
-        Json(serde_json::json!({"ok": true}))
-    }
-
     info!(
         "hot cache decided: cap={}, tti={}s, shard_count={}, per_group_shard={}, {}",
         hot_capacity, hot_tti_secs, shard_count, per_group_shard, debug_line
     );
 
-    if let Some(server_addr) = &arb_cfg.server_addr {
-        let arb_http = ArbHttpClient::new(server_addr.clone(), arb_cfg.access_token.clone())?;
-        arb_http
-            .register_node(&RegisterRequest {
-                node_addr: client_addr.clone(),
-                node_type: NodeType::GroupNode as i32,
-                kafka_addr: None,
-            })
-            .await?;
+    let http_router = Router::new()
+        .route("/healthz", get(healthz))
+        .merge(arb_client::http_router());
 
-        spawn_heartbeat(arb_http.clone(), client_addr.clone());
+    let grpc_service =
+        GroupServiceServer::new(GroupServiceImpl::new(facade.clone(), profile_cache.clone()));
+    let routes = Routes::new(grpc_service);
+
+    arb_client::register_node(NodeType::GroupNode, advertise_addr.clone(), None).await?;
+
+    let cancel_token = CancellationToken::new();
+    let http_cancel = cancel_token.clone();
+    let grpc_cancel = cancel_token.clone();
+    let shutdown_facade = facade.clone();
+
+    let mut http_future = Box::pin(server_web::serve(http_addr, http_router, async move {
+        http_cancel.cancelled().await;
+    }));
+
+    let mut grpc_future = Box::pin(server_grpc::serve(grpc_addr, routes, async move {
+        grpc_cancel.cancelled().await;
+        warn!("shutting down... flushing hot groups");
+        shutdown_facade.flush_all().await;
+        warn!("flush done. bye");
+    }));
+
+    tokio::select! {
+        res = &mut http_future => {
+            res.with_context(|| "http server exited unexpectedly")?;
+            cancel_token.cancel();
+        }
+        res = &mut grpc_future => {
+            res.with_context(|| "grpc server exited unexpectedly")?;
+            cancel_token.cancel();
+        }
+        _ = signal::ctrl_c() => {
+            warn!("Ctrl+C received, shutting down...");
+            cancel_token.cancel();
+        }
     }
 
-    let svc_impl = GroupServiceImpl::new(facade.clone(), profile_cache.clone());
-    let svc = GroupServiceServer::new(svc_impl);
-    let rest_router = Router::new().route("/healthz", get(healthz));
-
-    let mut routes = Routes::new(svc);
-    arb_client::attach_http_gateway(&mut routes);
-
-    let router_slot = routes.axum_router_mut();
-    *router_slot = mem::take(router_slot).fallback_service(rest_router);
-
-    let shutdown_facade = facade.clone();
-    Server::builder()
-        .accept_http1(true)
-        .add_routes(routes)
-        .serve_with_shutdown(bind_addr, async move {
-            if let Err(err) = signal::ctrl_c().await {
-                warn!("failed to listen for shutdown signal: {}", err);
-            }
-            warn!("shutting down... flushing hot groups");
-            shutdown_facade.flush_all().await;
-            warn!("flush done. bye");
-        })
-        .await?;
+    http_future
+        .await
+        .with_context(|| "http server shutdown failed")?;
+    grpc_future
+        .await
+        .with_context(|| "grpc server shutdown failed")?;
 
     Ok(())
+}
+
+async fn healthz() -> Json<serde_json::Value> {
+    Json(serde_json::json!({"ok": true}))
 }
 
 fn env_parse<T>(key: &str, default: T) -> T
@@ -132,23 +158,4 @@ where
         .ok()
         .and_then(|s| s.parse::<T>().ok())
         .unwrap_or(default)
-}
-
-fn spawn_heartbeat(client: ArbHttpClient, node_addr: String) {
-    tokio::spawn(async move {
-        let mut interval = time::interval(Duration::from_secs(10));
-        loop {
-            interval.tick().await;
-            if let Err(err) = client
-                .heartbeat(&BaseRequest {
-                    node_addr: node_addr.clone(),
-                    node_type: NodeType::GroupNode as i32,
-                })
-                .await
-            {
-                warn!("arb heartbeat failed: {}", err);
-                time::sleep(Duration::from_secs(3)).await;
-            }
-        }
-    });
 }

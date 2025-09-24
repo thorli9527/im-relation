@@ -9,15 +9,16 @@
 
 mod server;
 pub mod service;
-pub mod util; // new unified server module
 
+use anyhow::{Context, Result};
 use common::config::AppConfig;
 use service::{start_socket_pipeline, MultiLoginPolicy, SessionManager, SessionPolicy};
 use std::env;
+use std::net::SocketAddr;
 use tokio::signal;
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<()> {
     // 加载配置（支持 APP_CONFIG 环境变量覆盖配置文件路径）
     let _cfg = AppConfig::init_from_env("./config-socket.toml").await;
     // 初始化会话管理策略：默认“每设备类型单端 + 最大 5 会话/用户”
@@ -31,9 +32,10 @@ async fn main() -> anyhow::Result<()> {
     let server_cfg = cfg.get_server();
     let socket_cfg = cfg.get_socket();
 
-    let tcp_host = server_cfg.host.clone();
-    let tcp_port = server_cfg.port;
-    let tcp_bind = format!("{}:{}", tcp_host, tcp_port);
+    let tcp_bind = server_cfg
+        .require_grpc_addr()
+        .context("server.grpc missing host/port for socket TCP listener")?;
+    let (tcp_host, tcp_port) = split_host_port(&tcp_bind)?;
 
     let http_host = socket_cfg
         .http_host
@@ -51,7 +53,7 @@ async fn main() -> anyhow::Result<()> {
 
     let advertise_http = env::var("SOCKET_HTTP_ADDR").unwrap_or_else(|_| http_bind.clone());
     let advertise_tcp = env::var("SOCKET_TCP_ADDR").unwrap_or_else(|_| tcp_bind.clone());
-    server::server_arb::register_with_arb(&advertise_http, &advertise_tcp).await?;
+    server::server_web::register_with_arb(&advertise_http, &advertise_tcp).await?;
 
     // 启动消费/分发流水线：Kafka → mpsc 分片 → SessionManager
     start_socket_pipeline().await?;
@@ -60,4 +62,15 @@ async fn main() -> anyhow::Result<()> {
     let _ = signal::ctrl_c().await;
     log::info!("app_socket: received Ctrl-C, shutting down");
     Ok(())
+}
+
+fn split_host_port(addr: &str) -> Result<(String, u16)> {
+    if let Ok(socket) = addr.parse::<SocketAddr>() {
+        return Ok((socket.ip().to_string(), socket.port()));
+    }
+    let (host, port_str) = addr
+        .rsplit_once(':')
+        .context("invalid host:port address format")?;
+    let port = port_str.parse::<u16>().context("invalid port number")?;
+    Ok((host.to_string(), port))
 }

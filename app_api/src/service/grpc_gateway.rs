@@ -6,7 +6,7 @@ use common::grpc::GrpcClientManager;
 use once_cell::sync::OnceCell;
 use tonic::transport::{Channel, Error as TransportError};
 
-use crate::util::node_util::NodeUtil;
+use common::node_util::NodeUtil;
 
 static ONLINE_MANAGER: OnceCell<GrpcClientManager<OnlineServiceClient<Channel>, TransportError>> =
     OnceCell::new();

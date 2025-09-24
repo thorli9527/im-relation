@@ -1,5 +1,5 @@
-use crate::util::node_util::NodeUtil;
 use common::arb::NodeType;
+use common::node_util::NodeUtil;
 
 pub mod grpc_gateway;
 pub mod user_service;

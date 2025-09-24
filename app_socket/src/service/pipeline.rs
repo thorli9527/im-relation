@@ -15,18 +15,15 @@ use log::{error, info};
 use prost::Message as _;
 use rdkafka::message::Message;
 
-use common::grpc::grpc_socket::socket::{KafkaMsg, MsgKind as PbMsgKind};
 use crate::service::dispatcher::ShardedDispatcher;
 use crate::service::types::{SendOpts, ServerMsg, UserId};
+use common::grpc::grpc_socket::socket::{KafkaMsg, MsgKind as PbMsgKind};
 use common::kafka::start_consumer;
 use common::kafka::topic_info::{
     TopicInfo, MSG_SEND_FRIEND_TOPIC, MSG_SEND_GROUP_TOPIC, SYS_MSG_TOPIC_INFO,
 };
 use std::convert::TryFrom;
-
-fn default_true() -> bool {
-    true
-}
+// Removed unresolved import: use crate::proto;
 
 /// 启动消费与分发流水线（参数来自配置文件 socket.*）
 ///

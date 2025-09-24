@@ -3,7 +3,7 @@
 use tonic::{Request, Response, Status};
 
 use crate::dao::{fetch_device_bundles, upsert_device_keys, DeviceKeysRow};
-use crate::server::server_grpc::Services;
+use crate::server::Services;
 use common::grpc::grpc_msg_friend::msg_friend_service as msgpb;
 
 #[tonic::async_trait]

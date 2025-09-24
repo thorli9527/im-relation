@@ -3,7 +3,7 @@
 use crate::dao::{
     get_friend_request_by_id, mark_friend_request_decision, upsert_friend_request, FriendRequestRow,
 };
-use crate::server::server_grpc::Services;
+use crate::server::Services;
 use common::grpc::grpc_msg_friend::msg_friend_service::{
     self, friend_biz_service_server::FriendBizService,
 };

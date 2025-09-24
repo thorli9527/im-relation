@@ -613,10 +613,10 @@ pub mod group_biz_service_client {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
-    use tonic::codegen::*;
     use tonic::codegen::http::Uri;
+    use tonic::codegen::*;
     /// -----------------------------------------------------------------------------
     /// 群业务编排服务（Biz）
     /// - 所有写操作需鉴权与权限校验；返回 Empty 表示仅代表“受理成功”或“无返回体”的成功；
@@ -665,9 +665,8 @@ pub mod group_biz_service_client {
                     <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::Body>,
-            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+            <T as tonic::codegen::Service<http::Request<tonic::body::Body>>>::Error:
+                Into<StdError> + std::marker::Send + std::marker::Sync,
         {
             GroupBizServiceClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -706,27 +705,19 @@ pub mod group_biz_service_client {
         pub async fn create_group(
             &mut self,
             request: impl tonic::IntoRequest<super::CreateGroupReq>,
-        ) -> std::result::Result<
-            tonic::Response<super::CreateGroupResp>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::CreateGroupResp>, tonic::Status> {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupBizService/CreateGroup",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("msg_group_service.GroupBizService", "CreateGroup"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupBizService",
+                "CreateGroup",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 更新群资料（需 OWNER/ADMIN 权限）
@@ -734,26 +725,18 @@ pub mod group_biz_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::UpdateGroupProfileReq>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupBizService/UpdateGroupProfile",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "msg_group_service.GroupBizService",
-                        "UpdateGroupProfile",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupBizService",
+                "UpdateGroupProfile",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 解散群（仅群主；解散后不可恢复）
@@ -761,23 +744,18 @@ pub mod group_biz_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::DismissGroupReq>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupBizService/DismissGroup",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("msg_group_service.GroupBizService", "DismissGroup"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupBizService",
+                "DismissGroup",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 申请/邀请入群（根据 JoinPermission 与 inviter_* 分支处理）
@@ -785,23 +763,18 @@ pub mod group_biz_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::JoinGroupReq>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupBizService/JoinGroup",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("msg_group_service.GroupBizService", "JoinGroup"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupBizService",
+                "JoinGroup",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 主动退群（群主需先转让）
@@ -809,23 +782,18 @@ pub mod group_biz_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::LeaveGroupReq>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupBizService/LeaveGroup",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("msg_group_service.GroupBizService", "LeaveGroup"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupBizService",
+                "LeaveGroup",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 审批入群（OWNER/ADMIN）
@@ -833,23 +801,18 @@ pub mod group_biz_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::ApproveJoinReq>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupBizService/ApproveJoin",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("msg_group_service.GroupBizService", "ApproveJoin"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupBizService",
+                "ApproveJoin",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 邀请成员（OWNER/ADMIN，或成员在 INVITE_ONLY 策略下具备的邀请权）
@@ -857,23 +820,18 @@ pub mod group_biz_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::InviteMembersReq>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupBizService/InviteMembers",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("msg_group_service.GroupBizService", "InviteMembers"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupBizService",
+                "InviteMembers",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 踢出成员（OWNER/ADMIN）
@@ -881,23 +839,18 @@ pub mod group_biz_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::KickMemberReq>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupBizService/KickMember",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("msg_group_service.GroupBizService", "KickMember"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupBizService",
+                "KickMember",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 更新群内别名（自改或管理员改）
@@ -905,26 +858,18 @@ pub mod group_biz_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::UpdateMemberAliasReq>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupBizService/UpdateMemberAlias",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "msg_group_service.GroupBizService",
-                        "UpdateMemberAlias",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupBizService",
+                "UpdateMemberAlias",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 调整角色（仅群主；升级/降级）
@@ -932,26 +877,18 @@ pub mod group_biz_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::ChangeMemberRoleReq>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupBizService/ChangeMemberRole",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "msg_group_service.GroupBizService",
-                        "ChangeMemberRole",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupBizService",
+                "ChangeMemberRole",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 查询群资料（含成员数、权限等）
@@ -959,23 +896,17 @@ pub mod group_biz_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::GetGroupReq>,
         ) -> std::result::Result<tonic::Response<super::GroupInfo>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/msg_group_service.GroupBizService/GetGroup",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/msg_group_service.GroupBizService/GetGroup");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("msg_group_service.GroupBizService", "GetGroup"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupBizService",
+                "GetGroup",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 分页查询群成员（轻量列表）
@@ -983,50 +914,37 @@ pub mod group_biz_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::GetMembersReq>,
         ) -> std::result::Result<tonic::Response<super::GetMembersResp>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupBizService/GetMembers",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("msg_group_service.GroupBizService", "GetMembers"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupBizService",
+                "GetMembers",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 成员数量统计（强一致/准实时，取决于实现）
         pub async fn count_members(
             &mut self,
             request: impl tonic::IntoRequest<super::CountMembersReq>,
-        ) -> std::result::Result<
-            tonic::Response<super::CountMembersResp>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::CountMembersResp>, tonic::Status> {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupBizService/CountMembers",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("msg_group_service.GroupBizService", "CountMembers"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupBizService",
+                "CountMembers",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 查询用户参与的群 ID 列表
@@ -1034,23 +952,18 @@ pub mod group_biz_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::UserGroupsReq>,
         ) -> std::result::Result<tonic::Response<super::UserGroupsResp>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupBizService/UserGroups",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("msg_group_service.GroupBizService", "UserGroups"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupBizService",
+                "UserGroups",
+            ));
             self.inner.unary(req, path, codec).await
         }
     }
@@ -1062,10 +975,10 @@ pub mod group_msg_service_client {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
-    use tonic::codegen::*;
     use tonic::codegen::http::Uri;
+    use tonic::codegen::*;
     /// -----------------------------------------------------------------------------
     /// 群消息服务（Msg）
     /// - SendMessage 仅负责写入/透传 socket；服务端应追加服务端时间与顺序号；
@@ -1114,9 +1027,8 @@ pub mod group_msg_service_client {
                     <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::Body>,
-            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+            <T as tonic::codegen::Service<http::Request<tonic::body::Body>>>::Error:
+                Into<StdError> + std::marker::Send + std::marker::Sync,
         {
             GroupMsgServiceClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -1156,23 +1068,18 @@ pub mod group_msg_service_client {
             &mut self,
             request: impl tonic::IntoRequest<crate::grpc::message::Content>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupMsgService/SendMessage",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("msg_group_service.GroupMsgService", "SendMessage"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupMsgService",
+                "SendMessage",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 上报已读（用户读到某消息，服务端可折叠成“读到 N”）
@@ -1180,23 +1087,18 @@ pub mod group_msg_service_client {
             &mut self,
             request: impl tonic::IntoRequest<crate::grpc::message::MsgRead>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupMsgService/ReportMsgRead",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("msg_group_service.GroupMsgService", "ReportMsgRead"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupMsgService",
+                "ReportMsgRead",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 已送达回执（网络层/客户端确认）
@@ -1204,26 +1106,18 @@ pub mod group_msg_service_client {
             &mut self,
             request: impl tonic::IntoRequest<crate::grpc::message::MsgDeliveredAck>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupMsgService/AckMsgDelivered",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "msg_group_service.GroupMsgService",
-                        "AckMsgDelivered",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupMsgService",
+                "AckMsgDelivered",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 已读回执确认（对已读的二次确认，用于多端同步）
@@ -1231,23 +1125,18 @@ pub mod group_msg_service_client {
             &mut self,
             request: impl tonic::IntoRequest<crate::grpc::message::MsgReadAck>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupMsgService/AckMsgRead",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("msg_group_service.GroupMsgService", "AckMsgRead"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupMsgService",
+                "AckMsgRead",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 撤回消息（权限校验）
@@ -1255,23 +1144,18 @@ pub mod group_msg_service_client {
             &mut self,
             request: impl tonic::IntoRequest<crate::grpc::message::MsgRecall>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupMsgService/RecallMsg",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("msg_group_service.GroupMsgService", "RecallMsg"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupMsgService",
+                "RecallMsg",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 转发消息（可能跨会话/跨群）
@@ -1279,23 +1163,18 @@ pub mod group_msg_service_client {
             &mut self,
             request: impl tonic::IntoRequest<crate::grpc::message::MsgForward>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_group_service.GroupMsgService/ForwardMsg",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("msg_group_service.GroupMsgService", "ForwardMsg"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_group_service.GroupMsgService",
+                "ForwardMsg",
+            ));
             self.inner.unary(req, path, codec).await
         }
     }
@@ -1307,7 +1186,7 @@ pub mod group_biz_service_server {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
     use tonic::codegen::*;
     /// Generated trait containing gRPC methods that should be implemented for use with GroupBizServiceServer.
@@ -1377,10 +1256,7 @@ pub mod group_biz_service_server {
         async fn count_members(
             &self,
             request: tonic::Request<super::CountMembersReq>,
-        ) -> std::result::Result<
-            tonic::Response<super::CountMembersResp>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::CountMembersResp>, tonic::Status>;
         /// 查询用户参与的群 ID 列表
         async fn user_groups(
             &self,
@@ -1413,10 +1289,7 @@ pub mod group_biz_service_server {
                 max_encoding_message_size: None,
             }
         }
-        pub fn with_interceptor<F>(
-            inner: T,
-            interceptor: F,
-        ) -> InterceptedService<Self, F>
+        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
         where
             F: tonic::service::Interceptor,
         {
@@ -1471,15 +1344,9 @@ pub mod group_biz_service_server {
                 "/msg_group_service.GroupBizService/CreateGroup" => {
                     #[allow(non_camel_case_types)]
                     struct CreateGroupSvc<T: GroupBizService>(pub Arc<T>);
-                    impl<
-                        T: GroupBizService,
-                    > tonic::server::UnaryService<super::CreateGroupReq>
-                    for CreateGroupSvc<T> {
+                    impl<T: GroupBizService> tonic::server::UnaryService<super::CreateGroupReq> for CreateGroupSvc<T> {
                         type Response = super::CreateGroupResp;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::CreateGroupReq>,
@@ -1516,26 +1383,19 @@ pub mod group_biz_service_server {
                 "/msg_group_service.GroupBizService/UpdateGroupProfile" => {
                     #[allow(non_camel_case_types)]
                     struct UpdateGroupProfileSvc<T: GroupBizService>(pub Arc<T>);
-                    impl<
-                        T: GroupBizService,
-                    > tonic::server::UnaryService<super::UpdateGroupProfileReq>
-                    for UpdateGroupProfileSvc<T> {
+                    impl<T: GroupBizService>
+                        tonic::server::UnaryService<super::UpdateGroupProfileReq>
+                        for UpdateGroupProfileSvc<T>
+                    {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::UpdateGroupProfileReq>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as GroupBizService>::update_group_profile(
-                                        &inner,
-                                        request,
-                                    )
-                                    .await
+                                <T as GroupBizService>::update_group_profile(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1565,15 +1425,11 @@ pub mod group_biz_service_server {
                 "/msg_group_service.GroupBizService/DismissGroup" => {
                     #[allow(non_camel_case_types)]
                     struct DismissGroupSvc<T: GroupBizService>(pub Arc<T>);
-                    impl<
-                        T: GroupBizService,
-                    > tonic::server::UnaryService<super::DismissGroupReq>
-                    for DismissGroupSvc<T> {
+                    impl<T: GroupBizService> tonic::server::UnaryService<super::DismissGroupReq>
+                        for DismissGroupSvc<T>
+                    {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::DismissGroupReq>,
@@ -1610,15 +1466,9 @@ pub mod group_biz_service_server {
                 "/msg_group_service.GroupBizService/JoinGroup" => {
                     #[allow(non_camel_case_types)]
                     struct JoinGroupSvc<T: GroupBizService>(pub Arc<T>);
-                    impl<
-                        T: GroupBizService,
-                    > tonic::server::UnaryService<super::JoinGroupReq>
-                    for JoinGroupSvc<T> {
+                    impl<T: GroupBizService> tonic::server::UnaryService<super::JoinGroupReq> for JoinGroupSvc<T> {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::JoinGroupReq>,
@@ -1655,15 +1505,9 @@ pub mod group_biz_service_server {
                 "/msg_group_service.GroupBizService/LeaveGroup" => {
                     #[allow(non_camel_case_types)]
                     struct LeaveGroupSvc<T: GroupBizService>(pub Arc<T>);
-                    impl<
-                        T: GroupBizService,
-                    > tonic::server::UnaryService<super::LeaveGroupReq>
-                    for LeaveGroupSvc<T> {
+                    impl<T: GroupBizService> tonic::server::UnaryService<super::LeaveGroupReq> for LeaveGroupSvc<T> {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::LeaveGroupReq>,
@@ -1700,15 +1544,9 @@ pub mod group_biz_service_server {
                 "/msg_group_service.GroupBizService/ApproveJoin" => {
                     #[allow(non_camel_case_types)]
                     struct ApproveJoinSvc<T: GroupBizService>(pub Arc<T>);
-                    impl<
-                        T: GroupBizService,
-                    > tonic::server::UnaryService<super::ApproveJoinReq>
-                    for ApproveJoinSvc<T> {
+                    impl<T: GroupBizService> tonic::server::UnaryService<super::ApproveJoinReq> for ApproveJoinSvc<T> {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::ApproveJoinReq>,
@@ -1745,23 +1583,18 @@ pub mod group_biz_service_server {
                 "/msg_group_service.GroupBizService/InviteMembers" => {
                     #[allow(non_camel_case_types)]
                     struct InviteMembersSvc<T: GroupBizService>(pub Arc<T>);
-                    impl<
-                        T: GroupBizService,
-                    > tonic::server::UnaryService<super::InviteMembersReq>
-                    for InviteMembersSvc<T> {
+                    impl<T: GroupBizService> tonic::server::UnaryService<super::InviteMembersReq>
+                        for InviteMembersSvc<T>
+                    {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::InviteMembersReq>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as GroupBizService>::invite_members(&inner, request)
-                                    .await
+                                <T as GroupBizService>::invite_members(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1791,15 +1624,9 @@ pub mod group_biz_service_server {
                 "/msg_group_service.GroupBizService/KickMember" => {
                     #[allow(non_camel_case_types)]
                     struct KickMemberSvc<T: GroupBizService>(pub Arc<T>);
-                    impl<
-                        T: GroupBizService,
-                    > tonic::server::UnaryService<super::KickMemberReq>
-                    for KickMemberSvc<T> {
+                    impl<T: GroupBizService> tonic::server::UnaryService<super::KickMemberReq> for KickMemberSvc<T> {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::KickMemberReq>,
@@ -1836,23 +1663,19 @@ pub mod group_biz_service_server {
                 "/msg_group_service.GroupBizService/UpdateMemberAlias" => {
                     #[allow(non_camel_case_types)]
                     struct UpdateMemberAliasSvc<T: GroupBizService>(pub Arc<T>);
-                    impl<
-                        T: GroupBizService,
-                    > tonic::server::UnaryService<super::UpdateMemberAliasReq>
-                    for UpdateMemberAliasSvc<T> {
+                    impl<T: GroupBizService>
+                        tonic::server::UnaryService<super::UpdateMemberAliasReq>
+                        for UpdateMemberAliasSvc<T>
+                    {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::UpdateMemberAliasReq>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as GroupBizService>::update_member_alias(&inner, request)
-                                    .await
+                                <T as GroupBizService>::update_member_alias(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1882,23 +1705,18 @@ pub mod group_biz_service_server {
                 "/msg_group_service.GroupBizService/ChangeMemberRole" => {
                     #[allow(non_camel_case_types)]
                     struct ChangeMemberRoleSvc<T: GroupBizService>(pub Arc<T>);
-                    impl<
-                        T: GroupBizService,
-                    > tonic::server::UnaryService<super::ChangeMemberRoleReq>
-                    for ChangeMemberRoleSvc<T> {
+                    impl<T: GroupBizService> tonic::server::UnaryService<super::ChangeMemberRoleReq>
+                        for ChangeMemberRoleSvc<T>
+                    {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::ChangeMemberRoleReq>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as GroupBizService>::change_member_role(&inner, request)
-                                    .await
+                                <T as GroupBizService>::change_member_role(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1928,15 +1746,9 @@ pub mod group_biz_service_server {
                 "/msg_group_service.GroupBizService/GetGroup" => {
                     #[allow(non_camel_case_types)]
                     struct GetGroupSvc<T: GroupBizService>(pub Arc<T>);
-                    impl<
-                        T: GroupBizService,
-                    > tonic::server::UnaryService<super::GetGroupReq>
-                    for GetGroupSvc<T> {
+                    impl<T: GroupBizService> tonic::server::UnaryService<super::GetGroupReq> for GetGroupSvc<T> {
                         type Response = super::GroupInfo;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::GetGroupReq>,
@@ -1973,15 +1785,9 @@ pub mod group_biz_service_server {
                 "/msg_group_service.GroupBizService/GetMembers" => {
                     #[allow(non_camel_case_types)]
                     struct GetMembersSvc<T: GroupBizService>(pub Arc<T>);
-                    impl<
-                        T: GroupBizService,
-                    > tonic::server::UnaryService<super::GetMembersReq>
-                    for GetMembersSvc<T> {
+                    impl<T: GroupBizService> tonic::server::UnaryService<super::GetMembersReq> for GetMembersSvc<T> {
                         type Response = super::GetMembersResp;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::GetMembersReq>,
@@ -2018,15 +1824,11 @@ pub mod group_biz_service_server {
                 "/msg_group_service.GroupBizService/CountMembers" => {
                     #[allow(non_camel_case_types)]
                     struct CountMembersSvc<T: GroupBizService>(pub Arc<T>);
-                    impl<
-                        T: GroupBizService,
-                    > tonic::server::UnaryService<super::CountMembersReq>
-                    for CountMembersSvc<T> {
+                    impl<T: GroupBizService> tonic::server::UnaryService<super::CountMembersReq>
+                        for CountMembersSvc<T>
+                    {
                         type Response = super::CountMembersResp;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::CountMembersReq>,
@@ -2063,15 +1865,9 @@ pub mod group_biz_service_server {
                 "/msg_group_service.GroupBizService/UserGroups" => {
                     #[allow(non_camel_case_types)]
                     struct UserGroupsSvc<T: GroupBizService>(pub Arc<T>);
-                    impl<
-                        T: GroupBizService,
-                    > tonic::server::UnaryService<super::UserGroupsReq>
-                    for UserGroupsSvc<T> {
+                    impl<T: GroupBizService> tonic::server::UnaryService<super::UserGroupsReq> for UserGroupsSvc<T> {
                         type Response = super::UserGroupsResp;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::UserGroupsReq>,
@@ -2105,25 +1901,19 @@ pub mod group_biz_service_server {
                     };
                     Box::pin(fut)
                 }
-                _ => {
-                    Box::pin(async move {
-                        let mut response = http::Response::new(
-                            tonic::body::Body::default(),
-                        );
-                        let headers = response.headers_mut();
-                        headers
-                            .insert(
-                                tonic::Status::GRPC_STATUS,
-                                (tonic::Code::Unimplemented as i32).into(),
-                            );
-                        headers
-                            .insert(
-                                http::header::CONTENT_TYPE,
-                                tonic::metadata::GRPC_CONTENT_TYPE,
-                            );
-                        Ok(response)
-                    })
-                }
+                _ => Box::pin(async move {
+                    let mut response = http::Response::new(tonic::body::Body::default());
+                    let headers = response.headers_mut();
+                    headers.insert(
+                        tonic::Status::GRPC_STATUS,
+                        (tonic::Code::Unimplemented as i32).into(),
+                    );
+                    headers.insert(
+                        http::header::CONTENT_TYPE,
+                        tonic::metadata::GRPC_CONTENT_TYPE,
+                    );
+                    Ok(response)
+                }),
             }
         }
     }
@@ -2152,7 +1942,7 @@ pub mod group_msg_service_server {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
     use tonic::codegen::*;
     /// Generated trait containing gRPC methods that should be implemented for use with GroupMsgServiceServer.
@@ -2215,10 +2005,7 @@ pub mod group_msg_service_server {
                 max_encoding_message_size: None,
             }
         }
-        pub fn with_interceptor<F>(
-            inner: T,
-            interceptor: F,
-        ) -> InterceptedService<Self, F>
+        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
         where
             F: tonic::service::Interceptor,
         {
@@ -2273,15 +2060,12 @@ pub mod group_msg_service_server {
                 "/msg_group_service.GroupMsgService/SendMessage" => {
                     #[allow(non_camel_case_types)]
                     struct SendMessageSvc<T: GroupMsgService>(pub Arc<T>);
-                    impl<
-                        T: GroupMsgService,
-                    > tonic::server::UnaryService<crate::grpc::message::Content>
-                    for SendMessageSvc<T> {
+                    impl<T: GroupMsgService>
+                        tonic::server::UnaryService<crate::grpc::message::Content>
+                        for SendMessageSvc<T>
+                    {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<crate::grpc::message::Content>,
@@ -2318,23 +2102,19 @@ pub mod group_msg_service_server {
                 "/msg_group_service.GroupMsgService/ReportMsgRead" => {
                     #[allow(non_camel_case_types)]
                     struct ReportMsgReadSvc<T: GroupMsgService>(pub Arc<T>);
-                    impl<
-                        T: GroupMsgService,
-                    > tonic::server::UnaryService<crate::grpc::message::MsgRead>
-                    for ReportMsgReadSvc<T> {
+                    impl<T: GroupMsgService>
+                        tonic::server::UnaryService<crate::grpc::message::MsgRead>
+                        for ReportMsgReadSvc<T>
+                    {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<crate::grpc::message::MsgRead>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as GroupMsgService>::report_msg_read(&inner, request)
-                                    .await
+                                <T as GroupMsgService>::report_msg_read(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -2364,25 +2144,19 @@ pub mod group_msg_service_server {
                 "/msg_group_service.GroupMsgService/AckMsgDelivered" => {
                     #[allow(non_camel_case_types)]
                     struct AckMsgDeliveredSvc<T: GroupMsgService>(pub Arc<T>);
-                    impl<
-                        T: GroupMsgService,
-                    > tonic::server::UnaryService<crate::grpc::message::MsgDeliveredAck>
-                    for AckMsgDeliveredSvc<T> {
+                    impl<T: GroupMsgService>
+                        tonic::server::UnaryService<crate::grpc::message::MsgDeliveredAck>
+                        for AckMsgDeliveredSvc<T>
+                    {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<
-                                crate::grpc::message::MsgDeliveredAck,
-                            >,
+                            request: tonic::Request<crate::grpc::message::MsgDeliveredAck>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as GroupMsgService>::ack_msg_delivered(&inner, request)
-                                    .await
+                                <T as GroupMsgService>::ack_msg_delivered(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -2412,15 +2186,12 @@ pub mod group_msg_service_server {
                 "/msg_group_service.GroupMsgService/AckMsgRead" => {
                     #[allow(non_camel_case_types)]
                     struct AckMsgReadSvc<T: GroupMsgService>(pub Arc<T>);
-                    impl<
-                        T: GroupMsgService,
-                    > tonic::server::UnaryService<crate::grpc::message::MsgReadAck>
-                    for AckMsgReadSvc<T> {
+                    impl<T: GroupMsgService>
+                        tonic::server::UnaryService<crate::grpc::message::MsgReadAck>
+                        for AckMsgReadSvc<T>
+                    {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<crate::grpc::message::MsgReadAck>,
@@ -2457,15 +2228,12 @@ pub mod group_msg_service_server {
                 "/msg_group_service.GroupMsgService/RecallMsg" => {
                     #[allow(non_camel_case_types)]
                     struct RecallMsgSvc<T: GroupMsgService>(pub Arc<T>);
-                    impl<
-                        T: GroupMsgService,
-                    > tonic::server::UnaryService<crate::grpc::message::MsgRecall>
-                    for RecallMsgSvc<T> {
+                    impl<T: GroupMsgService>
+                        tonic::server::UnaryService<crate::grpc::message::MsgRecall>
+                        for RecallMsgSvc<T>
+                    {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<crate::grpc::message::MsgRecall>,
@@ -2502,15 +2270,12 @@ pub mod group_msg_service_server {
                 "/msg_group_service.GroupMsgService/ForwardMsg" => {
                     #[allow(non_camel_case_types)]
                     struct ForwardMsgSvc<T: GroupMsgService>(pub Arc<T>);
-                    impl<
-                        T: GroupMsgService,
-                    > tonic::server::UnaryService<crate::grpc::message::MsgForward>
-                    for ForwardMsgSvc<T> {
+                    impl<T: GroupMsgService>
+                        tonic::server::UnaryService<crate::grpc::message::MsgForward>
+                        for ForwardMsgSvc<T>
+                    {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<crate::grpc::message::MsgForward>,
@@ -2544,25 +2309,19 @@ pub mod group_msg_service_server {
                     };
                     Box::pin(fut)
                 }
-                _ => {
-                    Box::pin(async move {
-                        let mut response = http::Response::new(
-                            tonic::body::Body::default(),
-                        );
-                        let headers = response.headers_mut();
-                        headers
-                            .insert(
-                                tonic::Status::GRPC_STATUS,
-                                (tonic::Code::Unimplemented as i32).into(),
-                            );
-                        headers
-                            .insert(
-                                http::header::CONTENT_TYPE,
-                                tonic::metadata::GRPC_CONTENT_TYPE,
-                            );
-                        Ok(response)
-                    })
-                }
+                _ => Box::pin(async move {
+                    let mut response = http::Response::new(tonic::body::Body::default());
+                    let headers = response.headers_mut();
+                    headers.insert(
+                        tonic::Status::GRPC_STATUS,
+                        (tonic::Code::Unimplemented as i32).into(),
+                    );
+                    headers.insert(
+                        http::header::CONTENT_TYPE,
+                        tonic::metadata::GRPC_CONTENT_TYPE,
+                    );
+                    Ok(response)
+                }),
             }
         }
     }

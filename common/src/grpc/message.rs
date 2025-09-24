@@ -313,17 +313,7 @@ pub struct AvCallContent {
 pub mod av_call_content {
     #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
     #[serde(rename_all = "camelCase")]
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum CallAction {
         /// 未知操作
@@ -373,17 +363,7 @@ pub mod av_call_content {
     }
     #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
     #[serde(rename_all = "camelCase")]
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum CallType {
         /// 音频通话：仅语音通话
@@ -554,10 +534,8 @@ pub struct NotificationContent {
     pub body: ::prost::alloc::string::String,
     /// 元数据：通知的附加信息
     #[prost(map = "string, string", tag = "3")]
-    pub metadata: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::string::String,
-    >,
+    pub metadata:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
 /// ===============================
 /// ⚙️ 系统消息
@@ -686,10 +664,8 @@ pub struct Segment {
     pub seq_in_msg: u64,
     /// 通用扩展字段（以字符串键值对存储 JSON 扁平数据）：段的元数据
     #[prost(map = "string, string", tag = "3")]
-    pub metadata: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::string::String,
-    >,
+    pub metadata:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
 /// ======================================
 /// 📨 顶层消息结构

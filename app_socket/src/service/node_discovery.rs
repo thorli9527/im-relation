@@ -1,16 +1,14 @@
 //! 节点发现辅助：通过仲裁服务获取并缓存节点地址。
 
 use anyhow::{anyhow, Result};
-use common::arb::ArbHttpClient;
-use common::arb::{NodeInfo, NodeInfoList, NodeType, QueryNodeReq};
+use common::arb::{ArbHttpClient, NodeInfo, NodeInfoList, NodeType, QueryNodeReq};
 use common::config::AppConfig;
-pub use common::node_util::NodeUtil;
+use common::node_util::NodeUtil;
 
 fn resolve_arb_server_addr() -> Result<String> {
     AppConfig::get()
-        .arb()
-        .and_then(|g| g.server_addr.clone())
-        .ok_or_else(|| anyhow!("arb.server_addr missing"))
+        .arb_server_addr()
+        .ok_or_else(|| anyhow!("arb server addr missing"))
 }
 
 fn resolve_access_token() -> Option<String> {

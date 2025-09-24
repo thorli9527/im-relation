@@ -22,12 +22,16 @@ use super::metrics::METRICS;
 use super::policy::{MultiLoginPolicy, SessionPolicy};
 use common::grpc::message::{self as msgpb, typing::Target as TypingTarget, TypingState};
 
-/// 会话管理：维护用户到若干连接的映射，负责扇出、ACK 上报与注销
+/// 会话管理：维护用户到若干连接的映射，负责扇出、ACK 上报与注销。
 #[derive(Clone)]
 pub struct SessionManager {
+    /// user_id -> (session_id -> SessionHandle) 的层级缓存
     sessions: Arc<DashMap<UserId, AHashMap<SessionId, SessionHandle>>>,
+    /// ACK 跟踪分片集合
     acks: AckShards,
+    /// 会话登录策略配置
     policy: SessionPolicy,
+    /// 用于断线重连补发的消息缓存
     backlog: Arc<DashMap<UserId, VecDeque<ServerMsg>>>,
     /// 最近接收的客户端消息ID，用于去重（每用户最多保留50个）
     recent_client_ids: Arc<DashMap<UserId, VecDeque<MessageId>>>,
@@ -39,8 +43,10 @@ pub struct SessionManager {
     typing: Arc<DashMap<SceneKey, DashMap<UserId, TypingEntry>>>,
 }
 
+/// 进程内全局单例，初始于 `init`。
 static INSTANCE: OnceCell<SessionManager> = OnceCell::new();
 
+/// Typing 背景场景，用于区分点对点与群聊广播范围。
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum SceneKey {
     Direct { a: UserId, b: UserId },
@@ -48,6 +54,7 @@ pub enum SceneKey {
 }
 
 impl SceneKey {
+    /// 构造点对点会话 key，内部保证 `(a,b)` 顺序一致以便复用缓存。
     pub fn direct_from(a: UserId, b: UserId) -> Self {
         if a <= b {
             SceneKey::Direct { a, b }
@@ -57,18 +64,27 @@ impl SceneKey {
     }
 }
 
+/// 正在输入 (Typing) 状态的缓存条目，包含限流和过期信息。
 #[derive(Clone, Debug)]
 struct TypingEntry {
+    /// 当前对外广播的状态
     state: TypingState,
+    /// 最近一次广播来源的会话 ID
     session_id: Option<SessionId>,
+    /// 过期时间，到期后将重置为 `TypingNone`
     expires_at_ms: i64,
+    /// 最近一次向外广播的时间
     last_emit_ms: i64,
+    /// 限流窗口起始时间
     window_start_ms: i64,
+    /// 当前窗口内的请求次数
     window_hits: u32,
+    /// Typing 通知需要推送到的用户列表
     recipients: Arc<Vec<UserId>>,
 }
 
 impl TypingEntry {
+    /// 初始化新的 Typing 状态缓存，默认状态为 `TypingNone`。
     fn new(now_ms: i64, recipients: Arc<Vec<UserId>>) -> Self {
         Self {
             state: TypingState::TypingNone,
@@ -81,6 +97,7 @@ impl TypingEntry {
         }
     }
 
+    /// 注册新的 Typing 状态更新，返回是否需要立刻广播。
     fn register(
         &mut self,
         state: TypingState,
@@ -113,16 +130,24 @@ impl TypingEntry {
     }
 }
 
+/// Typing 状态更新的结果枚举，驱动后续的广播或限流逻辑。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum TypingUpdateResult {
+    /// 触发下游广播
     Emit,
+    /// 状态重复或过于频繁，延迟广播
     Debounced,
+    /// 命中速率限制，忽略此次更新
     RateLimited,
 }
 
+/// Typing 状态在客户端可持续的最长时间（毫秒）。
 const TYPING_TTL_MS: i64 = 5_000;
+/// 两次对同样状态的最小广播间隔（毫秒）。
 const TYPING_DEBOUNCE_MS: i64 = 500;
+/// 每秒允许的 Typing 更新次数。
 const TYPING_RATE_LIMIT_PER_SEC: u32 = 5;
+/// 后台垃圾回收扫描间隔（毫秒）。
 const TYPING_GC_INTERVAL_MS: u64 = 1_000;
 
 impl SessionManager {
@@ -137,6 +162,7 @@ impl SessionManager {
         manager
     }
 
+    /// 构建 SessionManager，同时启动 Typing GC 等后台协程。
     fn build(policy: SessionPolicy, shards: usize, retry_ms: u64) -> Self {
         let manager = Self {
             sessions: Arc::new(DashMap::new()),
@@ -194,6 +220,7 @@ impl SessionManager {
         };
         let mut map = self.sessions.entry(user_id.clone()).or_default();
 
+        // 缓存即将被踢下线的会话，用于后续发送通知。
         let mut removed: Vec<SessionHandle> = Vec::new();
 
         match self.policy.multi_login {
@@ -223,6 +250,7 @@ impl SessionManager {
         }
 
         if map.len() >= self.policy.max_sessions_per_user {
+            // 超出容量限制时，直接清空旧会话，确保新连接可以写入。
             let keys: Vec<String> = map.keys().map(|k| k.clone()).collect();
             for sid in keys {
                 if let Some(old) = map.remove(&sid) {
@@ -256,6 +284,7 @@ impl SessionManager {
         self.clear_typing_for_session(session_id);
     }
 
+    /// 移除 token 与 session_id 的双向索引，避免脏数据。
     fn remove_token_mapping(&self, session_id: &str, token_hint: Option<&str>) {
         if let Some((_, token)) = self.session_tokens.remove(session_id) {
             self.token_index.remove(&token);
@@ -264,6 +293,7 @@ impl SessionManager {
         }
     }
 
+    /// 通知被踢下线的旧会话，以便客户端展示原因。
     fn notify_kick(&self, handle: &SessionHandle, reason: &str) {
         let now_ms = current_millis();
         let payload = json!({
@@ -281,6 +311,7 @@ impl SessionManager {
         let _ = handle.send(msg);
     }
 
+    /// 启动后台任务，周期性清理 Typing 过期状态。
     fn spawn_typing_gc(&self) {
         let manager = self.clone();
         tokio::spawn(async move {
@@ -292,6 +323,7 @@ impl SessionManager {
         });
     }
 
+    /// 合并并去重 Typing 广播的接收者列表，保证包含触发者自身。
     fn sanitize_recipients(&self, actor: UserId, recipients: &[UserId]) -> Arc<Vec<UserId>> {
         let mut dedup = recipients.to_vec();
         if !dedup.iter().any(|uid| *uid == actor) {
@@ -302,6 +334,7 @@ impl SessionManager {
         Arc::new(dedup)
     }
 
+    /// Typing 状态更新的核心流程：执行去重、限流、广播与缓存维护。
     fn update_typing_internal(
         &self,
         scene: SceneKey,
@@ -372,6 +405,7 @@ impl SessionManager {
         }
     }
 
+    /// 将 Typing 事件编码并广播到目标会话。
     fn broadcast_typing(
         &self,
         scene: &SceneKey,
@@ -436,6 +470,7 @@ impl SessionManager {
         }
     }
 
+    /// 扫描 Typing 缓存，移除过期条目并广播 TypingNone。
     fn expire_typing_internal(&self) {
         let now_ms = current_millis();
         let scenes: Vec<SceneKey> = self
@@ -477,6 +512,7 @@ impl SessionManager {
         }
     }
 
+    /// 当连接关闭时清理其 Typing 状态，避免幽灵在线。
     fn clear_typing_for_session(&self, session_id: &str) {
         let scenes: Vec<SceneKey> = self
             .typing
@@ -640,10 +676,12 @@ impl SessionManager {
     }
 }
 
+/// 生成唯一的会话 ID 后缀，复用公共 UUID 工具。
 fn crate_uuid() -> String {
     common::util::common_utils::build_uuid()
 }
 
+/// 获取当前 UTC 时间的毫秒时间戳。
 fn current_millis() -> i64 {
     (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as i64
 }

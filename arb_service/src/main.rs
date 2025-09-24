@@ -1,5 +1,6 @@
+mod handler;
+mod server_web;
 mod service;
-mod web;
 
 use anyhow::{Context, Result};
 use common::config::AppConfig;
@@ -16,13 +17,15 @@ async fn main() -> Result<()> {
     // cfg 为全局配置快照，grpc_cfg 提供仲裁服务监听参数。
     let cfg = AppConfig::get();
     let server_cfg = cfg.server.as_ref().context("server config missing")?;
-    let bind_addr = format!("{}:{}", server_cfg.host, server_cfg.port);
+    let bind_addr = server_cfg
+        .require_http_addr()
+        .context("server.http missing host/port")?;
     let addr: SocketAddr = bind_addr.parse().context("invalid arb server address")?;
 
     // service 注入访问令牌，用于下游 HTTP 同步认证。
     let service = ArbService::new(cfg.arb().and_then(|c| c.access_token.clone()));
     // router 构造所有仲裁相关路由，并带入服务上下文。
-    let router = web::router(service);
+    let router = server_web::router(service);
 
     // listener 绑定端口后，交由 axum::serve 处理请求生命周期。
     let listener = TcpListener::bind(addr).await.context("bind arb server")?;

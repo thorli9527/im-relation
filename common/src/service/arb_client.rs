@@ -1,5 +1,8 @@
-use crate::arb::{BytesBlob, CommonResp, NodeInfo, NodeType, SyncDataType, ACCESS_HEADER};
-use crate::config::grpc_access_token;
+use crate::arb::{
+    ArbHttpClient, BaseRequest, BytesBlob, CommonResp, NodeInfo, NodeType, RegisterRequest,
+    SyncDataType, ACCESS_HEADER,
+};
+use crate::config::{grpc_access_token, AppConfig};
 use crate::node_util::NodeUtil;
 use anyhow::Context;
 use axum::{
@@ -11,8 +14,9 @@ use log::{info, warn};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
+use std::time::Duration;
+use tokio::time;
 use tonic::service::Routes;
 
 static NODE_TABLE: Lazy<RwLock<HashMap<i32, HashMap<String, NodeInfo>>>> =
@@ -165,6 +169,11 @@ pub fn attach_http_gateway(routes: &mut Routes) {
     *router_slot = rest_router(grpc_access_token());
 }
 
+/// Returns the Axum router that exposes the arbitration sync endpoint.
+pub fn http_router() -> Router {
+    rest_router(grpc_access_token())
+}
+
 pub fn node_snapshot(node_type: i32) -> Vec<NodeInfo> {
     NODE_TABLE
         .read()
@@ -183,15 +192,63 @@ pub fn all_node_snapshot() -> HashMap<i32, Vec<NodeInfo>> {
         .collect()
 }
 
-pub async fn start_arb_client_server(bind: &str) -> Result<(), anyhow::Error> {
-    let addr: SocketAddr = bind.parse().context("invalid arb client bind addr")?;
-    let router = rest_router(grpc_access_token());
+/// Register current node into arb_service and spawn heartbeat task.
+///
+/// Returns `Ok(())` even if `arb.server_addr` is missing so that callers can start without arbitration.
+pub async fn register_node(
+    node_type: NodeType,
+    node_addr: impl Into<String>,
+    kafka_addr: Option<String>,
+) -> anyhow::Result<()> {
+    let cfg = AppConfig::get();
+    let node_addr = node_addr.into();
+    let Some(server_addr) = cfg.arb_server_addr() else {
+        warn!(
+            "arb.server_addr missing; skip registration for node_type={} addr={}",
+            node_type, node_addr
+        );
+        return Ok(());
+    };
 
-    let listener = tokio::net::TcpListener::bind(addr).await?;
+    let client = ArbHttpClient::new(server_addr, cfg.arb().and_then(|c| c.access_token.clone()))
+        .context("init arb http client")?;
+
+    client
+        .register_node(&RegisterRequest {
+            node_addr: node_addr.clone(),
+            node_type: node_type as i32,
+            kafka_addr: kafka_addr.clone(),
+        })
+        .await
+        .context("arb register_node")?;
+
+    info!(
+        "arb registration ok: node_type={} addr={} kafka={:?}",
+        node_type, node_addr, kafka_addr
+    );
+
+    spawn_heartbeat(client, node_type, node_addr);
+    Ok(())
+}
+
+fn spawn_heartbeat(client: ArbHttpClient, node_type: NodeType, node_addr: String) {
     tokio::spawn(async move {
-        if let Err(e) = axum::serve(listener, router.into_make_service()).await {
-            warn!("arb client http server exited: {}", e);
+        let mut interval = time::interval(Duration::from_secs(10));
+        loop {
+            interval.tick().await;
+            if let Err(err) = client
+                .heartbeat(&BaseRequest {
+                    node_addr: node_addr.clone(),
+                    node_type: node_type as i32,
+                })
+                .await
+            {
+                warn!(
+                    "arb heartbeat failed: node_type={} addr={} err={}",
+                    node_type, node_addr, err
+                );
+                time::sleep(Duration::from_secs(3)).await;
+            }
         }
     });
-    Ok(())
 }

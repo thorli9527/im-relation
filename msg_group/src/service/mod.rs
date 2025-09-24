@@ -2,6 +2,7 @@
 
 pub mod group_biz_service;
 pub mod group_msg_service;
+pub mod socket_push;
 
 pub mod hot_group_client;
 

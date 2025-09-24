@@ -20,11 +20,12 @@ use std::convert::TryFrom;
 use twox_hash::XxHash64;
 
 use crate::service::grpc_clients;
+use crate::service::node_discovery::fetch_msg_friend_addr;
 use crate::service::session::SessionManager;
 use crate::service::types::{ClientMsg, MessageId, MsgKind, SendOpts, ServerMsg, UserId};
-use crate::util::node_util::{fetch_msg_friend_addr, NodeUtil};
 use common::arb::NodeType;
 use common::grpc::message::{self as msg_message, typing::Target as TypingTarget, TypingState};
+use common::node_util::NodeUtil;
 use time::OffsetDateTime;
 
 use super::Handler;

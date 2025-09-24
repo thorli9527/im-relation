@@ -8,7 +8,7 @@ use crate::dao::{
     copy_message_as_forward, insert_encrypted_message, mark_delivered, mark_read, recall_message,
     EncryptedMessageRecord,
 };
-use crate::server::server_grpc::Services;
+use crate::server::Services;
 use common::grpc::grpc_hot_friend::friend_service::IsFriendReq;
 use common::grpc::{grpc_msg_friend::msg_friend_service as msgpb, message as msg_message};
 use common::kafka::topic_info::MSG_SEND_FRIEND_TOPIC;

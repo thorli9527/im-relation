@@ -1,9 +1,7 @@
 //! 服务入口聚合：统一暴露 TCP/Web/arb 客户端等启动函数。
 //!
 //! - `server_tcp`：核心 TCP 接入层（长度前缀 + Protobuf）；
-//! - `server_web`：预留 Web/HTTP 服务入口，同时复用 arb-client gRPC 启动器。
-
-pub mod server_arb;
+//! - `server_web`：预留 Web/HTTP 服务入口，并负责与仲裁服务对接。
 pub mod server_tcp;
 pub mod server_web;
 
