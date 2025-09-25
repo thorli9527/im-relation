@@ -323,4 +323,42 @@ impl UserServiceAuthOpt for UserService {
             }
         }
     }
+
+    async fn register_login_name(&self, name: &str, password: &str) -> anyhow::Result<i64> {
+        let key = AppConfig::get()
+            .sys
+            .as_ref()
+            .and_then(|s| s.md5_key.clone())
+            .ok_or_else(|| anyhow!("md5_key missing"))?;
+
+        common::util::validate::validate_username(name).map_err(|err| {
+            let message = err
+                .message
+                .clone()
+                .map(|m| m.into_owned())
+                .unwrap_or_else(|| err.code.to_string());
+            anyhow!(message)
+        })?;
+
+        let mut client = grpc_gateway::get_client_rpc_client().await?;
+        UserService::ensure_register_target(&mut client, &UserRegType::LoginName, name, name)
+            .await?;
+
+        let response = client
+            .register(RegisterUserReq {
+                name: name.to_string(),
+                password: build_md5_with_key(password, &key),
+                email: None,
+                phone: None,
+                language: None,
+                avatar: "".to_string(),
+                allow_add_friend: 0,
+                gender: 0,
+                user_type: UserType::Normal as i32,
+                profile_fields: Default::default(),
+            })
+            .await?;
+
+        Ok(response.into_inner().id)
+    }
 }

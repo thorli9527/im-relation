@@ -5,7 +5,7 @@ use validator::Validate;
 use crate::handler::auth::register_handler_dto::{
     RegisterRequest, RegisterResponse, RegisterVerifyRequest,
 };
-use crate::service::user_service::{UserService, UserServiceAuthOpt};
+use crate::service::user_service::{UserRegType, UserService, UserServiceAuthOpt};
 use common::errors::AppError;
 use common::result::ApiResponse;
 use log::error;
@@ -36,6 +36,15 @@ pub async fn build_register_code(
     }
 
     let user_service = UserService::get();
+
+    if payload.reg_type == UserRegType::LoginName {
+        let uid = user_service
+            .register_login_name(&payload.name, &payload.password)
+            .await?;
+        let body = json!({ "uid": uid.to_string() });
+        return Ok(ApiResponse::json(body));
+    }
+
     let uuid = user_service
         .build_register_code(
             &payload.name,

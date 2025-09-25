@@ -123,4 +123,6 @@ pub trait UserServiceAuthOpt: Send + Sync {
     ) -> anyhow::Result<String>; // 返回注册时返回的uuid
 
     async fn register_verify_code(&self, uuid: &str, code: &str) -> anyhow::Result<()>;
+
+    async fn register_login_name(&self, name: &str, password: &str) -> anyhow::Result<i64>;
 }
