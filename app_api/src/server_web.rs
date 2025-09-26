@@ -1,6 +1,7 @@
 use crate::handler;
 use anyhow::{anyhow, Context, Result};
 use axum::{routing::get, Json, Router};
+use common::arb::NodeType;
 use common::config::AppConfig;
 use common::service::arb_client;
 use log::warn;
@@ -28,6 +29,8 @@ pub async fn start() -> Result<()> {
         .merge(arb_client::http_router())
         .layer(TraceLayer::new_for_http());
     let listener = TcpListener::bind(&address_and_port).await?;
+
+    arb_client::register_node(NodeType::ApiNode, address_and_port.clone(), None).await?;
     axum::serve(listener, router.into_make_service()).await?;
 
     Ok(())

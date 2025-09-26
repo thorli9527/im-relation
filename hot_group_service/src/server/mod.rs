@@ -43,30 +43,27 @@ pub async fn start() -> Result<()> {
         .parse()
         .with_context(|| format!("invalid http host:port: {}", http_addr_str))?;
 
-    let advertise_addr = std::env::var("GROUP_GRPC_ADDR")
-        .ok()
-        .filter(|addr| !addr.is_empty())
-        .unwrap_or_else(|| grpc_addr_str.clone());
+    let tuning = cfg.hot_group_cfg();
 
     let hot_mem_model = crate::hot_capacity::HotMemModel {
-        bytes_per_member: env_parse("HOT_BYTES_PER_MEMBER", 128usize),
-        bytes_per_group_overhead: env_parse("HOT_BYTES_PER_GROUP", 64usize),
-        avg_members_per_group: env_parse("HOT_AVG_MEMBERS", 32usize),
-        mem_utilization: env_parse("HOT_MEM_UTIL", 0.5_f64),
+        bytes_per_member: tuning.hot_bytes_per_member.unwrap_or(128),
+        bytes_per_group_overhead: tuning.hot_bytes_per_group.unwrap_or(64),
+        avg_members_per_group: tuning.hot_avg_members.unwrap_or(32),
+        mem_utilization: tuning.hot_mem_util.unwrap_or(0.5_f64),
     };
     let (hot_capacity, debug_line) = crate::hot_capacity::auto_hot_groups_capacity(
         hot_mem_model,
-        env_parse("HOT_CAP_MAX", 1_000_000_u64),
-        env_parse("HOT_CAP_MIN", 1_000_u64),
+        tuning.hot_cap_max.unwrap_or(1_000_000),
+        tuning.hot_cap_min.unwrap_or(1_000),
     );
-    let hot_tti_secs = env_parse("HOT_TTI_SECS", 300u64);
-    let shard_count = env_parse("SHARD_COUNT", 1024usize);
-    let per_group_shard = env_parse("PER_GROUP_SHARD", 1usize);
-    let page_cache_cap = env_parse("PAGE_CACHE_CAP", 100_000u32);
-    let page_cache_tti_secs = env_parse("PAGE_CACHE_TTI_SECS", 300u64);
-    let persist_debounce_ms = env_parse("PERSIST_DEBOUNCE_MS", 200u64);
-    let profile_l1_cap = env_parse("PROFILE_L1_CAP", 1_000_000u64);
-    let profile_l1_tti_secs = env_parse("PROFILE_L1_TTI_SECS", 600u64);
+    let hot_tti_secs = tuning.hot_tti_secs.unwrap_or(300);
+    let shard_count = tuning.shard_count.unwrap_or(1024);
+    let per_group_shard = tuning.per_group_shard.unwrap_or(1);
+    let page_cache_cap = tuning.page_cache_cap.unwrap_or(100_000);
+    let page_cache_tti_secs = tuning.page_cache_tti_secs.unwrap_or(300);
+    let persist_debounce_ms = tuning.persist_debounce_ms.unwrap_or(200);
+    let profile_l1_cap = tuning.profile_l1_cap.unwrap_or(1_000_000);
+    let profile_l1_tti_secs = tuning.profile_l1_tti_secs.unwrap_or(600);
 
     let map = Arc::new(ShardMap::new(
         shard_count,
@@ -74,7 +71,7 @@ pub async fn start() -> Result<()> {
         page_cache_cap,
         Some(Duration::from_secs(page_cache_tti_secs)),
     ));
-    let pool = get_db();
+    let _pool = get_db();
     let storage = Arc::new(MySqlStore::new());
     let hot_cfg = HotColdConfig {
         hot_capacity,
@@ -103,7 +100,12 @@ pub async fn start() -> Result<()> {
         GroupServiceServer::new(GroupServiceImpl::new(facade.clone(), profile_cache.clone()));
     let routes = Routes::new(grpc_service);
 
-    arb_client::register_node(NodeType::GroupNode, advertise_addr.clone(), None).await?;
+    arb_client::register_node(
+        NodeType::GroupNode,
+        http_addr_str.clone(),
+        Some(grpc_addr_str.clone()),
+    )
+    .await?;
 
     let cancel_token = CancellationToken::new();
     let http_cancel = cancel_token.clone();
@@ -148,14 +150,4 @@ pub async fn start() -> Result<()> {
 
 async fn healthz() -> Json<serde_json::Value> {
     Json(serde_json::json!({"ok": true}))
-}
-
-fn env_parse<T>(key: &str, default: T) -> T
-where
-    T: std::str::FromStr + Copy,
-{
-    std::env::var(key)
-        .ok()
-        .and_then(|s| s.parse::<T>().ok())
-        .unwrap_or(default)
 }

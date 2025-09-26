@@ -70,16 +70,15 @@ impl ArbService {
             node_type: req.node_type,
             kafka_addr: req.kafka_addr.clone(),
         };
+
         bucket
             .value()
             .insert(req.node_addr.clone(), new_node.clone());
 
-        // Socket 节点需要广播给同类型节点以便即时同步。
-        if node_type == NodeType::SocketNode {
-            self.broadcast_sync(req.node_addr.as_str(), new_node, SyncDataType::SocketAdd)
-                .await;
-        }
-
+        //需要广播通知给其它节点。
+        self.broadcast_sync(req.node_addr.as_str(), new_node, SyncDataType::SocketAdd)
+            .await;
+        warn!("节点 {} 注册成功", req.node_addr);
         Ok(CommonResp {
             success: true,
             message: format!("节点 {} 注册成功", req.node_addr),

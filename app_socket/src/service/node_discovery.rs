@@ -15,14 +15,10 @@ fn resolve_access_token() -> Option<String> {
     AppConfig::get().arb().and_then(|g| g.access_token.clone())
 }
 
-fn effective_addr(node_type: NodeType, node: &NodeInfo) -> String {
-    match node_type {
-        NodeType::SocketNode => node
-            .kafka_addr
-            .clone()
-            .unwrap_or_else(|| node.node_addr.clone()),
-        _ => node.node_addr.clone(),
-    }
+fn effective_addr(_node_type: NodeType, node: &NodeInfo) -> String {
+    node.kafka_addr
+        .clone()
+        .unwrap_or_else(|| node.node_addr.clone())
 }
 
 async fn fetch_nodes(node_type: NodeType) -> Result<NodeInfoList> {

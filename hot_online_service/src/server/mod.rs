@@ -5,9 +5,9 @@ use std::time::Duration;
 use anyhow::{anyhow, Context, Result};
 use axum::Router;
 use common::arb::NodeType;
-use common::config::AppConfig;
+use common::config::{AppConfig, HotOnlineConfig};
 use common::service::arb_client;
-use log::{info, warn};
+use log::warn;
 use tokio::signal;
 use tokio_util::sync::CancellationToken;
 use tonic::service::Routes;
@@ -45,42 +45,28 @@ pub async fn start() -> Result<()> {
         .parse()
         .with_context(|| format!("invalid http host:port: {}", http_addr_str))?;
 
-    let advertise_addr = std::env::var("ONLINE_GRPC_ADDR")
-        .ok()
-        .filter(|addr| !addr.is_empty())
-        .unwrap_or_else(|| grpc_addr_str.clone());
+    let tuning = cfg.hot_online_cfg();
+    let HotOnlineConfig {
+        shards,
+        default_cc,
+        hot_by_id_cap,
+        hot_by_id_ttl,
+        hot_route_cap,
+        hot_route_ttl,
+    } = tuning;
 
-    let shard_count = std::env::var("ONLINE_SHARDS")
-        .ok()
-        .and_then(|s| s.parse::<usize>().ok())
-        .unwrap_or(128);
+    let shard_count = shards.unwrap_or(128);
     let store = Arc::new(OnlineStore::new(shard_count));
-    let default_cc = std::env::var("DEFAULT_CC").unwrap_or_else(|_| "86".to_string());
+    let default_cc = default_cc.unwrap_or_else(|| "86".to_string());
     let normalizer = Arc::new(RealNormalizer::new(default_cc));
 
     let client_repo = Arc::new(ClientRepoSqlx::new());
     let directory_repo = Arc::new(DirectoryRepoSqlx::new());
     let hot_cfg = ClientHotConfig {
-        by_id_max_capacity: std::env::var("HOT_BY_ID_CAP")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(500_000),
-        by_id_ttl: Duration::from_secs(
-            std::env::var("HOT_BY_ID_TTL")
-                .ok()
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(300),
-        ),
-        route_max_capacity: std::env::var("HOT_ROUTE_CAP")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(200_000),
-        route_ttl: Duration::from_secs(
-            std::env::var("HOT_ROUTE_TTL")
-                .ok()
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(120),
-        ),
+        by_id_max_capacity: hot_by_id_cap.unwrap_or(500_000),
+        by_id_ttl: Duration::from_secs(hot_by_id_ttl.unwrap_or(300)),
+        route_max_capacity: hot_route_cap.unwrap_or(200_000),
+        route_ttl: Duration::from_secs(hot_route_ttl.unwrap_or(120)),
     };
     let hot = ClientHot::new(
         client_repo.clone(),
@@ -109,12 +95,17 @@ pub async fn start() -> Result<()> {
     let routes = Routes::new(OnlineServiceServer::new(online_svc))
         .add_service(ClientRpcServiceServer::new(client_svc));
 
-    info!(
+    warn!(
         "hot_online_service listening on grpc={} http={}",
         grpc_addr_str, http_addr_str
     );
 
-    arb_client::register_node(NodeType::OnlineNode, advertise_addr.clone(), None).await?;
+    arb_client::register_node(
+        NodeType::OnlineNode,
+        http_addr_str.clone(),
+        Some(grpc_addr_str.clone()),
+    )
+    .await?;
 
     let cancel_token = CancellationToken::new();
     let http_cancel = cancel_token.clone();

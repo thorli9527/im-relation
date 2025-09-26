@@ -22,11 +22,61 @@ pub struct AppConfig {
     pub arb: Option<ArbConfig>,
     pub redis: Option<RedisConfig>,
     pub socket: Option<SocketConfig>,
+    pub hot_group: Option<HotGroupConfig>,
+    pub hot_friend: Option<HotFriendConfig>,
+    pub hot_online: Option<HotOnlineConfig>,
+    pub msg_friend: Option<MsgFriendConfig>,
 }
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ShardConfig {
     pub client_addr: Option<String>,
     pub server_addr: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct HotOnlineConfig {
+    pub shards: Option<usize>,
+    pub default_cc: Option<String>,
+    pub hot_by_id_cap: Option<u64>,
+    pub hot_by_id_ttl: Option<u64>,
+    pub hot_route_cap: Option<u64>,
+    pub hot_route_ttl: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct HotGroupConfig {
+    pub hot_bytes_per_member: Option<usize>,
+    pub hot_bytes_per_group: Option<usize>,
+    pub hot_avg_members: Option<usize>,
+    pub hot_mem_util: Option<f64>,
+    pub hot_cap_max: Option<u64>,
+    pub hot_cap_min: Option<u64>,
+    pub hot_tti_secs: Option<u64>,
+    pub shard_count: Option<usize>,
+    pub per_group_shard: Option<usize>,
+    pub page_cache_cap: Option<u32>,
+    pub page_cache_tti_secs: Option<u64>,
+    pub persist_debounce_ms: Option<u64>,
+    pub profile_l1_cap: Option<u64>,
+    pub profile_l1_tti_secs: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct HotFriendConfig {
+    pub avg_value_bytes: Option<usize>,
+    pub shards: Option<usize>,
+    pub reserve_ratio: Option<f64>,
+    pub max_use_ratio: Option<f64>,
+    pub overhead_factor: Option<f64>,
+    pub hot_ratio: Option<f64>,
+    pub tti_secs: Option<u64>,
+    pub refresh_secs: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct MsgFriendConfig {
+    pub shard_total: Option<u32>,
+    pub shard_index: Option<u32>,
 }
 async fn init_db(url: &str) {
     let pool = MySqlPoolOptions::new()
@@ -57,10 +107,9 @@ impl AppConfig {
             .expect("Failed to deserialize configuration");
         return cfg;
     }
-    /// 从环境变量 `APP_CONFIG` 读取配置文件路径；不存在则回退到传入默认路径
+    /// 使用传入的默认配置文件路径初始化配置。
     pub async fn init_from_env(default_file: &str) -> Self {
-        let path = std::env::var("APP_CONFIG").unwrap_or_else(|_| default_file.to_string());
-        Self::init(&path).await
+        Self::init(default_file).await
     }
     pub async fn init(file: &str) -> Self {
         let instance = Self::new(&file.to_string());
@@ -97,6 +146,22 @@ impl AppConfig {
     }
     pub fn get_socket(&self) -> SocketConfig {
         self.socket.clone().unwrap_or_default()
+    }
+
+    pub fn hot_online_cfg(&self) -> HotOnlineConfig {
+        self.hot_online.clone().unwrap_or_default()
+    }
+
+    pub fn hot_group_cfg(&self) -> HotGroupConfig {
+        self.hot_group.clone().unwrap_or_default()
+    }
+
+    pub fn hot_friend_cfg(&self) -> HotFriendConfig {
+        self.hot_friend.clone().unwrap_or_default()
+    }
+
+    pub fn msg_friend_cfg(&self) -> MsgFriendConfig {
+        self.msg_friend.clone().unwrap_or_default()
     }
 
     pub fn get_arb(&self) -> ArbConfig {

@@ -80,10 +80,7 @@ pub async fn run_server() -> Result<()> {
         .parse()
         .with_context(|| format!("invalid http bind address: {}", http_addr_str))?;
 
-    let advertise_addr = std::env::var("MSG_GROUP_GRPC_ADDR")
-        .ok()
-        .filter(|addr| !addr.is_empty())
-        .unwrap_or_else(|| grpc_addr_str.clone());
+    let advertise_addr = grpc_addr_str.clone();
 
     let pool = get_db();
 
@@ -101,24 +98,37 @@ pub async fn run_server() -> Result<()> {
         None
     };
 
-    let hot_group_env = std::env::var("HOT_GROUP_GRPC_ADDR").ok();
-    let hot_group_addr = hot_group_env
-        .filter(|addr| !addr.is_empty())
-        .unwrap_or_else(|| advertise_addr.clone());
+    let arb_group_nodes = match arb_client::ensure_nodes(NodeType::GroupNode).await {
+        Ok(nodes) => nodes,
+        Err(err) => {
+            warn!("fetch hot_group nodes from arb failed: {}", err);
+            Vec::new()
+        }
+    };
 
-    let group_client = if hot_group_addr == advertise_addr {
-        warn!(
-            "HOT_GROUP_GRPC_ADDR {} matches local bind address; skip hot_group client init",
-            hot_group_addr
-        );
-        None
-    } else {
-        match connect_hot_group(&hot_group_addr).await {
+    let hot_group_addr = arb_group_nodes
+        .into_iter()
+        .map(|node| node.kafka_addr.unwrap_or(node.node_addr))
+        .find(|addr| addr != &advertise_addr);
+
+    let group_client = match hot_group_addr {
+        Some(addr) if addr == advertise_addr => {
+            warn!(
+                "arb hot_group addr {} matches local bind; skip hot_group client init",
+                addr
+            );
+            None
+        }
+        Some(addr) => match connect_hot_group(&addr).await {
             Ok(cli) => Some(cli),
             Err(err) => {
                 warn!("hot_group client connect failed: {}", err);
                 None
             }
+        },
+        None => {
+            warn!("no remote hot_group address discovered via arb; skip client init");
+            None
         }
     };
 
@@ -138,7 +148,12 @@ pub async fn run_server() -> Result<()> {
         grpc_addr_str, http_addr_str
     );
 
-    arb_client::register_node(NodeType::MesGroup, advertise_addr.clone(), None).await?;
+    arb_client::register_node(
+        NodeType::MesGroup,
+        http_addr_str.clone(),
+        Some(grpc_addr_str.clone()),
+    )
+    .await?;
 
     let cancel_token = CancellationToken::new();
     let http_cancel = cancel_token.clone();

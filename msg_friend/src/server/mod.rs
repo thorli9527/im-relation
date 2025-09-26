@@ -80,55 +80,76 @@ pub async fn run_server() -> Result<()> {
         .parse()
         .with_context(|| format!("invalid http bind address: {}", http_addr_str))?;
 
-    let advertise_addr = std::env::var("MSG_FRIEND_GRPC_ADDR")
-        .ok()
-        .filter(|addr| !addr.is_empty())
-        .unwrap_or_else(|| grpc_addr_str.clone());
+    let advertise_addr = grpc_addr_str.clone();
+    let overrides = cfg.msg_friend_cfg();
 
     let pool = get_db();
 
-    let friend_client_addr = std::env::var("HOT_FRIEND_GRPC_ADDR")
-        .ok()
-        .filter(|addr| !addr.is_empty())
-        .unwrap_or_else(|| advertise_addr.clone());
-    let friend_client = if friend_client_addr == advertise_addr {
-        warn!(
-            "friend_client addr {} matches service gRPC address; skip hot_friend client init",
-            friend_client_addr
-        );
-        None
-    } else {
-        match connect_hot_friend(&friend_client_addr).await {
+    let arb_friend_nodes = match arb_client::ensure_nodes(NodeType::FriendNode).await {
+        Ok(nodes) => nodes,
+        Err(err) => {
+            warn!("fetch hot_friend nodes from arb failed: {}", err);
+            Vec::new()
+        }
+    };
+
+    let friend_client_addr = arb_friend_nodes
+        .into_iter()
+        .map(|node| node.kafka_addr.unwrap_or(node.node_addr))
+        .find(|addr| addr != &advertise_addr);
+
+    let friend_client = match friend_client_addr {
+        Some(addr) if addr == advertise_addr => {
+            warn!(
+                "arb hot_friend addr {} matches service gRPC address; skip hot_friend client init",
+                addr
+            );
+            None
+        }
+        Some(addr) => match connect_hot_friend(&addr).await {
             Ok(c) => Some(c),
             Err(e) => {
                 warn!("friend client connect failed: {}", e);
                 None
             }
+        },
+        None => {
+            warn!("no remote hot_friend address discovered via arb; skip client init");
+            None
         }
     };
 
-    let socket_cfg = cfg.get_socket();
-    let kafka = if let Some(broker) = socket_cfg.kafka_broker.clone() {
-        let topics = vec![MSG_SEND_FRIEND_TOPIC.clone()];
-        match KafkaInstanceService::new(&broker, &topics).await {
-            Ok(svc) => Some(Arc::new(svc)),
-            Err(e) => {
-                warn!("kafka init failed: {}", e);
-                None
+    let socket_nodes = match arb_client::ensure_nodes(NodeType::SocketNode).await {
+        Ok(nodes) => nodes,
+        Err(err) => {
+            warn!("fetch socket nodes from arb failed: {}", err);
+            Vec::new()
+        }
+    };
+
+    let kafka = match socket_nodes
+        .into_iter()
+        .filter_map(|node| node.kafka_addr)
+        .next()
+    {
+        Some(broker) => {
+            let topics = vec![MSG_SEND_FRIEND_TOPIC.clone()];
+            match KafkaInstanceService::new(&broker, &topics).await {
+                Ok(svc) => Some(Arc::new(svc)),
+                Err(e) => {
+                    warn!("kafka init failed: {}", e);
+                    None
+                }
             }
         }
-    } else {
-        None
+        None => {
+            warn!("no socket.kafka_addr discovered via arb; kafka disabled");
+            None
+        }
     };
 
-    let shard_total: u32 = std::env::var("FRIEND_SHARD_TOTAL")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(16);
-    let shard_index: u32 = std::env::var("FRIEND_SHARD_INDEX")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(0);
+    let shard_total: u32 = overrides.shard_total.unwrap_or(16);
+    let shard_index: u32 = overrides.shard_index.unwrap_or(0);
 
     let services = Services {
         pool,
@@ -155,7 +176,12 @@ pub async fn run_server() -> Result<()> {
         grpc_addr_str, http_addr_str
     );
 
-    arb_client::register_node(NodeType::MsgFriend, advertise_addr.clone(), None).await?;
+    arb_client::register_node(
+        NodeType::MsgFriend,
+        http_addr_str.clone(),
+        Some(grpc_addr_str.clone()),
+    )
+    .await?;
 
     let cancel_token = CancellationToken::new();
     let http_cancel = cancel_token.clone();

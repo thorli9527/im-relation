@@ -40,20 +40,16 @@ pub async fn start() -> Result<()> {
         .parse()
         .with_context(|| format!("invalid http host:port: {}", http_addr_str))?;
 
-    let advertise_addr = std::env::var("FRIEND_GRPC_ADDR")
-        .ok()
-        .filter(|addr| !addr.is_empty())
-        .unwrap_or_else(|| grpc_addr_str.clone());
-
     let avg_key_bytes = std::mem::size_of::<UserId>();
-    let avg_value_bytes = env_parse("AVG_VALUE_BYTES", 256usize);
-    let shards = env_parse("SHARDS", 32usize);
-    let reserve_ratio = env_parse("AUTOTUNE_RESERVE_RATIO", 0.40_f64);
-    let max_use_ratio = env_parse("AUTOTUNE_MAX_USE_RATIO", 0.25_f64);
-    let overhead_factor = env_parse("AUTOTUNE_OVERHEAD_FACTOR", 1.6_f64);
-    let hot_ratio = env_parse("AUTOTUNE_HOT_RATIO", 0.20_f64);
-    let tti_secs = env_parse("AUTOTUNE_TTI_SECS", 60u64);
-    let refresh_secs = env_parse("AUTOTUNE_REFRESH_SECS", 0u64);
+    let tuning = cfg.hot_friend_cfg();
+    let avg_value_bytes = tuning.avg_value_bytes.unwrap_or(256);
+    let shards = tuning.shards.unwrap_or(32);
+    let reserve_ratio = tuning.reserve_ratio.unwrap_or(0.40_f64);
+    let max_use_ratio = tuning.max_use_ratio.unwrap_or(0.25_f64);
+    let overhead_factor = tuning.overhead_factor.unwrap_or(1.6_f64);
+    let hot_ratio = tuning.hot_ratio.unwrap_or(0.20_f64);
+    let tti_secs = tuning.tti_secs.unwrap_or(60);
+    let refresh_secs = tuning.refresh_secs.unwrap_or(0);
 
     let mut tune_cfg = crate::autotune::AutoTuneConfig::default();
     tune_cfg.shards = shards.max(1);
@@ -103,7 +99,12 @@ pub async fn start() -> Result<()> {
         facade: facade.clone(),
     };
 
-    arb_client::register_node(NodeType::FriendNode, advertise_addr.clone(), None).await?;
+    arb_client::register_node(
+        NodeType::FriendNode,
+        http_addr_str.clone(),
+        Some(grpc_addr_str.clone()),
+    )
+    .await?;
 
     let cancel_token = CancellationToken::new();
     let http_cancel = cancel_token.clone();
@@ -144,14 +145,4 @@ pub async fn start() -> Result<()> {
 
 async fn healthz() -> Json<serde_json::Value> {
     Json(serde_json::json!({"ok": true}))
-}
-
-fn env_parse<T>(key: &str, default: T) -> T
-where
-    T: std::str::FromStr + Copy,
-{
-    std::env::var(key)
-        .ok()
-        .and_then(|s| s.parse::<T>().ok())
-        .unwrap_or(default)
 }

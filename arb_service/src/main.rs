@@ -4,6 +4,7 @@ mod service;
 
 use anyhow::{Context, Result};
 use common::config::AppConfig;
+use log::warn;
 use service::arb_service::ArbService;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -27,11 +28,11 @@ async fn main() -> Result<()> {
     // router 构造所有仲裁相关路由，并带入服务上下文。
     let router = server_web::router(service);
 
+    warn!("arb server listening on {}", addr);
     // listener 绑定端口后，交由 axum::serve 处理请求生命周期。
     let listener = TcpListener::bind(addr).await.context("bind arb server")?;
     axum::serve(listener, router.into_make_service())
         .await
         .context("arb http server failed")?;
-
     Ok(())
 }

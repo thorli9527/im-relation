@@ -11,3 +11,19 @@ access_token = "change-me"
 host = "http://127.0.0.1:8000"
 [sys]
 log_leve = "warn"  #trace debug info error warn
+
+[hot_group]
+hot_bytes_per_member = 128
+hot_bytes_per_group = 64
+hot_avg_members = 32
+hot_mem_util = 0.5
+hot_cap_max = 1000000
+hot_cap_min = 1000
+hot_tti_secs = 300
+shard_count = 1024
+per_group_shard = 1
+page_cache_cap = 100000
+page_cache_tti_secs = 300
+persist_debounce_ms = 200
+profile_l1_cap = 1000000
+profile_l1_tti_secs = 600

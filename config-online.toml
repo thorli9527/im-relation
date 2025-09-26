@@ -11,3 +11,11 @@ access_token = "change-me"
 host = "http://127.0.0.1:8000"
 [sys]
 log_leve = "warn"  #trace debug info error warn
+
+[hot_online]
+shards = 128
+default_cc = "86"
+hot_by_id_cap = 500000
+hot_by_id_ttl = 300
+hot_route_cap = 200000
+hot_route_ttl = 120

@@ -42,12 +42,13 @@ pub async fn register_with_arb(http_addr: &str, tcp_addr: &str) -> Result<()> {
         return Ok(());
     }
 
-    arb_client::register_node(
-        NodeType::SocketNode,
-        http_addr.to_string(),
-        Some(tcp_addr.to_string()),
-    )
-    .await?;
+    let socket_cfg = cfg.get_socket();
+    let kafka_addr = socket_cfg.kafka_broker.clone().or_else(|| {
+        warn!("socket.kafka_broker not configured; falling back to TCP advertise address");
+        Some(tcp_addr.to_string())
+    });
+
+    arb_client::register_node(NodeType::SocketNode, http_addr.to_string(), kafka_addr).await?;
     Ok(())
 }
 

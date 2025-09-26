@@ -1,6 +1,6 @@
 use crate::arb::{
-    ArbHttpClient, BaseRequest, BytesBlob, CommonResp, NodeInfo, NodeType, RegisterRequest,
-    SyncDataType, ACCESS_HEADER,
+    ArbHttpClient, BaseRequest, BytesBlob, CommonResp, NodeInfo, NodeType, QueryNodeReq,
+    RegisterRequest, SyncDataType, ACCESS_HEADER,
 };
 use crate::config::{grpc_access_token, AppConfig};
 use crate::node_util::NodeUtil;
@@ -46,11 +46,11 @@ fn decode_node_info(data: &[u8]) -> Result<NodeInfo, (StatusCode, Json<CommonRes
 
 fn effective_addr(node_type: NodeType, node: &NodeInfo) -> String {
     match node_type {
-        NodeType::SocketNode => node
+        NodeType::SocketNode => node.node_addr.clone(),
+        _ => node
             .kafka_addr
             .clone()
             .unwrap_or_else(|| node.node_addr.clone()),
-        _ => node.node_addr.clone(),
     }
 }
 
@@ -65,6 +65,22 @@ where
     let node_type_enum = NodeType::try_from(node_type).unwrap_or(NodeType::SocketNode);
     let addresses: Vec<String> = entry
         .values()
+        .map(|node| effective_addr(node_type_enum, node))
+        .collect();
+    NodeUtil::get().reset_list(node_type, addresses);
+}
+
+fn replace_node_cache(node_type: i32, nodes: &[NodeInfo]) {
+    let mut table = NODE_TABLE.write().expect("node table write lock");
+    let entry = table.entry(node_type).or_default();
+    entry.clear();
+    for node in nodes {
+        entry.insert(node.node_addr.clone(), node.clone());
+    }
+
+    let node_type_enum = NodeType::try_from(node_type).unwrap_or(NodeType::SocketNode);
+    let addresses: Vec<String> = nodes
+        .iter()
         .map(|node| effective_addr(node_type_enum, node))
         .collect();
     NodeUtil::get().reset_list(node_type, addresses);
@@ -192,6 +208,46 @@ pub fn all_node_snapshot() -> HashMap<i32, Vec<NodeInfo>> {
         .collect()
 }
 
+/// Ensure the local cache has the latest nodes for the given type by querying arb_service.
+pub async fn refresh_nodes(node_type: NodeType) -> anyhow::Result<Vec<NodeInfo>> {
+    let cfg = AppConfig::get();
+    let Some(server_addr) = cfg.arb_server_addr() else {
+        warn!(
+            "arb server addr missing; cannot refresh nodes for type {}",
+            node_type
+        );
+        return Ok(node_snapshot(node_type as i32));
+    };
+
+    let client = ArbHttpClient::new(server_addr, cfg.arb().and_then(|c| c.access_token.clone()))
+        .context("init arb http client")?;
+
+    let resp = client
+        .list_all_nodes(&QueryNodeReq {
+            node_type: node_type as i32,
+        })
+        .await
+        .context("arb list_all_nodes")?;
+
+    replace_node_cache(node_type as i32, &resp.nodes);
+    info!(
+        "arb refresh nodes: type={} count={}",
+        node_type,
+        resp.nodes.len()
+    );
+    Ok(resp.nodes)
+}
+
+/// Fetch cached nodes, falling back to an arb_service query if necessary.
+pub async fn ensure_nodes(node_type: NodeType) -> anyhow::Result<Vec<NodeInfo>> {
+    let snapshot = node_snapshot(node_type as i32);
+    if !snapshot.is_empty() {
+        return Ok(snapshot);
+    }
+
+    refresh_nodes(node_type).await
+}
+
 /// Register current node into arb_service and spawn heartbeat task.
 ///
 /// Returns `Ok(())` even if `arb.server_addr` is missing so that callers can start without arbitration.
@@ -201,11 +257,19 @@ pub async fn register_node(
     kafka_addr: Option<String>,
 ) -> anyhow::Result<()> {
     let cfg = AppConfig::get();
-    let node_addr = node_addr.into();
+    let requested_addr = node_addr.into();
+    let register_addr = if node_type == NodeType::SocketNode {
+        requested_addr.clone()
+    } else {
+        cfg.server
+            .as_ref()
+            .and_then(|server| server.http_addr())
+            .unwrap_or_else(|| requested_addr.clone())
+    };
     let Some(server_addr) = cfg.arb_server_addr() else {
         warn!(
             "arb.server_addr missing; skip registration for node_type={} addr={}",
-            node_type, node_addr
+            node_type, register_addr
         );
         return Ok(());
     };
@@ -215,7 +279,7 @@ pub async fn register_node(
 
     client
         .register_node(&RegisterRequest {
-            node_addr: node_addr.clone(),
+            node_addr: register_addr.clone(),
             node_type: node_type as i32,
             kafka_addr: kafka_addr.clone(),
         })
@@ -224,10 +288,10 @@ pub async fn register_node(
 
     info!(
         "arb registration ok: node_type={} addr={} kafka={:?}",
-        node_type, node_addr, kafka_addr
+        node_type, register_addr, kafka_addr
     );
 
-    spawn_heartbeat(client, node_type, node_addr);
+    spawn_heartbeat(client, node_type, register_addr);
     Ok(())
 }
 

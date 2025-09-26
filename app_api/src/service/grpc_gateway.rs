@@ -3,6 +3,7 @@ use common::arb::NodeType;
 use common::grpc::grpc_hot_online::online_service::client_rpc_service_client::ClientRpcServiceClient;
 use common::grpc::grpc_hot_online::online_service::online_service_client::OnlineServiceClient;
 use common::grpc::GrpcClientManager;
+use common::service::arb_client;
 use once_cell::sync::OnceCell;
 use tonic::transport::{Channel, Error as TransportError};
 
@@ -39,38 +40,25 @@ fn client_rpc_manager(
     })
 }
 
-fn parse_addr_list(value: &str) -> Vec<String> {
-    value
-        .split(',')
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .map(|s| s.to_string())
-        .collect()
-}
-
-fn default_addr(kind: NodeType, env_keys: &[&str]) -> Option<String> {
-    let util = NodeUtil::get();
-    if let Some(addr) = util.get_list(kind as i32).into_iter().next() {
-        return Some(addr);
+async fn resolve_online_endpoint() -> Result<String> {
+    if let Some(addr) = NodeUtil::get()
+        .get_list(NodeType::OnlineNode as i32)
+        .into_iter()
+        .next()
+    {
+        return Ok(addr);
     }
 
-    for key in env_keys {
-        if let Ok(value) = std::env::var(key) {
-            if let Some(addr) = parse_addr_list(&value).into_iter().next() {
-                return Some(addr);
-            }
-        }
-    }
-
-    None
+    let nodes = arb_client::ensure_nodes(NodeType::OnlineNode).await?;
+    nodes
+        .into_iter()
+        .map(|node| node.kafka_addr.unwrap_or(node.node_addr))
+        .next()
+        .ok_or_else(|| anyhow!("online node address not configured"))
 }
 
 pub async fn get_online_client() -> Result<OnlineServiceClient<Channel>> {
-    let addr = default_addr(
-        NodeType::OnlineNode,
-        &["ONLINE_NODE_ADDRS", "ONLINE_NODE_ADDR"],
-    )
-    .ok_or_else(|| anyhow!("online node address not configured"))?;
+    let addr = resolve_online_endpoint().await?;
     online_manager()
         .get(&normalize_endpoint(&addr))
         .await
@@ -79,11 +67,7 @@ pub async fn get_online_client() -> Result<OnlineServiceClient<Channel>> {
 }
 
 pub async fn get_client_rpc_client() -> Result<ClientRpcServiceClient<Channel>> {
-    let addr = default_addr(
-        NodeType::OnlineNode,
-        &["ONLINE_NODE_ADDRS", "ONLINE_NODE_ADDR"],
-    )
-    .ok_or_else(|| anyhow!("client RPC node address not configured"))?;
+    let addr = resolve_online_endpoint().await?;
     client_rpc_manager()
         .get(&normalize_endpoint(&addr))
         .await
