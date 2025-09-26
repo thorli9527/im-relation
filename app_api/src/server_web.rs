@@ -1,5 +1,4 @@
 use crate::handler;
-use crate::service;
 use anyhow::{anyhow, Context, Result};
 use axum::{routing::get, Json, Router};
 use common::config::AppConfig;
@@ -10,8 +9,6 @@ use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 
 pub async fn start() -> Result<()> {
-    service::init().await;
-
     let app_cfg = AppConfig::get();
     let server_cfg = app_cfg
         .server

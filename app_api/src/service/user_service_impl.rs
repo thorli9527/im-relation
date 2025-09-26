@@ -6,15 +6,19 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use common::config::AppConfig;
 use common::grpc::grpc_hot_online::online_service::{
-    client_rpc_service_client::ClientRpcServiceClient, AuthType, ClientEntity, DeviceType,
-    FindByContentReq, RegisterUserReq, UpsertSessionTokenRequest, UserType,
+    client_rpc_service_client::ClientRpcServiceClient, AuthType, ChangeEmailReq, ChangePasswordReq,
+    ChangePhoneReq, ClientEntity, DeviceType, FindByContentReq, Gender, GetClientReq,
+    RegisterUserReq, SessionTokenStatus, UpdateClientReq, UpsertSessionTokenRequest, UserType,
+    ValidateSessionTokenRequest,
 };
 use common::redis::redis_pool::RedisPoolTools;
 use common::util::common_utils::{build_md5_with_key, build_uuid};
 use common::UserId;
 use deadpool_redis::redis::AsyncCommands;
 use log::error;
+use prost_types::FieldMask;
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 
 #[derive(Serialize, Deserialize)]
 pub struct VerifySession {
@@ -102,6 +106,52 @@ impl UserService {
             }
         }
     }
+
+    async fn validate_session_token(session_token: &str) -> anyhow::Result<(i64, DeviceType)> {
+        let mut online_client = grpc_gateway::get_online_client().await?;
+        let resp = online_client
+            .validate_session_token(ValidateSessionTokenRequest {
+                session_token: session_token.to_string(),
+            })
+            .await?
+            .into_inner();
+
+        let status = SessionTokenStatus::try_from(resp.status)
+            .map_err(|_| anyhow!("invalid session token status"))?;
+        if status != SessionTokenStatus::StsActive {
+            return Err(anyhow!("session.token.inactive"));
+        }
+
+        let device_type =
+            DeviceType::try_from(resp.device_type).map_err(|_| anyhow!("invalid device type"))?;
+
+        Ok((resp.user_id, device_type))
+    }
+
+    async fn get_client_by_id(
+        client: &mut ClientRpcServiceClient<tonic::transport::Channel>,
+        user_id: i64,
+    ) -> anyhow::Result<ClientEntity> {
+        let resp = client
+            .get_client(GetClientReq { id: user_id })
+            .await?
+            .into_inner();
+        Ok(resp)
+    }
+
+    async fn verify_contact_code(kind: &str, contact: &str, code: &str) -> anyhow::Result<()> {
+        let normalized_contact = contact.trim().to_lowercase();
+        let key = format!("verify:{kind}:{}", normalized_contact);
+        let mut conn = RedisPoolTools::get().get().await?;
+        let stored: Option<String> = conn.get(&key).await?;
+        match stored {
+            Some(expected) if expected == code => {
+                let _: () = conn.del(&key).await?;
+                Ok(())
+            }
+            _ => Err(anyhow!("verify.code.invalid")),
+        }
+    }
 }
 #[async_trait]
 impl UserServiceAuthOpt for UserService {
@@ -177,7 +227,7 @@ impl UserServiceAuthOpt for UserService {
         Ok((info, entity))
     }
 
-    async fn logout(&self, uid: UserId, device_type: &DeviceType) -> anyhow::Result<()> {
+    async fn logout(&self, _uid: UserId, _device_type: &DeviceType) -> anyhow::Result<()> {
         // 实现登出逻辑
         Ok(())
     }
@@ -360,5 +410,160 @@ impl UserServiceAuthOpt for UserService {
             .await?;
 
         Ok(response.into_inner().id)
+    }
+
+    async fn change_password(
+        &self,
+        session_token: &str,
+        old_password: &str,
+        new_password: &str,
+    ) -> anyhow::Result<()> {
+        let key = AppConfig::get()
+            .sys
+            .as_ref()
+            .and_then(|s| s.md5_key.clone())
+            .ok_or_else(|| anyhow!("md5_key missing"))?;
+
+        let (user_id, _) = UserService::validate_session_token(session_token).await?;
+
+        let mut client = grpc_gateway::get_client_rpc_client().await?;
+        let entity = UserService::get_client_by_id(&mut client, user_id).await?;
+
+        let hashed_old = build_md5_with_key(old_password, &key);
+        if entity.password != hashed_old {
+            return Err(anyhow!("old.password.mismatch"));
+        }
+
+        let hashed_new = build_md5_with_key(new_password, &key);
+        if hashed_new == hashed_old {
+            return Err(anyhow!("password.nochange"));
+        }
+
+        let resp = client
+            .change_password(ChangePasswordReq {
+                id: user_id,
+                old_password: Some(hashed_old),
+                new_password: hashed_new,
+                verify_token: Some(session_token.to_string()),
+            })
+            .await?
+            .into_inner();
+
+        if !resp.success {
+            return Err(anyhow!("change.password.failed"));
+        }
+
+        Ok(())
+    }
+
+    async fn change_phone(
+        &self,
+        session_token: &str,
+        old_phone_code: Option<&str>,
+        new_phone: &str,
+        new_phone_code: &str,
+    ) -> anyhow::Result<String> {
+        let (user_id, _) = UserService::validate_session_token(session_token).await?;
+
+        let mut client = grpc_gateway::get_client_rpc_client().await?;
+        let current = UserService::get_client_by_id(&mut client, user_id).await?;
+
+        if let Some(old_phone) = current.phone.as_deref() {
+            let code = old_phone_code.ok_or_else(|| anyhow!("old.phone.code.required"))?;
+            UserService::verify_contact_code("phone", old_phone, code).await?;
+        } else if old_phone_code.is_some() {
+            return Err(anyhow!("old.phone.not.bound"));
+        }
+
+        UserService::verify_contact_code("phone", new_phone, new_phone_code).await?;
+
+        let updated = client
+            .change_phone(ChangePhoneReq {
+                id: user_id,
+                new_phone: Some(new_phone.to_string()),
+                verify_token: Some(new_phone_code.to_string()),
+            })
+            .await?
+            .into_inner();
+
+        let phone = updated.phone.unwrap_or_default();
+        Ok(phone)
+    }
+
+    async fn change_email(
+        &self,
+        session_token: &str,
+        old_email_code: Option<&str>,
+        new_email: &str,
+        new_email_code: &str,
+    ) -> anyhow::Result<String> {
+        let (user_id, _) = UserService::validate_session_token(session_token).await?;
+
+        let mut client = grpc_gateway::get_client_rpc_client().await?;
+        let current = UserService::get_client_by_id(&mut client, user_id).await?;
+
+        if let Some(old_email) = current.email.as_deref() {
+            let code = old_email_code.ok_or_else(|| anyhow!("old.email.code.required"))?;
+            UserService::verify_contact_code("email", old_email, code).await?;
+        } else if old_email_code.is_some() {
+            return Err(anyhow!("old.email.not.bound"));
+        }
+
+        UserService::verify_contact_code("email", new_email, new_email_code).await?;
+
+        let updated = client
+            .change_email(ChangeEmailReq {
+                id: user_id,
+                new_email: Some(new_email.to_string()),
+                verify_token: Some(new_email_code.to_string()),
+            })
+            .await?
+            .into_inner();
+
+        let email = updated.email.unwrap_or_default();
+        Ok(email)
+    }
+
+    async fn update_profile(
+        &self,
+        session_token: &str,
+        gender: Option<i32>,
+        avatar: Option<&str>,
+    ) -> anyhow::Result<()> {
+        if gender.is_none() && avatar.is_none() {
+            return Ok(());
+        }
+
+        let (user_id, _) = UserService::validate_session_token(session_token).await?;
+
+        let mut client = grpc_gateway::get_client_rpc_client().await?;
+        let mut entity = UserService::get_client_by_id(&mut client, user_id).await?;
+
+        let mut paths: Vec<String> = Vec::new();
+
+        if let Some(new_avatar) = avatar {
+            entity.avatar = new_avatar.to_string();
+            paths.push("avatar".to_string());
+        }
+
+        if let Some(g) = gender {
+            let gender_enum = Gender::try_from(g).map_err(|_| anyhow!("gender.invalid"))?;
+            entity.gender = gender_enum as i32;
+            paths.push("gender".to_string());
+        }
+
+        if paths.is_empty() {
+            return Ok(());
+        }
+
+        let mask = FieldMask { paths };
+        client
+            .update_client(UpdateClientReq {
+                patch: Some(entity),
+                update_mask: Some(mask),
+            })
+            .await?;
+
+        Ok(())
     }
 }

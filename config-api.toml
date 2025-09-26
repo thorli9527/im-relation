@@ -5,7 +5,11 @@ url = "redis://127.0.0.1:6379/"
 [server.http]
 host = "127.0.0.1"
 port = 8004
-[arb.url]
+[server.grpc]
+host = "127.0.0.1"
+port = 50051
+[arb]
+access_token = "change-me"
 host = "http://127.0.0.1:8005"
 [sys]
 log_leve = "warn"  #trace debug info error warn

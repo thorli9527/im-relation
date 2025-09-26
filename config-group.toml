@@ -6,7 +6,8 @@ port = 8003
 [server.http]
 host = "127.0.0.1"
 port = 8203
-[arb.url]
-host = "http://127.0.0.1:8005"
+[arb]
+access_token = "change-me"
+host = "http://127.0.0.1:8000"
 [sys]
 log_leve = "warn"  #trace debug info error warn

@@ -1,7 +1,6 @@
 [arb]
-# access_token = "change-me"  # 可选：如仲裁服务启用鉴权
-[arb.url]
-host = "http://127.0.0.1:8005"
+access_token = "change-me"
+host = "http://127.0.0.1:8000"
 [server.grpc]
 host = "0.0.0.0"
 port = 9600

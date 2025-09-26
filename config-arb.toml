@@ -1,3 +1,6 @@
+[arb]
+access_token = "change-me"
+host = "http://127.0.0.1:8000"
 [server.http]
 host = "127.0.0.1"
 port = 8000

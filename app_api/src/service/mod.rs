@@ -1,6 +1,7 @@
 use common::arb::NodeType;
 use common::node_util::NodeUtil;
 
+pub mod auth_models;
 pub mod grpc_gateway;
 pub mod user_service;
 pub mod user_service_impl;

@@ -167,7 +167,7 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/healthz", get(healthz))
         .route(
-            "/online/:user_id",
+            "/online/{user_id}",
             get(check_online).post(set_online).delete(set_offline),
         )
         .route("/online/batch/check", post(check_online_batch))

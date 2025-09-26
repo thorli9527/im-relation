@@ -113,6 +113,7 @@ impl AppConfig {
             .and_then(|cfg| {
                 cfg.server_addr
                     .clone()
+                    .or_else(|| cfg.host.clone())
                     .or_else(|| cfg.url.as_ref().and_then(|u| u.host.clone()))
             })
             .or_else(|| self.server.as_ref()?.http_addr())
@@ -178,6 +179,8 @@ pub struct ServerConfig {
 pub struct ArbConfig {
     pub server_addr: Option<String>,
     pub access_token: Option<String>,
+    #[serde(default)]
+    pub host: Option<String>,
     #[serde(default)]
     pub url: Option<ArbUrlConfig>,
 }

@@ -8,6 +8,17 @@ pub enum UserLogType {
     QRCode = 3,
     LoginName = 4,
 }
+impl UserLogType {
+    pub fn from_i32(value: i32) -> Option<Self> {
+        match value {
+            1 => Some(Self::Phone),
+            2 => Some(Self::Email),
+            3 => Some(Self::QRCode),
+            4 => Some(Self::LoginName),
+            _ => None,
+        }
+    }
+}
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -125,4 +136,34 @@ pub trait UserServiceAuthOpt: Send + Sync {
     async fn register_verify_code(&self, uuid: &str, code: &str) -> anyhow::Result<()>;
 
     async fn register_login_name(&self, name: &str, password: &str) -> anyhow::Result<i64>;
+
+    async fn change_password(
+        &self,
+        session_token: &str,
+        old_password: &str,
+        new_password: &str,
+    ) -> anyhow::Result<()>;
+
+    async fn change_phone(
+        &self,
+        session_token: &str,
+        old_phone_code: Option<&str>,
+        new_phone: &str,
+        new_phone_code: &str,
+    ) -> anyhow::Result<String>;
+
+    async fn change_email(
+        &self,
+        session_token: &str,
+        old_email_code: Option<&str>,
+        new_email: &str,
+        new_email_code: &str,
+    ) -> anyhow::Result<String>;
+
+    async fn update_profile(
+        &self,
+        session_token: &str,
+        gender: Option<i32>,
+        avatar: Option<&str>,
+    ) -> anyhow::Result<()>;
 }

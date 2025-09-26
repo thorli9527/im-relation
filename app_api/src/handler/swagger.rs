@@ -4,15 +4,8 @@ use serde_json::Value;
 use tower_http::services::ServeDir;
 use utoipa::OpenApi;
 
-use crate::handler;
-use handler::auth::register_handler::*;
-
 #[derive(OpenApi)]
-#[openapi(
-    paths(build_register_code, auth_register_verify),
-    components(schemas()),
-    tags((name = "im-swagger-api", description = "Example endpoints"))
-)]
+#[openapi(tags((name = "im-swagger-api", description = "Example endpoints")))]
 struct ApiDoc;
 
 pub fn router() -> Router {
