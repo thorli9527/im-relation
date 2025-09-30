@@ -133,6 +133,8 @@ pub async fn run_server() -> Result<()> {
         .next()
     {
         Some(broker) => {
+            // A socket node advertised a Kafka broker; reuse it so msg_friend follows the same
+            // routing metadata as clients.
             let topics = vec![MSG_SEND_FRIEND_TOPIC.clone()];
             match KafkaInstanceService::new(&broker, &topics).await {
                 Ok(svc) => Some(Arc::new(svc)),
@@ -143,6 +145,8 @@ pub async fn run_server() -> Result<()> {
             }
         }
         None => {
+            // Without any broker information we fall back to a no-op producer and keep serving
+            // gRPC; arbitration updates will repopulate this on the next refresh.
             warn!("no socket.kafka_addr discovered via arb; kafka disabled");
             None
         }
@@ -180,6 +184,7 @@ pub async fn run_server() -> Result<()> {
         NodeType::MsgFriend,
         http_addr_str.clone(),
         Some(grpc_addr_str.clone()),
+        None,
     )
     .await?;
 

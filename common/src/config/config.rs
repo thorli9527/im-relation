@@ -262,6 +262,16 @@ pub struct ArbUrlConfig {
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct SocketConfig {
+    /// Socket TCP 监听地址（优先级最高）。
+    pub addr: Option<String>,
+    /// Socket TCP 监听 Host（与 `port` 一起使用）。
+    pub host: Option<String>,
+    /// Socket TCP 监听端口。
+    pub port: Option<u16>,
+    /// Socket 对外暴露的 Host。
+    pub pub_host: Option<String>,
+    /// Socket 对外暴露的端口（0 表示由外部代理决定）。
+    pub pub_port: Option<u16>,
     /// ACK 分片数量（缺省为 CPU 核数）
     pub ack_shards: Option<usize>,
     /// ACK 重试间隔（毫秒，缺省 500ms）
@@ -278,6 +288,30 @@ pub struct SocketConfig {
     pub http_host: Option<String>,
     /// HTTP 服务监听端口，缺省为 server.port + 100。
     pub http_port: Option<u16>,
+}
+
+impl SocketConfig {
+    /// 解析 Socket TCP 监听地址；必须显式配置 addr 或 host+port。
+    pub fn tcp_addr(&self) -> anyhow::Result<String> {
+        if let Some(addr) = &self.addr {
+            return Ok(addr.clone());
+        }
+        if let (Some(host), Some(port)) = (self.host.as_ref(), self.port) {
+            return Ok(format!("{}:{}", host, port));
+        }
+        Err(anyhow!("socket.addr 或 socket.host/socket.port 未配置"))
+    }
+
+    /// 计算 Socket 对外暴露地址。
+    pub fn pub_addr(&self) -> Option<String> {
+        let host = self
+            .pub_host
+            .as_ref()
+            .map(|h| h.trim())
+            .filter(|h| !h.is_empty())?;
+        let port = self.pub_port.unwrap_or(0);
+        Some(format!("{}:{}", host, port))
+    }
 }
 
 impl EndpointConfig {

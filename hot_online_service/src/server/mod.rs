@@ -13,13 +13,13 @@ use tokio_util::sync::CancellationToken;
 use tonic::service::Routes;
 
 use crate::db::mysql::{ClientRepoSqlx, DirectoryRepoSqlx, SessionRepoSqlx};
-use crate::grpc_hot_online::client_service_impl::{ClientEntityServiceImpl, DummyIdAlloc};
-use crate::grpc_hot_online::online_service::client_rpc_service_server::ClientRpcServiceServer;
-use crate::grpc_hot_online::online_service::online_service_server::OnlineServiceServer;
 use crate::hot_cold::{ClientHot, ClientHotConfig, RealNormalizer};
 use crate::online_store::OnlineStore;
 use crate::rest_online;
+use crate::service::client_service_impl::{ClientEntityServiceImpl, DummyIdAlloc};
 use crate::service::online_service_impl::OnLineServiceImpl;
+use common::grpc::grpc_hot_online::online_service::client_rpc_service_server::ClientRpcServiceServer;
+use common::grpc::grpc_hot_online::online_service::online_service_server::OnlineServiceServer;
 
 mod server_grpc;
 mod server_web;
@@ -104,6 +104,7 @@ pub async fn start() -> Result<()> {
         NodeType::OnlineNode,
         http_addr_str.clone(),
         Some(grpc_addr_str.clone()),
+        None,
     )
     .await?;
 

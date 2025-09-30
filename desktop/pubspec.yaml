@@ -1,0 +1,54 @@
+name: im_client
+description: A new Flutter project.
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.1.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_svg: ^2.2.0
+  window_manager: ^0.5.1
+  go_router: ^16.0.0
+  stream_transform: ^2.1.1
+  protobuf: ^4.1.1
+  grpc: ^4.1.0
+  # 数据库
+  isar: ^3.1.0+1
+  isar_flutter_libs: ^3.1.0+1
+  # 网络和HTTP
+  dio: ^5.8.0+1
+  connectivity_plus: ^6.1.4
+  # 文件系统
+  path: ^1.9.1
+  path_provider: ^2.1.5
+  # 日志
+  logger: ^2.6.0
+  # 国际化
+  intl: ^0.20.2
+  # 工具库
+  uuid: ^4.5.1
+  cupertino_icons: ^1.0.8
+  mustache_template: ^2.0.0
+  snowflaker: ^1.1.0
+  fixnum: ^1.1.1
+  riverpod: ^2.6.1
+  flutter_riverpod: ^2.6.1
+  synchronized: ^3.4.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.13
+  isar_generator: ^3.1.0+1
+  protoc_plugin: ^22.4.0
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/

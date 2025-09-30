@@ -1,7 +1,13 @@
+//! hot_online_service entrypoint.
+//!
+//! Responsibilities:
+//! - Load configuration (including cache tuning and gRPC/HTTP bind addresses).
+//! - Delegate to `server::start`, which wires gRPC servers, REST gateway, and arbitration
+//!   registration for hot online sessions.
+
 use common::config::AppConfig;
 
 pub mod db;
-mod grpc_hot_online;
 mod hot_cold;
 mod online_store;
 mod rest_online;
@@ -10,6 +16,9 @@ mod service;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Load `AppConfig` before touching any other module; downstream components rely on the
+    // singleton snapshot to discover Kafka, arb_service, and cache sizing hints.
     AppConfig::init_from_env("./config-online.toml").await;
+    // Delegate the heavy lifting (gRPC/HTTP servers + background tasks) to the `server` module.
     server::start().await
 }

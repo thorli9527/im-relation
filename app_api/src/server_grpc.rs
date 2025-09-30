@@ -2,17 +2,23 @@ use std::convert::TryFrom;
 use std::net::SocketAddr;
 
 use anyhow::{anyhow, Context, Result};
+use common::arb::NodeType;
 use common::config::AppConfig;
 use common::grpc::grpc_hot_online::online_service::DeviceType;
+use common::node_util::NodeUtil;
+use common::service::arb_client;
+use common::util::common_utils::hash_index;
 use log::warn;
 use tonic::{transport::Server, Request, Response, Status};
 use validator::Validate;
 
-use crate::grpc::api::auth_service_server::{AuthService, AuthServiceServer};
+use crate::grpc::api::api_service_server::{ApiService, ApiServiceServer};
 use crate::grpc::api::{
     BuildRegisterCodeRequest, BuildRegisterCodeResponse, ChangeEmailRequest, ChangeEmailResponse,
     ChangePasswordRequest, ChangePasswordResponse, ChangePhoneRequest, ChangePhoneResponse,
-    LoginRequest, LoginResponse, UpdateProfileRequest, UpdateProfileResponse,
+    GetFriendListRequest, GetFriendListResponse, GetGroupMemberDetailRequest,
+    GetGroupMemberDetailResponse, GetGroupMembersRequest, GetGroupMembersResponse,
+    GroupMemberSummary, LoginRequest, LoginResponse, UpdateProfileRequest, UpdateProfileResponse,
     VerifyRegisterCodeRequest, VerifyRegisterCodeResponse,
 };
 use crate::service::auth_models::{
@@ -22,10 +28,10 @@ use crate::service::auth_models::{
 use crate::service::user_service::{UserLogType, UserRegType, UserService, UserServiceAuthOpt};
 
 #[derive(Default)]
-struct AuthGrpcService;
+struct ApiGrpcService;
 
 #[tonic::async_trait]
-impl AuthService for AuthGrpcService {
+impl ApiService for ApiGrpcService {
     async fn build_register_code(
         &self,
         request: Request<BuildRegisterCodeRequest>,
@@ -116,7 +122,7 @@ impl AuthService for AuthGrpcService {
         }
 
         let user_service = UserService::get();
-        let (_client, session) = user_service
+        let (client, session) = user_service
             .login_by_type(
                 &login_type,
                 &payload.target,
@@ -135,9 +141,21 @@ impl AuthService for AuthGrpcService {
                 }
             })?;
 
+        let socket_addr = match resolve_socket_addr(client.id).await {
+            Ok(addr) => addr,
+            Err(err) => {
+                warn!("resolve socket addr failed: {err}");
+                String::new()
+            }
+        };
+        let (socket_host, socket_port) = split_socket_addr(&socket_addr);
+
         Ok(Response::new(LoginResponse {
             token: session.token,
             expires_at: session.expires_at,
+            socket_addr,
+            socket_host,
+            socket_port,
         }))
     }
 
@@ -280,6 +298,113 @@ impl AuthService for AuthGrpcService {
 
         Ok(Response::new(UpdateProfileResponse { ok: true }))
     }
+
+    async fn get_friend_list(
+        &self,
+        request: Request<GetFriendListRequest>,
+    ) -> Result<Response<GetFriendListResponse>, Status> {
+        let payload = request.into_inner();
+        if payload.session_token.trim().is_empty() {
+            return Err(Status::invalid_argument("session_token is required"));
+        }
+
+        Ok(Response::new(GetFriendListResponse {
+            friends: Vec::new(),
+        }))
+    }
+
+    async fn get_group_members(
+        &self,
+        request: Request<GetGroupMembersRequest>,
+    ) -> Result<Response<GetGroupMembersResponse>, Status> {
+        let payload = request.into_inner();
+        if payload.session_token.trim().is_empty() {
+            return Err(Status::invalid_argument("session_token is required"));
+        }
+        if payload.group_id <= 0 {
+            return Err(Status::invalid_argument("group_id must be positive"));
+        }
+
+        Ok(Response::new(GetGroupMembersResponse {
+            members: Vec::new(),
+        }))
+    }
+
+    async fn get_group_member_detail(
+        &self,
+        request: Request<GetGroupMemberDetailRequest>,
+    ) -> Result<Response<GetGroupMemberDetailResponse>, Status> {
+        let payload = request.into_inner();
+        if payload.session_token.trim().is_empty() {
+            return Err(Status::invalid_argument("session_token is required"));
+        }
+        if payload.group_id <= 0 {
+            return Err(Status::invalid_argument("group_id must be positive"));
+        }
+        if payload.member_id <= 0 {
+            return Err(Status::invalid_argument("member_id must be positive"));
+        }
+
+        let member = GroupMemberSummary {
+            group_id: payload.group_id,
+            member_id: payload.member_id,
+            nickname: String::new(),
+            avatar: String::new(),
+            role: 0,
+        };
+
+        Ok(Response::new(GetGroupMemberDetailResponse {
+            member: Some(member),
+            is_friend: false,
+        }))
+    }
+}
+
+async fn resolve_socket_addr(user_id: i64) -> Result<String> {
+    let node_util = NodeUtil::get();
+    let mut nodes = node_util.get_list(NodeType::SocketNode as i32);
+
+    if nodes.is_empty() {
+        let fetched = arb_client::ensure_nodes(NodeType::SocketNode)
+            .await
+            .context("load socket nodes from arb")?;
+        if fetched.is_empty() {
+            return Err(anyhow!("socket node list empty"));
+        }
+        nodes = node_util.get_list(NodeType::SocketNode as i32);
+        if nodes.is_empty() {
+            nodes = fetched.into_iter().map(|node| node.node_addr).collect();
+        }
+    }
+
+    let count = i32::try_from(nodes.len()).unwrap_or(0);
+    if count <= 0 {
+        return Err(anyhow!("socket node list empty"));
+    }
+
+    let index = hash_index(&user_id, count) as usize;
+    nodes
+        .into_iter()
+        .nth(index)
+        .ok_or_else(|| anyhow!("socket node index out of range"))
+}
+
+fn split_socket_addr(addr: &str) -> (String, u32) {
+    if addr.trim().is_empty() {
+        return (String::new(), 0);
+    }
+
+    if let Ok(sock) = addr.parse::<std::net::SocketAddr>() {
+        return (sock.ip().to_string(), sock.port() as u32);
+    }
+
+    match addr.rsplit_once(':') {
+        Some((host, port_str)) => match port_str.parse::<u32>() {
+            Ok(port) => (host.to_string(), port),
+            Err(_) => (addr.to_string(), 0),
+        },
+        None => (addr.to_string(), 0),
+    }
 }
 
 pub async fn start() -> Result<()> {
@@ -296,7 +421,7 @@ pub async fn start() -> Result<()> {
         .context("invalid grpc listen address")?;
 
     Server::builder()
-        .add_service(AuthServiceServer::new(AuthGrpcService::default()))
+        .add_service(ApiServiceServer::new(ApiGrpcService::default()))
         .serve(addr)
         .await?;
 

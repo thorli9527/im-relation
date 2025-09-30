@@ -68,6 +68,11 @@ impl ArbService {
             node_addr: req.node_addr.clone(),
             last_update_time: now,
             node_type: req.node_type,
+            pub_node_addr: if req.pub_node_addr.is_empty() {
+                None
+            } else {
+                Some(req.pub_node_addr.clone())
+            },
             kafka_addr: req.kafka_addr.clone(),
         };
 

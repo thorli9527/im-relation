@@ -50,10 +50,10 @@ impl From<PbDeviceType> for DeviceType {
 /// - 为每个连接启动独立 task 执行握手、读写循环与清理。
 pub async fn start_tcp_server() -> anyhow::Result<()> {
     let cfg = common::config::AppConfig::get();
-    let server = cfg.get_server();
-    let bind = server
-        .require_grpc_addr()
-        .context("server.grpc missing host/port for socket TCP listener")?;
+    let socket_cfg = cfg.get_socket();
+    let bind = socket_cfg
+        .tcp_addr()
+        .context("socket tcp address missing (set socket.addr or socket.host+socket.port)")?;
     // 尝试在 Tokio runtime 上监听 TCP 端口（失败直接返回错误以便上层中止启动流程）。
     let listener = TcpListener::bind(&bind)
         .await

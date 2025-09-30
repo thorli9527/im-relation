@@ -289,6 +289,10 @@ message GetClientReq {
   int64 id = 1;
 }
 
+message GetClientsReq {
+  repeated int64 ids = 1;
+}
+
 message ChangeResponse {
   bool success = 1;
 }
@@ -307,4 +311,5 @@ service ClientRpcService {
   rpc ChangeEmail(ChangeEmailReq) returns (ClientEntity);
   rpc UpdateClient(UpdateClientReq) returns (ClientEntity);
   rpc GetClient(GetClientReq) returns (ClientEntity);
+  rpc GetClients(GetClientsReq) returns (stream ClientEntity);
 }

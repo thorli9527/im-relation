@@ -30,7 +30,7 @@ pub async fn start() -> Result<()> {
         .layer(TraceLayer::new_for_http());
     let listener = TcpListener::bind(&address_and_port).await?;
 
-    arb_client::register_node(NodeType::ApiNode, address_and_port.clone(), None).await?;
+    arb_client::register_node(NodeType::ApiNode, address_and_port.clone(), None, None).await?;
     axum::serve(listener, router.into_make_service()).await?;
 
     Ok(())

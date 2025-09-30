@@ -13,7 +13,6 @@ pub mod service;
 use anyhow::{Context, Result};
 use common::config::AppConfig;
 use service::{start_socket_pipeline, MultiLoginPolicy, SessionManager, SessionPolicy};
-use std::env;
 use std::net::SocketAddr;
 use tokio::signal;
 
@@ -29,12 +28,11 @@ async fn main() -> Result<()> {
     let _sm = SessionManager::init(policy);
 
     let cfg = AppConfig::get();
-    let server_cfg = cfg.get_server();
     let socket_cfg = cfg.get_socket();
 
-    let tcp_bind = server_cfg
-        .require_grpc_addr()
-        .context("server.grpc missing host/port for socket TCP listener")?;
+    let tcp_bind = socket_cfg
+        .tcp_addr()
+        .context("socket tcp address missing (set socket.addr or socket.host+socket.port)")?;
     let (tcp_host, tcp_port) = split_host_port(&tcp_bind)?;
 
     let http_host = socket_cfg
@@ -51,9 +49,7 @@ async fn main() -> Result<()> {
     // 启动 TCP 监听（长度前缀 JSON 协议，端口来自配置文件）
     server::start_tcp_server().await?;
 
-    let advertise_http = env::var("SOCKET_HTTP_ADDR").unwrap_or_else(|_| http_bind.clone());
-    let advertise_tcp = env::var("SOCKET_TCP_ADDR").unwrap_or_else(|_| tcp_bind.clone());
-    server::server_web::register_with_arb(&advertise_http, &advertise_tcp).await?;
+    server::server_web::register_with_arb(&http_bind, &tcp_bind).await?;
 
     // 启动消费/分发流水线：Kafka → mpsc 分片 → SessionManager
     start_socket_pipeline().await?;

@@ -103,6 +103,7 @@ pub async fn start() -> Result<()> {
         NodeType::FriendNode,
         http_addr_str.clone(),
         Some(grpc_addr_str.clone()),
+        None,
     )
     .await?;
 

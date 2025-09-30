@@ -3,9 +3,10 @@ use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
 use crate::db::traits::{SessionTokenRepo, SessionTokenUpsert};
-use crate::grpc_hot_online::online_service::online_service_server::OnlineService;
-use crate::grpc_hot_online::online_service::DeviceType as PbDeviceType;
-use crate::grpc_hot_online::online_service::{
+use crate::online_store::OnlineStore;
+use common::grpc::grpc_hot_online::online_service::online_service_server::OnlineService;
+use common::grpc::grpc_hot_online::online_service::DeviceType as PbDeviceType;
+use common::grpc::grpc_hot_online::online_service::{
     revoke_session_token_request, CheckOnlineBatchRequest, CheckOnlineBatchResponse,
     CheckOnlineRequest, CheckOnlineResponse, GetStatsRequest, GetStatsResponse,
     RevokeSessionTokenRequest, RevokeSessionTokenResponse, SessionTokenStatus, SetOnlineRequest,
@@ -13,7 +14,6 @@ use crate::grpc_hot_online::online_service::{
     UpsertSessionTokenRequest, UpsertSessionTokenResponse, ValidateSessionTokenRequest,
     ValidateSessionTokenResponse,
 };
-use crate::online_store::OnlineStore;
 use std::convert::TryFrom;
 
 #[derive(Clone)]

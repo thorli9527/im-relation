@@ -46,7 +46,13 @@ fn decode_node_info(data: &[u8]) -> Result<NodeInfo, (StatusCode, Json<CommonRes
 
 fn effective_addr(node_type: NodeType, node: &NodeInfo) -> String {
     match node_type {
-        NodeType::SocketNode => node.node_addr.clone(),
+        NodeType::SocketNode => node
+            .pub_node_addr
+            .clone()
+            .filter(|addr| !addr.is_empty())
+            .unwrap_or_else(|| node.node_addr.clone()),
+        // For other subsystems the Kafka broker (if present) is the “effective” routing target;
+        // falling back to the plain node address preserves legacy behaviour.
         _ => node
             .kafka_addr
             .clone()
@@ -255,6 +261,7 @@ pub async fn register_node(
     node_type: NodeType,
     node_addr: impl Into<String>,
     kafka_addr: Option<String>,
+    pub_node_addr: Option<String>,
 ) -> anyhow::Result<()> {
     let cfg = AppConfig::get();
     let requested_addr = node_addr.into();
@@ -277,18 +284,21 @@ pub async fn register_node(
     let client = ArbHttpClient::new(server_addr, cfg.arb().and_then(|c| c.access_token.clone()))
         .context("init arb http client")?;
 
+    let public_addr = pub_node_addr.unwrap_or_else(|| register_addr.clone());
+
     client
         .register_node(&RegisterRequest {
             node_addr: register_addr.clone(),
             node_type: node_type as i32,
+            pub_node_addr: public_addr.clone(),
             kafka_addr: kafka_addr.clone(),
         })
         .await
         .context("arb register_node")?;
 
     info!(
-        "arb registration ok: node_type={} addr={} kafka={:?}",
-        node_type, register_addr, kafka_addr
+        "arb registration ok: node_type={} addr={} pub_addr={} kafka={:?}",
+        node_type, register_addr, public_addr, kafka_addr
     );
 
     spawn_heartbeat(client, node_type, register_addr);

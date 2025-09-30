@@ -66,16 +66,26 @@ message GetFriendsPageResp {
 
 message FriendEntry {
   int64 friend_id = 1;
-  // 别名，未设置则为空字符串；也可结合 presence 判断（见下）。
+  // 好友别名/备注，未设置则为空字符串；也可结合 presence 判断（见下）。
   //
   // 可选的时间戳/扩展字段，按需启用（预留）
   // int64 created_at = 10;
   // int64 updated_at = 11;
   optional string alias = 2;
+  // 好友申请来源（例如手机号、二维码、群邀请等）
+  optional string apply_source = 3;
+  // 好友头像 URL
+  optional string avatar = 4;
 }
 
 message GetFriendsDetailedReq {
   int64 user_id = 1;
+  // 是否需要返回好友申请来源信息
+  bool apply_source = 2;
+  // 是否需要返回好友别名/备注
+  bool alias = 3;
+  // 是否需要返回好友头像
+  bool avatar = 4;
 }
 
 message GetFriendsDetailedResp {

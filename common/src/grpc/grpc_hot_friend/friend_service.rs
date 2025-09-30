@@ -99,13 +99,19 @@ pub struct GetFriendsPageResp {
 pub struct FriendEntry {
     #[prost(int64, tag = "1")]
     pub friend_id: i64,
-    /// 别名，未设置则为空字符串；也可结合 presence 判断（见下）。
+    /// 好友别名/备注，未设置则为空字符串；也可结合 presence 判断（见下）。
     ///
     /// 可选的时间戳/扩展字段，按需启用（预留）
     /// int64 created_at = 10;
     /// int64 updated_at = 11;
     #[prost(string, optional, tag = "2")]
     pub alias: ::core::option::Option<::prost::alloc::string::String>,
+    /// 好友申请来源（例如手机号、二维码、群邀请等）
+    #[prost(string, optional, tag = "3")]
+    pub apply_source: ::core::option::Option<::prost::alloc::string::String>,
+    /// 好友头像 URL
+    #[prost(string, optional, tag = "4")]
+    pub avatar: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -113,6 +119,15 @@ pub struct FriendEntry {
 pub struct GetFriendsDetailedReq {
     #[prost(int64, tag = "1")]
     pub user_id: i64,
+    /// 是否需要返回好友申请来源信息
+    #[prost(bool, tag = "2")]
+    pub apply_source: bool,
+    /// 是否需要返回好友别名/备注
+    #[prost(bool, tag = "3")]
+    pub alias: bool,
+    /// 是否需要返回好友头像
+    #[prost(bool, tag = "4")]
+    pub avatar: bool,
 }
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]

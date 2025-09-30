@@ -152,6 +152,7 @@ pub async fn run_server() -> Result<()> {
         NodeType::MesGroup,
         http_addr_str.clone(),
         Some(grpc_addr_str.clone()),
+        None,
     )
     .await?;
 

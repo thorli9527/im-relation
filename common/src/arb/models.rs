@@ -30,6 +30,7 @@ pub struct BaseRequest {
 pub struct RegisterRequest {
     pub node_addr: String,
     pub node_type: i32,
+    pub pub_node_addr: String,
     pub kafka_addr: Option<String>,
 }
 
@@ -45,6 +46,8 @@ pub struct NodeInfo {
     pub node_addr: String,
     pub last_update_time: u64,
     pub node_type: i32,
+    #[serde(default)]
+    pub pub_node_addr: Option<String>,
     pub kafka_addr: Option<String>,
 }
 

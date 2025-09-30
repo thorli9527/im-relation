@@ -1,3 +1,8 @@
+//! arb_service entrypoint.
+//!
+//! Sets up configuration, constructs the arbitration core (`ArbService`), and exposes its HTTP
+//! surface so other subsystems can register/heartbeat/query node topology.
+
 mod handler;
 mod server_web;
 mod service;

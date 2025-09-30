@@ -1,4 +1,4 @@
-use crate::grpc_hot_online::online_service::{ClientEntity, DeviceType};
+use common::grpc::grpc_hot_online::online_service::{ClientEntity, DeviceType};
 // hot_online_service/src/member/traits.rs
 use anyhow::Result;
 use async_trait::async_trait;
