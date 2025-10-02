@@ -121,10 +121,15 @@ message FriendSummary {
 
 message GetFriendListRequest {
   string session_token = 1;
+  uint32 page = 2;
+  uint32 page_size = 3;
 }
 
 message GetFriendListResponse {
   repeated FriendSummary friends = 1;
+  uint32 page = 2;
+  uint32 page_size = 3;
+  bool has_more = 4;
 }
 
 message GroupMemberSummary {
@@ -138,10 +143,15 @@ message GroupMemberSummary {
 message GetGroupMembersRequest {
   string session_token = 1;
   int64 group_id = 2;
+  uint32 page = 3;
+  uint32 page_size = 4;
 }
 
 message GetGroupMembersResponse {
   repeated GroupMemberSummary members = 1;
+  uint32 page = 2;
+  uint32 page_size = 3;
+  bool has_more = 4;
 }
 
 message GetGroupMemberDetailRequest {

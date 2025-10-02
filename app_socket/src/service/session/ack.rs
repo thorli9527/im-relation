@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -7,24 +8,40 @@ use tokio::time::Instant;
 use tokio_stream::StreamExt;
 use tokio_util::time::DelayQueue;
 
-use crate::service::types::{MessageId, SendOpts, ServerMsg, UserId};
+use crate::service::types::{AckCallback, MessageId, SendOpts, ServerMsg, UserId};
 
 use super::manager::SessionManager;
 use super::metrics::METRICS;
 
 /// 记录待确认消息及其重试上下文。
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub(super) struct PendingAck {
-    /// 完整缓存消息体，用于重试扇出
+    /// 完整缓存消息体，用于重试扇出；重试时会直接重新扇出该结构
     pub(super) msg: ServerMsg,
-    /// 已尝试发送次数
+    /// 已尝试发送次数（包含首次发送）
     pub(super) attempts: u32,
-    /// 超过该时间后不再重试
+    /// 超过该时间后不再重试，视为彻底失败
     pub(super) expire_at: Instant,
-    /// 发送选项（包含过期、最大重试次数等）
+    /// 发送选项（包含过期、最大重试次数等，克隆自上游调用方）
     pub(super) opts: SendOpts,
     /// 目标用户 ID，便于从管理器重发
     pub(super) target_user: UserId,
+    /// 客户端确认回调（例如提交 Kafka offset）
+    pub(super) on_ack: Option<AckCallback>,
+    /// 达到最大重试或超时后的回调
+    pub(super) on_drop: Option<AckCallback>,
+}
+
+impl fmt::Debug for PendingAck {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PendingAck")
+            .field("msg_id", &self.msg.id)
+            .field("attempts", &self.attempts)
+            .field("expire_at", &self.expire_at)
+            .field("target_user", &self.target_user)
+            .field("max_retry", &self.opts.max_retry)
+            .finish()
+    }
 }
 
 /// ACK 分片与到期调度（DelayQueue），通过哈希分片降低锁竞争。
@@ -58,6 +75,7 @@ impl AckShards {
             // 每个分片一个独立任务：本地 HashMap + DelayQueue
             tokio::spawn(async move {
                 let mut dq: DelayQueue<MessageId> = DelayQueue::new();
+                // `map` 保存当前待确认的消息；DelayQueue 仅存 MessageId，二者共同保证 O(1) 查找。
                 let mut map: HashMap<MessageId, PendingAck> = HashMap::new();
                 loop {
                     tokio::select! {
@@ -72,7 +90,11 @@ impl AckShards {
                                 }
                                 AckCmd::Ack { id } => {
                                     // 客户端确认某条消息后，从缓存中移除并取消定时。
-                                    map.remove(&id);
+                                    if let Some(entry) = map.remove(&id) {
+                                        if let Some(cb) = entry.on_ack {
+                                            cb(id);
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -91,7 +113,10 @@ impl AckShards {
                                     map.insert(id, e);
                                     dq.insert(id, retry_interval);
                                 } else {
-                                    // 否则：过期或达最大重试，丢弃
+                                    // 否则：过期或达最大重试，执行回调并丢弃
+                                    if let Some(cb) = e.on_drop {
+                                        cb(id);
+                                    }
                                     METRICS.ack_timeouts.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                 }
                             }
@@ -124,6 +149,8 @@ impl AckShards {
             expire_at: Instant::now() + opts.expire,
             opts: opts.clone(),
             target_user,
+            on_ack: opts.ack_hook.clone(),
+            on_drop: opts.drop_hook.clone(),
         };
         // 使用 try_send 避免阻塞业务线程；若发送失败表示分片繁忙，可等待下一次发送重试。
         let _ = self.shard(id).try_send(AckCmd::Track { id, entry });

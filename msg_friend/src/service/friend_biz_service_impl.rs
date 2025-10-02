@@ -7,14 +7,17 @@ use crate::server::Services;
 use common::grpc::grpc_msg_friend::msg_friend_service::{
     self, friend_biz_service_server::FriendBizService,
 };
+use common::grpc::grpc_socket::socket::{KafkaMsg, MsgKind as SocketMsgKind};
+use common::kafka::topic_info::MSG_SEND_FRIEND_TOPIC;
 use log::{info, warn};
+use prost::Message;
 use std::sync::Arc;
 
 /// MsgFriendServiceImpl
 ///
 /// 职责与流向：
 /// - 对外暴露“好友业务接口”（friend.proto::FriendBizService），由 app_socket 转发 201..205 到此；
-/// - 在本服务内把调用落到 hot_friend_service（通过 HfFriendClient），实现好友关系的写入与维护；
+/// - 在本服务内把调用落到 friend_service（通过 HfFriendClient），实现好友关系的写入与维护；
 /// - 该层不直接做鉴权和参数填充，假设上游网关/handler 已校验、限流与补齐上下文。
 ///
 /// 方法与语义：
@@ -25,7 +28,7 @@ use std::sync::Arc;
 ///
 /// 错误处理：
 /// - 下游 gRPC 失败统一转为 Status::internal，并记录日志；
-/// - 当未配置 hot_friend_service 客户端时，仅告警并返回成功（可按需改为返回 Unavailable）。
+/// - 当未配置 friend_service 客户端时，仅告警并返回成功（可按需改为返回 Unavailable）。
 
 /// 业务实现。持有到内部 `Services` 的引用，以复用数据库/客户端等资源。
 pub struct MsgFriendServiceImpl {
@@ -44,27 +47,59 @@ impl FriendBizService for MsgFriendServiceImpl {
     /// 发送好友申请
     ///
     /// 当前实现：仅持久化申请（friend_requests），不直接建立好友关系；
-    /// HandleFriendRequest(accept=true) 时再调用 hot_friend_service.AddFriend 落地关系。
+    /// HandleFriendRequest(accept=true) 时再调用 friend_service.AddFriend 落地关系。
     async fn send_friend_request(
         &self,
         request: tonic::Request<msg_friend_service::FriendRequest>,
     ) -> Result<tonic::Response<()>, tonic::Status> {
-        let r = request.into_inner();
-        let gen_id = if r.id == 0 { r.created_at } else { r.id };
+        let mut req = request.into_inner();
+        let gen_id = if req.id == 0 { req.created_at } else { req.id };
+        req.id = gen_id;
+
         let row = FriendRequestRow {
-            id: gen_id,
-            from_user_id: r.from_user_id,
-            to_user_id: r.to_user_id,
-            reason: r.reason,
-            source: r.source,
-            created_at: r.created_at,
+            id: req.id,
+            from_user_id: req.from_user_id,
+            to_user_id: req.to_user_id,
+            reason: req.reason.clone(),
+            source: req.source,
+            created_at: req.created_at,
             decided_at: None,
             accepted: None,
-            remark: r.remark,
+            remark: req.remark.clone(),
         };
+        // 落库申请（幂等）
         upsert_friend_request(self.inner.pool(), &row)
             .await
             .map_err(|e| tonic::Status::internal(format!("persist friend_request failed: {e}")))?;
+        // 发送好友申请通知到 Kafka，由 socket 分发给目标用户。
+
+        if let Some(kafka) = self.inner.kafka().cloned() {
+            let payload = req.encode_to_vec();
+            let kafka_msg = KafkaMsg {
+                to: req.to_user_id,
+                id: Some(req.id),
+                kind: SocketMsgKind::MkFriendRequest as i32,
+                payload,
+                require_ack: None,
+                expire_ms: None,
+                max_retry: None,
+                ts_ms: Some(req.created_at),
+            };
+            if let Err(err) = kafka
+                .send_message(
+                    &kafka_msg,
+                    &req.id.to_string(),
+                    &MSG_SEND_FRIEND_TOPIC.topic_name,
+                )
+                .await
+            {
+                warn!(
+                    "FriendBizService: kafka send friend request failed: {}",
+                    err
+                );
+            }
+        }
+
         Ok(tonic::Response::new(()))
     }
 

@@ -9,9 +9,9 @@
 以下为 `Cargo.toml` 中声明的成员（部分为二进制服务，部分为公共库）：
 
 - `common`：公共工具与抽象（配置、Kafka、Redis、工具函数等）
-- `hot_online_service`：在线状态服务（gRPC/REST）
-- `hot_group_service`：群组服务（使用分片与成员列表封装）
-- `hot_friend_service`：好友服务
+- `user_service`：在线状态服务（gRPC/REST）
+- `group_service`：群组服务（使用分片与成员列表封装）
+- `friend_service`：好友服务
 - `arb_service`：仲裁/桥接服务
 - `app_api`：对外 API 服务
 - `app_socket`：Socket 客户端/服务相关

@@ -5,6 +5,8 @@
 //! - Socket/TCP 层使用“长度前缀 + Protobuf”帧格式（详见 `tcp.rs`）。
 //! - ServerMsg.id 用于客户端 ACK 对齐；需要可靠送达时结合 `SendOpts` 进行重试与超时控制。
 
+use std::fmt;
+use std::sync::Arc;
 use std::time::Duration;
 
 // 使用 common 中的 UserId 类型
@@ -48,7 +50,10 @@ pub type SessionId = String;
 /// 消息唯一 ID
 pub type MessageId = i64;
 
-/// 服务端下行消息（发给客户端）
+/// 服务端下行消息（发给客户端）。
+///
+/// `id` 用于客户端 ACK 对齐；`kind` 与 `payload` 表示业务含义；
+/// `ts_ms` 便于客户端基于服务端时间排序消息。
 #[derive(Clone, Debug)]
 pub struct ServerMsg {
     /// 消息唯一 ID（用于客户端 ACK 对齐）
@@ -61,12 +66,11 @@ pub struct ServerMsg {
     pub ts_ms: i64,
 }
 
-/// 客户端上行消息（含 ACK）
+/// 客户端上行消息（含 ACK）。
 ///
-/// - ack: 确认服务端下行 ServerMsg.id；仅用于确认，不可复用为“上行幂等ID”。
-/// - client_id: 客户端上行幂等ID（推荐使用），用于去重/重试对账。
-/// - kind: 业务枚举（详见 socket.proto::MsgKind）
-/// - payload: 业务自定义 Protobuf
+/// * `ack`：存在时表示确认服务端下行 `ServerMsg.id`。
+/// * `client_id`：客户端幂等 ID，用于上行去重。
+/// * `kind`/`payload`：具体业务负载。
 #[derive(Clone, Debug)]
 pub struct ClientMsg {
     /// 如果存在，表示对服务端某条 `id` 的确认
@@ -79,8 +83,9 @@ pub struct ClientMsg {
     pub payload: Vec<u8>,
 }
 
-/// 发送选项
-#[derive(Clone, Debug)]
+/// 发送选项。
+pub type AckCallback = Arc<dyn Fn(MessageId) + Send + Sync>;
+
 pub struct SendOpts {
     /// 是否需要客户端确认
     pub require_ack: bool,
@@ -88,6 +93,34 @@ pub struct SendOpts {
     pub expire: Duration,
     /// 超时后的最大重试次数
     pub max_retry: u32,
+    /// 客户端 ACK 成功后的回调（例如提交 Kafka offset）
+    pub ack_hook: Option<AckCallback>,
+    /// 达到最大重试或超时后的回调（例如记录失败或提交 offset）
+    pub drop_hook: Option<AckCallback>,
+}
+
+impl Clone for SendOpts {
+    fn clone(&self) -> Self {
+        Self {
+            require_ack: self.require_ack,
+            expire: self.expire,
+            max_retry: self.max_retry,
+            ack_hook: self.ack_hook.clone(),
+            drop_hook: self.drop_hook.clone(),
+        }
+    }
+}
+
+impl fmt::Debug for SendOpts {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SendOpts")
+            .field("require_ack", &self.require_ack)
+            .field("expire", &self.expire)
+            .field("max_retry", &self.max_retry)
+            .field("ack_hook", &self.ack_hook.is_some())
+            .field("drop_hook", &self.drop_hook.is_some())
+            .finish()
+    }
 }
 
 impl Default for SendOpts {
@@ -96,6 +129,8 @@ impl Default for SendOpts {
             require_ack: true,
             expire: Duration::from_secs(10),
             max_retry: 2,
+            ack_hook: None,
+            drop_hook: None,
         }
     }
 }

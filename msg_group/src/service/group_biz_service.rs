@@ -1,6 +1,6 @@
 //! msg_group 对外群业务接口。
 //!
-//! - 热数据（成员、资料）统一托管在 hot_group_service，本服务通过 gRPC 代理。
+//! - 热数据（成员、资料）统一托管在 group_service，本服务通过 gRPC 代理。
 //! - 冷数据（申请、审批、审计日志）落在本地 MySQL 以便追踪。
 //! - 每次变更尽量先确保热存储成功，再补齐日志，确保体验与可观测性兼顾。
 
@@ -65,7 +65,7 @@ impl GroupBizServiceImpl {
         self.inner
             .group_client()
             .cloned()
-            .ok_or_else(|| Status::unavailable("hot_group_service client not configured"))
+            .ok_or_else(|| Status::unavailable("group_service client not configured"))
     }
 
     fn kafka(&self) -> Option<&Arc<KafkaInstanceService>> {

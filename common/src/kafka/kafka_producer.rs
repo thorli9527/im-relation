@@ -1,5 +1,4 @@
 use crate::kafka::topic_info::TopicInfo;
-use crate::util::common_utils::build_md5;
 use anyhow::{anyhow, Result};
 use once_cell::sync::OnceCell;
 use prost::Message;
@@ -58,8 +57,8 @@ impl KafkaInstanceService {
             .set("bootstrap.servers", broker_addr)
             .set("security.protocol", "SASL_SSL")
             .set("sasl.mechanism", "PLAIN")
-            .set("sasl.username", "admin")
-            .set("sasl.password", build_md5(&broker_addr))
+            // .set("sasl.username", "admin")
+            // .set("sasl.password", "admin")
             // ✅ 性能相关配置
             .set("acks", "all")
             .set("enable.idempotence", "true")

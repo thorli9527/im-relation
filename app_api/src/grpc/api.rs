@@ -163,11 +163,21 @@ pub struct FriendSummary {
 pub struct GetFriendListRequest {
     #[prost(string, tag = "1")]
     pub session_token: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "2")]
+    pub page: u32,
+    #[prost(uint32, tag = "3")]
+    pub page_size: u32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetFriendListResponse {
     #[prost(message, repeated, tag = "1")]
     pub friends: ::prost::alloc::vec::Vec<FriendSummary>,
+    #[prost(uint32, tag = "2")]
+    pub page: u32,
+    #[prost(uint32, tag = "3")]
+    pub page_size: u32,
+    #[prost(bool, tag = "4")]
+    pub has_more: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GroupMemberSummary {
@@ -188,11 +198,21 @@ pub struct GetGroupMembersRequest {
     pub session_token: ::prost::alloc::string::String,
     #[prost(int64, tag = "2")]
     pub group_id: i64,
+    #[prost(uint32, tag = "3")]
+    pub page: u32,
+    #[prost(uint32, tag = "4")]
+    pub page_size: u32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetGroupMembersResponse {
     #[prost(message, repeated, tag = "1")]
     pub members: ::prost::alloc::vec::Vec<GroupMemberSummary>,
+    #[prost(uint32, tag = "2")]
+    pub page: u32,
+    #[prost(uint32, tag = "3")]
+    pub page_size: u32,
+    #[prost(bool, tag = "4")]
+    pub has_more: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetGroupMemberDetailRequest {

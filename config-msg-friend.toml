@@ -15,3 +15,7 @@ log_leve = "warn"  # trace debug info error warn
 [msg_friend]
 shard_total = 16
 shard_index = 0
+
+[kafka]
+broker = "127.0.0.1:9092"
+group_id = "msg_friend_dispatcher"

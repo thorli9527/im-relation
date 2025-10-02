@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use common::arb::NodeType;
-use common::grpc::grpc_hot_online::online_service::client_rpc_service_client::ClientRpcServiceClient;
 use common::grpc::grpc_hot_online::online_service::online_service_client::OnlineServiceClient;
+use common::grpc::grpc_hot_online::online_service::user_rpc_service_client::UserRpcServiceClient;
 use common::grpc::GrpcClientManager;
 use common::service::arb_client;
 use once_cell::sync::OnceCell;
@@ -12,7 +12,7 @@ use common::node_util::NodeUtil;
 static ONLINE_MANAGER: OnceCell<GrpcClientManager<OnlineServiceClient<Channel>, TransportError>> =
     OnceCell::new();
 static CLIENT_RPC_MANAGER: OnceCell<
-    GrpcClientManager<ClientRpcServiceClient<Channel>, TransportError>,
+    GrpcClientManager<UserRpcServiceClient<Channel>, TransportError>,
 > = OnceCell::new();
 
 fn normalize_endpoint(addr: &str) -> String {
@@ -31,11 +31,11 @@ fn online_manager() -> &'static GrpcClientManager<OnlineServiceClient<Channel>, 
     })
 }
 
-fn client_rpc_manager(
-) -> &'static GrpcClientManager<ClientRpcServiceClient<Channel>, TransportError> {
+fn client_rpc_manager() -> &'static GrpcClientManager<UserRpcServiceClient<Channel>, TransportError>
+{
     CLIENT_RPC_MANAGER.get_or_init(|| {
         GrpcClientManager::new(|endpoint: String| async move {
-            ClientRpcServiceClient::connect(endpoint).await
+            UserRpcServiceClient::connect(endpoint).await
         })
     })
 }
@@ -66,7 +66,7 @@ pub async fn get_online_client() -> Result<OnlineServiceClient<Channel>> {
         .map_err(|e| anyhow!(e))
 }
 
-pub async fn get_client_rpc_client() -> Result<ClientRpcServiceClient<Channel>> {
+pub async fn get_user_rpc_client() -> Result<UserRpcServiceClient<Channel>> {
     let addr = resolve_online_endpoint().await?;
     client_rpc_manager()
         .get(&normalize_endpoint(&addr))

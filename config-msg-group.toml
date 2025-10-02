@@ -12,3 +12,7 @@ host = "http://127.0.0.1:8000"
 
 [sys]
 log_leve = "warn"  # trace debug info error warn
+
+[kafka]
+broker = "127.0.0.1:9092"
+group_id = "msg_group_dispatcher"

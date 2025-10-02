@@ -68,7 +68,7 @@ pub enum ResetPasswordType {
 }
 
 use async_trait::async_trait;
-use common::grpc::grpc_hot_online::online_service::{AuthType, ClientEntity, DeviceType};
+use common::grpc::grpc_hot_online::online_service::{AuthType, DeviceType, UserEntity};
 use common::UserId;
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
@@ -111,7 +111,7 @@ pub trait UserServiceAuthOpt: Send + Sync {
         password: &str,
         device_type: &DeviceType,
         device_id: &str,
-    ) -> anyhow::Result<(ClientEntity, SessionTokenInfo)>;
+    ) -> anyhow::Result<(UserEntity, SessionTokenInfo)>;
     /// 登录用户，将用户标记为在线，并进行必要的缓存更新和事件通知
     async fn login(
         &self,
@@ -121,7 +121,7 @@ pub trait UserServiceAuthOpt: Send + Sync {
         password: &str,
         device_type: &DeviceType,
         device_id: &str,
-    ) -> anyhow::Result<(SessionTokenInfo, ClientEntity)>;
+    ) -> anyhow::Result<(SessionTokenInfo, UserEntity)>;
 
     async fn logout(&self, user_id: UserId, device_type: &DeviceType) -> anyhow::Result<()>;
     /// 注册新用户

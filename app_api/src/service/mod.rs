@@ -2,8 +2,11 @@ use common::arb::NodeType;
 use common::service::arb_client;
 use log::warn;
 
+pub mod api_grpc_service_impl;
 pub mod auth_models;
+pub mod friend_gateway;
 pub mod grpc_gateway;
+pub mod session;
 pub mod user_service;
 pub mod user_service_impl;
 

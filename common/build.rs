@@ -6,12 +6,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     generate_message()?;
     generate_socket()?;
-    generate_grpc_with_serde(
-        "src/grpc/grpc_hot_friend",
-        &["proto/hot_friend.proto"],
-        false,
-    )?;
-    generate_grpc_with_serde("src/grpc/grpc_hot_group", &["proto/hot_group.proto"], false)?;
+    generate_grpc_with_serde("src/grpc/grpc_hot_friend", &["proto/friend.proto"], false)?;
+    generate_grpc_with_serde("src/grpc/grpc_hot_group", &["proto/group.proto"], false)?;
     generate_hot_online()?;
     generate_grpc_with_serde(
         "src/grpc/grpc_msg_friend",
@@ -89,11 +85,11 @@ fn generate_hot_online() -> Result<(), Box<dyn Error>> {
     builder = builder.build_server(true);
     builder = builder.build_client(true);
     builder = builder.type_attribute(
-        "online_service.ClientEntity",
+        "online_service.UserEntity",
         "#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]",
     );
     builder = builder.type_attribute(
-        "online_service.ClientEntity",
+        "online_service.UserEntity",
         "#[serde(rename_all = \"camelCase\")]",
     );
     builder = builder.type_attribute(
@@ -102,8 +98,8 @@ fn generate_hot_online() -> Result<(), Box<dyn Error>> {
     );
     builder = builder.out_dir(out_dir);
 
-    builder.compile_protos(&["proto/hot_online.proto"], &["proto"])?;
-    println!("cargo:rerun-if-changed=proto/hot_online.proto");
+    builder.compile_protos(&["proto/user.proto"], &["proto"])?;
+    println!("cargo:rerun-if-changed=proto/user.proto");
 
     Ok(())
 }

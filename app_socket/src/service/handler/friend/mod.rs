@@ -3,7 +3,7 @@
 //! 设计目标（入站 → 路由 → 回执）：
 //! - 去重：仅使用“客户端消息ID”（client_id）为相同消息提供幂等保护；
 //! - 动态路由：通过 NodeUtil 与 arb_service 动态发现 msg_friend 节点，按 userId 做一致性选择；
-//! - 关系操作：201..205 通过 hot_friend_service 完成增删改（申请/受理/删除/备注）；
+//! - 关系操作：201..205 通过 friend_service 完成增删改（申请/受理/删除/备注）；
 //! - 成功回执：业务处理成功后，向客户端下发简化 ACK（ServerMsg.kind= MkAck，ServerMsg.id = client_id）；
 //! - 非阻塞：handler 内部使用 tokio::spawn，不阻塞接入线程。
 
@@ -35,7 +35,7 @@ use super::Handler;
 /// 主要职责：
 /// - 解析上行 ClientMsg，并执行：
 ///   - 100..106 → 转发给 msg_friend（存储/转发/Kafka）；
-///   - 201..205 → 调用 hot_friend_service 完成好友关系操作；
+///   - 201..205 → 调用 friend_service 完成好友关系操作；
 /// - 幂等：在处理前进行去重（最近 50 条）；
 /// - 成功后发送 ACK（包含原请求 kind 与 ref_message_id）。
 pub struct FriendHandler;
@@ -129,6 +129,8 @@ impl Handler for FriendHandler {
                             require_ack: false,
                             expire: Duration::from_millis(0),
                             max_retry: 0,
+                            ack_hook: None,
+                            drop_hook: None,
                         },
                     );
                 }

@@ -26,6 +26,7 @@ pub struct AppConfig {
     pub hot_friend: Option<HotFriendConfig>,
     pub hot_online: Option<HotOnlineConfig>,
     pub msg_friend: Option<MsgFriendConfig>,
+    pub kafka: Option<KafkaConfig>,
 }
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ShardConfig {
@@ -164,6 +165,10 @@ impl AppConfig {
         self.msg_friend.clone().unwrap_or_default()
     }
 
+    pub fn kafka_cfg(&self) -> KafkaConfig {
+        self.kafka.clone().unwrap_or_default()
+    }
+
     pub fn get_arb(&self) -> ArbConfig {
         self.arb.clone().unwrap_or_default()
     }
@@ -256,6 +261,12 @@ pub struct RedisConfig {
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]
+pub struct KafkaConfig {
+    pub broker: Option<String>,
+    pub group_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
 pub struct ArbUrlConfig {
     pub host: Option<String>,
 }
@@ -280,10 +291,6 @@ pub struct SocketConfig {
     pub dispatch_shards: Option<usize>,
     /// 分片队列容量（缺省 10000）
     pub dispatch_cap: Option<usize>,
-    /// Kafka broker 地址（优先使用此配置）
-    pub kafka_broker: Option<String>,
-    /// Kafka 消费组（优先使用此配置）
-    pub kafka_group_id: Option<String>,
     /// HTTP 服务监听 Host（仲裁同步/健康检查用），缺省继承 server.host。
     pub http_host: Option<String>,
     /// HTTP 服务监听端口，缺省为 server.port + 100。

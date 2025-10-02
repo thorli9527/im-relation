@@ -43,10 +43,10 @@ pub async fn register_with_arb(http_addr: &str, tcp_addr: &str) -> Result<()> {
     }
 
     let socket_cfg = cfg.get_socket();
-    let kafka_addr = socket_cfg.kafka_broker.clone().or_else(|| {
+    let kafka_addr = cfg.kafka_cfg().broker.or_else(|| {
         // Exposing at least a fallback host keeps downstream services functional even if the
         // explicit Kafka broker address is absent from configuration.
-        warn!("socket.kafka_broker not configured; falling back to TCP advertise address");
+        warn!("kafka.broker not configured; falling back to TCP advertise address");
         Some(tcp_addr.to_string())
     });
 

@@ -2,9 +2,10 @@
 //!
 //! 特点：
 //! - 采用 `StreamConsumer` 拉取消息，for-ever 循环
-//! - handler 签名为 `Fn(OwnedMessage) -> Future<Result<()>>`
+//! - handler 签名为 `Fn(OwnedMessage, Arc<StreamConsumer>) -> Future<Result<bool>>`
 //!   - 传入 `OwnedMessage`（拥有所有权），避免生命周期问题
-//! - 提交语义：handler 返回 Ok 才异步提交 offset（至少一次）
+//!   - 带回 `StreamConsumer` 便于调用方在收到客户端 ACK 后再提交 offset
+//! - 提交语义：handler 返回 `Ok(true)` 才异步提交 offset；`Ok(false)` 由业务自行提交
 //! - 关闭自动提交，交由业务控制
 
 use anyhow::Result;
@@ -13,7 +14,6 @@ use std::future::Future;
 use std::sync::Arc;
 
 use crate::kafka::topic_info::TopicInfo;
-use crate::util::common_utils::build_md5;
 use rdkafka::config::ClientConfig;
 use rdkafka::consumer::{Consumer, StreamConsumer};
 use rdkafka::message::OwnedMessage;
@@ -32,8 +32,8 @@ pub async fn start_consumer<F, Fut>(
     handler: F,
 ) -> Result<()>
 where
-    F: Fn(OwnedMessage) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Result<()>> + Send,
+    F: Fn(OwnedMessage, Arc<StreamConsumer>) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Result<bool>> + Send,
 {
     let consumer: StreamConsumer = ClientConfig::new()
         .set("group.id", group_id)
@@ -41,8 +41,8 @@ where
         // 开启 SASL 认证（具体安全策略根据集群配置调整）
         .set("security.protocol", "SASL_PLAINTEXT") // 或 SASL_SSL
         .set("sasl.mechanism", "PLAIN") // 也可用 SCRAM-SHA-256/512
-        .set("sasl.username", "admin")
-        .set("sasl.password", build_md5(&broker))
+        // .set("sasl.username", "admin")
+        // .set("sasl.password", "admin")
         // 关闭自动提交 offset
         .set("enable.auto.commit", "false")
         .create()?;
@@ -55,10 +55,12 @@ where
         match arc_consumer.recv().await {
             Ok(msg) => {
                 let owned = msg.detach();
-                match handler(owned).await {
-                    Ok(_) => {
-                        // 仅在成功处理后提交 offset（至少一次）
-                        arc_consumer.commit_message(&msg, rdkafka::consumer::CommitMode::Async)?;
+                match handler(owned, arc_consumer.clone()).await {
+                    Ok(commit_now) => {
+                        if commit_now {
+                            arc_consumer
+                                .commit_message(&msg, rdkafka::consumer::CommitMode::Async)?;
+                        }
                     }
                     Err(e) => {
                         log::error!("❌ Kafka 消息处理失败: {:?}", e);

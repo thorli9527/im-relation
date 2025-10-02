@@ -2,9 +2,9 @@
 [workspace]
 members = [
 "common", 
-"hot_online_service", 
-"hot_group_service", 
-"hot_friend_service", 
+"user_service", 
+"group_service", 
+"friend_service", 
 "arb_service", 
 "app_api", 
 "app_socket", 

@@ -1,15 +1,14 @@
-use crate::service::grpc_gateway;
 use crate::service::user_service::{
     SessionTokenInfo, UserLogType, UserRegType, UserService, UserServiceAuthOpt,
 };
+use crate::service::{grpc_gateway, session};
 use anyhow::anyhow;
 use async_trait::async_trait;
 use common::config::AppConfig;
 use common::grpc::grpc_hot_online::online_service::{
-    client_rpc_service_client::ClientRpcServiceClient, AuthType, ChangeEmailReq, ChangePasswordReq,
-    ChangePhoneReq, ClientEntity, DeviceType, FindByContentReq, Gender, GetClientReq,
-    RegisterUserReq, SessionTokenStatus, UpdateClientReq, UpsertSessionTokenRequest, UserType,
-    ValidateSessionTokenRequest,
+    user_rpc_service_client::UserRpcServiceClient, AuthType, ChangeEmailReq, ChangePasswordReq,
+    ChangePhoneReq, DeviceType, FindByContentReq, Gender, GetUserReq, RegisterUserReq,
+    UpdateUserReq, UpsertSessionTokenRequest, UserEntity, UserType,
 };
 use common::redis::redis_pool::RedisPoolTools;
 use common::util::common_utils::{build_md5_with_key, build_uuid};
@@ -45,11 +44,11 @@ impl UserService {
         }
     }
 
-    async fn fetch_client_by_reg_type(
-        client: &mut ClientRpcServiceClient<tonic::transport::Channel>,
+    async fn fetch_user_by_reg_type(
+        client: &mut UserRpcServiceClient<tonic::transport::Channel>,
         reg_type: UserRegType,
         value: &str,
-    ) -> anyhow::Result<Option<ClientEntity>> {
+    ) -> anyhow::Result<Option<UserEntity>> {
         let req = FindByContentReq {
             content: value.to_string(),
         };
@@ -58,18 +57,18 @@ impl UserService {
             UserRegType::Phone => client.find_by_phone(req).await?,
             UserRegType::LoginName => client.find_by_name(req).await?,
         };
-        Ok(response.into_inner().client)
+        Ok(response.into_inner().user)
     }
 
     async fn ensure_register_target(
-        client: &mut ClientRpcServiceClient<tonic::transport::Channel>,
+        client: &mut UserRpcServiceClient<tonic::transport::Channel>,
         reg_type: &UserRegType,
         name: &str,
         target: &str,
     ) -> anyhow::Result<RegistrationTargetMeta> {
         match reg_type {
             UserRegType::Email => {
-                if Self::fetch_client_by_reg_type(client, *reg_type, target)
+                if Self::fetch_user_by_reg_type(client, *reg_type, target)
                     .await?
                     .is_some()
                 {
@@ -81,7 +80,7 @@ impl UserService {
                 })
             }
             UserRegType::Phone => {
-                if Self::fetch_client_by_reg_type(client, *reg_type, target)
+                if Self::fetch_user_by_reg_type(client, *reg_type, target)
                     .await?
                     .is_some()
                 {
@@ -93,7 +92,7 @@ impl UserService {
                 })
             }
             UserRegType::LoginName => {
-                if Self::fetch_client_by_reg_type(client, *reg_type, name)
+                if Self::fetch_user_by_reg_type(client, *reg_type, name)
                     .await?
                     .is_some()
                 {
@@ -108,32 +107,16 @@ impl UserService {
     }
 
     async fn validate_session_token(session_token: &str) -> anyhow::Result<(i64, DeviceType)> {
-        let mut online_client = grpc_gateway::get_online_client().await?;
-        let resp = online_client
-            .validate_session_token(ValidateSessionTokenRequest {
-                session_token: session_token.to_string(),
-            })
-            .await?
-            .into_inner();
-
-        let status = SessionTokenStatus::try_from(resp.status)
-            .map_err(|_| anyhow!("invalid session token status"))?;
-        if status != SessionTokenStatus::StsActive {
-            return Err(anyhow!("session.token.inactive"));
-        }
-
-        let device_type =
-            DeviceType::try_from(resp.device_type).map_err(|_| anyhow!("invalid device type"))?;
-
-        Ok((resp.user_id, device_type))
+        let active = session::ensure_active_session(session_token).await?;
+        Ok((active.user_id, active.device_type))
     }
 
-    async fn get_client_by_id(
-        client: &mut ClientRpcServiceClient<tonic::transport::Channel>,
+    async fn get_user_by_id(
+        client: &mut UserRpcServiceClient<tonic::transport::Channel>,
         user_id: i64,
-    ) -> anyhow::Result<ClientEntity> {
+    ) -> anyhow::Result<UserEntity> {
         let resp = client
-            .get_client(GetClientReq { id: user_id })
+            .get_user(GetUserReq { id: user_id })
             .await?
             .into_inner();
         Ok(resp)
@@ -162,7 +145,7 @@ impl UserServiceAuthOpt for UserService {
         password: &str,
         device_type: &DeviceType,
         device_id: &str,
-    ) -> anyhow::Result<(ClientEntity, SessionTokenInfo)> {
+    ) -> anyhow::Result<(UserEntity, SessionTokenInfo)> {
         let md5_key = AppConfig::get()
             .sys
             .as_ref()
@@ -172,9 +155,9 @@ impl UserServiceAuthOpt for UserService {
         let reg_type =
             Self::reg_type_from_login(login_type).ok_or_else(|| anyhow!("Invalid auth type"))?;
 
-        let mut client = grpc_gateway::get_client_rpc_client().await?;
+        let mut client = grpc_gateway::get_user_rpc_client().await?;
 
-        let mut entity = Self::fetch_client_by_reg_type(&mut client, reg_type, target)
+        let mut entity = Self::fetch_user_by_reg_type(&mut client, reg_type, target)
             .await?
             .ok_or_else(|| anyhow!("login.error"))?;
 
@@ -212,7 +195,7 @@ impl UserServiceAuthOpt for UserService {
         password: &str,
         device_type: &DeviceType,
         device_id: &str,
-    ) -> anyhow::Result<(SessionTokenInfo, ClientEntity)> {
+    ) -> anyhow::Result<(SessionTokenInfo, UserEntity)> {
         let login_type = match auth_type {
             AuthType::Email => UserLogType::Email,
             AuthType::Phone => UserLogType::Phone,
@@ -239,7 +222,7 @@ impl UserServiceAuthOpt for UserService {
         reg_type: &UserRegType,
         target: &str,
     ) -> anyhow::Result<String> {
-        let mut client = grpc_gateway::get_client_rpc_client().await?;
+        let mut client = grpc_gateway::get_user_rpc_client().await?;
         let key = &AppConfig::get().sys.clone().unwrap().md5_key.unwrap();
 
         let meta = UserService::ensure_register_target(&mut client, reg_type, name, target).await?;
@@ -298,7 +281,7 @@ impl UserServiceAuthOpt for UserService {
             .await
             .map_err(|e| anyhow!("Failed to delete redis key: {}", e.to_string()))?;
 
-        let mut client = grpc_gateway::get_client_rpc_client().await?;
+        let mut client = grpc_gateway::get_user_rpc_client().await?;
         match verify_session.reg_type {
             UserRegType::Phone => {
                 let phone = verify_session
@@ -390,7 +373,7 @@ impl UserServiceAuthOpt for UserService {
             anyhow!(message)
         })?;
 
-        let mut client = grpc_gateway::get_client_rpc_client().await?;
+        let mut client = grpc_gateway::get_user_rpc_client().await?;
         UserService::ensure_register_target(&mut client, &UserRegType::LoginName, name, name)
             .await?;
 
@@ -426,8 +409,8 @@ impl UserServiceAuthOpt for UserService {
 
         let (user_id, _) = UserService::validate_session_token(session_token).await?;
 
-        let mut client = grpc_gateway::get_client_rpc_client().await?;
-        let entity = UserService::get_client_by_id(&mut client, user_id).await?;
+        let mut client = grpc_gateway::get_user_rpc_client().await?;
+        let entity = UserService::get_user_by_id(&mut client, user_id).await?;
 
         let hashed_old = build_md5_with_key(old_password, &key);
         if entity.password != hashed_old {
@@ -465,8 +448,8 @@ impl UserServiceAuthOpt for UserService {
     ) -> anyhow::Result<String> {
         let (user_id, _) = UserService::validate_session_token(session_token).await?;
 
-        let mut client = grpc_gateway::get_client_rpc_client().await?;
-        let current = UserService::get_client_by_id(&mut client, user_id).await?;
+        let mut client = grpc_gateway::get_user_rpc_client().await?;
+        let current = UserService::get_user_by_id(&mut client, user_id).await?;
 
         if let Some(old_phone) = current.phone.as_deref() {
             let code = old_phone_code.ok_or_else(|| anyhow!("old.phone.code.required"))?;
@@ -499,8 +482,8 @@ impl UserServiceAuthOpt for UserService {
     ) -> anyhow::Result<String> {
         let (user_id, _) = UserService::validate_session_token(session_token).await?;
 
-        let mut client = grpc_gateway::get_client_rpc_client().await?;
-        let current = UserService::get_client_by_id(&mut client, user_id).await?;
+        let mut client = grpc_gateway::get_user_rpc_client().await?;
+        let current = UserService::get_user_by_id(&mut client, user_id).await?;
 
         if let Some(old_email) = current.email.as_deref() {
             let code = old_email_code.ok_or_else(|| anyhow!("old.email.code.required"))?;
@@ -536,8 +519,8 @@ impl UserServiceAuthOpt for UserService {
 
         let (user_id, _) = UserService::validate_session_token(session_token).await?;
 
-        let mut client = grpc_gateway::get_client_rpc_client().await?;
-        let mut entity = UserService::get_client_by_id(&mut client, user_id).await?;
+        let mut client = grpc_gateway::get_user_rpc_client().await?;
+        let mut entity = UserService::get_user_by_id(&mut client, user_id).await?;
 
         let mut paths: Vec<String> = Vec::new();
 
@@ -558,7 +541,7 @@ impl UserServiceAuthOpt for UserService {
 
         let mask = FieldMask { paths };
         client
-            .update_client(UpdateClientReq {
+            .update_user(UpdateUserReq {
                 patch: Some(entity),
                 update_mask: Some(mask),
             })

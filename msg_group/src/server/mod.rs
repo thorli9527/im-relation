@@ -84,10 +84,12 @@ pub async fn run_server() -> Result<()> {
 
     let pool = get_db();
 
-    let socket_cfg = cfg.get_socket();
-    let kafka = if let Some(broker) = socket_cfg.kafka_broker.clone() {
+    let kafka_cfg = cfg.kafka_cfg();
+    let mut kafka_broker_for_arb = kafka_cfg.broker.clone();
+    let kafka = if let Some(ref broker) = kafka_cfg.broker {
+        kafka_broker_for_arb = Some(broker.clone());
         let topics = vec![MSG_SEND_GROUP_TOPIC.clone()];
-        match KafkaInstanceService::new(&broker, &topics).await {
+        match KafkaInstanceService::new(broker, &topics).await {
             Ok(service) => Some(Arc::new(service)),
             Err(err) => {
                 warn!("kafka init failed: {}", err);
@@ -95,6 +97,7 @@ pub async fn run_server() -> Result<()> {
             }
         }
     } else {
+        warn!("kafka.broker not configured for msg_group; kafka producer disabled");
         None
     };
 
@@ -151,7 +154,7 @@ pub async fn run_server() -> Result<()> {
     arb_client::register_node(
         NodeType::MesGroup,
         http_addr_str.clone(),
-        Some(grpc_addr_str.clone()),
+        kafka_broker_for_arb.clone(),
         None,
     )
     .await?;
