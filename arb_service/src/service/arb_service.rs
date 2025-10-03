@@ -9,8 +9,8 @@ use serde_json::json;
 use tokio::time::{sleep, Duration};
 
 use common::arb::{
-    BaseRequest, BytesBlob, CommonResp, NodeInfo, NodeInfoList, NodeType, QueryNodeReq,
-    RegisterRequest, SyncDataType, ACCESS_HEADER,
+    BaseRequest, CommonResp, NodeInfo, NodeInfoList, NodeType, QueryNodeReq, RegisterRequest,
+    SyncDataType, SyncPayload, ACCESS_HEADER,
 };
 use common::errors::AppError;
 
@@ -46,26 +46,12 @@ impl ArbService {
         service.spawn_stale_monitor();
         service
     }
-
-    /// 注册新节点；若为 Socket 节点，会在成功后通过 HTTP 广播给其他节点。
     pub async fn register_node(&self, req: RegisterRequest) -> Result<CommonResp, AppError> {
-        // node_type 表示当前请求对应的节点类型，后续用于索引桶。
         let node_type = Self::parse_node_type(req.node_type)?;
-        // now 记录注册时刻的时间戳，用于初始化 last_update_time。
         let now = Self::current_timestamp()?;
 
-        // 获取该类型节点的映射，若不存在则创建；DashMap 支持并发写入。
-        // bucket 是当前类型对应的节点表，DashMap::entry 能保证并发安全。
-        let bucket = self.node_list.entry(node_type).or_insert_with(DashMap::new);
-
-        // 地址唯一，如果同地址重复注册直接返回冲突错误。
-        if bucket.value().contains_key(&req.node_addr) {
-            return Err(AppError::Conflict);
-        }
-
-        // 构建节点记录，写入最后更新时间与 Kafka 地址等信息。
         let new_node = NodeInfo {
-            node_addr: req.node_addr.clone(),
+            node_addr: req.server_addr.clone(),
             last_update_time: now,
             node_type: req.node_type,
             pub_node_addr: if req.pub_node_addr.is_empty() {
@@ -73,21 +59,102 @@ impl ArbService {
             } else {
                 Some(req.pub_node_addr.clone())
             },
-            kafka_addr: req.kafka_addr.clone(),
+            kafka_addr: None,
+            grpc_addr: req.grpc_addr.clone(),
         };
 
-        bucket
-            .value()
-            .insert(req.node_addr.clone(), new_node.clone());
+        {
+            // 仅在此作用域持有 DashMap guard
+            let bucket = self.node_list.entry(node_type).or_insert_with(DashMap::new);
+            if bucket.value().contains_key(&req.server_addr) {
+                return Err(AppError::Conflict);
+            }
+            bucket
+                .value()
+                .insert(req.server_addr.clone(), new_node.clone());
+        } // guard 释放
 
-        //需要广播通知给其它节点。
-        self.broadcast_sync(req.node_addr.as_str(), new_node, SyncDataType::SocketAdd)
+        // 向所有节点广播，但排除当前注册节点（node_addr）
+        self.broadcast_sync(&new_node, SyncDataType::SocketAdd)
             .await;
-        warn!("节点 {} 注册成功", req.node_addr);
+
+        warn!("节点 {} 注册成功", req.server_addr);
         Ok(CommonResp {
             success: true,
-            message: format!("节点 {} 注册成功", req.node_addr),
+            message: format!("节点 {} 注册成功", req.server_addr),
         })
+    }
+    /// 广播同步事件到其它节点，排除当前节点。
+    async fn broadcast_sync(&self, current: &NodeInfo, sync_type: SyncDataType) {
+        let payload = SyncPayload {
+            node: current.clone(),
+            sync_type: sync_type.into(),
+        };
+
+        warn!(
+            "sync_to_nodes: start (all types), current_addr={}, sync_type={:?}",
+            current.node_addr, payload.sync_type
+        );
+
+        let addrs = self.collect_internal_targets(&current.node_addr);
+
+        if addrs.is_empty() {
+            warn!("sync_to_nodes: no targets after exclude, skip fan-out");
+            return;
+        }
+        warn!(
+            "sync_to_nodes: fan-out to {} node(s): {:?}",
+            addrs.len(),
+            addrs
+        );
+
+        let token = self.access_token.clone();
+        for addr in addrs {
+            let client = self.http_client.clone();
+            let payload = payload.clone();
+            let token_clone = token.clone();
+
+            tokio::spawn(async move {
+                // 容忍不带协议的地址
+                let base = if addr.starts_with("http://") || addr.starts_with("https://") {
+                    addr
+                } else {
+                    format!("http://{}", addr)
+                };
+                let url = format!("{}/arb/server/sync", base);
+
+                let mut req = client.post(&url).json(&payload);
+                if let Some(token) = &token_clone {
+                    req = req.header(ACCESS_HEADER, token);
+                }
+
+                match req.send().await {
+                    Ok(resp) => info!(
+                        "sync_to_nodes: sent ok addr={} status={}",
+                        base,
+                        resp.status()
+                    ),
+                    Err(err) => warn!("sync_to_nodes: send failed addr={} err={}", base, err),
+                }
+            });
+        }
+    }
+
+    /// 收集内部节点地址（node_addr），排除当前节点。
+    fn collect_internal_targets(&self, current_addr: &str) -> Vec<String> {
+        use std::collections::HashSet;
+
+        let mut dedup = HashSet::new();
+        for bucket in self.node_list.iter() {
+            for node_entry in bucket.value().iter() {
+                let addr = &node_entry.value().node_addr;
+                if addr.is_empty() || addr == current_addr {
+                    continue;
+                }
+                dedup.insert(addr.clone());
+            }
+        }
+        dedup.into_iter().collect()
     }
 
     /// 返回指定类型节点的快照列表，供外部服务查询路由信息。
@@ -137,12 +204,8 @@ impl ArbService {
 
         // Socket 节点离线时需要通知其他节点做本地下线处理。
         if node_type == NodeType::SocketNode {
-            self.broadcast_sync(
-                removed_node.node_addr.as_str(),
-                removed_node.clone(),
-                SyncDataType::SocketDel,
-            )
-            .await;
+            self.broadcast_sync(&removed_node, SyncDataType::SocketDel)
+                .await;
         }
 
         Ok(CommonResp {
@@ -209,80 +272,6 @@ impl ArbService {
             })
     }
 
-    /// 将节点信息序列化为 `BytesBlob` 并触发异步广播逻辑。
-    async fn broadcast_sync(&self, exclude_addr: &str, node: NodeInfo, sync_type: SyncDataType) {
-        let blob = match serde_json::to_vec(&node) {
-            Ok(data) => BytesBlob {
-                // data 是节点信息的 JSON 序列化结果。
-                data,
-                // sync_type 标识当前广播属于新增还是删除。
-                sync_type: sync_type.into(),
-            },
-            Err(err) => {
-                // 序列化失败直接记录日志并退出，不再继续广播。
-                warn!("serialize node info failed: {}", err);
-                return;
-            }
-        };
-        self.sync_to_nodes(exclude_addr, blob).await;
-    }
-
-    /// 遍历全量节点集合，针对每个目标节点异步发送同步请求。
-    async fn sync_to_nodes(&self, exclude_addr: &str, blob: BytesBlob) {
-        let nodes: Vec<String> = self
-            .node_list
-            .iter()
-            .flat_map(|entry| {
-                // entry 表示当前遍历到的节点类型桶。
-                entry
-                    .value()
-                    .iter()
-                    .filter_map(|node_entry| {
-                        // addr 是节点的访问地址，用于拼接同步 URL。
-                        let addr = node_entry.key();
-                        if addr == exclude_addr {
-                            // 排除触发广播的原节点，避免自我回传。
-                            None
-                        } else {
-                            Some(addr.clone())
-                        }
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect();
-
-        // token 是可选的访问令牌，后续写入 HTTP header。
-        let token = self.access_token.clone();
-        for addr in nodes {
-            // 每个目标节点独立 spawn 一个任务，避免串行等待。
-            // client 克隆 reqwest Client，确保生命周期独立。
-            let client = self.http_client.clone();
-            // blob 是待发送的数据载荷副本。
-            let blob = blob.clone();
-            // token_clone 保存访问令牌，供异步任务使用。
-            let token_clone = token.clone();
-            tokio::spawn(async move {
-                // url 为目标节点的同步接口地址，自动补全协议头。
-                let url = if addr.starts_with("http://") || addr.starts_with("https://") {
-                    format!("{}/arb/server/sync", addr)
-                } else {
-                    format!("http://{}/arb/server/sync", addr)
-                };
-
-                let mut request = client.post(&url).json(&blob);
-                if let Some(token) = &token_clone {
-                    // 若配置了令牌，则在 header 中附带校验信息。
-                    request = request.header(ACCESS_HEADER, token);
-                }
-
-                if let Err(err) = request.send().await {
-                    // 网络请求失败时仅记录警告，等待后续心跳重新同步。
-                    warn!("sync to node {} failed: {}", addr, err);
-                }
-            });
-        }
-    }
-
     /// 启动循环任务，固定间隔触发失效节点检查。
     fn spawn_stale_monitor(&self) {
         let this = self.clone();
@@ -317,8 +306,14 @@ impl ArbService {
             for node_entry in entry.value().iter() {
                 // node 是节点详细信息的共享引用。
                 let node = node_entry.value();
-                let expired = now.saturating_sub(node.last_update_time) > Self::NODE_TIMEOUT_MS;
-                if expired {
+                let idle = now.saturating_sub(node.last_update_time);
+                if idle > Self::NODE_TIMEOUT_MS {
+                    warn!(
+                        "cleanup: heartbeat timeout node={} type={:?} idle_ms={}",
+                        node.node_addr,
+                        NodeType::try_from(node.node_type).unwrap_or(NodeType::SocketNode),
+                        idle
+                    );
                     // 记录节点所属类型与详情，后续统一处理。
                     removals.push((node_type, node.clone()));
                 }
@@ -355,10 +350,7 @@ impl ArbService {
         for node in expired_socket_nodes {
             // 对超时的 Socket 节点发送删除广播，通知各节点更新本地缓存。
             info!("cleanup: stale socket node removed addr={}", node.node_addr);
-            // addr 记录当前广播目标的节点地址。
-            let addr = node.node_addr.clone();
-            self.broadcast_sync(&addr, node, SyncDataType::SocketDel)
-                .await;
+            self.broadcast_sync(&node, SyncDataType::SocketDel).await;
         }
     }
 

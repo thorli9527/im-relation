@@ -28,10 +28,11 @@ pub struct BaseRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RegisterRequest {
-    pub node_addr: String,
+    pub server_addr: String,
     pub node_type: i32,
     pub pub_node_addr: String,
-    pub kafka_addr: Option<String>,
+    #[serde(default)]
+    pub grpc_addr: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema)]
@@ -49,6 +50,8 @@ pub struct NodeInfo {
     #[serde(default)]
     pub pub_node_addr: Option<String>,
     pub kafka_addr: Option<String>,
+    #[serde(default)]
+    pub grpc_addr: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -59,9 +62,8 @@ pub struct NodeInfoList {
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct BytesBlob {
-    #[serde(with = "serde_bytes")]
-    pub data: Vec<u8>,
+pub struct SyncPayload {
+    pub node: NodeInfo,
     pub sync_type: i32,
 }
 

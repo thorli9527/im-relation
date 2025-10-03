@@ -10,6 +10,12 @@ pub(super) struct Metrics {
     pub(super) ack_retries: AtomicU64,
     /// ACK 超时丢弃次数
     pub(super) ack_timeouts: AtomicU64,
+    /// 客户端 ACK 消息到达次数
+    pub(super) ack_inbound: AtomicU64,
+    /// ACK 消息对应的 ID 不存在（可能重复或超时）
+    pub(super) ack_unknown: AtomicU64,
+    /// ACK 分片通道出现背压次数
+    pub(super) ack_backpressure: AtomicU64,
     /// Typing 更新事件数量
     pub(super) typing_updates: AtomicU64,
     /// Typing 更新被限流次数
@@ -26,6 +32,9 @@ pub(super) static METRICS: Metrics = Metrics {
     session_queue_full: AtomicU64::new(0),
     ack_retries: AtomicU64::new(0),
     ack_timeouts: AtomicU64::new(0),
+    ack_inbound: AtomicU64::new(0),
+    ack_unknown: AtomicU64::new(0),
+    ack_backpressure: AtomicU64::new(0),
     typing_updates: AtomicU64::new(0),
     typing_rate_limited: AtomicU64::new(0),
     typing_expired: AtomicU64::new(0),

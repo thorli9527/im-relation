@@ -27,6 +27,16 @@ pub struct AppConfig {
     pub hot_online: Option<HotOnlineConfig>,
     pub msg_friend: Option<MsgFriendConfig>,
     pub kafka: Option<KafkaConfig>,
+    #[serde(default)]
+    pub app_socket: Vec<ServiceEndpoint>,
+    #[serde(default)]
+    pub friend_service: Vec<ServiceEndpoint>,
+    #[serde(default)]
+    pub user_service: Vec<ServiceEndpoint>,
+    #[serde(default)]
+    pub msg_friend_service: Vec<ServiceEndpoint>,
+    #[serde(default)]
+    pub msg_group_service: Vec<ServiceEndpoint>,
 }
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ShardConfig {
@@ -78,6 +88,12 @@ pub struct HotFriendConfig {
 pub struct MsgFriendConfig {
     pub shard_total: Option<u32>,
     pub shard_index: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct ServiceEndpoint {
+    pub index: u32,
+    pub url: String,
 }
 async fn init_db(url: &str) {
     let pool = MySqlPoolOptions::new()
@@ -167,6 +183,26 @@ impl AppConfig {
 
     pub fn kafka_cfg(&self) -> KafkaConfig {
         self.kafka.clone().unwrap_or_default()
+    }
+
+    pub fn app_socket_endpoints(&self) -> &[ServiceEndpoint] {
+        &self.app_socket
+    }
+
+    pub fn friend_service_endpoints(&self) -> &[ServiceEndpoint] {
+        &self.friend_service
+    }
+
+    pub fn user_service_endpoints(&self) -> &[ServiceEndpoint] {
+        &self.user_service
+    }
+
+    pub fn msg_friend_endpoints(&self) -> &[ServiceEndpoint] {
+        &self.msg_friend_service
+    }
+
+    pub fn msg_group_endpoints(&self) -> &[ServiceEndpoint] {
+        &self.msg_group_service
     }
 
     pub fn get_arb(&self) -> ArbConfig {

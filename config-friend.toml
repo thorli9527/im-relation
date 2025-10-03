@@ -21,3 +21,21 @@ overhead_factor = 1.6
 hot_ratio = 0.20
 tti_secs = 60
 refresh_secs = 0
+
+
+#------------user_service
+[[user_service]]
+index = 0
+grpc_addr = "127.0.0.1:6001"
+
+#------------message_service
+[[msg_friend]]
+index = 0
+grpc_addr = "127.0.0.1:8002"
+
+#------------group_service
+[[msg_group]]
+index = 0
+grpc_addr = "127.0.0.1:8103"
+
+

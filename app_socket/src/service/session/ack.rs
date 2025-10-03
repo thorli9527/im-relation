@@ -3,7 +3,8 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::sync::mpsc;
+use log::warn;
+use tokio::sync::mpsc::{self, error::TrySendError};
 use tokio::time::Instant;
 use tokio_stream::StreamExt;
 use tokio_util::time::DelayQueue;
@@ -12,6 +13,7 @@ use crate::service::types::{AckCallback, MessageId, SendOpts, ServerMsg, UserId}
 
 use super::manager::SessionManager;
 use super::metrics::METRICS;
+use std::sync::atomic::Ordering;
 
 /// 记录待确认消息及其重试上下文。
 #[derive(Clone)]
@@ -94,6 +96,9 @@ impl AckShards {
                                         if let Some(cb) = entry.on_ack {
                                             cb(id);
                                         }
+                                    } else {
+                                        METRICS.ack_unknown.fetch_add(1, Ordering::Relaxed);
+                                        warn!("AckShards: received ACK for unknown id={}", id);
                                     }
                                 }
                             }
@@ -152,13 +157,30 @@ impl AckShards {
             on_ack: opts.ack_hook.clone(),
             on_drop: opts.drop_hook.clone(),
         };
-        // 使用 try_send 避免阻塞业务线程；若发送失败表示分片繁忙，可等待下一次发送重试。
-        let _ = self.shard(id).try_send(AckCmd::Track { id, entry });
+        self.enqueue_cmd(self.shard(id), AckCmd::Track { id, entry }, "track");
     }
 
     /// 客户端确认后移除对应记录，取消后续重试。
     pub(super) fn ack(&self, id: MessageId) {
         // 客户端确认后立即从分片中移除，避免多次重试。
-        let _ = self.shard(id).try_send(AckCmd::Ack { id });
+        self.enqueue_cmd(self.shard(id), AckCmd::Ack { id }, "ack");
+    }
+
+    fn enqueue_cmd(&self, tx: &mpsc::Sender<AckCmd>, cmd: AckCmd, label: &'static str) {
+        match tx.try_send(cmd) {
+            Ok(_) => {}
+            Err(TrySendError::Full(cmd)) => {
+                METRICS.ack_backpressure.fetch_add(1, Ordering::Relaxed);
+                let tx = tx.clone();
+                tokio::spawn(async move {
+                    if let Err(err) = tx.send(cmd).await {
+                        warn!("AckShards: failed to enqueue {} command: {}", label, err);
+                    }
+                });
+            }
+            Err(TrySendError::Closed(_cmd)) => {
+                warn!("AckShards: channel closed while sending {} command", label);
+            }
+        }
     }
 }

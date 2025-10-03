@@ -21,8 +21,11 @@ use crate::service::{GroupBizServiceImpl, GroupMsgServiceImpl};
 use common::grpc::grpc_msg_group::msg_group_service::group_biz_service_server::GroupBizServiceServer;
 use common::grpc::grpc_msg_group::msg_group_service::group_msg_service_server::GroupMsgServiceServer;
 
+mod kafka_producer;
 mod server_grpc;
 mod server_web;
+
+use kafka_producer::init_group_kafka;
 
 /// 运行时依赖集合：数据库、热群服务客户端、Kafka 等。
 #[derive(Clone)]
@@ -84,22 +87,7 @@ pub async fn run_server() -> Result<()> {
 
     let pool = get_db();
 
-    let kafka_cfg = cfg.kafka_cfg();
-    let mut kafka_broker_for_arb = kafka_cfg.broker.clone();
-    let kafka = if let Some(ref broker) = kafka_cfg.broker {
-        kafka_broker_for_arb = Some(broker.clone());
-        let topics = vec![MSG_SEND_GROUP_TOPIC.clone()];
-        match KafkaInstanceService::new(broker, &topics).await {
-            Ok(service) => Some(Arc::new(service)),
-            Err(err) => {
-                warn!("kafka init failed: {}", err);
-                None
-            }
-        }
-    } else {
-        warn!("kafka.broker not configured for msg_group; kafka producer disabled");
-        None
-    };
+    let kafka = Some(init_group_kafka(&cfg).await?);
 
     let arb_group_nodes = match arb_client::ensure_nodes(NodeType::GroupNode).await {
         Ok(nodes) => nodes,
@@ -154,7 +142,7 @@ pub async fn run_server() -> Result<()> {
     arb_client::register_node(
         NodeType::MesGroup,
         http_addr_str.clone(),
-        kafka_broker_for_arb.clone(),
+        Some(grpc_addr_str.clone()),
         None,
     )
     .await?;

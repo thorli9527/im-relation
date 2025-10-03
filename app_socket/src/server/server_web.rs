@@ -43,22 +43,9 @@ pub async fn register_with_arb(http_addr: &str, tcp_addr: &str) -> Result<()> {
     }
 
     let socket_cfg = cfg.get_socket();
-    let kafka_addr = cfg.kafka_cfg().broker.or_else(|| {
-        // Exposing at least a fallback host keeps downstream services functional even if the
-        // explicit Kafka broker address is absent from configuration.
-        warn!("kafka.broker not configured; falling back to TCP advertise address");
-        Some(tcp_addr.to_string())
-    });
-
     let pub_addr = socket_cfg.pub_addr().or_else(|| Some(tcp_addr.to_string()));
 
-    arb_client::register_node(
-        NodeType::SocketNode,
-        http_addr.to_string(),
-        kafka_addr,
-        pub_addr,
-    )
-    .await?;
+    arb_client::register_node(NodeType::SocketNode, http_addr.to_string(), None, pub_addr).await?;
     Ok(())
 }
 

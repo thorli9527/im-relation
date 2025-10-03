@@ -27,3 +27,22 @@ page_cache_tti_secs = 300
 persist_debounce_ms = 200
 profile_l1_cap = 1000000
 profile_l1_tti_secs = 600
+
+
+
+
+#------------user_service
+[[user_service]]
+index = 0
+grpc_addr = "127.0.0.1:6001"
+
+#------------message_service
+[[msg_friend]]
+index = 0
+grpc_addr = "127.0.0.1:8002"
+
+#------------group_service
+[[msg_group]]
+index = 0
+grpc_addr = "127.0.0.1:8103"
+

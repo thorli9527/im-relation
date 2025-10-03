@@ -8,7 +8,6 @@ use axum::{routing::get, Json, Router};
 use common::arb::NodeType;
 use common::config::{get_db, AppConfig};
 use common::kafka::kafka_producer::KafkaInstanceService;
-use common::kafka::topic_info::MSG_SEND_FRIEND_TOPIC;
 use common::service::arb_client;
 use log::{info, warn};
 use serde_json::json;
@@ -23,8 +22,11 @@ use common::grpc::grpc_msg_friend::msg_friend_service::friend_biz_service_server
 use common::grpc::grpc_msg_friend::msg_friend_service::friend_msg_service_server::FriendMsgServiceServer;
 use common::grpc::grpc_msg_friend::msg_friend_service::key_service_server::KeyServiceServer;
 
+mod kafka_producer;
 mod server_grpc;
 mod server_web;
+
+use kafka_producer::init_friend_kafka;
 
 /// 运行时依赖集合。
 #[derive(Clone)]
@@ -119,54 +121,8 @@ pub async fn run_server() -> Result<()> {
         }
     };
 
-    let kafka_cfg = cfg.kafka_cfg();
-    let mut kafka_broker_for_arb = kafka_cfg.broker.clone();
-    let kafka = if let Some(broker) = kafka_cfg.broker.clone() {
-        kafka_broker_for_arb = Some(broker.clone());
-        let topics = vec![MSG_SEND_FRIEND_TOPIC.clone()];
-        match KafkaInstanceService::new(&broker, &topics).await {
-            Ok(svc) => Some(Arc::new(svc)),
-            Err(e) => {
-                warn!("kafka init failed: {}", e);
-                None
-            }
-        }
-    } else {
-        warn!("kafka.broker not configured; attempting to resolve via arb");
-        let socket_nodes = match arb_client::ensure_nodes(NodeType::SocketNode).await {
-            Ok(nodes) => nodes,
-            Err(err) => {
-                warn!("fetch socket nodes from arb failed: {}", err);
-                Vec::new()
-            }
-        };
-
-        match socket_nodes
-            .into_iter()
-            .filter_map(|node| node.kafka_addr)
-            .next()
-        {
-            Some(broker) => {
-                kafka_broker_for_arb = Some(broker.clone());
-                // A socket node advertised a Kafka broker; reuse it so msg_friend follows the same
-                // routing metadata as clients.
-                let topics = vec![MSG_SEND_FRIEND_TOPIC.clone()];
-                match KafkaInstanceService::new(&broker, &topics).await {
-                    Ok(svc) => Some(Arc::new(svc)),
-                    Err(e) => {
-                        warn!("kafka init failed: {}", e);
-                        None
-                    }
-                }
-            }
-            None => {
-                // Without any broker information we fall back to a no-op producer and keep serving
-                // gRPC; arbitration updates will repopulate this on the next refresh.
-                warn!("no socket.kafka_addr discovered via arb; kafka disabled");
-                None
-            }
-        }
-    };
+    let kafka_instance = init_friend_kafka(&cfg).await?;
+    let kafka = Some(kafka_instance.clone());
 
     let shard_total: u32 = overrides.shard_total.unwrap_or(16);
     let shard_index: u32 = overrides.shard_index.unwrap_or(0);
@@ -199,7 +155,7 @@ pub async fn run_server() -> Result<()> {
     arb_client::register_node(
         NodeType::MsgFriend,
         http_addr_str.clone(),
-        kafka_broker_for_arb.clone(),
+        Some(grpc_addr_str.clone()),
         None,
     )
     .await?;

@@ -5,7 +5,7 @@
 //! - `session`：会话注册、扇出下发、ACK 跟踪与重试（并发核心，内含分片定时器）；
 //! - `dispatcher`：按用户一致性哈希做分片，有界 mpsc 背压，降低跨用户互相影响；
 //! - `ingest`：Kafka → 分片调度 → SessionManager 的端到端落地；
-//! - `handler`：上行情景处理（解析 ClientMsg，转发到各业务 gRPC）。
+//! - `handles`：按业务域划分的上行情景处理（好友/群/系统）。
 //!
 //! 线程模型与并发：
 //! - 入口（TCP/WebSocket）负责解析与投递到 `SessionManager::on_client_msg`；
@@ -23,13 +23,14 @@
 
 pub mod dispatcher;
 pub mod grpc_clients;
-pub mod handler;
+pub mod handles;
 pub mod ingest;
 pub mod node_discovery;
 pub mod session;
 pub mod types;
 
 // 对外再导出，维持原有对外 API
+pub use handles::{FriendHandler, FriendMsgHandler, GroupHandler, Handler, SystemHandler};
 pub use ingest::start_socket_pipeline;
 pub use session::{MultiLoginPolicy, SessionManager, SessionPolicy};
 pub use types::{ClientMsg, SendOpts, ServerMsg};

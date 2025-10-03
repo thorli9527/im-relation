@@ -1,15 +1,17 @@
 use std::collections::VecDeque;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 
 use ahash::AHashMap;
 use dashmap::DashMap;
+use log::warn;
 use once_cell::sync::OnceCell;
 use prost::Message;
 use tokio::sync::mpsc;
 use tokio::time::sleep;
 
-use crate::service::handler::{FriendHandler, GroupHandler, Handler as _, SystemHandler};
+use crate::service::handles::{FriendHandler, GroupHandler, Handler as _, SystemHandler};
 use crate::service::types::{
     ClientMsg, DeviceId, DeviceType, MessageId, MsgKind, SendOpts, ServerMsg, SessionId, UserId,
 };
@@ -590,6 +592,13 @@ impl SessionManager {
     /// 处理来自客户端的上行消息（包含 ACK）
     pub fn on_client_msg(&self, user_id: UserId, msg: ClientMsg) {
         if let Some(id) = msg.ack {
+            METRICS.ack_inbound.fetch_add(1, Ordering::Relaxed);
+            if id == 0 {
+                warn!(
+                    "SessionManager: received ack with id=0 from user={}",
+                    user_id
+                );
+            }
             // ACK 优先处理：从追踪表移除，避免误判为超时重试。
             self.acks.ack(id);
             return;

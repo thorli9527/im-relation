@@ -1,6 +1,6 @@
 use crate::arb::{
-    ArbHttpClient, BaseRequest, BytesBlob, CommonResp, NodeInfo, NodeType, QueryNodeReq,
-    RegisterRequest, SyncDataType, ACCESS_HEADER,
+    ArbHttpClient, BaseRequest, CommonResp, NodeInfo, NodeType, QueryNodeReq, RegisterRequest,
+    SyncDataType, SyncPayload, ACCESS_HEADER,
 };
 use crate::config::{grpc_access_token, AppConfig};
 use crate::node_util::NodeUtil;
@@ -35,15 +35,6 @@ fn status_with_message(
     )
 }
 
-fn decode_node_info(data: &[u8]) -> Result<NodeInfo, (StatusCode, Json<CommonResp>)> {
-    serde_json::from_slice(data).map_err(|e| {
-        status_with_message(
-            StatusCode::BAD_REQUEST,
-            format!("invalid node payload: {e}"),
-        )
-    })
-}
-
 fn effective_addr(node_type: NodeType, node: &NodeInfo) -> String {
     match node_type {
         NodeType::SocketNode => node
@@ -54,8 +45,9 @@ fn effective_addr(node_type: NodeType, node: &NodeInfo) -> String {
         // For other subsystems the Kafka broker (if present) is the “effective” routing target;
         // falling back to the plain node address preserves legacy behaviour.
         _ => node
-            .kafka_addr
+            .grpc_addr
             .clone()
+            .or_else(|| node.kafka_addr.clone())
             .unwrap_or_else(|| node.node_addr.clone()),
     }
 }
@@ -126,17 +118,17 @@ impl RestContext {
 async fn sync_data_http(
     Extension(state): Extension<Arc<RestContext>>,
     headers: HeaderMap,
-    Json(payload): Json<BytesBlob>,
+    Json(payload): Json<SyncPayload>,
 ) -> Result<Json<CommonResp>, (StatusCode, Json<CommonResp>)> {
     state.authorize(&headers)?;
     handle_sync(payload)
 }
 
-fn handle_sync(blob: BytesBlob) -> Result<Json<CommonResp>, (StatusCode, Json<CommonResp>)> {
-    let sync_type = SyncDataType::try_from(blob.sync_type)
+fn handle_sync(payload: SyncPayload) -> Result<Json<CommonResp>, (StatusCode, Json<CommonResp>)> {
+    let sync_type = SyncDataType::try_from(payload.sync_type)
         .map_err(|_| status_with_message(StatusCode::BAD_REQUEST, "unknown sync type"))?;
 
-    let node = decode_node_info(&blob.data)?;
+    let node = payload.node;
     let node_type_enum = NodeType::try_from(node.node_type).unwrap_or(NodeType::SocketNode);
 
     match sync_type {
@@ -146,8 +138,8 @@ fn handle_sync(blob: BytesBlob) -> Result<Json<CommonResp>, (StatusCode, Json<Co
             });
             let display_addr = effective_addr(node_type_enum, &node);
             info!(
-                "arb-sync add: type={:?} addr={} kafka={:?} effective={}",
-                node_type_enum, node.node_addr, node.kafka_addr, display_addr
+                "arb-sync add: type={:?} addr={} grpc={:?} kafka={:?} effective={}",
+                node_type_enum, node.node_addr, node.grpc_addr, node.kafka_addr, display_addr
             );
         }
         SyncDataType::SocketDel => {
@@ -158,8 +150,8 @@ fn handle_sync(blob: BytesBlob) -> Result<Json<CommonResp>, (StatusCode, Json<Co
             if removed {
                 let display_addr = effective_addr(node_type_enum, &node);
                 info!(
-                    "arb-sync remove: type={:?} addr={} effective={}",
-                    node_type_enum, node.node_addr, display_addr
+                    "arb-sync remove: type={:?} addr={} grpc={:?} kafka={:?} effective={}",
+                    node_type_enum, node.node_addr, node.grpc_addr, node.kafka_addr, display_addr
                 );
             } else {
                 warn!(
@@ -259,49 +251,54 @@ pub async fn ensure_nodes(node_type: NodeType) -> anyhow::Result<Vec<NodeInfo>> 
 /// Returns `Ok(())` even if `arb.server_addr` is missing so that callers can start without arbitration.
 pub async fn register_node(
     node_type: NodeType,
-    node_addr: impl Into<String>,
-    kafka_addr: Option<String>,
+    server_addr: impl Into<String>,
+    grpc_addr: Option<String>,
     pub_node_addr: Option<String>,
 ) -> anyhow::Result<()> {
     let cfg = AppConfig::get();
-    let requested_addr = node_addr.into();
-    let register_addr = if node_type == NodeType::SocketNode {
-        requested_addr.clone()
+    let requested_server_addr = server_addr.into();
+    let resolved_server_addr = if node_type == NodeType::SocketNode {
+        requested_server_addr.clone()
     } else {
         cfg.server
             .as_ref()
             .and_then(|server| server.http_addr())
-            .unwrap_or_else(|| requested_addr.clone())
+            .unwrap_or_else(|| requested_server_addr.clone())
     };
-    let Some(server_addr) = cfg.arb_server_addr() else {
+    let resolved_grpc_addr =
+        grpc_addr.or_else(|| cfg.server.as_ref().and_then(|server| server.grpc_addr()));
+    let Some(arb_server_addr) = cfg.arb_server_addr() else {
         warn!(
             "arb.server_addr missing; skip registration for node_type={} addr={}",
-            node_type, register_addr
+            node_type, resolved_server_addr
         );
         return Ok(());
     };
 
-    let client = ArbHttpClient::new(server_addr, cfg.arb().and_then(|c| c.access_token.clone()))
-        .context("init arb http client")?;
+    let client = ArbHttpClient::new(
+        arb_server_addr,
+        cfg.arb().and_then(|c| c.access_token.clone()),
+    )
+    .context("init arb http client")?;
 
-    let public_addr = pub_node_addr.unwrap_or_else(|| register_addr.clone());
+    let public_addr = pub_node_addr.unwrap_or_else(|| resolved_server_addr.clone());
 
     client
         .register_node(&RegisterRequest {
-            node_addr: register_addr.clone(),
+            server_addr: resolved_server_addr.clone(),
             node_type: node_type as i32,
             pub_node_addr: public_addr.clone(),
-            kafka_addr: kafka_addr.clone(),
+            grpc_addr: resolved_grpc_addr.clone(),
         })
         .await
         .context("arb register_node")?;
 
     info!(
-        "arb registration ok: node_type={} addr={} pub_addr={} kafka={:?}",
-        node_type, register_addr, public_addr, kafka_addr
+        "arb registration ok: node_type={} server_addr={} pub_addr={} grpc={:?}",
+        node_type, resolved_server_addr, public_addr, resolved_grpc_addr
     );
 
-    spawn_heartbeat(client, node_type, register_addr);
+    spawn_heartbeat(client, node_type, resolved_server_addr);
     Ok(())
 }
 

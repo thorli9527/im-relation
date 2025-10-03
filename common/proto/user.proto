@@ -1,0 +1,315 @@
+syntax = "proto3";
+
+package online_service;
+
+import "google/protobuf/field_mask.proto";
+
+service OnlineService {
+  // 设置在线/离线（幂等）
+  rpc SetOnline(SetOnlineRequest) returns (SetOnlineResponse);
+
+  // 单查
+  rpc CheckOnline(CheckOnlineRequest) returns (CheckOnlineResponse);
+
+  // 批量查
+  rpc CheckOnlineBatch(CheckOnlineBatchRequest) returns (CheckOnlineBatchResponse);
+
+  // 统计信息
+  rpc GetStats(GetStatsRequest) returns (GetStatsResponse);
+
+  // 生成/刷新设备 session token
+  rpc UpsertSessionToken(UpsertSessionTokenRequest) returns (UpsertSessionTokenResponse);
+
+  // 校验 session token 合法性
+  rpc ValidateSessionToken(ValidateSessionTokenRequest)
+      returns (ValidateSessionTokenResponse);
+
+  // 吊销指定 token 或设备会话
+  rpc RevokeSessionToken(RevokeSessionTokenRequest)
+      returns (RevokeSessionTokenResponse);
+
+  // 批量刷新最后活跃时间
+  rpc TouchSessionToken(TouchSessionTokenRequest) returns (TouchSessionTokenResponse);
+}
+
+message SetOnlineRequest {
+  int64 user_id = 1;
+  bool online = 2;
+}
+message SetOnlineResponse {
+  bool ok = 1;
+}
+
+message CheckOnlineRequest {
+  int64 user_id = 1;
+}
+message CheckOnlineResponse {
+  bool online = 1;
+}
+
+message CheckOnlineBatchRequest {
+  repeated int64 user_ids = 1;
+}
+message CheckOnlineBatchResponse {
+  // 索引与输入 user_ids 对齐
+  repeated bool results = 1;
+}
+
+message GetStatsRequest {}
+message GetStatsResponse {
+  uint64 total = 1;
+  repeated uint64 per_shard = 2;
+  uint32 max_shard_idx = 3;
+  uint64 max_shard_count = 4;
+}
+
+// ================== session token ==================
+
+enum SessionTokenStatus {
+  STS_UNKNOWN = 0;
+  STS_ACTIVE = 1;
+  STS_REVOKED = 2;
+  STS_EXPIRED = 3;
+}
+
+message UpsertSessionTokenRequest {
+  int64 user_id = 1;
+  DeviceType device_type = 2;
+  string device_id = 3;
+  // 可选：客户端上报的登录 IP/UA，便于审计
+  optional string login_ip = 4;
+  optional string user_agent = 5;
+}
+
+message UpsertSessionTokenResponse {
+  string session_token = 1;
+  // 过期时间（毫秒时间戳）
+  uint64 expires_at = 2;
+  // 若存在旧 token，则返回以便调用方通知下线
+  optional string previous_token = 3;
+}
+
+message ValidateSessionTokenRequest {
+  string session_token = 1;
+}
+
+message ValidateSessionTokenResponse {
+  SessionTokenStatus status = 1;
+  int64 user_id = 2;
+  DeviceType device_type = 3;
+  string device_id = 4;
+  uint64 expires_at = 5;
+}
+
+message TokenDeviceRef {
+  int64 user_id = 1;
+  DeviceType device_type = 2;
+  string device_id = 3;
+}
+
+message RevokeSessionTokenRequest {
+  oneof target {
+    string session_token = 1;
+    TokenDeviceRef device = 2;
+  }
+  optional string reason = 3;
+}
+
+message RevokeSessionTokenResponse {
+  bool ok = 1;
+  optional string revoked_token = 2;
+}
+
+message TouchSessionTokenRequest {
+  repeated string session_tokens = 1;
+}
+
+message TouchSessionTokenResponse {
+  uint32 touched = 1;
+}
+
+// ================== auth definitions ==================
+
+enum DeviceType {
+  UNKNOWN = 0;
+  MOBILE = 1;
+  WEB = 3;
+  PC = 4;
+}
+
+enum AuthType {
+  AUTH_TYPE_UNKNOWN = 0;
+  AUTH_TYPE_EMAIL = 1;
+  AUTH_TYPE_PHONE = 2;
+  AUTH_TYPE_USERNAME = 3;
+}
+
+message LoginReqMsg {
+  int64 id = 1;
+  AuthType auth_type = 2;
+  string auth_content = 3;
+  string password = 4;
+  DeviceType device_type = 5;
+}
+
+message LoginRespMsg {
+  int64 id = 1;
+  string token = 2;
+  uint64 expires_at = 3;
+  bool success = 4;
+  string msg = 5;
+  int64 uid = 6;
+  string nickname = 7;
+  string avatar = 8;
+}
+
+message LogoutReqMsg {
+  int64 id = 1;
+}
+
+message LogoutRespMsg {
+  int64 id = 1;
+}
+
+message SendVerificationCodeReqMsg {
+  int64 id = 1;
+  string receiver = 2;
+  string channel = 3;
+  string scene = 4;
+  int64 uid = 5;
+}
+
+message SendVerificationCodeRepMsg {
+  int64 id = 1;
+  bool success = 2;
+  string message = 3;
+  int64 expired_in = 4;
+}
+
+message OnlineStatusMsg {
+  int64 id = 1;
+  int64 uid = 2;
+  DeviceType device_type = 3;
+  int64 client_id = 4;
+  int64 login_time = 5;
+}
+
+message OfflineStatueMsg {
+  int64 id = 1;
+  string uid = 2;
+  DeviceType device_type = 3;
+  int64 client_id = 4;
+  int64 logout_time = 5;
+  string reason = 6;
+}
+
+// ================== user entity definitions ==================
+
+enum AddFriendPolicy {
+  ADD_FRIEND_UNSPECIFIED = 0;
+  ANYONE = 1;
+  REQUIRE_VERIFY = 2;
+  PHONE_ONLY = 3;
+}
+
+enum Gender {
+  GENDER_UNSPECIFIED = 0;
+  MALE = 1;
+  FEMALE = 2;
+  SECRET = 9;
+}
+
+enum UserType {
+  USER_TYPE_UNSPECIFIED = 0;
+  NORMAL = 1;
+  TEST = 2;
+  BOT = 3;
+}
+
+message UserEntity {
+  int64 id = 1;
+  string password = 2;
+  string name = 3;
+  optional string email = 4;
+  optional string phone = 5;
+  optional string language = 6;
+  string avatar = 7;
+  AddFriendPolicy allow_add_friend = 8;
+  Gender gender = 9;
+  UserType user_type = 10;
+  map<string, string> profile_fields = 11;
+  int64 create_time = 12;
+  int64 update_time = 13;
+  int32 version = 14;
+  reserved 100 to 119;
+}
+
+message FindUserDto {
+  optional UserEntity user = 1;
+}
+
+message RegisterUserReq {
+  string name = 1;
+  string password = 2;
+  optional string email = 4;
+  optional string phone = 5;
+  optional string language = 6;
+  string avatar = 7;
+  AddFriendPolicy allow_add_friend = 8;
+  Gender gender = 9;
+  UserType user_type = 10;
+  map<string, string> profile_fields = 11;
+}
+
+message ChangePasswordReq {
+  int64 id = 1;
+  optional string old_password = 2;
+  string new_password = 3;
+  optional string verify_token = 4;
+}
+
+message ChangePhoneReq {
+  int64 id = 1;
+  optional string new_phone = 2;
+  optional string verify_token = 3;
+}
+
+message ChangeEmailReq {
+  int64 id = 1;
+  optional string new_email = 2;
+  optional string verify_token = 3;
+}
+
+message UpdateUserReq {
+  UserEntity patch = 1;
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+message GetUserReq {
+  int64 id = 1;
+}
+
+message GetUsersReq {
+  repeated int64 ids = 1;
+}
+
+message ChangeResponse {
+  bool success = 1;
+}
+
+message FindByContentReq {
+  string content = 1;
+}
+
+service UserRpcService {
+  rpc findByEmail(FindByContentReq) returns (FindUserDto);
+  rpc findByPhone(FindByContentReq) returns (FindUserDto);
+  rpc findByName(FindByContentReq) returns (FindUserDto);
+  rpc Register(RegisterUserReq) returns (UserEntity);
+  rpc ChangePassword(ChangePasswordReq) returns (ChangeResponse);
+  rpc ChangePhone(ChangePhoneReq) returns (UserEntity);
+  rpc ChangeEmail(ChangeEmailReq) returns (UserEntity);
+  rpc UpdateUser(UpdateUserReq) returns (UserEntity);
+  rpc GetUser(GetUserReq) returns (UserEntity);
+  rpc GetUsers(GetUsersReq) returns (stream UserEntity);
+}
