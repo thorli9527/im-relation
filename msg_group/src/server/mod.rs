@@ -87,15 +87,15 @@ pub async fn run_server() -> Result<()> {
 
     let kafka = Some(init_group_kafka(&cfg).await?);
 
-    let hot_group_addr = AppConfig::get()
-        .urls_for_node_type(NodeType::GroupNode)
+    let configured_group_nodes = AppConfig::get().urls_for_node_type(NodeType::GroupNode);
+    let hot_group_addr = configured_group_nodes
         .into_iter()
         .find(|addr| addr != &advertise_addr);
 
     let group_client = match hot_group_addr {
         Some(addr) if addr == advertise_addr => {
             warn!(
-                "arb hot_group addr {} matches local bind; skip hot_group client init",
+                "configured hot_group addr {} matches local bind; skip hot_group client init",
                 addr
             );
             None
@@ -108,7 +108,7 @@ pub async fn run_server() -> Result<()> {
             }
         },
         None => {
-            warn!("no remote hot_group address discovered via arb; skip client init");
+            warn!("no hot_group address provided in config; skip client init");
             None
         }
     };
@@ -124,11 +124,6 @@ pub async fn run_server() -> Result<()> {
 
     info!(
         "msg_group listening on grpc={} http={}",
-        grpc_addr_str, http_addr_str
-    );
-
-    info!(
-        "msg_group registration via arb removed; serving grpc={} http={}",
         grpc_addr_str, http_addr_str
     );
 

@@ -20,8 +20,7 @@ kafka_user_name=""
 kafka_password=""
 
 #------------friend_service
-[[friend_service]]
-index = 0
+[friend_service]
 grpc_addr = "127.0.0.1:8002"
 
 # #------------app_group_dispatcher

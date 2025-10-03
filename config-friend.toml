@@ -35,3 +35,7 @@ refresh_secs = 0
 # index = 0
 # grpc_addr = "127.0.0.1:8103"
 
+
+#------------friend_service
+[friend_service]
+grpc_addr = "127.0.0.1:8002"

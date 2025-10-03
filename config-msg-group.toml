@@ -17,12 +17,6 @@ log_leve = "warn"  # trace debug info error warn
 broker = "127.0.0.1:9092"
 group_id = "msg_group_dispatcher"
 replicas = 1
-[[group_service]]
- index = 0
- grpc_addr = "127.0.0.1:8003"
-[[app_socket]]
-index = 0
-kafka_broker = "127.0.0.1:9092"
-kafka_group_id = "msg_group_dispatcher"
-kafka_user_name=""
-kafka_password=""
+#------------group_service
+[group_service]
+grpc_addr = "127.0.0.1:8003"

@@ -30,11 +30,11 @@ pub struct AppConfig {
     pub kafka: Option<KafkaConfig>,
     #[serde(default)]
     pub app_socket: Vec<ServiceEndpoint>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_endpoints")]
     pub friend_service: Vec<ServiceEndpoint>,
     #[serde(default)]
     pub user_service: Vec<ServiceEndpoint>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_endpoints")]
     pub group_service: Vec<ServiceEndpoint>,
     #[serde(default)]
     pub msg_friend_nodes: Vec<ServiceEndpoint>,
@@ -95,6 +95,7 @@ pub struct MsgFriendConfig {
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ServiceEndpoint {
+    #[serde(default)]
     pub index: u32,
     #[serde(default)]
     pub url: Option<String>,
@@ -106,6 +107,26 @@ impl ServiceEndpoint {
     pub fn resolved_url(&self) -> Option<String> {
         self.url.clone().or_else(|| self.grpc_addr.clone())
     }
+}
+
+fn deserialize_endpoints<'de, D>(deserializer: D) -> Result<Vec<ServiceEndpoint>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum EndpointList {
+        Single(ServiceEndpoint),
+        List(Vec<ServiceEndpoint>),
+    }
+
+    let endpoints = Option::<EndpointList>::deserialize(deserializer)?;
+
+    Ok(match endpoints {
+        Some(EndpointList::Single(endpoint)) => vec![endpoint],
+        Some(EndpointList::List(list)) => list,
+        None => Vec::new(),
+    })
 }
 async fn init_db(url: &str) {
     let pool = MySqlPoolOptions::new()
