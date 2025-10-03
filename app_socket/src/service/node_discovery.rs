@@ -1,61 +1,36 @@
-//! 节点发现辅助：通过仲裁服务获取并缓存节点地址。
+//! 节点发现辅助：改为通过配置文件获取并缓存节点地址。
 
 use anyhow::{anyhow, Result};
-use common::arb::{ArbHttpClient, NodeInfo, NodeInfoList, NodeType, QueryNodeReq};
+use common::arb::NodeType;
 use common::config::AppConfig;
 use common::node_util::NodeUtil;
 
-fn resolve_arb_server_addr() -> Result<String> {
-    AppConfig::get()
-        .arb_server_addr()
-        .ok_or_else(|| anyhow!("arb server addr missing"))
+fn endpoints_for(node_type: NodeType) -> Vec<String> {
+    AppConfig::get().urls_for_node_type(node_type)
 }
 
-fn resolve_access_token() -> Option<String> {
-    AppConfig::get().arb().and_then(|g| g.access_token.clone())
-}
-
-fn effective_addr(_node_type: NodeType, node: &NodeInfo) -> String {
-    node.kafka_addr
-        .clone()
-        .unwrap_or_else(|| node.node_addr.clone())
-}
-
-async fn fetch_nodes(node_type: NodeType) -> Result<NodeInfoList> {
-    let addr = resolve_arb_server_addr()?;
-    let client = ArbHttpClient::new(addr, resolve_access_token())?;
-    client
-        .list_all_nodes(&QueryNodeReq {
-            node_type: node_type as i32,
-        })
-        .await
-        .map_err(Into::into)
+fn seed_cache(node_type: NodeType) -> Vec<String> {
+    let urls = endpoints_for(node_type);
+    if !urls.is_empty() {
+        NodeUtil::get().reset_list(node_type as i32, urls.clone());
+    }
+    urls
 }
 
 pub async fn fetch_msg_friend_addr() -> Result<Option<String>> {
-    let list = fetch_nodes(NodeType::MsgFriend).await?;
-    let addrs: Vec<String> = list
-        .nodes
-        .iter()
-        .map(|node| effective_addr(NodeType::MsgFriend, node))
-        .collect();
-    if !addrs.is_empty() {
-        NodeUtil::get().reset_list(NodeType::MsgFriend as i32, addrs.clone());
+    let cached = NodeUtil::get().get_list(NodeType::MsgFriend as i32);
+    if !cached.is_empty() {
+        return Ok(cached.into_iter().next());
     }
-    Ok(addrs.into_iter().next())
+    Ok(seed_cache(NodeType::MsgFriend).into_iter().next())
 }
 
 pub async fn fetch_node_addr(node_type: NodeType) -> Result<Option<String>> {
-    let list = fetch_nodes(node_type).await?;
-    let addrs: Vec<String> = list
-        .nodes
-        .iter()
-        .map(|node| effective_addr(node_type, node))
-        .collect();
-    if !addrs.is_empty() {
-        NodeUtil::get().reset_list(node_type as i32, addrs.clone());
+    let cached = NodeUtil::get().get_list(node_type as i32);
+    if !cached.is_empty() {
+        return Ok(cached.into_iter().next());
     }
-    Ok(addrs.into_iter().next())
+    Ok(seed_cache(node_type).into_iter().next())
 }
 
 pub async fn resolve_hot_friend_addr() -> Result<String> {

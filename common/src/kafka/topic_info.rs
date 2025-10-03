@@ -15,6 +15,14 @@ impl TopicInfo {
             replicas,
         }
     }
+
+    pub fn with_replicas(&self, replicas: i32) -> Self {
+        Self {
+            topic_name: self.topic_name.clone(),
+            partitions: self.partitions,
+            replicas,
+        }
+    }
 }
 /// 在线消息 Topic
 pub static ONLINE_TOPIC_INFO: Lazy<TopicInfo> = Lazy::new(|| TopicInfo::new("online", 50, 2));

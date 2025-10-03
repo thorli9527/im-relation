@@ -1,6 +1,6 @@
 use common::arb::NodeType;
-use common::service::arb_client;
-use log::warn;
+use common::config::AppConfig;
+use common::node_util::NodeUtil;
 
 pub mod api_grpc_service_impl;
 pub mod auth_models;
@@ -10,12 +10,21 @@ pub mod session;
 pub mod user_service;
 pub mod user_service_impl;
 
-/// Initialize service-level shared state.
-/// Preload arbitration caches so API can discover peer services early.
+/// Initialize service-level shared state from static configuration.
 pub async fn init() {
-    for node_type in [NodeType::SocketNode, NodeType::OnlineNode] {
-        if let Err(err) = arb_client::ensure_nodes(node_type).await {
-            warn!("preload {} nodes from arb failed: {}", node_type, err);
+    let cfg = AppConfig::get();
+    let node_util = NodeUtil::get();
+
+    for node_type in [
+        NodeType::SocketNode,
+        NodeType::OnlineNode,
+        NodeType::FriendNode,
+        NodeType::MsgFriend,
+        NodeType::MesGroup,
+    ] {
+        let urls = cfg.urls_for_node_type(node_type);
+        if !urls.is_empty() {
+            node_util.reset_list(node_type as i32, urls);
         }
     }
 }

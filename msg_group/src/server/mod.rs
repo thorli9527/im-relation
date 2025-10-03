@@ -8,8 +8,6 @@ use axum::{routing::get, Json, Router};
 use common::arb::NodeType;
 use common::config::{get_db, AppConfig, MySqlPool};
 use common::kafka::kafka_producer::KafkaInstanceService;
-use common::kafka::topic_info::MSG_SEND_GROUP_TOPIC;
-use common::service::arb_client;
 use log::{info, warn};
 use serde_json::json;
 use tokio::signal;
@@ -89,17 +87,9 @@ pub async fn run_server() -> Result<()> {
 
     let kafka = Some(init_group_kafka(&cfg).await?);
 
-    let arb_group_nodes = match arb_client::ensure_nodes(NodeType::GroupNode).await {
-        Ok(nodes) => nodes,
-        Err(err) => {
-            warn!("fetch hot_group nodes from arb failed: {}", err);
-            Vec::new()
-        }
-    };
-
-    let hot_group_addr = arb_group_nodes
+    let hot_group_addr = AppConfig::get()
+        .urls_for_node_type(NodeType::GroupNode)
         .into_iter()
-        .map(|node| node.kafka_addr.unwrap_or(node.node_addr))
         .find(|addr| addr != &advertise_addr);
 
     let group_client = match hot_group_addr {
@@ -125,9 +115,7 @@ pub async fn run_server() -> Result<()> {
 
     let services = Arc::new(Services::new(pool, group_client, kafka));
 
-    let http_router = Router::new()
-        .route("/healthz", get(healthz))
-        .merge(arb_client::http_router());
+    let http_router = Router::new().route("/healthz", get(healthz));
 
     let biz_service = GroupBizServiceImpl::new(services.clone());
     let msg_service = GroupMsgServiceImpl::new(services.clone());
@@ -139,13 +127,10 @@ pub async fn run_server() -> Result<()> {
         grpc_addr_str, http_addr_str
     );
 
-    arb_client::register_node(
-        NodeType::MesGroup,
-        http_addr_str.clone(),
-        Some(grpc_addr_str.clone()),
-        None,
-    )
-    .await?;
+    info!(
+        "msg_group registration via arb removed; serving grpc={} http={}",
+        grpc_addr_str, http_addr_str
+    );
 
     let cancel_token = CancellationToken::new();
     let http_cancel = cancel_token.clone();

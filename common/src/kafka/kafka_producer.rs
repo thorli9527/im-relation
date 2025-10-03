@@ -55,10 +55,7 @@ impl KafkaInstanceService {
         KafkaInstanceService::init(broker_addr, topic_list).await;
         let producer: FutureProducer = ClientConfig::new()
             .set("bootstrap.servers", broker_addr)
-            .set("security.protocol", "SASL_SSL")
-            .set("sasl.mechanism", "PLAIN")
-            // .set("sasl.username", "admin")
-            // .set("sasl.password", "admin")
+            .set("security.protocol", "PLAINTEXT")
             // ✅ 性能相关配置
             .set("acks", "all")
             .set("enable.idempotence", "true")
@@ -83,7 +80,7 @@ impl KafkaInstanceService {
         topic_list.iter().for_each(|topic| {
             dynamic_topics.push((topic.topic_name.clone(), topic.partitions, topic.replicas));
         });
-        dynamic_topics.push(("group-node-msg".to_string(), 3, 1));
+        // dynamic_topics.push(("group-node-msg".to_string(), 3, 1));
         if let Err(e) = Self::create_topics_or_exit(&brokers, &dynamic_topics).await {
             log::error!("❌ Kafka topic 创建失败: {e}");
         } else {

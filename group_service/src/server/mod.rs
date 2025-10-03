@@ -4,10 +4,8 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
 use axum::{routing::get, Json, Router};
-use common::arb::NodeType;
 use common::config::{get_db, AppConfig};
 use common::grpc::grpc_hot_group::group_service::group_service_server::GroupServiceServer;
-use common::service::arb_client;
 use log::{info, warn};
 use tokio::signal;
 use tokio_util::sync::CancellationToken;
@@ -92,21 +90,16 @@ pub async fn start() -> Result<()> {
         hot_capacity, hot_tti_secs, shard_count, per_group_shard, debug_line
     );
 
-    let http_router = Router::new()
-        .route("/healthz", get(healthz))
-        .merge(arb_client::http_router());
+    let http_router = Router::new().route("/healthz", get(healthz));
 
     let grpc_service =
         GroupServiceServer::new(GroupServiceImpl::new(facade.clone(), profile_cache.clone()));
     let routes = Routes::new(grpc_service);
 
-    arb_client::register_node(
-        NodeType::GroupNode,
-        http_addr_str.clone(),
-        Some(grpc_addr_str.clone()),
-        None,
-    )
-    .await?;
+    info!(
+        "group_service registration via arb removed; serving grpc={} http={}",
+        grpc_addr_str, http_addr_str
+    );
 
     let cancel_token = CancellationToken::new();
     let http_cancel = cancel_token.clone();

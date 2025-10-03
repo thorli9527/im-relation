@@ -1,10 +1,10 @@
 use std::convert::TryFrom;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use common::arb::NodeType;
+use common::config::AppConfig;
 use common::grpc::grpc_hot_online::online_service::{DeviceType, GetUserReq};
 use common::node_util::NodeUtil;
-use common::service::arb_client;
 use common::util::common_utils::hash_index;
 use log::warn;
 use tonic::{Request, Response, Status};
@@ -459,16 +459,12 @@ async fn resolve_socket_addr(user_id: i64) -> Result<String> {
     let mut nodes = node_util.get_list(NodeType::SocketNode as i32);
 
     if nodes.is_empty() {
-        let fetched = arb_client::ensure_nodes(NodeType::SocketNode)
-            .await
-            .context("load socket nodes from arb")?;
+        let fetched = AppConfig::get().urls_for_node_type(NodeType::SocketNode);
         if fetched.is_empty() {
             return Err(anyhow!("socket node list empty"));
         }
-        nodes = node_util.get_list(NodeType::SocketNode as i32);
-        if nodes.is_empty() {
-            nodes = fetched.into_iter().map(|node| node.node_addr).collect();
-        }
+        node_util.reset_list(NodeType::SocketNode as i32, fetched.clone());
+        nodes = fetched;
     }
 
     let count = i32::try_from(nodes.len()).unwrap_or(0);

@@ -1,3 +1,4 @@
+use crate::arb::NodeType;
 use crate::errors::AppError;
 use crate::redis::redis_pool::RedisPoolTools;
 use anyhow::anyhow;
@@ -34,9 +35,11 @@ pub struct AppConfig {
     #[serde(default)]
     pub user_service: Vec<ServiceEndpoint>,
     #[serde(default)]
-    pub msg_friend_service: Vec<ServiceEndpoint>,
+    pub group_service: Vec<ServiceEndpoint>,
     #[serde(default)]
-    pub msg_group_service: Vec<ServiceEndpoint>,
+    pub msg_friend_nodes: Vec<ServiceEndpoint>,
+    #[serde(default)]
+    pub msg_group_nodes: Vec<ServiceEndpoint>,
 }
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ShardConfig {
@@ -93,7 +96,16 @@ pub struct MsgFriendConfig {
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ServiceEndpoint {
     pub index: u32,
-    pub url: String,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub grpc_addr: Option<String>,
+}
+
+impl ServiceEndpoint {
+    pub fn resolved_url(&self) -> Option<String> {
+        self.url.clone().or_else(|| self.grpc_addr.clone())
+    }
 }
 async fn init_db(url: &str) {
     let pool = MySqlPoolOptions::new()
@@ -198,11 +210,38 @@ impl AppConfig {
     }
 
     pub fn msg_friend_endpoints(&self) -> &[ServiceEndpoint] {
-        &self.msg_friend_service
+        &self.msg_friend_nodes
     }
 
     pub fn msg_group_endpoints(&self) -> &[ServiceEndpoint] {
-        &self.msg_group_service
+        &self.msg_group_nodes
+    }
+
+    pub fn group_service_endpoints(&self) -> &[ServiceEndpoint] {
+        &self.group_service
+    }
+
+    fn sorted_urls(list: &[ServiceEndpoint]) -> Vec<String> {
+        let mut entries = list.to_vec();
+        entries.sort_by_key(|endpoint| endpoint.index);
+        entries
+            .into_iter()
+            .filter_map(|endpoint| endpoint.resolved_url())
+            .collect()
+    }
+
+    pub fn urls_for_node_type(&self, node_type: NodeType) -> Vec<String> {
+        match node_type {
+            NodeType::SocketNode | NodeType::SocketGateway | NodeType::MsgGateway => {
+                Self::sorted_urls(&self.app_socket)
+            }
+            NodeType::FriendNode => Self::sorted_urls(&self.friend_service),
+            NodeType::OnlineNode => Self::sorted_urls(&self.user_service),
+            NodeType::MsgFriend => Self::sorted_urls(&self.msg_friend_nodes),
+            NodeType::GroupNode => Self::sorted_urls(&self.group_service),
+            NodeType::MesGroup => Self::sorted_urls(&self.msg_group_nodes),
+            _ => Vec::new(),
+        }
     }
 
     pub fn get_arb(&self) -> ArbConfig {
@@ -300,6 +339,8 @@ pub struct RedisConfig {
 pub struct KafkaConfig {
     pub broker: Option<String>,
     pub group_id: Option<String>,
+    #[serde(default)]
+    pub replicas: Option<i32>,
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]

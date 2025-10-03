@@ -1,10 +1,10 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use common::arb::NodeType;
+use common::config::AppConfig;
 use common::grpc::grpc_hot_friend::friend_service::friend_service_client::FriendServiceClient;
 use common::grpc::grpc_hot_friend::friend_service::{FriendEntry, GetFriendsPageDetailedReq};
 use common::grpc::GrpcClientManager;
 use common::node_util::NodeUtil;
-use common::service::arb_client;
 use common::util::common_utils::hash_index;
 use once_cell::sync::OnceCell;
 use tonic::transport::{Channel, Error as TransportError};
@@ -34,16 +34,12 @@ async fn resolve_friend_addr(user_id: i64) -> Result<String> {
     let mut nodes = node_util.get_list(NodeType::FriendNode as i32);
 
     if nodes.is_empty() {
-        let fetched = arb_client::ensure_nodes(NodeType::FriendNode)
-            .await
-            .context("load friend nodes from arb")?;
+        let fetched = AppConfig::get().urls_for_node_type(NodeType::FriendNode);
         if fetched.is_empty() {
             return Err(anyhow!("friend node list empty"));
         }
-        nodes = node_util.get_list(NodeType::FriendNode as i32);
-        if nodes.is_empty() {
-            nodes = fetched.into_iter().map(|node| node.node_addr).collect();
-        }
+        node_util.reset_list(NodeType::FriendNode as i32, fetched.clone());
+        nodes = fetched;
     }
 
     let count = i32::try_from(nodes.len()).unwrap_or(0);

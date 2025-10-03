@@ -18,12 +18,8 @@ md5_key = "0000000000000000000000000000000"
 #-----------app_socket
 [[app_socket]]
 index = 0
-pub_socket_ip = "ws://127.0.0.1:8006"
-pub_port = 8006
-kafka_broker = "127.0.0.1:9092"
-kafka_group_id = "app_socket_dispatcher"
-kafka_user_name=""
-kafka_password=""
+pub_socket_ip = "127.0.0.1"
+pub_port = 9900
 
 #------------friend_service
 [[friend_service]]
@@ -41,20 +37,13 @@ index = 0
 grpc_addr = "127.0.0.1:6001"
 
 #------------message_service
-[[msg_friend]]
+[[msg_friend_nodes]]
 index = 0
 grpc_addr = "127.0.0.1:8002"
-kafka_broker = "127.0.0.1:9092"
-kafka_group_id = "msg_friend_dispatcher"
-kafka_user_name=""
-kafka_password=""
+
 #------------group_service
-[[msg_group]]
+[[msg_group_nodes]]
 index = 0
 grpc_addr = "127.0.0.1:8103"
-kafka_broker = "127.0.0.1:9092"
-kafka_group_id = "msg_group_dispatcher"
-kafka_user_name=""
-kafka_password=""
 
 

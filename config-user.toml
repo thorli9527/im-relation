@@ -20,45 +20,38 @@ hot_by_id_ttl = 300
 hot_route_cap = 200000
 hot_route_ttl = 120
 
-
-
-#-----------app_socket
-[[app_socket]]
-index = 0
-kafka_broker = "127.0.0.1:9092"
-kafka_group_id = "app_socket_dispatcher"
-kafka_user_name=""
-kafka_password=""
-
-
-#------------friend_service
-[[friend_service]]
-index = 0
-grpc_addr = "ws://127.0.0.1:8006"
-
-#------------app_group_dispatcher
-[[group_service]]
-index = 0
-grpc_addr = "ws://127.0.0.1:8006"
-
-#------------user_service
-[[user_service]]
-index = 0
-grpc_addr = "ws://127.0.0.1:8006"
-
-#------------message_service
-[[msg_friend]]
-index = 0
-grpc_addr = "127.0.0.1:8006"
-kafka_broker = "127.0.0.1:9092"
-kafka_group_id = "msg_friend_dispatcher"
-kafka_user_name=""
-kafka_password=""
-#------------group_service
-[[msg_group]]
-index = 0
-grpc_addr = "ws://127.0.0.1:8006"
-kafka_broker = "127.0.0.1:9092"
-kafka_group_id = "msg_group_dispatcher"
-kafka_user_name=""
-kafka_password=""
+#
+#
+##-----------app_socket
+#[[app_socket]]
+#index = 0
+#kafka_broker = "127.0.0.1:9092"
+#kafka_group_id = "app_socket_dispatcher"
+#kafka_user_name=""
+#kafka_password=""
+#
+#
+##------------friend_service
+#[[friend_service]]
+#index = 0
+#grpc_addr = "ws://127.0.0.1:8006"
+#
+##------------app_group_dispatcher
+#[[group_service]]
+#index = 0
+#grpc_addr = "ws://127.0.0.1:8006"
+#
+##------------user_service
+#[[user_service]]
+#index = 0
+#grpc_addr = "ws://127.0.0.1:8006"
+#
+##------------message_service
+#[[msg_friend]]
+#index = 0
+#grpc_addr = "127.0.0.1:8006"
+#
+##------------group_service
+#[[msg_group]]
+#index = 0
+#grpc_addr = "ws://127.0.0.1:8006"

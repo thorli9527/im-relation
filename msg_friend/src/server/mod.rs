@@ -8,7 +8,6 @@ use axum::{routing::get, Json, Router};
 use common::arb::NodeType;
 use common::config::{get_db, AppConfig};
 use common::kafka::kafka_producer::KafkaInstanceService;
-use common::service::arb_client;
 use log::{info, warn};
 use serde_json::json;
 use sqlx::{MySql, Pool};
@@ -87,17 +86,9 @@ pub async fn run_server() -> Result<()> {
 
     let pool = get_db();
 
-    let arb_friend_nodes = match arb_client::ensure_nodes(NodeType::FriendNode).await {
-        Ok(nodes) => nodes,
-        Err(err) => {
-            warn!("fetch hot_friend nodes from arb failed: {}", err);
-            Vec::new()
-        }
-    };
-
-    let friend_client_addr = arb_friend_nodes
+    let friend_client_addr = AppConfig::get()
+        .urls_for_node_type(NodeType::FriendNode)
         .into_iter()
-        .map(|node| node.kafka_addr.unwrap_or(node.node_addr))
         .find(|addr| addr != &advertise_addr);
 
     let friend_client = match friend_client_addr {
@@ -135,9 +126,7 @@ pub async fn run_server() -> Result<()> {
         shard_total,
     };
 
-    let http_router = Router::new()
-        .route("/healthz", get(healthz))
-        .merge(arb_client::http_router());
+    let http_router = Router::new().route("/healthz", get(healthz));
 
     let friend_biz_service_server =
         FriendBizServiceServer::new(MsgFriendServiceImpl::new(Arc::new(services.clone())));
@@ -152,13 +141,10 @@ pub async fn run_server() -> Result<()> {
         grpc_addr_str, http_addr_str
     );
 
-    arb_client::register_node(
-        NodeType::MsgFriend,
-        http_addr_str.clone(),
-        Some(grpc_addr_str.clone()),
-        None,
-    )
-    .await?;
+    info!(
+        "msg_friend registration via arb removed; serving grpc={} http={}",
+        grpc_addr_str, http_addr_str
+    );
 
     let cancel_token = CancellationToken::new();
     let http_cancel = cancel_token.clone();

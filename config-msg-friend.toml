@@ -15,37 +15,29 @@ log_leve = "warn"  # trace debug info error warn
 [kafka]
 broker = "127.0.0.1:9092"
 group_id = "msg_friend_dispatcher"
-
+replicas = 1
+kafka_user_name=""
+kafka_password=""
 
 #------------friend_service
 [[friend_service]]
 index = 0
 grpc_addr = "127.0.0.1:8002"
 
-#------------app_group_dispatcher
-[[group_service]]
-index = 0
-grpc_addr = "127.0.0.1:8003"
+# #------------app_group_dispatcher
+# [[group_service]]
+# index = 0
+# grpc_addr = "127.0.0.1:8003"
 
-#------------user_service
-[[user_service]]
-index = 0
-grpc_addr = "127.0.0.1:6001"
+# #------------user_service
+# [[user_service]]
+# index = 0
+# grpc_addr = "127.0.0.1:6001"
 
-#------------message_service
-[[msg_friend]]
-shard_total = 16
-shard_index = 0
-index = 0
-kafka_broker = "127.0.0.1:9092"
-kafka_group_id = "msg_group_dispatcher"
-kafka_user_name=""
-kafka_password=""
 #------------group_service
-[[msg_group]]
-index = 0
-grpc_addr = "127.0.0.1:8103"
-kafka_broker = "127.0.0.1:9092"
-kafka_group_id = "msg_group_dispatcher"
-kafka_user_name=""
-kafka_password=""
+# [[kafka_cfg]]
+# index = 0
+# kafka_broker = "127.0.0.1:9092"
+# kafka_group_id = "msg_group_dispatcher"
+# kafka_user_name=""
+# kafka_password=""

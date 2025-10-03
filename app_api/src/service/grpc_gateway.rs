@@ -1,9 +1,9 @@
 use anyhow::{anyhow, Result};
 use common::arb::NodeType;
+use common::config::AppConfig;
 use common::grpc::grpc_hot_online::online_service::online_service_client::OnlineServiceClient;
 use common::grpc::grpc_hot_online::online_service::user_rpc_service_client::UserRpcServiceClient;
 use common::grpc::GrpcClientManager;
-use common::service::arb_client;
 use once_cell::sync::OnceCell;
 use tonic::transport::{Channel, Error as TransportError};
 
@@ -49,10 +49,9 @@ async fn resolve_online_endpoint() -> Result<String> {
         return Ok(addr);
     }
 
-    let nodes = arb_client::ensure_nodes(NodeType::OnlineNode).await?;
-    nodes
+    AppConfig::get()
+        .urls_for_node_type(NodeType::OnlineNode)
         .into_iter()
-        .map(|node| node.kafka_addr.unwrap_or(node.node_addr))
         .next()
         .ok_or_else(|| anyhow!("online node address not configured"))
 }

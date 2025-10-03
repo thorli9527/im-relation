@@ -4,9 +4,7 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
 use axum::{routing::get, Json, Router};
-use common::arb::NodeType;
 use common::config::{get_db, AppConfig};
-use common::service::arb_client;
 use common::UserId;
 use log::warn;
 use tokio::signal;
@@ -91,21 +89,16 @@ pub async fn start() -> Result<()> {
         });
     }
 
-    let http_router = Router::new()
-        .route("/healthz", get(healthz))
-        .merge(arb_client::http_router());
+    let http_router = Router::new().route("/healthz", get(healthz));
 
     let grpc_service = FriendServiceImpl::<FriendStorage> {
         facade: facade.clone(),
     };
 
-    arb_client::register_node(
-        NodeType::FriendNode,
-        http_addr_str.clone(),
-        Some(grpc_addr_str.clone()),
-        None,
-    )
-    .await?;
+    warn!(
+        "friend_service registration via arb removed; serving grpc={} http={}",
+        grpc_addr_str, http_addr_str
+    );
 
     let cancel_token = CancellationToken::new();
     let http_cancel = cancel_token.clone();

@@ -38,11 +38,7 @@ where
     let consumer: StreamConsumer = ClientConfig::new()
         .set("group.id", group_id)
         .set("bootstrap.servers", broker)
-        // 开启 SASL 认证（具体安全策略根据集群配置调整）
-        .set("security.protocol", "SASL_PLAINTEXT") // 或 SASL_SSL
-        .set("sasl.mechanism", "PLAIN") // 也可用 SCRAM-SHA-256/512
-        // .set("sasl.username", "admin")
-        // .set("sasl.password", "admin")
+        .set("security.protocol", "PLAINTEXT")
         // 关闭自动提交 offset
         .set("enable.auto.commit", "false")
         .create()?;

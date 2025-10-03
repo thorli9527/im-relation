@@ -4,48 +4,37 @@ use std::net::SocketAddr;
 
 use anyhow::Result;
 use axum::{routing::get, Json, Router};
-use common::arb::NodeType;
 use common::config::AppConfig;
-use common::service::arb_client;
 use log::{info, warn};
 use serde_json::json;
 use tokio::net::TcpListener;
 
-/// Start the lightweight HTTP server that exposes `/arb/server/sync`.
-///
-/// Spawns a dedicated Axum server using `common::service::arb_client::http_router()` so
-/// arbitration updates land in the shared cache. Additional HTTP/WebSocket routes can be layered
-/// here later on.
+/// Start a lightweight HTTP server exposing `/healthz` for probes.
 pub async fn start_web_server(bind: &str) -> Result<()> {
     let addr: SocketAddr = bind.parse()?;
-    info!("arb sync HTTP server listening on {}", addr);
+    info!("socket HTTP server listening on {}", addr);
 
     let listener = TcpListener::bind(addr).await?;
-    let router = Router::new()
-        .route("/healthz", get(healthz))
-        .merge(arb_client::http_router());
+    let router = Router::new().route("/healthz", get(healthz));
 
     tokio::spawn(async move {
         if let Err(err) = axum::serve(listener, router.into_make_service()).await {
-            warn!("arb sync HTTP server exited: {}", err);
+            warn!("socket HTTP server exited: {}", err);
         }
     });
 
     Ok(())
 }
 
-/// Register current socket node with `arb_service`, advertising both HTTP sync and TCP addresses.
+/// Placeholder kept for compatibility; sockets now rely on static configuration.
 pub async fn register_with_arb(http_addr: &str, tcp_addr: &str) -> Result<()> {
     let cfg = AppConfig::get();
-    if cfg.arb_server_addr().is_none() {
-        warn!("arb server addr missing; skip arb registration");
-        return Ok(());
-    }
-
     let socket_cfg = cfg.get_socket();
     let pub_addr = socket_cfg.pub_addr().or_else(|| Some(tcp_addr.to_string()));
-
-    arb_client::register_node(NodeType::SocketNode, http_addr.to_string(), None, pub_addr).await?;
+    warn!(
+        "register_with_arb deprecated; configure socket endpoints statically. http_addr={} pub_addr={:?}",
+        http_addr, pub_addr
+    );
     Ok(())
 }
 

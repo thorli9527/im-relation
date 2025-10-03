@@ -4,9 +4,7 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
 use axum::Router;
-use common::arb::NodeType;
 use common::config::{AppConfig, HotOnlineConfig};
-use common::service::arb_client;
 use log::warn;
 use tokio::signal;
 use tokio_util::sync::CancellationToken;
@@ -89,8 +87,7 @@ pub async fn start() -> Result<()> {
     let rest_state = rest_online::AppState {
         store: store.clone(),
     };
-    let rest_router = rest_online::router(rest_state);
-    let http_router: Router = rest_router.merge(arb_client::http_router());
+    let http_router: Router = rest_online::router(rest_state);
 
     let routes = Routes::new(OnlineServiceServer::new(online_svc))
         .add_service(UserRpcServiceServer::new(client_svc));
@@ -100,13 +97,10 @@ pub async fn start() -> Result<()> {
         grpc_addr_str, http_addr_str
     );
 
-    arb_client::register_node(
-        NodeType::OnlineNode,
-        http_addr_str.clone(),
-        Some(grpc_addr_str.clone()),
-        None,
-    )
-    .await?;
+    warn!(
+        "user_service registration via arb removed; serving grpc={} http={}",
+        grpc_addr_str, http_addr_str
+    );
 
     let cancel_token = CancellationToken::new();
     let http_cancel = cancel_token.clone();
