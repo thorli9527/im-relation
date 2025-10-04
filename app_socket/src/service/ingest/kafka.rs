@@ -55,7 +55,7 @@ pub async fn start_socket_pipeline() -> anyhow::Result<()> {
     let topics: Vec<TopicInfo> = vec![
         MSG_SEND_FRIEND_TOPIC.clone(),
         MSG_SEND_GROUP_TOPIC.clone(),
-        SYS_MSG_TOPIC_INFO.clone(),
+        // SYS_MSG_TOPIC_INFO.clone(),
     ];
 
     let dispatcher_cloned = dispatcher.clone();

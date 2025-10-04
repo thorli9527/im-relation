@@ -5,7 +5,7 @@ use common::config::AppConfig;
 use tonic::transport::Server;
 
 use crate::grpc::api::api_service_server::ApiServiceServer;
-use crate::service::api_grpc_service_impl::ApiGrpcService;
+use crate::service::api_grpc_service::ApiGrpcService;
 
 pub async fn start() -> Result<()> {
     let app_cfg = AppConfig::get();

@@ -196,40 +196,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arb_service"
-version = "0.1.0"
-dependencies = [
- "ahash",
- "anyhow",
- "async-trait",
- "axum",
- "common",
- "dashmap",
- "fxhash",
- "log",
- "moka",
- "num_cpus",
- "once_cell",
- "parking_lot",
- "prost 0.13.5",
- "prost-build 0.14.1",
- "prost-types 0.13.5",
- "protobuf-src",
- "reqwest",
- "roaring",
- "serde",
- "serde_json",
- "smallvec",
- "sqlx",
- "sysinfo",
- "thiserror 2.0.14",
- "tokio",
- "tonic",
- "tonic-build",
- "utoipa",
-]
-
-[[package]]
 name = "arc-swap"
 version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

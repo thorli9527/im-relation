@@ -23,9 +23,8 @@ use crate::service::grpc_clients;
 use crate::service::node_discovery::fetch_msg_friend_addr;
 use crate::service::session::SessionManager;
 use crate::service::types::{ClientMsg, MessageId, MsgKind, SendOpts, ServerMsg, UserId};
-use common::arb::NodeType;
 use common::grpc::message::{self as msg_message, typing::Target as TypingTarget, TypingState};
-use common::node_util::NodeUtil;
+use common::node_util::{NodeType, NodeUtil};
 use time::OffsetDateTime;
 
 use super::Handler;

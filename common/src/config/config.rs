@@ -1,5 +1,5 @@
-use crate::arb::NodeType;
 use crate::errors::AppError;
+use crate::node_util::NodeType;
 use crate::redis::redis_pool::RedisPoolTools;
 use anyhow::anyhow;
 use config::Config;
@@ -23,7 +23,11 @@ pub struct AppConfig {
     pub arb: Option<ArbConfig>,
     pub redis: Option<RedisConfig>,
     pub socket: Option<SocketConfig>,
-    #[serde(default, rename = "app_socket", deserialize_with = "deserialize_socket_configs")]
+    #[serde(
+        default,
+        rename = "app_socket",
+        deserialize_with = "deserialize_socket_configs"
+    )]
     pub app_socket_nodes: Vec<SocketConfig>,
     pub hot_group: Option<HotGroupConfig>,
     pub hot_friend: Option<HotFriendConfig>,
@@ -218,11 +222,7 @@ impl AppConfig {
         if let Some(cfg) = self.socket.clone() {
             return cfg;
         }
-        self
-            .app_socket_nodes
-            .first()
-            .cloned()
-            .unwrap_or_default()
+        self.app_socket_nodes.first().cloned().unwrap_or_default()
     }
 
     pub fn app_socket_configs(&self) -> &[SocketConfig] {

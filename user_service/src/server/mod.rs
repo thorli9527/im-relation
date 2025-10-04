@@ -97,11 +97,6 @@ pub async fn start() -> Result<()> {
         grpc_addr_str, http_addr_str
     );
 
-    warn!(
-        "user_service registration via arb removed; serving grpc={} http={}",
-        grpc_addr_str, http_addr_str
-    );
-
     let cancel_token = CancellationToken::new();
     let http_cancel = cancel_token.clone();
     let grpc_cancel = cancel_token.clone();

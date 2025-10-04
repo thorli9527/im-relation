@@ -69,12 +69,6 @@ pub struct LoginResponse {
     /// 按 arb 哈希得到的 socket 入口地址（host:port）。无节点时为空字符串。
     #[prost(string, tag = "3")]
     pub socket_addr: ::prost::alloc::string::String,
-    /// Socket 对外暴露的主机名/IP。
-    #[prost(string, tag = "4")]
-    pub socket_host: ::prost::alloc::string::String,
-    /// Socket 对外暴露的端口（0 表示使用默认代理端口）。
-    #[prost(uint32, tag = "5")]
-    pub socket_port: u32,
 }
 /// 使用当前会话修改密码。
 #[derive(Clone, PartialEq, ::prost::Message)]

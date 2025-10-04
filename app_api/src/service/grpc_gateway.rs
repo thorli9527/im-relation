@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Result};
-use common::arb::NodeType;
 use common::config::AppConfig;
 use common::grpc::grpc_hot_online::online_service::online_service_client::OnlineServiceClient;
 use common::grpc::grpc_hot_online::online_service::user_rpc_service_client::UserRpcServiceClient;
@@ -7,7 +6,7 @@ use common::grpc::GrpcClientManager;
 use once_cell::sync::OnceCell;
 use tonic::transport::{Channel, Error as TransportError};
 
-use common::node_util::NodeUtil;
+use common::node_util::{NodeType, NodeUtil};
 
 static ONLINE_MANAGER: OnceCell<GrpcClientManager<OnlineServiceClient<Channel>, TransportError>> =
     OnceCell::new();

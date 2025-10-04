@@ -5,8 +5,7 @@ members = [
 "user_service", 
 "group_service", 
 "friend_service", 
-"arb_service", 
-"app_api", 
+"app_api",
 "app_socket", 
 "msg_friend",
 "msg_group"]

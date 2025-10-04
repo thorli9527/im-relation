@@ -1,8 +1,7 @@
-use common::arb::NodeType;
 use common::config::AppConfig;
-use common::node_util::NodeUtil;
+use common::node_util::{NodeType, NodeUtil};
 
-pub mod api_grpc_service_impl;
+pub mod api_grpc_service;
 pub mod auth_models;
 pub mod friend_gateway;
 pub mod grpc_gateway;

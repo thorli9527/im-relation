@@ -22,13 +22,8 @@ pub async fn start() -> Result<()> {
         .route("/healthz", get(healthz))
         .layer(TraceLayer::new_for_http());
     let listener = TcpListener::bind(&address_and_port).await?;
-    warn!(
-        "arb registration removed; ensure API endpoints are configured. http_addr={} grpc_addr={:?}",
-        address_and_port,
-        server_cfg.grpc_addr()
-    );
-    axum::serve(listener, router.into_make_service()).await?;
 
+    axum::serve(listener, router.into_make_service()).await?;
     Ok(())
 }
 

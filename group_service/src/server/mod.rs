@@ -96,11 +96,6 @@ pub async fn start() -> Result<()> {
         GroupServiceServer::new(GroupServiceImpl::new(facade.clone(), profile_cache.clone()));
     let routes = Routes::new(grpc_service);
 
-    info!(
-        "group_service registration via arb removed; serving grpc={} http={}",
-        grpc_addr_str, http_addr_str
-    );
-
     let cancel_token = CancellationToken::new();
     let http_cancel = cancel_token.clone();
     let grpc_cancel = cancel_token.clone();

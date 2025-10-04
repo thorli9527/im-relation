@@ -1,9 +1,8 @@
 //! 节点发现辅助：改为通过配置文件获取并缓存节点地址。
 
 use anyhow::{anyhow, Result};
-use common::arb::NodeType;
 use common::config::AppConfig;
-use common::node_util::NodeUtil;
+use common::node_util::{NodeType, NodeUtil};
 
 fn endpoints_for(node_type: NodeType) -> Vec<String> {
     AppConfig::get().urls_for_node_type(node_type)

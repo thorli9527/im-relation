@@ -2,11 +2,10 @@ use axum::{http::HeaderMap, routing::get, Json, Router};
 use serde::Serialize;
 
 use crate::service::grpc_gateway;
-use common::arb::NodeType;
 use common::errors::AppError;
 use common::grpc::grpc_hot_online::online_service::SessionTokenStatus;
 use common::grpc::grpc_hot_online::online_service::ValidateSessionTokenRequest;
-use common::node_util::NodeUtil;
+use common::node_util::{NodeType, NodeUtil};
 use common::util::common_utils::hash_index;
 
 #[derive(Serialize)]

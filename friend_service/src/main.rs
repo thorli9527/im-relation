@@ -17,6 +17,5 @@ mod store;
 async fn main() -> anyhow::Result<()> {
     // Load configuration (potentially from `APP_CONFIG`) before any module reads global settings.
     AppConfig::init_from_env("./config-friend.toml").await;
-    // `server::start` sets up gRPC, HTTP, caches, and arbitration registration.
     server::start().await
 }

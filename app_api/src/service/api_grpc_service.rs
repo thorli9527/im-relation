@@ -1,10 +1,8 @@
 use std::convert::TryFrom;
 
 use anyhow::{anyhow, Result};
-use common::arb::NodeType;
 use common::config::AppConfig;
 use common::grpc::grpc_hot_online::online_service::{DeviceType, GetUserReq};
-use common::node_util::NodeUtil;
 use common::util::common_utils::hash_index;
 use log::warn;
 use tonic::{Request, Response, Status};
@@ -149,14 +147,10 @@ impl ApiService for ApiGrpcService {
                 String::new()
             }
         };
-        let (socket_host, socket_port) = split_socket_addr(&socket_addr);
-
         Ok(Response::new(LoginResponse {
             token: session.token,
             expires_at: session.expires_at,
             socket_addr,
-            socket_host,
-            socket_port,
         }))
     }
 
@@ -455,16 +449,35 @@ impl ApiService for ApiGrpcService {
 }
 
 async fn resolve_socket_addr(user_id: i64) -> Result<String> {
-    let node_util = NodeUtil::get();
-    let mut nodes = node_util.get_list(NodeType::SocketNode as i32);
+    let cfg = AppConfig::get();
+    let sockets = cfg.app_socket_configs();
 
-    if nodes.is_empty() {
-        let fetched = AppConfig::get().urls_for_node_type(NodeType::SocketNode);
-        if fetched.is_empty() {
+    if !sockets.is_empty() {
+        let count = i32::try_from(sockets.len()).unwrap_or(0);
+        if count <= 0 {
             return Err(anyhow!("socket node list empty"));
         }
-        node_util.reset_list(NodeType::SocketNode as i32, fetched.clone());
-        nodes = fetched;
+
+        let index = hash_index(&user_id, count) as usize;
+        let socket = sockets
+            .get(index)
+            .ok_or_else(|| anyhow!("socket node index out of range"))?;
+
+        if let Some(addr) = socket.pub_addr() {
+            return Ok(addr);
+        }
+
+        if let Ok(addr) = socket.tcp_addr() {
+            return Ok(addr);
+        }
+
+        return Err(anyhow!("socket node missing public address"));
+    }
+
+    // 兼容旧配置：回退到基于 urls_for_node_type 的列表。
+    let nodes = cfg.urls_for_node_type(common::node_util::NodeType::SocketNode);
+    if nodes.is_empty() {
+        return Err(anyhow!("socket node list empty"));
     }
 
     let count = i32::try_from(nodes.len()).unwrap_or(0);
@@ -477,22 +490,4 @@ async fn resolve_socket_addr(user_id: i64) -> Result<String> {
         .into_iter()
         .nth(index)
         .ok_or_else(|| anyhow!("socket node index out of range"))
-}
-
-fn split_socket_addr(addr: &str) -> (String, u32) {
-    if addr.trim().is_empty() {
-        return (String::new(), 0);
-    }
-
-    if let Ok(sock) = addr.parse::<std::net::SocketAddr>() {
-        return (sock.ip().to_string(), sock.port() as u32);
-    }
-
-    match addr.rsplit_once(':') {
-        Some((host, port_str)) => match port_str.parse::<u32>() {
-            Ok(port) => (host.to_string(), port),
-            Err(_) => (addr.to_string(), 0),
-        },
-        None => (addr.to_string(), 0),
-    }
 }

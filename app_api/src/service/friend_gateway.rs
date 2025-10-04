@@ -1,10 +1,9 @@
 use anyhow::{anyhow, Result};
-use common::arb::NodeType;
 use common::config::AppConfig;
 use common::grpc::grpc_hot_friend::friend_service::friend_service_client::FriendServiceClient;
 use common::grpc::grpc_hot_friend::friend_service::{FriendEntry, GetFriendsPageDetailedReq};
 use common::grpc::GrpcClientManager;
-use common::node_util::NodeUtil;
+use common::node_util::{NodeType, NodeUtil};
 use common::util::common_utils::hash_index;
 use once_cell::sync::OnceCell;
 use tonic::transport::{Channel, Error as TransportError};

@@ -54,10 +54,6 @@ message LoginResponse {
   uint64 expires_at = 2;
   // 按 arb 哈希得到的 socket 入口地址（host:port）。无节点时为空字符串。
   string socket_addr = 3;
-  // Socket 对外暴露的主机名/IP。
-  string socket_host = 4;
-  // Socket 对外暴露的端口（0 表示使用默认代理端口）。
-  uint32 socket_port = 5;
 }
 
 // 使用当前会话修改密码。

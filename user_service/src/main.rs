@@ -3,7 +3,6 @@
 //! Responsibilities:
 //! - Load configuration (including cache tuning and gRPC/HTTP bind addresses).
 //! - Delegate to `server::start`, which wires gRPC servers, REST gateway, and arbitration
-//!   registration for hot online sessions.
 
 use common::config::AppConfig;
 

@@ -47,12 +47,8 @@ async fn main() -> Result<()> {
 
     // HTTP server handles arb sync callbacks and optional future Web/WebSocket endpoints.
     server::server_web::start_web_server(&http_bind).await?;
-
     // 启动 TCP 监听（长度前缀 JSON 协议，端口来自配置文件）
     server::start_tcp_server().await?;
-
-    server::server_web::register_with_arb(&http_bind, &tcp_bind).await?;
-
     // 启动消费/分发流水线：Kafka → mpsc 分片 → SessionManager
     start_socket_pipeline().await?;
 
