@@ -5,8 +5,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use axum::{routing::get, Json, Router};
-use common::arb::NodeType;
-use common::config::{get_db, AppConfig};
+use common::config::{get_db, AppConfig, ServiceEndpoint};
 use common::kafka::kafka_producer::KafkaInstanceService;
 use log::{info, warn};
 use serde_json::json;
@@ -59,6 +58,37 @@ impl Services {
     }
 }
 
+fn normalize_endpoint_str(endpoint: &str) -> &str {
+    endpoint
+        .strip_prefix("http://")
+        .or_else(|| endpoint.strip_prefix("https://"))
+        .unwrap_or(endpoint)
+}
+
+fn select_remote_endpoint(
+    endpoints: &[ServiceEndpoint],
+    advertise_addr: &str,
+    service_name: &str,
+) -> Result<String> {
+    if endpoints.is_empty() {
+        return Err(anyhow!(
+            "{service_name} client endpoint missing in config; please configure at least one entry"
+        ));
+    }
+
+    let advertise_norm = normalize_endpoint_str(advertise_addr);
+
+    endpoints
+        .iter()
+        .filter_map(|endpoint| endpoint.resolved_url())
+        .find(|url| normalize_endpoint_str(url) != advertise_norm)
+        .ok_or_else(|| {
+            anyhow!(
+                "{service_name} client endpoint missing in config (only local address {advertise_addr} configured)"
+            )
+        })
+}
+
 /// 启动好友消息服务（HTTP + gRPC）并完成仲裁注册。
 pub async fn run_server() -> Result<()> {
     let cfg = AppConfig::get();
@@ -86,28 +116,19 @@ pub async fn run_server() -> Result<()> {
 
     let pool = get_db();
 
-    let friend_client_addr = AppConfig::get()
-        .urls_for_node_type(NodeType::FriendNode)
-        .into_iter()
-        .find(|addr| addr != &advertise_addr);
+    let friend_endpoint = select_remote_endpoint(
+        cfg.friend_service_endpoints(),
+        &advertise_addr,
+        "friend_service",
+    )?;
 
-    let friend_client = match friend_client_addr {
-        Some(addr) if addr == advertise_addr => {
+    let friend_client = match connect_hot_friend(&friend_endpoint).await {
+        Ok(client) => Some(client),
+        Err(err) => {
             warn!(
-                "arb hot_friend addr {} matches service gRPC address; skip hot_friend client init",
-                addr
+                "friend_service client connect to {} failed: {}",
+                friend_endpoint, err
             );
-            None
-        }
-        Some(addr) => match connect_hot_friend(&addr).await {
-            Ok(c) => Some(c),
-            Err(e) => {
-                warn!("friend client connect failed: {}", e);
-                None
-            }
-        },
-        None => {
-            warn!("no remote hot_friend address discovered via arb; skip client init");
             None
         }
     };

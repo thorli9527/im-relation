@@ -29,6 +29,8 @@ async fn main() -> Result<()> {
 
     let cfg = AppConfig::get();
     let socket_cfg = cfg.get_socket();
+    let socket_index = socket_cfg.index();
+    log::info!("app_socket node index={}", socket_index);
 
     let tcp_bind = socket_cfg
         .tcp_addr()

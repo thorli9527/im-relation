@@ -51,6 +51,7 @@ impl From<PbDeviceType> for DeviceType {
 pub async fn start_tcp_server() -> anyhow::Result<()> {
     let cfg = common::config::AppConfig::get();
     let socket_cfg = cfg.get_socket();
+    let node_index = socket_cfg.index();
     let bind = socket_cfg
         .tcp_addr()
         .context("socket tcp address missing (set socket.addr or socket.host+socket.port)")?;
@@ -58,7 +59,7 @@ pub async fn start_tcp_server() -> anyhow::Result<()> {
     let listener = TcpListener::bind(&bind)
         .await
         .context("bind tcp listener")?;
-    info!("tcp socket listening on {}", bind);
+    info!("tcp socket listening on {} (index={})", bind, node_index);
 
     tokio::spawn(async move {
         loop {

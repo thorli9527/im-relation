@@ -9,7 +9,8 @@ host = "0.0.0.0"
 port = 9700
 [sys]
 log_leve = "info"
-[socket]
+[app_socket]
+index = 0
 # Socket TCP 监听（内部地址）
 host = "0.0.0.0"
 port = 9900
@@ -28,3 +29,32 @@ dispatch_cap = 10000
 [kafka]
 broker = "127.0.0.1:9092"
 group_id = "socket-dispatcher"
+replicas = 1
+kafka_user_name=""
+kafka_password=""
+
+
+#------------friend_service
+[friend_service]
+index = 0
+grpc_addr = "127.0.0.1:8002"
+
+#------------app_group_dispatcher
+[group_service]
+index = 0
+grpc_addr = "127.0.0.1:8003"
+
+#------------user_service
+[user_service]
+index = 0
+grpc_addr = "127.0.0.1:6001"
+
+#------------message_service
+[msg_friend_nodes]
+index = 0
+grpc_addr = "127.0.0.1:8002"
+
+#------------group_service
+[msg_group_nodes]
+index = 0
+grpc_addr = "127.0.0.1:8103"

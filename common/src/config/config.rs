@@ -23,22 +23,22 @@ pub struct AppConfig {
     pub arb: Option<ArbConfig>,
     pub redis: Option<RedisConfig>,
     pub socket: Option<SocketConfig>,
+    #[serde(default, rename = "app_socket", deserialize_with = "deserialize_socket_configs")]
+    pub app_socket_nodes: Vec<SocketConfig>,
     pub hot_group: Option<HotGroupConfig>,
     pub hot_friend: Option<HotFriendConfig>,
     pub hot_online: Option<HotOnlineConfig>,
     pub msg_friend: Option<MsgFriendConfig>,
     pub kafka: Option<KafkaConfig>,
-    #[serde(default)]
-    pub app_socket: Vec<ServiceEndpoint>,
     #[serde(default, deserialize_with = "deserialize_endpoints")]
     pub friend_service: Vec<ServiceEndpoint>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_endpoints")]
     pub user_service: Vec<ServiceEndpoint>,
     #[serde(default, deserialize_with = "deserialize_endpoints")]
     pub group_service: Vec<ServiceEndpoint>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_endpoints")]
     pub msg_friend_nodes: Vec<ServiceEndpoint>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_endpoints")]
     pub msg_group_nodes: Vec<ServiceEndpoint>,
 }
 #[derive(Debug, Deserialize, Clone, Default)]
@@ -128,6 +128,26 @@ where
         None => Vec::new(),
     })
 }
+
+fn deserialize_socket_configs<'de, D>(deserializer: D) -> Result<Vec<SocketConfig>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum SocketConfigList {
+        Single(SocketConfig),
+        List(Vec<SocketConfig>),
+    }
+
+    let configs = Option::<SocketConfigList>::deserialize(deserializer)?;
+
+    Ok(match configs {
+        Some(SocketConfigList::Single(cfg)) => vec![cfg],
+        Some(SocketConfigList::List(list)) => list,
+        None => Vec::new(),
+    })
+}
 async fn init_db(url: &str) {
     let pool = MySqlPoolOptions::new()
         .max_connections(64)
@@ -195,7 +215,18 @@ impl AppConfig {
         self.sys.clone().unwrap_or_default()
     }
     pub fn get_socket(&self) -> SocketConfig {
-        self.socket.clone().unwrap_or_default()
+        if let Some(cfg) = self.socket.clone() {
+            return cfg;
+        }
+        self
+            .app_socket_nodes
+            .first()
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    pub fn app_socket_configs(&self) -> &[SocketConfig] {
+        &self.app_socket_nodes
     }
 
     pub fn hot_online_cfg(&self) -> HotOnlineConfig {
@@ -216,10 +247,6 @@ impl AppConfig {
 
     pub fn kafka_cfg(&self) -> KafkaConfig {
         self.kafka.clone().unwrap_or_default()
-    }
-
-    pub fn app_socket_endpoints(&self) -> &[ServiceEndpoint] {
-        &self.app_socket
     }
 
     pub fn friend_service_endpoints(&self) -> &[ServiceEndpoint] {
@@ -251,10 +278,42 @@ impl AppConfig {
             .collect()
     }
 
+    fn sorted_socket_urls(list: &[SocketConfig]) -> Vec<String> {
+        let mut entries = list.to_vec();
+        entries.sort_by_key(|cfg| cfg.index.unwrap_or(u32::MAX));
+        entries
+            .into_iter()
+            .filter_map(|cfg| cfg.pub_addr().or_else(|| cfg.tcp_addr().ok()))
+            .collect()
+    }
+
+    fn socket_node_urls(&self) -> Vec<String> {
+        let mut nodes = self.app_socket_nodes.clone();
+        if nodes.is_empty() {
+            if let Some(cfg) = self.socket.clone() {
+                nodes.push(cfg);
+            }
+        } else if let Some(cfg) = self.socket.clone() {
+            nodes.push(cfg);
+        }
+
+        let mut urls = Self::sorted_socket_urls(&nodes);
+
+        if urls.is_empty() {
+            if let Some(cfg) = self.socket.clone() {
+                if let Some(addr) = cfg.pub_addr().or_else(|| cfg.tcp_addr().ok()) {
+                    urls.push(addr);
+                }
+            }
+        }
+
+        urls
+    }
+
     pub fn urls_for_node_type(&self, node_type: NodeType) -> Vec<String> {
         match node_type {
             NodeType::SocketNode | NodeType::SocketGateway | NodeType::MsgGateway => {
-                Self::sorted_urls(&self.app_socket)
+                self.socket_node_urls()
             }
             NodeType::FriendNode => Self::sorted_urls(&self.friend_service),
             NodeType::OnlineNode => Self::sorted_urls(&self.user_service),
@@ -371,6 +430,8 @@ pub struct ArbUrlConfig {
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct SocketConfig {
+    /// Socket 节点唯一索引（用于仲裁注册/哈希）。
+    pub index: Option<u32>,
     /// Socket TCP 监听地址（优先级最高）。
     pub addr: Option<String>,
     /// Socket TCP 监听 Host（与 `port` 一起使用）。
@@ -378,6 +439,7 @@ pub struct SocketConfig {
     /// Socket TCP 监听端口。
     pub port: Option<u16>,
     /// Socket 对外暴露的 Host。
+    #[serde(alias = "pub_socket_ip")]
     pub pub_host: Option<String>,
     /// Socket 对外暴露的端口（0 表示由外部代理决定）。
     pub pub_port: Option<u16>,
@@ -396,6 +458,11 @@ pub struct SocketConfig {
 }
 
 impl SocketConfig {
+    /// 当前 socket 节点逻辑索引，缺省为 0。
+    pub fn index(&self) -> u32 {
+        self.index.unwrap_or(0)
+    }
+
     /// 解析 Socket TCP 监听地址；必须显式配置 addr 或 host+port。
     pub fn tcp_addr(&self) -> anyhow::Result<String> {
         if let Some(addr) = &self.addr {

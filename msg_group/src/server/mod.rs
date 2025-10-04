@@ -5,8 +5,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use axum::{routing::get, Json, Router};
-use common::arb::NodeType;
-use common::config::{get_db, AppConfig, MySqlPool};
+use common::config::{get_db, AppConfig, MySqlPool, ServiceEndpoint};
 use common::kafka::kafka_producer::KafkaInstanceService;
 use log::{info, warn};
 use serde_json::json;
@@ -59,6 +58,37 @@ impl Services {
     }
 }
 
+fn normalize_endpoint_str(endpoint: &str) -> &str {
+    endpoint
+        .strip_prefix("http://")
+        .or_else(|| endpoint.strip_prefix("https://"))
+        .unwrap_or(endpoint)
+}
+
+fn select_remote_endpoint(
+    endpoints: &[ServiceEndpoint],
+    advertise_addr: &str,
+    service_name: &str,
+) -> Result<String> {
+    if endpoints.is_empty() {
+        return Err(anyhow!(
+            "{service_name} client endpoint missing in config; please configure at least one entry"
+        ));
+    }
+
+    let advertise_norm = normalize_endpoint_str(advertise_addr);
+
+    endpoints
+        .iter()
+        .filter_map(|endpoint| endpoint.resolved_url())
+        .find(|url| normalize_endpoint_str(url) != advertise_norm)
+        .ok_or_else(|| {
+            anyhow!(
+                "{service_name} client endpoint missing in config (only local address {advertise_addr} configured)"
+            )
+        })
+}
+
 /// 启动 msg_group 的 gRPC/HTTP 服务，并向仲裁中心注册。
 pub async fn run_server() -> Result<()> {
     let cfg = AppConfig::get();
@@ -87,28 +117,19 @@ pub async fn run_server() -> Result<()> {
 
     let kafka = Some(init_group_kafka(&cfg).await?);
 
-    let configured_group_nodes = AppConfig::get().urls_for_node_type(NodeType::GroupNode);
-    let hot_group_addr = configured_group_nodes
-        .into_iter()
-        .find(|addr| addr != &advertise_addr);
+    let group_endpoint = select_remote_endpoint(
+        cfg.group_service_endpoints(),
+        &advertise_addr,
+        "group_service",
+    )?;
 
-    let group_client = match hot_group_addr {
-        Some(addr) if addr == advertise_addr => {
+    let group_client = match connect_hot_group(&group_endpoint).await {
+        Ok(client) => Some(client),
+        Err(err) => {
             warn!(
-                "configured hot_group addr {} matches local bind; skip hot_group client init",
-                addr
+                "group_service client connect to {} failed: {}",
+                group_endpoint, err
             );
-            None
-        }
-        Some(addr) => match connect_hot_group(&addr).await {
-            Ok(cli) => Some(cli),
-            Err(err) => {
-                warn!("hot_group client connect failed: {}", err);
-                None
-            }
-        },
-        None => {
-            warn!("no hot_group address provided in config; skip client init");
             None
         }
     };
