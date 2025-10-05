@@ -78,3 +78,6 @@ tonic = "0.13.1"
 tonic-build = "0.13.1"
 prost = "0.13.1"
 prost-build = "0.14.1"
+
+[dev-dependencies]
+toml = "0.8"

@@ -3,7 +3,7 @@
 
 -- 主表：user_info（proto tag 对应见右注）
 -- migrations/mysql_schema.sql
-CREATE TABLE user_info (
+CREATE TABLE IF NOT EXISTS user_info (
                     id               BIGINT        NOT NULL PRIMARY KEY,          -- (1)
                     name             VARCHAR(64)   NOT NULL,                      -- (2)
                     password         VARCHAR(255)  NOT NULL,                      -- 密码字段（明文）
@@ -28,7 +28,7 @@ CREATE TABLE user_info (
 -- 建议：name 采用二进制比较避免 collation 干扰
 -- 如需保持 VARCHAR，可加 COLLATE utf8mb4_bin；或改为 VARBINARY(96)
 -- email -> id
-CREATE TABLE uid_email (
+CREATE TABLE IF NOT EXISTS uid_email (
                            email        VARBINARY(255) NOT NULL,
                            id           BIGINT         NOT NULL,
                            state        TINYINT        NOT NULL DEFAULT 1,  -- 0=占位, 1=生效
@@ -41,7 +41,7 @@ CREATE TABLE uid_email (
 PARTITION BY KEY(email) PARTITIONS 64;
 
 -- phone -> id
-CREATE TABLE uid_phone (
+CREATE TABLE IF NOT EXISTS uid_phone (
                            phone        VARBINARY(32)  NOT NULL,
                            id           BIGINT         NOT NULL,
                            state        TINYINT        NOT NULL DEFAULT 1,
@@ -54,7 +54,7 @@ CREATE TABLE uid_phone (
 PARTITION BY KEY(phone) PARTITIONS 64;
 
 -- name -> id
-CREATE TABLE uid_name (
+CREATE TABLE IF NOT EXISTS uid_name (
                           name         VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
                           id           BIGINT         NOT NULL,
                           state        TINYINT        NOT NULL DEFAULT 1,
@@ -67,7 +67,7 @@ CREATE TABLE uid_name (
 PARTITION BY KEY(name) PARTITIONS 64;
 
 -- 设备 session token：单表存储，记录每台设备的会话令牌及其过期时间（15 天）
-CREATE TABLE user_session (
+CREATE TABLE IF NOT EXISTS user_session (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '自增主键',
     user_id BIGINT NOT NULL COMMENT '用户ID',
     device_type TINYINT NOT NULL COMMENT '设备类型',

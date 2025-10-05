@@ -755,6 +755,44 @@ message Typing {
   repeated int64 notify_user_ids = 6;
 }
 
+// =====================
+// 历史消息检索请求/响应
+// =====================
+
+// 查询好友消息历史
+message QueryFriendMessagesRequest {
+  // 当前用户 ID
+  int64 user_id = 1;
+  // 好友 ID
+  int64 friend_id = 2;
+  // 分页游标：消息 ID 上限（不含）
+  optional uint64 before_message_id = 3;
+  // 分页游标：时间上限（毫秒，不含）
+  optional int64 before_timestamp = 4;
+  // 返回条目上限，缺省 20
+  uint32 limit = 5;
+}
+
+// 查询群聊消息历史
+message QueryGroupMessagesRequest {
+  // 群 ID
+  int64 group_id = 1;
+  // 分页游标：消息 ID 上限（不含）
+  optional uint64 before_message_id = 2;
+  // 分页游标：时间上限（毫秒，不含）
+  optional int64 before_timestamp = 3;
+  // 返回条目上限，缺省 20
+  uint32 limit = 4;
+}
+
+// 历史消息查询统一响应
+message QueryMessagesResponse {
+  // 消息列表（按时间倒序或应用约定排序）
+  repeated Content messages = 1;
+  // 是否还有更多数据
+  bool has_more = 2;
+}
+
 // ===============
 // 加密载荷封装（端到端加密）
 // ===============
@@ -777,3 +815,5 @@ message EncryptedContent {
   // 发送方本地单调消息序号（防重放/乱序）
   uint64 msg_no = 7;
 }
+
+

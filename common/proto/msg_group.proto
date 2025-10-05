@@ -490,4 +490,6 @@ service GroupMsgService {
   rpc RecallMsg(message.MsgRecall) returns (google.protobuf.Empty);
   // 转发消息（可能跨会话/跨群）
   rpc ForwardMsg(message.MsgForward) returns (google.protobuf.Empty);
+  // 分页查询群聊历史消息
+  rpc ListGroupMessages(message.QueryGroupMessagesRequest) returns (message.QueryMessagesResponse);
 }

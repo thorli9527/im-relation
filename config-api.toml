@@ -32,8 +32,7 @@ index = 0
 grpc_addr = "127.0.0.1:8003"
 
 #------------user_service
-[[user_service]]
-index = 0
+[user_service]
 grpc_addr = "127.0.0.1:6001"
 
 #------------message_service
@@ -45,5 +44,4 @@ grpc_addr = "127.0.0.1:8002"
 [[msg_group_nodes]]
 index = 0
 grpc_addr = "127.0.0.1:8103"
-
 

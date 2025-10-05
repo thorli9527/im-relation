@@ -122,6 +122,16 @@ message DeviceKeyBundle {
 }
 message FetchDeviceKeysResponse { repeated DeviceKeyBundle bundles = 1; }
 
+// 根据用户 ID 聚合拉取好友消息历史
+message ListUserFriendMessagesRequest {
+  // 当前用户 ID
+  int64 user_id = 1;
+  // 起始时间（毫秒，闭区间）；传 0 表示不限制
+  int64 since_timestamp = 2;
+  // 返回的最大消息数，缺省 200
+  uint32 limit = 3;
+}
+
 // 好友消息服务（非群聊）
 service FriendMsgService {
   rpc SendMessage(message.Content) returns (google.protobuf.Empty);
@@ -130,6 +140,10 @@ service FriendMsgService {
   rpc AckMsgRead(message.MsgReadAck) returns (google.protobuf.Empty);
   rpc RecallMsg(message.MsgRecall) returns (google.protobuf.Empty);
   rpc ForwardMsg(message.MsgForward) returns (google.protobuf.Empty);
+  // 分页查询好友间的历史消息
+  rpc ListFriendMessages(message.QueryFriendMessagesRequest) returns (message.QueryMessagesResponse);
+  // 聚合查询用户的好友消息
+  rpc ListUserFriendMessages(ListUserFriendMessagesRequest) returns (message.QueryMessagesResponse);
 }
 
 // 设备密钥服务

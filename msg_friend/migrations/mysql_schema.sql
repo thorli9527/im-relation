@@ -1,30 +1,32 @@
 -- msg_friend: 好友消息（密文存储，单表分区）
 CREATE TABLE IF NOT EXISTS `message_info` (
-  `msg_id`        BIGINT       NOT NULL PRIMARY KEY COMMENT '全局消息ID',
-  `sender_id`     BIGINT       NOT NULL COMMENT '发送方用户ID',
-  `receiver_id`   BIGINT       NOT NULL COMMENT '接收方用户ID',
-  `content_type`  INT          NOT NULL COMMENT '消息类型，protocol.message.ContentType',
-  `created_at`    BIGINT       NOT NULL COMMENT '消息创建时间(毫秒)',
+                                              `msg_id`        BIGINT       NOT NULL COMMENT '全局消息ID',
+                                              `sender_id`     BIGINT       NOT NULL COMMENT '发送方用户ID',
+                                              `receiver_id`   BIGINT       NOT NULL COMMENT '接收方用户ID',
+                                              `content_type`  INT          NOT NULL COMMENT '消息类型，protocol.message.ContentType',
+                                              `created_at`    BIGINT       NOT NULL COMMENT '消息创建时间(毫秒)',
+                                              `scheme`        VARCHAR(64)   NOT NULL COMMENT '加密方案标识，如 x25519+chacha20poly1305',
+    `key_id`        VARCHAR(128)  NOT NULL COMMENT '密钥标识，用于定位密钥材料',
+    `nonce`         VARBINARY(24) NOT NULL COMMENT 'AEAD 随机数/计数器随机量',
+    `msg_no`        BIGINT        NOT NULL COMMENT '发送端本地单调消息序号',
+    `aad`           VARBINARY(512) NULL COMMENT 'AEAD 附加认证数据(AAD)',
+    `ciphertext`    LONGBLOB      NOT NULL COMMENT '密文(包含认证标签)',
+    `content`       LONGBLOB      NOT NULL COMMENT '消息体二进制（如 Protobuf 编码的 Content）',
 
-  -- 加密元数据
-  `scheme`        VARCHAR(64)   NOT NULL COMMENT '加密方案标识，如 x25519+chacha20poly1305',
-  `key_id`        VARCHAR(128)  NOT NULL COMMENT '密钥标识，用于定位密钥材料',
-  `nonce`         VARBINARY(24) NOT NULL COMMENT 'AEAD 随机数/计数器随机量',
-  `msg_no`        BIGINT        NOT NULL COMMENT '发送端本地单调消息序号',
-  `aad`           VARBINARY(512) NULL COMMENT 'AEAD 附加认证数据(AAD)',
-  `ciphertext`    LONGBLOB      NOT NULL COMMENT '密文(包含认证标签)',
-  `content`       LONGBLOB      NOT NULL COMMENT '消息体二进制（如 Protobuf 编码的 Content）',
+    -- 主键必须包含分区列
+    PRIMARY KEY (`sender_id`, `receiver_id`, `msg_id`),
 
-  KEY `idx_receiver_time` (`receiver_id`, `created_at`),
-  KEY `idx_sender_time`   (`sender_id`, `created_at`),
-  KEY `idx_pair`          (`sender_id`, `receiver_id`)
-)
-PARTITION BY HASH (
-  CASE WHEN `receiver_id` > `sender_id`
-       THEN `receiver_id` * 1000000000000 + `sender_id`
-       ELSE `sender_id` * 1000000000000 + `receiver_id`
-  END
-) PARTITIONS 16;
+    -- 常用查询索引（按会话+时间分页）
+    KEY `idx_pair_time`    (`sender_id`, `receiver_id`, `created_at`),
+    KEY `idx_pair_time_rev`(`receiver_id`, `sender_id`, `created_at`),
+
+    -- 如果你还会按单边用户维度翻页，可保留：
+    KEY `idx_receiver_time` (`receiver_id`, `created_at`),
+    KEY `idx_sender_time`   (`sender_id`, `created_at`)
+    )
+    ENGINE=InnoDB
+    PARTITION BY KEY(`sender_id`, `receiver_id`) PARTITIONS 16;
+
 
 -- msg_friend: 设备密钥（最小托管实现）
 CREATE TABLE IF NOT EXISTS `device_keys` (

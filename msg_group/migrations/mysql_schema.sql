@@ -6,7 +6,6 @@
 --
 -- 注意：所有表按 group_id 做 Hash 分区或具备 group_id 索引，以保证横向扩展能力。
 
--- message_info: 群消息（明文存储，按 group_id 分区）
 CREATE TABLE IF NOT EXISTS `message_info` (
   `msg_id`        BIGINT       NOT NULL COMMENT '全局消息 ID（雪花 ID，保证全局有序）',
   `group_id`      BIGINT       NOT NULL COMMENT '群 ID（与分区键一致）',
@@ -16,15 +15,16 @@ CREATE TABLE IF NOT EXISTS `message_info` (
   `created_at_ms` BIGINT       NOT NULL COMMENT '服务端入库时间（毫秒精度，用于幂等/补偿逻辑）',
   `msg_no`        BIGINT       NOT NULL COMMENT '发送端本地单调序号（用于按端内顺序补齐）',
   `content`       LONGBLOB     NOT NULL COMMENT '原始消息体（二进制序列化结果，例如 protobuf Content）',
-  PRIMARY KEY (`msg_id`),
-  -- group_id + timestamp 用于消息分页与回溯。
+
+  PRIMARY KEY (`group_id`, `msg_id`),
   KEY `idx_group_time` (`group_id`, `timestamp_ms`),
-  -- sender_id + timestamp 支撑单人消息查询与风控审计。
-  KEY `idx_sender_time` (`sender_id`, `timestamp_ms`)
+  KEY `idx_sender_time` (`group_id`, `sender_id`, `timestamp_ms`),
+  KEY `idx_msg_id` (`msg_id`)  -- 如果你需要根据 msg_id 查找消息
 )
 ENGINE=InnoDB
 COMMENT='msg_group 群聊消息表，按 group_id 哈希分片'
 PARTITION BY HASH(`group_id`) PARTITIONS 32;
+
 
 -- group_join_request: 入群申请与邀请记录。
 -- 状态机：0-待处理，1-已同意，2-已拒绝，3-申请人取消。
@@ -44,11 +44,12 @@ CREATE TABLE IF NOT EXISTS `group_join_request` (
   `decided_at`    BIGINT       NULL COMMENT '审批时间（毫秒）',
   `created_at`    BIGINT       NOT NULL COMMENT '记录创建时间（毫秒）',
   `updated_at`    BIGINT       NOT NULL COMMENT '记录更新时间（毫秒）',
-  PRIMARY KEY (`id`),
+  PRIMARY KEY (`group_id`, `id`),
   -- group_id + applicant 做唯一约束，防止重复申请。
   UNIQUE KEY `uniq_group_applicant` (`group_id`, `applicant_id`),
   -- 支撑按群维度查询审批队列。
-  KEY `idx_group_status` (`group_id`, `status`)
+  KEY `idx_group_status` (`group_id`, `status`),
+  KEY `idx_request_id` (`id`)
 )
 ENGINE=InnoDB
 COMMENT='群入群申请/邀请记录表'

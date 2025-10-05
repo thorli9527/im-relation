@@ -10,11 +10,12 @@ use common::util::common_utils::build_snow_id;
 use prost::Message;
 use tonic::{Request, Response, Status};
 
-use crate::dao::message::{insert_group_message, GroupMessageRecord};
+use crate::dao::{insert_group_message, list_group_messages, GroupMessageRecord};
 use crate::server::Services;
 use common::grpc::grpc_msg_group::msg_group_service::group_msg_service_server::GroupMsgService;
 use common::grpc::message::{
     message_content, Content, MsgDeliveredAck, MsgForward, MsgRead, MsgReadAck, MsgRecall,
+    QueryGroupMessagesRequest, QueryMessagesResponse,
 };
 
 /// 群消息 gRPC 服务实现。
@@ -99,5 +100,41 @@ impl GroupMsgService for GroupMsgServiceImpl {
     /// 占位：转发消息，当前仅返回成功。
     async fn forward_msg(&self, _request: Request<MsgForward>) -> Result<Response<()>, Status> {
         Ok(Response::new(()))
+    }
+
+    async fn list_group_messages(
+        &self,
+        request: Request<QueryGroupMessagesRequest>,
+    ) -> Result<Response<QueryMessagesResponse>, Status> {
+        let req = request.into_inner();
+        let requested = if req.limit == 0 { 20 } else { req.limit };
+        let limit = requested.max(1).min(200);
+        let fetch_limit = (limit as usize).saturating_add(1);
+
+        let rows = list_group_messages(
+            self.inner.pool(),
+            req.group_id,
+            req.before_message_id.map(|id| id as i64),
+            req.before_timestamp,
+            fetch_limit,
+        )
+        .await
+        .map_err(|e| Status::internal(format!("list_group_messages: {e}")))?;
+
+        let mut messages = Vec::with_capacity(rows.len());
+        let mut has_more = false;
+
+        for (idx, rec) in rows.into_iter().enumerate() {
+            if idx == limit as usize {
+                has_more = true;
+                break;
+            }
+
+            let content = Content::decode(rec.content.as_slice())
+                .map_err(|e| Status::internal(format!("decode message failed: {e}")))?;
+            messages.push(content);
+        }
+
+        Ok(Response::new(QueryMessagesResponse { messages, has_more }))
     }
 }

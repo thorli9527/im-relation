@@ -1,5 +1,5 @@
 use anyhow::Result;
-use sqlx::{MySql, Pool};
+use sqlx::{MySql, Pool, QueryBuilder, Row};
 
 /// 群消息持久化记录，对应 `message_info` 表。
 #[derive(Debug, Clone)]
@@ -43,4 +43,61 @@ pub async fn insert_group_message(pool: &Pool<MySql>, record: &GroupMessageRecor
     .execute(pool)
     .await?;
     Ok(())
+}
+
+/// 分页查询群聊历史消息，按照时间倒序返回。
+pub async fn list_group_messages(
+    pool: &Pool<MySql>,
+    group_id: i64,
+    before_msg_id: Option<i64>,
+    before_timestamp: Option<i64>,
+    limit: usize,
+) -> Result<Vec<GroupMessageRecord>> {
+    let limit = limit.max(1);
+
+    let mut qb = QueryBuilder::new(
+        r#"
+        SELECT
+            msg_id,
+            group_id,
+            sender_id,
+            content_type,
+            timestamp_ms,
+            created_at_ms,
+            msg_no,
+            content
+        FROM message_info
+        WHERE group_id = 
+        "#,
+    );
+
+    qb.push_bind(group_id);
+
+    if let Some(ts) = before_timestamp {
+        qb.push(" AND timestamp_ms < ");
+        qb.push_bind(ts);
+    }
+    if let Some(msg_id) = before_msg_id {
+        qb.push(" AND msg_id < ");
+        qb.push_bind(msg_id);
+    }
+
+    qb.push(" ORDER BY timestamp_ms DESC, msg_id DESC LIMIT ");
+    qb.push_bind(limit as i64);
+
+    let rows = qb.build().fetch_all(pool).await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| GroupMessageRecord {
+            msg_id: row.get("msg_id"),
+            group_id: row.get("group_id"),
+            sender_id: row.get("sender_id"),
+            content_type: row.get("content_type"),
+            timestamp_ms: row.get("timestamp_ms"),
+            created_at_ms: row.get("created_at_ms"),
+            msg_no: row.get("msg_no"),
+            content: row.get("content"),
+        })
+        .collect())
 }

@@ -108,8 +108,74 @@ pub struct ServiceEndpoint {
 }
 
 impl ServiceEndpoint {
+    pub fn from_addr(addr: String) -> Self {
+        Self {
+            index: 0,
+            url: None,
+            grpc_addr: Some(addr),
+        }
+    }
+
     pub fn resolved_url(&self) -> Option<String> {
         self.url.clone().or_else(|| self.grpc_addr.clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deserialize_single_endpoint_table() {
+        let cfg: AppConfig = toml::from_str(
+            r#"
+            [user_service]
+            grpc_addr = "127.0.0.1:6001"
+            "#,
+        )
+        .unwrap();
+
+        assert_eq!(cfg.user_service.len(), 1);
+        assert_eq!(
+            cfg.user_service[0].grpc_addr.as_deref(),
+            Some("127.0.0.1:6001")
+        );
+    }
+
+    #[test]
+    fn deserialize_single_endpoint_inline_string() {
+        let cfg: AppConfig = toml::from_str(
+            r#"
+            user_service = "127.0.0.1:6001"
+            "#,
+        )
+        .unwrap();
+
+        assert_eq!(cfg.user_service.len(), 1);
+        assert_eq!(
+            cfg.user_service[0].grpc_addr.as_deref(),
+            Some("127.0.0.1:6001")
+        );
+    }
+
+    #[test]
+    fn deserialize_endpoint_array() {
+        let cfg: AppConfig = toml::from_str(
+            r#"
+            [[user_service]]
+            index = 2
+            grpc_addr = "127.0.0.1:6001"
+
+            [[user_service]]
+            index = 1
+            url = "https://example.com"
+            "#,
+        )
+        .unwrap();
+
+        assert_eq!(cfg.user_service.len(), 2);
+        assert_eq!(cfg.user_service[0].index, 2);
+        assert_eq!(cfg.user_service[1].index, 1);
     }
 }
 
@@ -120,6 +186,7 @@ where
     #[derive(Deserialize)]
     #[serde(untagged)]
     enum EndpointList {
+        Addr(String),
         Single(ServiceEndpoint),
         List(Vec<ServiceEndpoint>),
     }
@@ -127,6 +194,7 @@ where
     let endpoints = Option::<EndpointList>::deserialize(deserializer)?;
 
     Ok(match endpoints {
+        Some(EndpointList::Addr(addr)) => vec![ServiceEndpoint::from_addr(addr)],
         Some(EndpointList::Single(endpoint)) => vec![endpoint],
         Some(EndpointList::List(list)) => list,
         None => Vec::new(),

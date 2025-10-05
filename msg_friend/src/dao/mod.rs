@@ -6,8 +6,8 @@ pub mod messages;
 
 #[allow(unused_imports)]
 pub use messages::{
-    copy_message_as_forward, get_message_by_id, insert_encrypted_message, mark_delivered,
-    mark_read, recall_message, EncryptedMessageRecord,
+    copy_message_as_forward, get_message_by_id, insert_encrypted_message,
+    list_conversation_messages, mark_delivered, mark_read, recall_message, EncryptedMessageRecord,
 };
 
 pub use device_keys::{fetch_device_bundles, upsert_device_keys, DeviceKeysRow};

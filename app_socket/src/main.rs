@@ -12,7 +12,7 @@ pub mod service;
 
 use anyhow::{Context, Result};
 use common::config::AppConfig;
-use service::{start_socket_pipeline, MultiLoginPolicy, SessionManager, SessionPolicy};
+use service::{MultiLoginPolicy, SessionManager, SessionPolicy};
 use std::net::SocketAddr;
 use tokio::signal;
 
@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
     // 启动 TCP 监听（长度前缀 JSON 协议，端口来自配置文件）
     server::start_tcp_server().await?;
     // 启动消费/分发流水线：Kafka → mpsc 分片 → SessionManager
-    start_socket_pipeline().await?;
+    server::start_socket_pipeline().await?;
 
     // 等待 Ctrl-C 以优雅退出
     let _ = signal::ctrl_c().await;

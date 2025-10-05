@@ -6,3 +6,4 @@ pub mod message;
 
 pub use action_log::*;
 pub use join_request::*;
+pub use message::{insert_group_message, list_group_messages, GroupMessageRecord};

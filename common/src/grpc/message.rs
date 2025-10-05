@@ -313,7 +313,17 @@ pub struct AvCallContent {
 pub mod av_call_content {
     #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
     #[serde(rename_all = "camelCase")]
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum CallAction {
         /// 未知操作
@@ -363,7 +373,17 @@ pub mod av_call_content {
     }
     #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
     #[serde(rename_all = "camelCase")]
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum CallType {
         /// 音频通话：仅语音通话
@@ -534,8 +554,10 @@ pub struct NotificationContent {
     pub body: ::prost::alloc::string::String,
     /// 元数据：通知的附加信息
     #[prost(map = "string, string", tag = "3")]
-    pub metadata:
-        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    pub metadata: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
 }
 /// ===============================
 /// ⚙️ 系统消息
@@ -664,8 +686,10 @@ pub struct Segment {
     pub seq_in_msg: u64,
     /// 通用扩展字段（以字符串键值对存储 JSON 扁平数据）：段的元数据
     #[prost(map = "string, string", tag = "3")]
-    pub metadata:
-        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    pub metadata: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
 }
 /// ======================================
 /// 📨 顶层消息结构
@@ -950,6 +974,57 @@ pub mod typing {
         #[prost(int64, tag = "5")]
         GroupId(i64),
     }
+}
+/// 查询好友消息历史
+#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct QueryFriendMessagesRequest {
+    /// 当前用户 ID
+    #[prost(int64, tag = "1")]
+    pub user_id: i64,
+    /// 好友 ID
+    #[prost(int64, tag = "2")]
+    pub friend_id: i64,
+    /// 分页游标：消息 ID 上限（不含）
+    #[prost(uint64, optional, tag = "3")]
+    pub before_message_id: ::core::option::Option<u64>,
+    /// 分页游标：时间上限（毫秒，不含）
+    #[prost(int64, optional, tag = "4")]
+    pub before_timestamp: ::core::option::Option<i64>,
+    /// 返回条目上限，缺省 20
+    #[prost(uint32, tag = "5")]
+    pub limit: u32,
+}
+/// 查询群聊消息历史
+#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct QueryGroupMessagesRequest {
+    /// 群 ID
+    #[prost(int64, tag = "1")]
+    pub group_id: i64,
+    /// 分页游标：消息 ID 上限（不含）
+    #[prost(uint64, optional, tag = "2")]
+    pub before_message_id: ::core::option::Option<u64>,
+    /// 分页游标：时间上限（毫秒，不含）
+    #[prost(int64, optional, tag = "3")]
+    pub before_timestamp: ::core::option::Option<i64>,
+    /// 返回条目上限，缺省 20
+    #[prost(uint32, tag = "4")]
+    pub limit: u32,
+}
+/// 历史消息查询统一响应
+#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QueryMessagesResponse {
+    /// 消息列表（按时间倒序或应用约定排序）
+    #[prost(message, repeated, tag = "1")]
+    pub messages: ::prost::alloc::vec::Vec<Content>,
+    /// 是否还有更多数据
+    #[prost(bool, tag = "2")]
+    pub has_more: bool,
 }
 /// ===============
 /// 加密载荷封装（端到端加密）

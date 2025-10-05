@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use sqlx::{MySql, Pool, Row};
+use sqlx::{MySql, Pool, QueryBuilder, Row};
 
 /// 加密消息记录。
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +48,85 @@ pub async fn insert_encrypted_message(
     .execute(pool)
     .await?;
     Ok(())
+}
+
+/// 按好友会话查询历史消息，按照时间倒序返回。
+pub async fn list_conversation_messages(
+    pool: &Pool<MySql>,
+    user_id: i64,
+    friend_id: i64,
+    since_timestamp: Option<i64>,
+    before_msg_id: Option<i64>,
+    before_timestamp: Option<i64>,
+    limit: usize,
+) -> Result<Vec<EncryptedMessageRecord>> {
+    let limit = limit.max(1);
+
+    let mut qb = QueryBuilder::new(
+        r#"
+        SELECT
+            msg_id,
+            sender_id,
+            receiver_id,
+            content_type,
+            created_at,
+            scheme,
+            key_id,
+            nonce,
+            msg_no,
+            aad,
+            ciphertext,
+            content
+        FROM message_info
+        WHERE (
+            sender_id = 
+        "#,
+    );
+
+    qb.push_bind(user_id);
+    qb.push(" AND receiver_id = ");
+    qb.push_bind(friend_id);
+    qb.push(") OR (sender_id = ");
+    qb.push_bind(friend_id);
+    qb.push(" AND receiver_id = ");
+    qb.push_bind(user_id);
+    qb.push(")");
+
+    if let Some(ts) = since_timestamp {
+        qb.push(" AND created_at >= ");
+        qb.push_bind(ts);
+    }
+    if let Some(ts) = before_timestamp {
+        qb.push(" AND created_at < ");
+        qb.push_bind(ts);
+    }
+    if let Some(msg_id) = before_msg_id {
+        qb.push(" AND msg_id < ");
+        qb.push_bind(msg_id);
+    }
+
+    qb.push(" ORDER BY created_at DESC, msg_id DESC LIMIT ");
+    qb.push_bind(limit as i64);
+
+    let rows = qb.build().fetch_all(pool).await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| EncryptedMessageRecord {
+            msg_id: row.get("msg_id"),
+            sender_id: row.get("sender_id"),
+            receiver_id: row.get("receiver_id"),
+            content_type: row.get("content_type"),
+            created_at: row.get("created_at"),
+            scheme: row.get("scheme"),
+            key_id: row.get("key_id"),
+            nonce: row.get("nonce"),
+            msg_no: row.get("msg_no"),
+            aad: row.get("aad"),
+            ciphertext: row.get("ciphertext"),
+            content: row.get("content"),
+        })
+        .collect())
 }
 
 /// 根据消息 ID 查询加密消息。
