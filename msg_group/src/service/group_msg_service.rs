@@ -62,7 +62,7 @@ impl GroupMsgService for GroupMsgServiceImpl {
             msg_id,
             group_id: content.receiver_id,
             sender_id: content.sender_id,
-            content_type: content.message_type,
+            msg_kind: content.msg_kind,
             timestamp_ms: content.timestamp,
             created_at_ms: Self::now_ms(),
             msg_no,
@@ -130,8 +130,11 @@ impl GroupMsgService for GroupMsgServiceImpl {
                 break;
             }
 
-            let content = Content::decode(rec.content.as_slice())
+            let mut content = Content::decode(rec.content.as_slice())
                 .map_err(|e| Status::internal(format!("decode message failed: {e}")))?;
+            if content.msg_kind == 0 {
+                content.msg_kind = rec.msg_kind;
+            }
             messages.push(content);
         }
 

@@ -3,17 +3,19 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use common::kafka::kafka_producer::KafkaInstanceService;
 use common::kafka::topic_info::MSG_SEND_GROUP_TOPIC;
+use common::message_bus::{DeliveryOptions, DomainMessage};
 use common::util::common_utils::build_snow_id;
 use prost::Message;
 use tonic::Status;
 
-use crate::socket::{KafkaMsg, MsgKind};
+use crate::socket::MsgKind;
 
 /// 向 socket 分发通道推送消息。
 /// 若未配置 Kafka，则静默忽略（返回 Ok）。
 pub async fn push_socket_message<M: Message>(
     kafka: Option<&Arc<KafkaInstanceService>>,
     to: i64,
+    group_id: Option<i64>,
     kind: MsgKind,
     message: &M,
     require_ack: bool,
@@ -32,21 +34,27 @@ pub async fn push_socket_message<M: Message>(
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as i64;
-    let socket_msg = KafkaMsg {
-        to,
-        id: Some(msg_id),
-        kind: kind as i32,
-        payload,
-        require_ack: Some(require_ack),
-        expire_ms: Some(10_000),
-        max_retry: Some(2),
-        ts_ms: Some(ts_ms),
+    let delivery = if require_ack {
+        DeliveryOptions::require_ack_defaults()
+    } else {
+        DeliveryOptions::fire_and_forget()
     };
+    let domain = DomainMessage::group(
+        to,
+        Some(msg_id),
+        kind,
+        payload,
+        ts_ms,
+        delivery,
+        group_id,
+        None,
+    );
+    let socket_msg = domain.to_kafka_msg();
 
     kafka
         .send_message(
             &socket_msg,
-            &msg_id.to_string(),
+            &domain.message_id().unwrap_or(msg_id).to_string(),
             &MSG_SEND_GROUP_TOPIC.topic_name,
         )
         .await

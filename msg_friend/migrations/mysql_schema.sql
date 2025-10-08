@@ -1,11 +1,11 @@
 -- msg_friend: 好友消息（密文存储，单表分区）
 CREATE TABLE IF NOT EXISTS `message_info` (
-                                              `msg_id`        BIGINT       NOT NULL COMMENT '全局消息ID',
-                                              `sender_id`     BIGINT       NOT NULL COMMENT '发送方用户ID',
-                                              `receiver_id`   BIGINT       NOT NULL COMMENT '接收方用户ID',
-                                              `content_type`  INT          NOT NULL COMMENT '消息类型，protocol.message.ContentType',
-                                              `created_at`    BIGINT       NOT NULL COMMENT '消息创建时间(毫秒)',
-                                              `scheme`        VARCHAR(64)   NOT NULL COMMENT '加密方案标识，如 x25519+chacha20poly1305',
+    `msg_id`        BIGINT       NOT NULL COMMENT '全局消息ID',
+    `sender_id`     BIGINT       NOT NULL COMMENT '发送方用户ID',
+    `receiver_id`   BIGINT       NOT NULL COMMENT '接收方用户ID',
+    `msg_kind`      INT          NOT NULL COMMENT '消息类型，对应 socket.MsgKind',
+    `created_at`    BIGINT       NOT NULL COMMENT '消息创建时间(毫秒)',
+    `scheme`        VARCHAR(64)   NOT NULL COMMENT '加密方案标识，如 x25519+chacha20poly1305',
     `key_id`        VARCHAR(128)  NOT NULL COMMENT '密钥标识，用于定位密钥材料',
     `nonce`         VARBINARY(24) NOT NULL COMMENT 'AEAD 随机数/计数器随机量',
     `msg_no`        BIGINT        NOT NULL COMMENT '发送端本地单调消息序号',

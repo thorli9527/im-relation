@@ -190,6 +190,7 @@ impl GroupBizServiceImpl {
             if let Err(err) = push_socket_message(
                 self.kafka(),
                 admin.id,
+                Some(notice.group_id),
                 SocketMsgKind::MkGroupJoinRequest,
                 notice,
                 true,
@@ -225,6 +226,7 @@ impl GroupBizServiceImpl {
         if let Err(err) = push_socket_message(
             self.kafka(),
             applicant_id,
+            Some(group_id),
             SocketMsgKind::MkGroupJoinRequestAck,
             &notice,
             true,
@@ -274,6 +276,7 @@ impl GroupBizServiceImpl {
             if let Err(err) = push_socket_message(
                 self.kafka(),
                 member.id,
+                Some(group_id),
                 SocketMsgKind::MkGroupMemberAdd,
                 &notice,
                 false,

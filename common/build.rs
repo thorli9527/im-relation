@@ -30,6 +30,7 @@ fn generate_message() -> Result<(), Box<dyn Error>> {
         "#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]",
     );
     config.type_attribute(".", "#[serde(rename_all = \"camelCase\")]");
+    config.extern_path(".socket", "crate::grpc::grpc_socket::socket");
     config.compile_protos(&["proto/message.proto"], &["proto"])?;
 
     println!("cargo:rerun-if-changed=proto/message.proto");
@@ -66,6 +67,7 @@ fn generate_grpc_with_serde(
     builder = builder.out_dir(out_dir);
     if extern_message {
         builder = builder.extern_path(".message", "crate::grpc::message");
+        builder = builder.extern_path(".socket", "crate::grpc::grpc_socket::socket");
     }
 
     builder.compile_protos(protos, &["proto"])?;

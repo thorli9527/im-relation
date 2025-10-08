@@ -292,6 +292,15 @@ pub enum MsgKind {
     /// end of enum
     MkAck = 906,
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum MsgCategory {
+    Friend,
+    Group,
+    System,
+    Unknown,
+}
+
 impl MsgKind {
     /// String value of the enum field names used in the ProtoBuf definition.
     ///
@@ -409,6 +418,63 @@ impl MsgKind {
             "MK_MSG_RECALL" => Some(Self::MkMsgRecall),
             "MK_ACK" => Some(Self::MkAck),
             _ => None,
+        }
+    }
+
+    pub fn category(self) -> MsgCategory {
+        match self {
+            Self::MkFriend
+            | Self::MkFriendMsgReadAck
+            | Self::MkFriendMsgRecall
+            | Self::MkFriendMsgDeliveredAck
+            | Self::MkFriendMsgRead
+            | Self::MkFriendMsgDelivered
+            | Self::MkFriendMsgForward
+            | Self::MkFriendMsgEdit
+            | Self::MkFriendMsgReaction
+            | Self::MkFriendTyping
+            | Self::MkFriendCallInvite
+            | Self::MkFriendCallCancel
+            | Self::MkFriendCallReject
+            | Self::MkFriendCallAccept
+            | Self::MkFriendCallHangup
+            | Self::MkFriendCallModify
+            | Self::MkFriendCallDtmf
+            | Self::MkFriendRequest
+            | Self::MkFriendRequestAck
+            | Self::MkFriendRequestReject
+            | Self::MkFriendDelete
+            | Self::MkFriendUpdateRemark => MsgCategory::Friend,
+            Self::MkGroup
+            | Self::MkGroupMsgReadAck
+            | Self::MkGroupMsgRecall
+            | Self::MkGroupAtAll
+            | Self::MkGroupAtUser
+            | Self::MkGroupMsgEdit
+            | Self::MkGroupMsgReaction
+            | Self::MkGroupMsgDelivered
+            | Self::MkGroupMsgDeliveredAck
+            | Self::MkGroupMsgRead
+            | Self::MkGroupTyping
+            | Self::MkGroupJoinRequest
+            | Self::MkGroupJoinRequestAck
+            | Self::MkGroupUpdateName
+            | Self::MkGroupUpdateAnnouncement
+            | Self::MkGroupUpdateAvatar
+            | Self::MkGroupMemberAdd
+            | Self::MkGroupMemberDelete
+            | Self::MkGroupMemberQuit
+            | Self::MkGroupMemberUpdate
+            | Self::MkGroupDismiss
+            | Self::MkGroupTransfer => MsgCategory::Group,
+            Self::MkSysNotice
+            | Self::MkUserPresence
+            | Self::MkUserProfileUpdate
+            | Self::MkUserPrivacyUpdate
+            | Self::MkUserAccountData
+            | Self::MkMsgRecall
+            | Self::MkAck => MsgCategory::System,
+            _ => MsgCategory::Unknown,
         }
     }
 }

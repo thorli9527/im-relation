@@ -10,8 +10,8 @@ pub struct GroupMessageRecord {
     pub group_id: i64,
     /// 发送者用户 ID。
     pub sender_id: i64,
-    /// 消息类型（参照 proto 定义）。
-    pub content_type: i32,
+    /// 消息类型（socket.MsgKind）。
+    pub msg_kind: i32,
     /// 发送时间戳（客户端上报或服务端生成）。
     pub timestamp_ms: i64,
     /// 数据写入时间戳（毫秒）。
@@ -28,14 +28,14 @@ pub async fn insert_group_message(pool: &Pool<MySql>, record: &GroupMessageRecor
     sqlx::query(
         r#"
         INSERT INTO message_info
-            (msg_id, group_id, sender_id, content_type, timestamp_ms, created_at_ms, msg_no, content)
+            (msg_id, group_id, sender_id, msg_kind, timestamp_ms, created_at_ms, msg_no, content)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         "#,
     )
     .bind(record.msg_id)
     .bind(record.group_id)
     .bind(record.sender_id)
-    .bind(record.content_type)
+    .bind(record.msg_kind)
     .bind(record.timestamp_ms)
     .bind(record.created_at_ms)
     .bind(record.msg_no)
@@ -61,7 +61,7 @@ pub async fn list_group_messages(
             msg_id,
             group_id,
             sender_id,
-            content_type,
+            msg_kind,
             timestamp_ms,
             created_at_ms,
             msg_no,
@@ -93,7 +93,7 @@ pub async fn list_group_messages(
             msg_id: row.get("msg_id"),
             group_id: row.get("group_id"),
             sender_id: row.get("sender_id"),
-            content_type: row.get("content_type"),
+            msg_kind: row.get("msg_kind"),
             timestamp_ms: row.get("timestamp_ms"),
             created_at_ms: row.get("created_at_ms"),
             msg_no: row.get("msg_no"),

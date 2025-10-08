@@ -1,6 +1,7 @@
 //! 好友消息 gRPC 服务实现：负责入库、Kafka 推送与分片控制。
 
 use prost::Message as _;
+use std::convert::TryFrom;
 use std::hash::Hasher as _;
 use tonic::{Request, Response, Status};
 
@@ -10,8 +11,12 @@ use crate::dao::{
 };
 use crate::server::Services;
 use common::grpc::grpc_hot_friend::friend_service::{GetFriendsDetailedReq, IsFriendReq};
-use common::grpc::{grpc_msg_friend::msg_friend_service as msgpb, message as msg_message};
+use common::grpc::{
+    grpc_msg_friend::msg_friend_service as msgpb, grpc_socket::socket::MsgKind,
+    message as msg_message,
+};
 use common::kafka::topic_info::MSG_SEND_FRIEND_TOPIC;
+use common::message_bus::{DeliveryOptions, DomainMessage};
 
 #[tonic::async_trait]
 impl msgpb::friend_msg_service_server::FriendMsgService for Services {
@@ -47,45 +52,67 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
             }
         }
 
-        // 入库：仅在 Encrypted 内容时落库
-        if content.message_type == msg_message::ContentType::Encrypted as i32 {
-            if let Some(first) = content.contents.first() {
-                if let Some(msg_message::message_content::Content::Encrypted(enc)) = &first.content
-                {
-                    let mut raw = Vec::with_capacity(256);
-                    content.encode(&mut raw).ok();
-                    let rec = EncryptedMessageRecord {
-                        msg_id: content.message_id.unwrap_or_default() as i64,
-                        sender_id: content.sender_id,
-                        receiver_id: content.receiver_id,
-                        content_type: content.message_type,
-                        created_at: content.timestamp,
-                        scheme: enc.scheme.clone(),
-                        key_id: enc.key_id.clone(),
-                        nonce: enc.nonce.clone(),
-                        msg_no: enc.msg_no as i64,
-                        aad: if enc.aad.is_empty() {
-                            None
-                        } else {
-                            Some(enc.aad.clone())
-                        },
-                        ciphertext: enc.ciphertext.clone(),
-                        content: raw,
-                    };
-                    insert_encrypted_message(self.pool(), &rec)
-                        .await
-                        .map_err(|e| Status::internal(format!("db error: {e}")))?;
+        // 入库：所有消息统一落库，根据是否存在加密内容填充密文字段。
+        let mut raw = Vec::with_capacity(256);
+        content.encode(&mut raw).ok();
+
+        let mut scheme = String::new();
+        let mut key_id = String::new();
+        let mut nonce = Vec::new();
+        let mut msg_no = 0_i64;
+        let mut aad: Option<Vec<u8>> = None;
+        let mut ciphertext = Vec::new();
+
+        if let Some(first) = content.contents.first() {
+            if let Some(msg_message::message_content::Content::Encrypted(enc)) = &first.content {
+                scheme = enc.scheme.clone();
+                key_id = enc.key_id.clone();
+                nonce = enc.nonce.clone();
+                msg_no = enc.msg_no as i64;
+                if !enc.aad.is_empty() {
+                    aad = Some(enc.aad.clone());
                 }
+                ciphertext = enc.ciphertext.clone();
             }
         }
 
+        let rec = EncryptedMessageRecord {
+            msg_id: content.message_id.unwrap_or_default() as i64,
+            sender_id: content.sender_id,
+            receiver_id: content.receiver_id,
+            msg_kind: content.msg_kind,
+            created_at: content.timestamp,
+            scheme,
+            key_id,
+            nonce,
+            msg_no,
+            aad,
+            ciphertext,
+            content: raw,
+        };
+
+        insert_encrypted_message(self.pool(), &rec)
+            .await
+            .map_err(|e| Status::internal(format!("db error: {e}")))?;
+
         // Kafka 通知
         if let Some(kafka) = self.kafka() {
+            let kind = MsgKind::try_from(content.msg_kind).unwrap_or(MsgKind::MkFriend);
+            let domain = DomainMessage::friend(
+                content.receiver_id,
+                Some(rec.msg_id),
+                kind,
+                rec.content.clone(),
+                content.timestamp,
+                DeliveryOptions::require_ack_defaults(),
+                Some(content.sender_id),
+                Some(content.receiver_id),
+            );
+            let kafka_msg = domain.to_kafka_msg();
             let _ = kafka
-                .send_proto(
-                    100,
-                    &content,
-                    &(content.message_id.unwrap_or_default() as i64),
+                .send_message(
+                    &kafka_msg,
+                    &domain.message_id().unwrap_or(rec.msg_id).to_string(),
                     &MSG_SEND_FRIEND_TOPIC.topic_name,
                 )
                 .await;
@@ -156,7 +183,7 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
                 sender_id: r.from_user_id,
                 receiver_id: r.to_user_id,
                 timestamp: r.created_at,
-                message_type: msg_message::ContentType::Encrypted as i32,
+                msg_kind: MsgKind::MkFriend as i32,
                 scene: msg_message::ChatScene::Single as i32,
                 contents: vec![],
             };
@@ -202,8 +229,11 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
                 break;
             }
 
-            let content = msg_message::Content::decode(rec.content.as_slice())
+            let mut content = msg_message::Content::decode(rec.content.as_slice())
                 .map_err(|e| Status::internal(format!("decode message failed: {e}")))?;
+            if content.msg_kind == 0 {
+                content.msg_kind = rec.msg_kind;
+            }
             messages.push(content);
         }
 
@@ -278,8 +308,11 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
 
         let mut messages = Vec::with_capacity(records.len());
         for rec in records {
-            let content = msg_message::Content::decode(rec.content.as_slice())
+            let mut content = msg_message::Content::decode(rec.content.as_slice())
                 .map_err(|e| Status::internal(format!("decode message failed: {e}")))?;
+            if content.msg_kind == 0 {
+                content.msg_kind = rec.msg_kind;
+            }
             messages.push(content);
         }
 

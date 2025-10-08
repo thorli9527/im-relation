@@ -27,9 +27,7 @@ enum FriendRequestSource {
   FRS_GROUP_MEMBER = 4;
 }
 
-// 消息主类型（复用 message.proto 的 ContentType）
-// 建议 contents 直接承载完整结构，content_type 用于快速渲染判断
-// 生成语言需使用完全限定名：protocol.message.ContentType
+// 消息主类型使用 socket.MsgKind，contents 可承载完整消息体
 
 // 与消息（状态/通话/typing/reaction）相关定义统一迁移到 message.proto
 

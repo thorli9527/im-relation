@@ -313,17 +313,7 @@ pub struct AvCallContent {
 pub mod av_call_content {
     #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
     #[serde(rename_all = "camelCase")]
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum CallAction {
         /// 未知操作
@@ -373,17 +363,7 @@ pub mod av_call_content {
     }
     #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
     #[serde(rename_all = "camelCase")]
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum CallType {
         /// 音频通话：仅语音通话
@@ -474,9 +454,9 @@ pub struct ForwardContent {
     /// 原发送者 ID：原消息的发送者
     #[prost(string, tag = "2")]
     pub original_sender_id: ::prost::alloc::string::String,
-    /// 原消息类型：原消息的类型
-    #[prost(enumeration = "ContentType", tag = "3")]
-    pub original_type: i32,
+    /// 原消息类型：原消息的 MsgKind
+    #[prost(enumeration = "crate::grpc::grpc_socket::socket::MsgKind", tag = "3")]
+    pub original_kind: i32,
     /// 摘要：转发的摘要信息
     #[prost(string, tag = "4")]
     pub summary: ::prost::alloc::string::String,
@@ -554,10 +534,8 @@ pub struct NotificationContent {
     pub body: ::prost::alloc::string::String,
     /// 元数据：通知的附加信息
     #[prost(map = "string, string", tag = "3")]
-    pub metadata: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::string::String,
-    >,
+    pub metadata:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
 /// ===============================
 /// ⚙️ 系统消息
@@ -686,10 +664,8 @@ pub struct Segment {
     pub seq_in_msg: u64,
     /// 通用扩展字段（以字符串键值对存储 JSON 扁平数据）：段的元数据
     #[prost(map = "string, string", tag = "3")]
-    pub metadata: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::string::String,
-    >,
+    pub metadata:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
 /// ======================================
 /// 📨 顶层消息结构
@@ -711,9 +687,9 @@ pub struct Content {
     /// 消息发送时间（毫秒时间戳）：消息创建的时间
     #[prost(int64, tag = "4")]
     pub timestamp: i64,
-    /// 主消息类型（用于快速渲染判断）：消息的主要类型
-    #[prost(enumeration = "ContentType", tag = "5")]
-    pub message_type: i32,
+    /// 主消息类型（socket 层 MsgKind，用于快速渲染判断）
+    #[prost(enumeration = "crate::grpc::grpc_socket::socket::MsgKind", tag = "5")]
+    pub msg_kind: i32,
     /// 消息所属会话类型（单聊/群聊）：消息的会话场景
     #[prost(enumeration = "ChatScene", tag = "6")]
     pub scene: i32,
@@ -1047,7 +1023,7 @@ pub struct EncryptedContent {
     #[prost(bytes = "vec", tag = "4")]
     pub nonce: ::prost::alloc::vec::Vec<u8>,
     /// AEAD 密文（含认证标签）；密文内容为“单条 MessageContent 的 Protobuf 编码”
-    /// 注意：仅对 MessageContent 加密，顶层 Content 的元数据（sender/receiver/timestamp/scene/message_type）保持明文
+    /// 注意：仅对 MessageContent 加密，顶层 Content 的元数据（sender/receiver/timestamp/scene/msg_kind）保持明文
     #[prost(bytes = "vec", tag = "5")]
     pub ciphertext: ::prost::alloc::vec::Vec<u8>,
     /// 附加认证数据（A.A.D.，可为空）
@@ -1057,124 +1033,6 @@ pub struct EncryptedContent {
     /// 发送方本地单调消息序号（防重放/乱序）
     #[prost(uint64, tag = "7")]
     pub msg_no: u64,
-}
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum ContentType {
-    /// 未知
-    Unknown = 0,
-    /// 文本
-    Text = 1,
-    /// 图片
-    Image = 2,
-    /// 音频
-    Audio = 3,
-    /// 视频
-    Video = 4,
-    /// 富文本
-    Html = 5,
-    /// 位置
-    Location = 6,
-    /// 文件
-    File = 7,
-    /// 表情
-    Emoji = 8,
-    /// 引用
-    Quote = 9,
-    /// 音视频通话信令
-    AvCall = 10,
-    /// VOIP 通话记录
-    Voip = 11,
-    /// 通知
-    Notification = 12,
-    /// 系统消息
-    System = 13,
-    /// 提醒
-    Reminder = 14,
-    /// 好友事件
-    FriendEvent = 15,
-    /// 消息撤回
-    Revoke = 17,
-    /// 消息转发
-    Forward = 18,
-    /// 名片
-    ContactCard = 19,
-    /// 投票
-    Vote = 20,
-    /// 红包
-    RedEnvelope = 21,
-    /// 加密消息（仅 MessageContent 加密；顶层元数据保持明文）
-    Encrypted = 22,
-    /// 通用业务确认/通知（处理结果回执）
-    Ack = 23,
-    /// 自定义消息
-    Custom = 100,
-}
-impl ContentType {
-    /// String value of the enum field names used in the ProtoBuf definition.
-    ///
-    /// The values are not transformed in any way and thus are considered stable
-    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-    pub fn as_str_name(&self) -> &'static str {
-        match self {
-            Self::Unknown => "UNKNOWN",
-            Self::Text => "TEXT",
-            Self::Image => "IMAGE",
-            Self::Audio => "AUDIO",
-            Self::Video => "VIDEO",
-            Self::Html => "HTML",
-            Self::Location => "LOCATION",
-            Self::File => "FILE",
-            Self::Emoji => "EMOJI",
-            Self::Quote => "QUOTE",
-            Self::AvCall => "AV_CALL",
-            Self::Voip => "VOIP",
-            Self::Notification => "NOTIFICATION",
-            Self::System => "SYSTEM",
-            Self::Reminder => "REMINDER",
-            Self::FriendEvent => "FRIEND_EVENT",
-            Self::Revoke => "REVOKE",
-            Self::Forward => "FORWARD",
-            Self::ContactCard => "CONTACT_CARD",
-            Self::Vote => "VOTE",
-            Self::RedEnvelope => "RED_ENVELOPE",
-            Self::Encrypted => "ENCRYPTED",
-            Self::Ack => "ACK",
-            Self::Custom => "CUSTOM",
-        }
-    }
-    /// Creates an enum from field names used in the ProtoBuf definition.
-    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-        match value {
-            "UNKNOWN" => Some(Self::Unknown),
-            "TEXT" => Some(Self::Text),
-            "IMAGE" => Some(Self::Image),
-            "AUDIO" => Some(Self::Audio),
-            "VIDEO" => Some(Self::Video),
-            "HTML" => Some(Self::Html),
-            "LOCATION" => Some(Self::Location),
-            "FILE" => Some(Self::File),
-            "EMOJI" => Some(Self::Emoji),
-            "QUOTE" => Some(Self::Quote),
-            "AV_CALL" => Some(Self::AvCall),
-            "VOIP" => Some(Self::Voip),
-            "NOTIFICATION" => Some(Self::Notification),
-            "SYSTEM" => Some(Self::System),
-            "REMINDER" => Some(Self::Reminder),
-            "FRIEND_EVENT" => Some(Self::FriendEvent),
-            "REVOKE" => Some(Self::Revoke),
-            "FORWARD" => Some(Self::Forward),
-            "CONTACT_CARD" => Some(Self::ContactCard),
-            "VOTE" => Some(Self::Vote),
-            "RED_ENVELOPE" => Some(Self::RedEnvelope),
-            "ENCRYPTED" => Some(Self::Encrypted),
-            "ACK" => Some(Self::Ack),
-            "CUSTOM" => Some(Self::Custom),
-            _ => None,
-        }
-    }
 }
 /// ======================================
 /// 😄 Emoji 类型定义（标准 + 自定义）

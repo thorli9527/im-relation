@@ -2,6 +2,7 @@ pub mod config;
 pub mod errors;
 pub mod grpc;
 pub mod kafka;
+pub mod message_bus;
 pub mod node_util;
 pub mod redis;
 pub mod result;

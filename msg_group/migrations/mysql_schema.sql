@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS `message_info` (
   `msg_id`        BIGINT       NOT NULL COMMENT '全局消息 ID（雪花 ID，保证全局有序）',
   `group_id`      BIGINT       NOT NULL COMMENT '群 ID（与分区键一致）',
   `sender_id`     BIGINT       NOT NULL COMMENT '发送者用户 ID',
-  `content_type`  INT          NOT NULL COMMENT '消息类型（参见 proto ContentType 枚举）',
+  `msg_kind`      INT          NOT NULL COMMENT '消息类型（参见 socket.MsgKind 枚举）',
   `timestamp_ms`  BIGINT       NOT NULL COMMENT '客户端发送时间戳（毫秒精度）',
   `created_at_ms` BIGINT       NOT NULL COMMENT '服务端入库时间（毫秒精度，用于幂等/补偿逻辑）',
   `msg_no`        BIGINT       NOT NULL COMMENT '发送端本地单调序号（用于按端内顺序补齐）',

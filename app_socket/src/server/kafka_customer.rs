@@ -21,11 +21,10 @@ use rdkafka::Offset;
 
 use crate::service::dispatcher::ShardedDispatcher;
 use crate::service::types::{SendOpts, ServerMsg, UserId};
-use common::grpc::grpc_socket::socket::{KafkaMsg, MsgKind as PbMsgKind};
+use common::grpc::grpc_socket::socket::KafkaMsg;
 use common::kafka::start_consumer;
-use common::kafka::topic_info::{
-    TopicInfo, MSG_SEND_FRIEND_TOPIC, MSG_SEND_GROUP_TOPIC, SYS_MSG_TOPIC_INFO,
-};
+use common::kafka::topic_info::{TopicInfo, MSG_SEND_FRIEND_TOPIC, MSG_SEND_GROUP_TOPIC};
+use common::message_bus::DomainMessage;
 use std::convert::TryFrom;
 
 /// 启动 Kafka → dispatcher → SessionManager 的数据通道。
@@ -75,28 +74,34 @@ pub async fn start_socket_pipeline() -> anyhow::Result<()> {
                     anyhow!("decode kafka msg failed")
                 })?;
 
+                let domain = DomainMessage::try_from(kmsg.clone()).map_err(|e| {
+                    error!("unsupported kafka message kind: {:?}", e);
+                    anyhow!("unsupported kafka message kind")
+                })?;
+
                 // Kafka 允许消息不带 id，此时生成一个基于毫秒时间戳的唯一值，保证 ACK 对齐。
-                let id = kmsg.id.unwrap_or_else(|| {
+                let fallback_id = kmsg.id.unwrap_or_else(|| {
                     use std::time::{SystemTime, UNIX_EPOCH};
                     SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .map(|d| d.as_millis() as i64)
                         .unwrap_or(0)
                 });
-                let kind = PbMsgKind::try_from(kmsg.kind).unwrap_or(PbMsgKind::MkUnknown);
+                let id = domain.message_id().unwrap_or(fallback_id);
                 let msg = ServerMsg {
                     id,
-                    kind,
-                    payload: kmsg.payload.clone(),
-                    ts_ms: kmsg.ts_ms.unwrap_or(id),
+                    kind: domain.kind(),
+                    payload: domain.payload().to_vec(),
+                    ts_ms: domain.timestamp_ms(),
                 };
 
+                let delivery = domain.delivery().clone();
                 // `SendOpts` 决定 ACK 行为：expire, max_retry 等都由生产端决定，默认更稳妥的 10 次最大重试。
-                let require_ack = kmsg.require_ack.unwrap_or(true);
+                let require_ack = delivery.require_ack;
                 let mut opts = SendOpts {
                     require_ack,
-                    expire: Duration::from_millis(kmsg.expire_ms.unwrap_or(10_000)),
-                    max_retry: kmsg.max_retry.unwrap_or(10),
+                    expire: Duration::from_millis(delivery.expire_ms.unwrap_or(10_000)),
+                    max_retry: delivery.max_retry.unwrap_or(10),
                     ack_hook: None,
                     drop_hook: None,
                 };
@@ -163,7 +168,7 @@ pub async fn start_socket_pipeline() -> anyhow::Result<()> {
                     opts.drop_hook = Some(drop_cb);
                 }
 
-                let enqueue_ok = dispatcher.enqueue(kmsg.to as UserId, msg, opts);
+                let enqueue_ok = dispatcher.enqueue(domain.target() as UserId, msg, opts);
                 if enqueue_ok {
                     // 返回值决定是否立即提交 offset。需要 ACK 的交由回调提交。
                     Ok(!require_ack)

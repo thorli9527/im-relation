@@ -1,56 +1,7 @@
 syntax = "proto3";
 import "google/protobuf/empty.proto";
+import "socket.proto";
 package message;
-enum ContentType {
-  // 未知
-  UNKNOWN = 0;
-  // 文本
-  TEXT = 1;
-  // 图片
-  IMAGE = 2;
-  // 音频
-  AUDIO = 3;
-  // 视频
-  VIDEO = 4;
-  // 富文本
-  HTML = 5;
-  // 位置
-  LOCATION = 6;
-  // 文件
-  FILE = 7;
-  // 表情
-  EMOJI = 8;
-  // 引用
-  QUOTE = 9;
-  // 音视频通话信令
-  AV_CALL = 10;
-  // VOIP 通话记录
-  VOIP = 11;
-  // 通知
-  NOTIFICATION = 12;
-  // 系统消息
-  SYSTEM = 13;
-  // 提醒
-  REMINDER = 14;
-  // 好友事件
-  FRIEND_EVENT = 15;
-  // 消息撤回
-  REVOKE = 17;
-  // 消息转发
-  FORWARD = 18;
-  // 名片
-  CONTACT_CARD = 19;
-  // 投票
-  VOTE = 20;
-  // 红包
-  RED_ENVELOPE = 21;
-  // 加密消息（仅 MessageContent 加密；顶层元数据保持明文）
-  ENCRYPTED = 22;
-  // 通用业务确认/通知（处理结果回执）
-  ACK = 23;
-  // 自定义消息
-  CUSTOM = 100;
-}
 
 
 
@@ -399,8 +350,8 @@ message ForwardContent {
   uint64 original_message_id = 1;
   // 原发送者 ID：原消息的发送者
   string original_sender_id = 2;
-  // 原消息类型：原消息的类型
-  ContentType original_type = 3;
+  // 原消息类型：原消息的 MsgKind
+  socket.MsgKind original_kind = 3;
   // 摘要：转发的摘要信息
   string summary = 4;
 }
@@ -568,8 +519,8 @@ message Content {
   // 消息发送时间（毫秒时间戳）：消息创建的时间
   int64 timestamp = 4;
 
-  // 主消息类型（用于快速渲染判断）：消息的主要类型
-  ContentType message_type = 5;
+  // 主消息类型（socket 层 MsgKind，用于快速渲染判断）
+  socket.MsgKind msg_kind = 5;
   // 消息所属会话类型（单聊/群聊）：消息的会话场景
   ChatScene scene = 6;
 
@@ -807,7 +758,7 @@ message EncryptedContent {
   // AEAD 随机数/计数随机量
   bytes nonce = 4;
   // AEAD 密文（含认证标签）；密文内容为“单条 MessageContent 的 Protobuf 编码”
-  // 注意：仅对 MessageContent 加密，顶层 Content 的元数据（sender/receiver/timestamp/scene/message_type）保持明文
+  // 注意：仅对 MessageContent 加密，顶层 Content 的元数据（sender/receiver/timestamp/scene/msg_kind）保持明文
   bytes ciphertext = 5;
   // 附加认证数据（A.A.D.，可为空）
   // 建议包含：message_id|sender_id|receiver_id|scene|timestamp（按一致序拼接），用于端到端防篡改
@@ -815,5 +766,3 @@ message EncryptedContent {
   // 发送方本地单调消息序号（防重放/乱序）
   uint64 msg_no = 7;
 }
-
-

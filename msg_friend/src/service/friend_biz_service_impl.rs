@@ -7,8 +7,9 @@ use crate::server::Services;
 use common::grpc::grpc_msg_friend::msg_friend_service::{
     self, friend_biz_service_server::FriendBizService,
 };
-use common::grpc::grpc_socket::socket::{KafkaMsg, MsgKind as SocketMsgKind};
+use common::grpc::grpc_socket::socket::MsgKind as SocketMsgKind;
 use common::kafka::topic_info::MSG_SEND_FRIEND_TOPIC;
+use common::message_bus::{DeliveryOptions, DomainMessage};
 use log::{info, warn};
 use prost::Message;
 use std::sync::Arc;
@@ -75,20 +76,21 @@ impl FriendBizService for MsgFriendServiceImpl {
 
         if let Some(kafka) = self.inner.kafka().cloned() {
             let payload = req.encode_to_vec();
-            let kafka_msg = KafkaMsg {
-                to: req.to_user_id,
-                id: Some(req.id),
-                kind: SocketMsgKind::MkFriendRequest as i32,
+            let domain = DomainMessage::friend(
+                req.to_user_id,
+                Some(req.id),
+                SocketMsgKind::MkFriendRequest,
                 payload,
-                require_ack: None,
-                expire_ms: None,
-                max_retry: None,
-                ts_ms: Some(req.created_at),
-            };
+                req.created_at,
+                DeliveryOptions::require_ack_defaults(),
+                Some(req.from_user_id),
+                Some(req.to_user_id),
+            );
+            let kafka_msg = domain.to_kafka_msg();
             if let Err(err) = kafka
                 .send_message(
                     &kafka_msg,
-                    &req.id.to_string(),
+                    &domain.message_id().unwrap_or(req.id).to_string(),
                     &MSG_SEND_FRIEND_TOPIC.topic_name,
                 )
                 .await
