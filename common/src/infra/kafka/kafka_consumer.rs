@@ -1,0 +1,80 @@
+//! 轻量封装的 Kafka 消费循环
+//!
+//! 特点：
+//! - 采用 `StreamConsumer` 拉取消息，for-ever 循环
+//! - handler 签名为 `Fn(OwnedMessage, Arc<StreamConsumer>) -> Future<Result<bool>>`
+//!   - 传入 `OwnedMessage`（拥有所有权），避免生命周期问题
+//!   - 带回 `StreamConsumer` 便于调用方在收到客户端 ACK 后再提交 offset
+//! - 提交语义：handler 返回 `Ok(true)` 才异步提交 offset；`Ok(false)` 由业务自行提交
+//! - 关闭自动提交，交由业务控制
+
+use anyhow::Result;
+use log::warn;
+use std::future::Future;
+use std::sync::Arc;
+
+use crate::infra::kafka::topic_info::TopicInfo;
+use rdkafka::config::ClientConfig;
+use rdkafka::consumer::{Consumer, StreamConsumer};
+use rdkafka::message::OwnedMessage;
+
+/// 启动 Kafka 消费循环
+///
+/// 参数：
+/// - `broker`：Kafka broker 地址
+/// - `group_id`：消费组 ID
+/// - `topic_list`：订阅的主题集合
+/// - `handler`：每条消息的处理函数，返回 Ok 表示可提交 offset
+pub async fn start_consumer<F, Fut>(
+    broker: &str,
+    group_id: &str,
+    topic_list: &Vec<TopicInfo>,
+    handler: F,
+) -> Result<()>
+where
+    F: Fn(OwnedMessage, Arc<StreamConsumer>) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Result<bool>> + Send,
+{
+    // 创建 consumer 并关闭自动提交，交由业务控制 offset。
+    let consumer: StreamConsumer = ClientConfig::new()
+        .set("group.id", group_id)
+        .set("bootstrap.servers", broker)
+        .set("security.protocol", "PLAINTEXT")
+        // 关闭自动提交 offset
+        .set("enable.auto.commit", "false")
+        .create()?;
+    // 动态订阅传入的主题列表。
+    for topic in topic_list {
+        consumer.subscribe(&[&topic.topic_name])?;
+        warn!("Kafka 消费者已启动，订阅主题： {}", topic.topic_name);
+    }
+    // 共享 Arc 以便 handler 也能操作 consumer。
+    let arc_consumer = Arc::new(consumer);
+    loop {
+        // 阻塞等待下一条消息。
+        match arc_consumer.recv().await {
+            Ok(msg) => {
+                // 转换为可跨 await 使用的 OwnedMessage。
+                let owned = msg.detach();
+                match handler(owned, arc_consumer.clone()).await {
+                    Ok(commit_now) => {
+                        // handler 返回 true 表示已经处理完毕，可以提交 offset。
+                        if commit_now {
+                            // 仅在处理方确认后异步提交 offset。
+                            arc_consumer
+                                .commit_message(&msg, rdkafka::consumer::CommitMode::Async)?;
+                        }
+                    }
+                    Err(e) => {
+                        // 处理失败时仅记录日志，保留消息供重试。
+                        log::error!("❌ Kafka 消息处理失败: {:?}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                // 拉取失败通常为网络或 broker 问题。
+                log::error!("❌ Kafka 消费错误: {:?}", e);
+            }
+        }
+    }
+}
