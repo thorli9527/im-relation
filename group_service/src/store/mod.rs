@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use common::grpc::grpc_hot_group::group_service::MemberRef;
+use common::infra::grpc::grpc_group::group_service::MemberRef;
 use common::GroupId;
 
 #[async_trait]

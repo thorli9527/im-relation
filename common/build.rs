@@ -6,21 +6,25 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     generate_message()?;
     generate_socket()?;
-    generate_grpc_with_serde("src/grpc/grpc_hot_friend", &["proto/friend.proto"], false)?;
-    generate_grpc_with_serde("src/grpc/grpc_hot_group", &["proto/group.proto"], false)?;
-    generate_hot_online()?;
+    generate_grpc_with_serde("src/infra/grpc/grpc_friend", &["proto/friend.proto"], false)?;
+    generate_grpc_with_serde("src/infra/grpc/grpc_group", &["proto/group.proto"], false)?;
+    generate_grpc_user()?;
     generate_grpc_with_serde(
-        "src/grpc/grpc_msg_friend",
+        "src/infra/grpc/grpc_msg_friend",
         &["proto/msg_friend.proto"],
         true,
     )?;
-    generate_grpc_with_serde("src/grpc/grpc_msg_group", &["proto/msg_group.proto"], true)?;
+    generate_grpc_with_serde(
+        "src/infra/grpc/grpc_msg_group",
+        &["proto/msg_group.proto"],
+        true,
+    )?;
 
     Ok(())
 }
 
 fn generate_message() -> Result<(), Box<dyn Error>> {
-    let out_dir = Path::new("src/grpc");
+    let out_dir = Path::new("src/infra/grpc");
     std::fs::create_dir_all(out_dir)?;
 
     let mut config = prost_build::Config::new();
@@ -30,7 +34,7 @@ fn generate_message() -> Result<(), Box<dyn Error>> {
         "#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]",
     );
     config.type_attribute(".", "#[serde(rename_all = \"camelCase\")]");
-    config.extern_path(".socket", "crate::grpc::grpc_socket::socket");
+    config.extern_path(".socket", "crate::infra::grpc::grpc_socket::socket");
     config.compile_protos(&["proto/message.proto"], &["proto"])?;
 
     println!("cargo:rerun-if-changed=proto/message.proto");
@@ -38,7 +42,7 @@ fn generate_message() -> Result<(), Box<dyn Error>> {
 }
 
 fn generate_socket() -> Result<(), Box<dyn Error>> {
-    let out_dir = Path::new("src/grpc/grpc_socket");
+    let out_dir = Path::new("src/infra/grpc/grpc_socket");
     std::fs::create_dir_all(out_dir)?;
 
     let mut config = prost_build::Config::new();
@@ -66,8 +70,8 @@ fn generate_grpc_with_serde(
     builder = builder.type_attribute(".", "#[serde(rename_all = \"camelCase\")]");
     builder = builder.out_dir(out_dir);
     if extern_message {
-        builder = builder.extern_path(".message", "crate::grpc::message");
-        builder = builder.extern_path(".socket", "crate::grpc::grpc_socket::socket");
+        builder = builder.extern_path(".message", "crate::infra::grpc::message");
+        builder = builder.extern_path(".socket", "crate::infra::grpc::grpc_socket::socket");
     }
 
     builder.compile_protos(protos, &["proto"])?;
@@ -79,8 +83,8 @@ fn generate_grpc_with_serde(
     Ok(())
 }
 
-fn generate_hot_online() -> Result<(), Box<dyn Error>> {
-    let out_dir = "src/grpc/grpc_hot_online";
+fn generate_grpc_user() -> Result<(), Box<dyn Error>> {
+    let out_dir = "src/infra/grpc/grpc_user";
     std::fs::create_dir_all(out_dir)?;
 
     let mut builder = tonic_build::configure();

@@ -22,7 +22,7 @@ use super::ack::AckShards;
 use super::handle::SessionHandle;
 use super::metrics::METRICS;
 use super::policy::{MultiLoginPolicy, SessionPolicy};
-use common::grpc::message::{self as msgpb, typing::Target as TypingTarget, TypingState};
+use common::infra::grpc::message::{self as msgpb, typing::Target as TypingTarget, TypingState};
 
 /// 会话管理：维护用户到若干连接的映射，负责扇出、ACK 上报与注销。
 #[derive(Clone)]
@@ -687,7 +687,7 @@ impl SessionManager {
 
 /// 生成唯一的会话 ID 后缀，复用公共 UUID 工具。
 fn crate_uuid() -> String {
-    common::util::common_utils::build_uuid()
+    common::support::util::common_utils::build_uuid()
 }
 
 /// 获取当前 UTC 时间的毫秒时间戳。
@@ -700,7 +700,7 @@ mod tests {
     use super::*;
     use crate::service::session::policy::SessionPolicy;
     use crate::service::types::{DeviceId, DeviceType};
-    use common::grpc::message::{self as msgpb, typing};
+    use common::infra::grpc::message::{self as msgpb, typing};
     use std::sync::atomic::Ordering;
     use tokio::time::{timeout, Duration};
 

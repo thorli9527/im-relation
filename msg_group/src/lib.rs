@@ -8,7 +8,7 @@
 pub mod dao;
 /// 复用公共定义的 socket proto，保持对外兼容。
 pub mod socket {
-    pub use common::grpc::grpc_socket::socket::*;
+    pub use common::infra::grpc::grpc_socket::socket::*;
 }
 /// gRPC/HTTP 对外服务入口（健康检查、arb 注册等）。
 pub mod server;

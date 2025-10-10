@@ -5,7 +5,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Context, Result};
 use axum::{routing::get, Json, Router};
 use common::config::{get_db, AppConfig};
-use common::grpc::grpc_hot_group::group_service::group_service_server::GroupServiceServer;
+use common::infra::grpc::grpc_group::group_service::group_service_server::GroupServiceServer;
 use log::{info, warn};
 use tokio::signal;
 use tokio_util::sync::CancellationToken;

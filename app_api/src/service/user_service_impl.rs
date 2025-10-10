@@ -5,13 +5,13 @@ use crate::service::{grpc_gateway, session};
 use anyhow::anyhow;
 use async_trait::async_trait;
 use common::config::AppConfig;
-use common::grpc::grpc_hot_online::online_service::{
+use common::infra::grpc::grpc_user::online_service::{
     user_rpc_service_client::UserRpcServiceClient, AuthType, ChangeEmailReq, ChangePasswordReq,
     ChangePhoneReq, DeviceType, FindByContentReq, Gender, GetUserReq, RegisterUserReq,
     UpdateUserReq, UpsertSessionTokenRequest, UserEntity, UserType,
 };
-use common::redis::redis_pool::RedisPoolTools;
-use common::util::common_utils::{build_md5_with_key, build_uuid};
+use common::infra::redis::redis_pool::RedisPoolTools;
+use common::support::util::common_utils::{build_md5_with_key, build_uuid};
 use common::UserId;
 use deadpool_redis::redis::AsyncCommands;
 use log::error;
@@ -364,7 +364,7 @@ impl UserServiceAuthOpt for UserService {
             .and_then(|s| s.md5_key.clone())
             .ok_or_else(|| anyhow!("md5_key missing"))?;
 
-        common::util::validate::validate_username(name).map_err(|err| {
+        common::support::util::validate::validate_username(name).map_err(|err| {
             let message = err
                 .message
                 .clone()

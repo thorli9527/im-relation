@@ -68,7 +68,7 @@ pub enum ResetPasswordType {
 }
 
 use async_trait::async_trait;
-use common::grpc::grpc_hot_online::online_service::{AuthType, DeviceType, UserEntity};
+use common::infra::grpc::grpc_user::online_service::{AuthType, DeviceType, UserEntity};
 use common::UserId;
 use once_cell::sync::OnceCell;
 use std::sync::Arc;

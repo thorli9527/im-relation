@@ -6,7 +6,9 @@ use time::OffsetDateTime;
 use super::Handler;
 use crate::service::session::SessionManager;
 use crate::service::types::{ClientMsg, MsgKind, UserId};
-use common::grpc::message::{self as msg_message, typing::Target as TypingTarget, TypingState};
+use common::infra::grpc::message::{
+    self as msg_message, typing::Target as TypingTarget, TypingState,
+};
 
 /// 群消息处理器（300..500）。
 ///

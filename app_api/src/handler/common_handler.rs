@@ -1,6 +1,6 @@
 use axum::{routing::get, Router};
-use common::errors::AppError;
-use common::result::{result, ApiResponse};
+use common::core::errors::AppError;
+use common::core::result::{result, ApiResponse};
 
 pub fn router() -> Router {
     Router::new().route("/status", get(status))

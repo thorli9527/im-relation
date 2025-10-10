@@ -16,8 +16,8 @@ use crate::online_store::OnlineStore;
 use crate::rest_online;
 use crate::service::online_service_impl::OnLineServiceImpl;
 use crate::service::user_service_impl::{DummyIdAlloc, UserEntityServiceImpl};
-use common::grpc::grpc_hot_online::online_service::online_service_server::OnlineServiceServer;
-use common::grpc::grpc_hot_online::online_service::user_rpc_service_server::UserRpcServiceServer;
+use common::infra::grpc::grpc_user::online_service::online_service_server::OnlineServiceServer;
+use common::infra::grpc::grpc_user::online_service::user_rpc_service_server::UserRpcServiceServer;
 
 mod server_grpc;
 mod server_web;

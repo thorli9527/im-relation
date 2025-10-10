@@ -1,10 +1,10 @@
 use anyhow::{anyhow, Result};
 use common::config::AppConfig;
-use common::grpc::grpc_hot_friend::friend_service::friend_service_client::FriendServiceClient;
-use common::grpc::grpc_hot_friend::friend_service::{FriendEntry, GetFriendsPageDetailedReq};
-use common::grpc::GrpcClientManager;
-use common::node_util::{NodeType, NodeUtil};
-use common::util::common_utils::hash_index;
+use common::infra::grpc::grpc_friend::friend_service::friend_service_client::FriendServiceClient;
+use common::infra::grpc::grpc_friend::friend_service::{FriendEntry, GetFriendsPageDetailedReq};
+use common::infra::grpc::GrpcClientManager;
+use common::support::node::{NodeType, NodeUtil};
+use common::support::util::common_utils::hash_index;
 use once_cell::sync::OnceCell;
 use tonic::transport::{Channel, Error as TransportError};
 

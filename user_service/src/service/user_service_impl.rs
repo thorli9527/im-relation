@@ -8,12 +8,12 @@ use sqlx::{MySql, QueryBuilder, Row};
 use tonic::{Request, Response, Status};
 
 use common::config::get_db;
-use common::util::common_utils::build_snow_id;
+use common::support::util::common_utils::build_snow_id;
 
 use crate::db::traits::{ClientReadRepo, DirectoryReadRepo};
 use crate::hot_cold::{ClientHot, Normalizer};
-use common::grpc::grpc_hot_online::online_service::user_rpc_service_server::UserRpcService;
-use common::grpc::grpc_hot_online::online_service::{
+use common::infra::grpc::grpc_user::online_service::user_rpc_service_server::UserRpcService;
+use common::infra::grpc::grpc_user::online_service::{
     ChangeEmailReq, ChangePasswordReq, ChangePhoneReq, ChangeResponse, FindByContentReq,
     FindUserDto, GetUserReq, GetUsersReq, RegisterUserReq, UpdateUserReq, UserEntity,
 };

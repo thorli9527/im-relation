@@ -4,9 +4,9 @@ use tonic::{Request, Response, Status};
 
 use crate::db::traits::{SessionTokenRepo, SessionTokenUpsert};
 use crate::online_store::OnlineStore;
-use common::grpc::grpc_hot_online::online_service::online_service_server::OnlineService;
-use common::grpc::grpc_hot_online::online_service::DeviceType as PbDeviceType;
-use common::grpc::grpc_hot_online::online_service::{
+use common::infra::grpc::grpc_user::online_service::online_service_server::OnlineService;
+use common::infra::grpc::grpc_user::online_service::DeviceType as PbDeviceType;
+use common::infra::grpc::grpc_user::online_service::{
     revoke_session_token_request, CheckOnlineBatchRequest, CheckOnlineBatchResponse,
     CheckOnlineRequest, CheckOnlineResponse, GetStatsRequest, GetStatsResponse,
     RevokeSessionTokenRequest, RevokeSessionTokenResponse, SessionTokenStatus, SetOnlineRequest,

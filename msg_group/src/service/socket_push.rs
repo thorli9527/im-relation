@@ -1,10 +1,10 @@
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use common::kafka::kafka_producer::KafkaInstanceService;
-use common::kafka::topic_info::MSG_SEND_GROUP_TOPIC;
-use common::message_bus::{DeliveryOptions, DomainMessage};
-use common::util::common_utils::build_snow_id;
+use common::core::messaging::{DeliveryOptions, DomainMessage};
+use common::infra::kafka::kafka_producer::KafkaInstanceService;
+use common::infra::kafka::topic_info::MSG_SEND_GROUP_TOPIC;
+use common::support::util::common_utils::build_snow_id;
 use prost::Message;
 use tonic::Status;
 

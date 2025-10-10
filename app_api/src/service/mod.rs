@@ -1,5 +1,5 @@
 use common::config::AppConfig;
-use common::node_util::{NodeType, NodeUtil};
+use common::support::node::{NodeType, NodeUtil};
 
 pub mod api_grpc_service;
 pub mod auth_models;

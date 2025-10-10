@@ -19,10 +19,10 @@ use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
 use crate::service::grpc_clients;
 use crate::service::node_discovery::resolve_hot_online_addr;
-use common::grpc::grpc_hot_online::online_service::{
+use common::infra::grpc::grpc_socket::socket as socket_proto;
+use common::infra::grpc::grpc_user::online_service::{
     SessionTokenStatus, ValidateSessionTokenRequest,
 };
-use common::grpc::grpc_socket::socket as socket_proto;
 use socket_proto::{
     AuthMsg as PbAuthMsg, ClientMsg as PbClientMsg, DeviceType as PbDeviceType,
     MsgKind as PbMsgKind, ServerMsg as PbServerMsg,

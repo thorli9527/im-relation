@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+package api.tron;
+
+//代币转账方式
+enum TokenTransferType {
+  trx = 0;
+  trc10 = 1;
+  trc20 = 2;
+  trc721 = 3;
+  trc1155 = 4;
+}
+
+enum TransferType {
+  // 概览交易
+  common = 0;
+  // 内部交易
+  inner = 1;
+  // 代币转账
+  token = 2;
+}
+
+// 块信息
+message BlockInfo {
+  // 块高
+  int64 block_number = 1;
+  // 区块hash
+  string hash = 2;
+  // 出块者
+  string block_producer = 3;
+  // 状态 0-未确认/确认中，1-已确认
+  int32 status = 4;
+  // 区块大小（bytes）
+  int64 block_size = 5;
+  // 主币交易笔数
+  int64 transfer_num = 6;
+  // 代币交易笔数
+  int64 token_transfer_num = 7;
+  // 内部交易笔数
+  int64 inner_transfer_num = 8;
+  // 消耗能量
+  int64 energy_usage = 9;
+  // 消耗带宽
+  int64 net_usage = 10;
+  // 燃烧TRX
+  float burn_trx = 11;
+  // 区块奖励
+  float block_reward = 12;
+  // 投票奖励
+  float vote_reward = 13;
+  // 出块奖励
+  float produce_block_reward = 14;
+}
+
+//块交易数据
+message BlockData {
+  // 块高
+  int64 block_number = 1;
+  // 区块hash
+  string block_hash = 2;
+  // 块数据
+  repeated TransDetailInfo txList = 3;
+}
+
+// 交易记录明细
+message TransDetailInfo {
+  // 块高
+  int64 block_number = 1;
+  // 区块hash
+  string block_hash = 2;
+  // 交易哈希
+  string tx_hash = 3;
+  // 交易方式
+  TransferType transfer_type = 4;
+  // 发送地址
+  string from = 5;
+  // 接收地址
+  string to = 6;
+  // 合约地址
+  string contract_address = 7;
+  // 交易金额
+  int64 amount = 8;
+  // 交易币种符号
+  string symbol = 9;
+  // 手续费
+  int64 fee = 10;
+  // 燃烧TRX数量
+  float burn_trx = 11;
+  // 交易类型(转账，质押，合约，投票，委托能量...)
+  string type = 12;
+  // 交易方法 (例如：a9059cbb)
+  string method = 13;
+  // 币种交易方式
+  TokenTransferType token_transfer_type = 14;
+  // 交易时间
+  int64 trans_date = 15;
+  // 交易状态，0-失败，1-成功
+  int32 status = 16;
+  // 确认状态 0-未确认，1-已确认
+  int32 confirm_status = 17;
+  // 被哪些超级代表确认
+  repeated string confirm_by_sr = 18;
+  // 消耗带宽
+  BandwidthConsumption bandwidth = 19;
+  // 消耗能量
+  EnergyConsumption energy = 20;
+  // 其他数据
+  ExtraData extra_data = 21;
+  // 版本号
+  string version = 22;
+
+}
+
+// 带宽消耗
+message BandwidthConsumption {
+  // 消耗带宽数量
+  int64 value = 1;
+  // 免费带宽数量(质押获得的带宽数量)
+  int64 free_band_width = 2;
+  // 燃烧trx 获得带宽数量
+  int64 extra_band_width = 3;
+}
+
+// 能量消耗
+message EnergyConsumption {
+  // 消耗能量数量
+  int64 value = 1;
+  // 免费能量数量(质押获得的能量数量)
+  int64 free_energy = 2;
+  // 燃烧trx 获得能量数量
+  int64 extra_energy = 3;
+}
+
+// 扩展数据
+message ExtraData {
+  // 输入数据
+  repeated string input_data = 1;
+  // 消耗能量上限
+  int64 energy_consumption_cap = 2;
+}
+

@@ -3,7 +3,7 @@ use prost::Message;
 use tonic::transport::Channel;
 
 use crate::service::types::MsgKind;
-use common::grpc::{grpc_msg_friend::msg_friend_service as msgpb, message as msg_message};
+use common::infra::grpc::{grpc_msg_friend::msg_friend_service as msgpb, message as msg_message};
 
 type FriendMsgClient = msgpb::friend_msg_service_client::FriendMsgServiceClient<Channel>;
 

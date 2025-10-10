@@ -7,7 +7,7 @@ use tonic::{Request, Response, Status};
 use crate::hot_cold::HotColdFacade;
 use crate::profile::{GroupProfileCache, MySqlGroupProfileStore};
 use crate::store::GroupStorage;
-use common::grpc::grpc_hot_group::group_service::{
+use common::infra::grpc::grpc_group::group_service::{
     group_service_server::GroupService as GrpcGroupService, AllKeysByShardReq, AllKeysByShardResp,
     AllKeysReq, AllKeysResp, ChangeAliasReq, ChangeAliasResp, ChangeRoleReq, ChangeRoleResp,
     ClearReq, ClearResp, CommonResp, CountReq, CountResp, CreateGroupReq, DismissGroupReq,

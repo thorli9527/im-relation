@@ -1,6 +1,6 @@
 //! 热好友服务客户端包装，负责补全协议头并创建 gRPC Channel。
 
-use common::grpc::grpc_hot_friend::friend_service::friend_service_client::FriendServiceClient;
+use common::infra::grpc::grpc_friend::friend_service::friend_service_client::FriendServiceClient;
 use tonic::transport::Endpoint;
 use tonic::transport::{Channel, Error as TransportError};
 

@@ -1,4 +1,4 @@
-use common::grpc::grpc_hot_online::online_service::{DeviceType, UserEntity};
+use common::infra::grpc::grpc_user::online_service::{DeviceType, UserEntity};
 // user_service/src/member/traits.rs
 use anyhow::Result;
 use async_trait::async_trait;

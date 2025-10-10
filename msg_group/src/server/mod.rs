@@ -6,7 +6,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context, Result};
 use axum::{routing::get, Json, Router};
 use common::config::{get_db, AppConfig, MySqlPool, ServiceEndpoint};
-use common::kafka::kafka_producer::KafkaInstanceService;
+use common::infra::kafka::kafka_producer::KafkaInstanceService;
 use log::{info, warn};
 use serde_json::json;
 use tokio::signal;
@@ -15,8 +15,8 @@ use tonic::service::Routes;
 
 use crate::service::hot_group_client::{connect as connect_hot_group, HgGroupClient};
 use crate::service::{GroupBizServiceImpl, GroupMsgServiceImpl};
-use common::grpc::grpc_msg_group::msg_group_service::group_biz_service_server::GroupBizServiceServer;
-use common::grpc::grpc_msg_group::msg_group_service::group_msg_service_server::GroupMsgServiceServer;
+use common::infra::grpc::grpc_msg_group::msg_group_service::group_biz_service_server::GroupBizServiceServer;
+use common::infra::grpc::grpc_msg_group::msg_group_service::group_msg_service_server::GroupMsgServiceServer;
 
 mod kafka_producer;
 mod server_grpc;

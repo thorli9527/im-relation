@@ -5,7 +5,7 @@
 //! integration.
 
 use common::config::{get_db, AppConfig};
-use common::util::schema::apply_mysql_schema;
+use common::support::util::schema::apply_mysql_schema;
 
 mod hot_capacity;
 mod hot_cold;

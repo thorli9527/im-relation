@@ -1,6 +1,6 @@
 //! 热群服务客户端包装，负责处理地址拼接与连接复用。
 
-use common::grpc::grpc_hot_group::group_service::group_service_client::GroupServiceClient;
+use common::infra::grpc::grpc_group::group_service::group_service_client::GroupServiceClient;
 use tonic::transport::Endpoint;
 use tonic::transport::{Channel, Error as TransportError};
 

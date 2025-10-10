@@ -6,7 +6,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context, Result};
 use axum::{routing::get, Json, Router};
 use common::config::{get_db, AppConfig, ServiceEndpoint};
-use common::kafka::kafka_producer::KafkaInstanceService;
+use common::infra::kafka::kafka_producer::KafkaInstanceService;
 use log::{info, warn};
 use serde_json::json;
 use sqlx::{MySql, Pool};
@@ -16,9 +16,9 @@ use tonic::service::Routes;
 
 use crate::hot_friend_client::{connect as connect_hot_friend, HfFriendClient};
 use crate::service::friend_biz_service_impl::MsgFriendServiceImpl;
-use common::grpc::grpc_msg_friend::msg_friend_service::friend_biz_service_server::FriendBizServiceServer;
-use common::grpc::grpc_msg_friend::msg_friend_service::friend_msg_service_server::FriendMsgServiceServer;
-use common::grpc::grpc_msg_friend::msg_friend_service::key_service_server::KeyServiceServer;
+use common::infra::grpc::grpc_msg_friend::msg_friend_service::friend_biz_service_server::FriendBizServiceServer;
+use common::infra::grpc::grpc_msg_friend::msg_friend_service::friend_msg_service_server::FriendMsgServiceServer;
+use common::infra::grpc::grpc_msg_friend::msg_friend_service::key_service_server::KeyServiceServer;
 
 mod kafka_producer;
 mod server_grpc;

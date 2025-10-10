@@ -3,7 +3,7 @@ use prost::Message;
 
 use crate::service::grpc_clients;
 use crate::service::types::MsgKind;
-use common::grpc::grpc_msg_friend::msg_friend_service as friend_biz;
+use common::infra::grpc::grpc_msg_friend::msg_friend_service as friend_biz;
 
 /// 处理好友关系类枚举。解码失败或网络异常会返回 `false`，以便上层不发送 ACK。
 pub async fn handle(addr: &str, kind: MsgKind, payload: &[u8]) -> Option<bool> {

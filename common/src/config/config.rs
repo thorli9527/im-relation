@@ -1,6 +1,6 @@
-use crate::errors::AppError;
-use crate::node_util::NodeType;
-use crate::redis::redis_pool::RedisPoolTools;
+use crate::core::errors::AppError;
+use crate::infra::redis::redis_pool::RedisPoolTools;
+use crate::support::node::NodeType;
 use anyhow::anyhow;
 use config::Config;
 use log::LevelFilter;

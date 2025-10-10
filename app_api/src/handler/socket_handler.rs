@@ -2,11 +2,11 @@ use axum::{http::HeaderMap, routing::get, Json, Router};
 use serde::Serialize;
 
 use crate::service::grpc_gateway;
-use common::errors::AppError;
-use common::grpc::grpc_hot_online::online_service::SessionTokenStatus;
-use common::grpc::grpc_hot_online::online_service::ValidateSessionTokenRequest;
-use common::node_util::{NodeType, NodeUtil};
-use common::util::common_utils::hash_index;
+use common::core::errors::AppError;
+use common::infra::grpc::grpc_user::online_service::SessionTokenStatus;
+use common::infra::grpc::grpc_user::online_service::ValidateSessionTokenRequest;
+use common::support::node::{NodeType, NodeUtil};
+use common::support::util::common_utils::hash_index;
 
 #[derive(Serialize)]
 pub struct SocketAddrResponse {

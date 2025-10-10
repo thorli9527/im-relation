@@ -9,8 +9,8 @@ use std::convert::TryFrom;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use common::kafka::kafka_producer::KafkaInstanceService;
-use common::util::common_utils::build_snow_id;
+use common::infra::kafka::kafka_producer::KafkaInstanceService;
+use common::support::util::common_utils::build_snow_id;
 use log::warn;
 use serde_json::json;
 use tonic::{Request, Response, Status};
@@ -23,7 +23,7 @@ use crate::dao::join_request::{
 use crate::server::Services;
 use crate::service::socket_push::push_socket_message;
 use crate::socket::MsgKind as SocketMsgKind;
-use common::grpc::grpc_hot_group::group_service::{
+use common::infra::grpc::grpc_group::group_service::{
     self as hotpb, ChangeAliasReq as HotChangeAliasReq, ChangeRoleReq as HotChangeRoleReq,
     CommonResp as HotCommonResp, CountReq as HotCountReq, CreateGroupReq as HotCreateGroupReq,
     DismissGroupReq as HotDismissGroupReq, GetAllReq as HotGetAllReq,
@@ -31,7 +31,7 @@ use common::grpc::grpc_hot_group::group_service::{
     InsertManyReq as HotInsertManyReq, InsertReq as HotInsertReq, MemberRef as HotMemberRef,
     RemoveReq as HotRemoveReq, UpdateGroupProfileReq as HotUpdateGroupProfileReq,
 };
-use common::grpc::grpc_msg_group::msg_group_service::{
+use common::infra::grpc::grpc_msg_group::msg_group_service::{
     group_biz_service_server::GroupBizService, ApproveJoinReq, ChangeMemberRoleReq,
     CountMembersReq, CountMembersResp, CreateGroupReq, CreateGroupResp, DismissGroupReq,
     GetGroupReq, GetMembersReq, GetMembersResp, GroupInfo, GroupMemberChangeNotice, GroupRoleType,

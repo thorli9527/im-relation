@@ -9,7 +9,7 @@ use moka::sync::{Cache, CacheBuilder};
 use smallvec::SmallVec;
 
 use crate::member::list_wrapper::MemberListWrapper;
-use common::grpc::grpc_hot_group::group_service::{GroupRoleType, MemberRef};
+use common::infra::grpc::grpc_group::group_service::{GroupRoleType, MemberRef};
 use common::{GroupId, MemberListError, UserId};
 
 /// 单个分片：gid -> 成员包装器

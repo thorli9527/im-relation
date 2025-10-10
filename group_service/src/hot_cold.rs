@@ -18,7 +18,7 @@ use tokio::{runtime::Handle, time::sleep};
 
 use crate::member::shard_map::ShardMap;
 use crate::store::GroupStorage;
-use common::grpc::grpc_hot_group::group_service::{GroupRoleType, MemberRef};
+use common::infra::grpc::grpc_group::group_service::{GroupRoleType, MemberRef};
 use common::{GroupId, MemberListError, UserId};
 
 /// 运行参数

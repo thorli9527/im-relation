@@ -1,7 +1,7 @@
 //! msg_friend 服务入口：加载配置后交由 server 模块启动。
 
 use common::config::{get_db, AppConfig};
-use common::util::schema::apply_mysql_schema;
+use common::support::util::schema::apply_mysql_schema;
 
 mod dao;
 mod hot_friend_client;

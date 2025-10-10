@@ -33,7 +33,7 @@ use crate::db::traits::{
     ClientReadRepo, DirectoryReadRepo, SessionTokenRecord, SessionTokenRepo, SessionTokenUpsert,
     SessionTokenUpsertResult,
 };
-use common::grpc::grpc_hot_online::online_service::{DeviceType, UserEntity};
+use common::infra::grpc::grpc_user::online_service::{DeviceType, UserEntity};
 
 const MYSQL_TS_FORMAT: &[FormatItem<'static>] =
     format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]");

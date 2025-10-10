@@ -8,7 +8,7 @@ use std::sync::Arc;
 use tonic::codegen::tokio_stream::StreamExt;
 
 use common::config::{get_db, MySqlPool};
-use common::grpc::grpc_hot_group::group_service::MemberRef;
+use common::infra::grpc::grpc_group::group_service::MemberRef;
 use common::GroupId;
 const LOAD_GROUP_PAGE_LIMIT: usize = 2_000;
 /// MySQL 实现的 GroupStorage。

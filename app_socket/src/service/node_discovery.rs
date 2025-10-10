@@ -2,7 +2,7 @@
 
 use anyhow::{anyhow, Result};
 use common::config::AppConfig;
-use common::node_util::{NodeType, NodeUtil};
+use common::support::node::{NodeType, NodeUtil};
 
 fn endpoints_for(node_type: NodeType) -> Vec<String> {
     AppConfig::get().urls_for_node_type(node_type)

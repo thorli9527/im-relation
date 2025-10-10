@@ -1,7 +1,7 @@
 use anyhow::Result;
 use tonic::transport::Server;
 
-use common::grpc::grpc_hot_friend::friend_service::friend_service_server::FriendServiceServer;
+use common::infra::grpc::grpc_friend::friend_service::friend_service_server::FriendServiceServer;
 
 use crate::service::friend_service_impl::FriendServiceImpl;
 use crate::store::mysql::FriendStorage;

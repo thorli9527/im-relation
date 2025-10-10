@@ -21,10 +21,10 @@ use rdkafka::Offset;
 
 use crate::service::dispatcher::ShardedDispatcher;
 use crate::service::types::{SendOpts, ServerMsg, UserId};
-use common::grpc::grpc_socket::socket::KafkaMsg;
-use common::kafka::start_consumer;
-use common::kafka::topic_info::{TopicInfo, MSG_SEND_FRIEND_TOPIC, MSG_SEND_GROUP_TOPIC};
-use common::message_bus::DomainMessage;
+use common::core::messaging::DomainMessage;
+use common::infra::grpc::grpc_socket::socket::KafkaMsg;
+use common::infra::kafka::start_consumer;
+use common::infra::kafka::topic_info::{TopicInfo, MSG_SEND_FRIEND_TOPIC, MSG_SEND_GROUP_TOPIC};
 use std::convert::TryFrom;
 
 /// 启动 Kafka → dispatcher → SessionManager 的数据通道。

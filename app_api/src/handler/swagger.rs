@@ -1,5 +1,5 @@
 use axum::{routing::get, Json, Router};
-use common::errors::AppError;
+use common::core::errors::AppError;
 use serde_json::Value;
 use tower_http::services::ServeDir;
 use utoipa::OpenApi;

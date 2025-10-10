@@ -4,7 +4,7 @@
 //! wiring—Kafka, gRPC, arb_service heartbeat—to `server::start`.
 
 use common::config::{get_db, AppConfig};
-use common::util::schema::apply_mysql_schema;
+use common::support::util::schema::apply_mysql_schema;
 
 mod autotune;
 mod db;

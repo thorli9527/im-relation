@@ -1,12 +1,7 @@
 pub mod config;
-pub mod errors;
-pub mod grpc;
-pub mod kafka;
-pub mod message_bus;
-pub mod node_util;
-pub mod redis;
-pub mod result;
-pub mod util;
+pub mod core;
+pub mod infra;
+pub mod support;
 // note: message.proto moved to service crates
 use thiserror::Error;
 pub type RedisPool = deadpool_redis::Pool;

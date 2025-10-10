@@ -10,13 +10,13 @@ use crate::dao::{
     mark_read, recall_message, EncryptedMessageRecord,
 };
 use crate::server::Services;
-use common::grpc::grpc_hot_friend::friend_service::{GetFriendsDetailedReq, IsFriendReq};
-use common::grpc::{
+use common::core::messaging::{DeliveryOptions, DomainMessage};
+use common::infra::grpc::grpc_friend::friend_service::{GetFriendsDetailedReq, IsFriendReq};
+use common::infra::grpc::{
     grpc_msg_friend::msg_friend_service as msgpb, grpc_socket::socket::MsgKind,
     message as msg_message,
 };
-use common::kafka::topic_info::MSG_SEND_FRIEND_TOPIC;
-use common::message_bus::{DeliveryOptions, DomainMessage};
+use common::infra::kafka::topic_info::MSG_SEND_FRIEND_TOPIC;
 
 #[tonic::async_trait]
 impl msgpb::friend_msg_service_server::FriendMsgService for Services {

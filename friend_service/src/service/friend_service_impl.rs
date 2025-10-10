@@ -6,8 +6,8 @@ use tonic::{Request, Response, Status};
 use common::UserId;
 
 use crate::hot_cold::HotColdFriendFacade;
-use common::grpc::grpc_hot_friend::friend_service::friend_service_server::FriendService;
-use common::grpc::grpc_hot_friend::friend_service::*;
+use common::infra::grpc::grpc_friend::friend_service::friend_service_server::FriendService;
+use common::infra::grpc::grpc_friend::friend_service::*;
 // 新版：对齐 FriendRepo（非旧 FriendStorage）
 use crate::store::mysql::FriendRepo;
 use common::config::get_db;

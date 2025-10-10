@@ -5,7 +5,7 @@
 //! - Delegate to `server::start`, which wires gRPC servers, REST gateway, and arbitration
 
 use common::config::{get_db, AppConfig};
-use common::util::schema::apply_mysql_schema;
+use common::support::util::schema::apply_mysql_schema;
 
 pub mod db;
 mod hot_cold;

@@ -6,14 +6,14 @@
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use common::util::common_utils::build_snow_id;
+use common::support::util::common_utils::build_snow_id;
 use prost::Message;
 use tonic::{Request, Response, Status};
 
 use crate::dao::{insert_group_message, list_group_messages, GroupMessageRecord};
 use crate::server::Services;
-use common::grpc::grpc_msg_group::msg_group_service::group_msg_service_server::GroupMsgService;
-use common::grpc::message::{
+use common::infra::grpc::grpc_msg_group::msg_group_service::group_msg_service_server::GroupMsgService;
+use common::infra::grpc::message::{
     message_content, Content, MsgDeliveredAck, MsgForward, MsgRead, MsgReadAck, MsgRecall,
     QueryGroupMessagesRequest, QueryMessagesResponse,
 };

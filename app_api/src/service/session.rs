@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use common::grpc::grpc_hot_online::online_service::{
+use common::infra::grpc::grpc_user::online_service::{
     DeviceType, SessionTokenStatus, ValidateSessionTokenRequest,
 };
 

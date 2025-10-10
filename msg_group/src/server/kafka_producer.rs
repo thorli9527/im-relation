@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use common::config::AppConfig;
-use common::kafka::{kafka_producer::KafkaInstanceService, topic_info::MSG_SEND_GROUP_TOPIC};
+use common::infra::kafka::{
+    kafka_producer::KafkaInstanceService, topic_info::MSG_SEND_GROUP_TOPIC,
+};
 
 /// 初始化群聊消息模块使用的 Kafka 生产端。
 ///

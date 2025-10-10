@@ -23,7 +23,7 @@ use regex::Regex;
 use unicode_normalization::UnicodeNormalization;
 
 use crate::db::traits::{ClientReadRepo, DirectoryReadRepo};
-use common::grpc::grpc_hot_online::online_service::UserEntity;
+use common::infra::grpc::grpc_user::online_service::UserEntity;
 
 // -----------------------------------------------------------------------------
 // Metrics with cache-line padding

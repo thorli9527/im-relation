@@ -13,7 +13,7 @@ use tokio::sync::mpsc;
 
 use crate::service::session::SessionManager;
 use crate::service::types::{SendOpts, ServerMsg, UserId};
-use common::util::common_utils::hash_index;
+use common::support::util::common_utils::hash_index;
 
 #[derive(Clone)]
 /// 内部分发单元：包含目标用户、下行消息与发送选项

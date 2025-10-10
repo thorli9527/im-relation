@@ -1,7 +1,7 @@
 //! msg_group 服务入口：加载配置 → 启动 gRPC/HTTP 服务器
 
 use common::config::{get_db, AppConfig};
-use common::util::schema::apply_mysql_schema;
+use common::support::util::schema::apply_mysql_schema;
 use msg_group::server;
 
 /// 初始化配置后委托给 `server::run_server` 启动 gRPC/HTTP 服务。
