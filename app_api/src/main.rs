@@ -4,15 +4,8 @@
 //! dispatching to the respective server modules so they can read arbitration, database, and socket
 //! topology information.
 
+use app_api::{server_grpc, server_web, service};
 use common::config::AppConfig;
-
-mod server_grpc;
-mod server_web;
-
-pub mod grpc;
-
-pub mod handler;
-pub mod service;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

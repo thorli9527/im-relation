@@ -198,6 +198,14 @@ dependencies = [
 [[package]]
 name = "app_test"
 version = "0.1.0"
+dependencies = [
+ "app_api",
+ "prost 0.13.5",
+ "prost-types 0.13.5",
+ "tokio",
+ "tonic",
+ "tonic-build",
+]
 
 [[package]]
 name = "arc-swap"

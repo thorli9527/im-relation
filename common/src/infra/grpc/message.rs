@@ -313,7 +313,17 @@ pub struct AvCallContent {
 pub mod av_call_content {
     #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
     #[serde(rename_all = "camelCase")]
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum CallAction {
         /// 未知操作
@@ -363,7 +373,17 @@ pub mod av_call_content {
     }
     #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
     #[serde(rename_all = "camelCase")]
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum CallType {
         /// 音频通话：仅语音通话
@@ -455,10 +475,7 @@ pub struct ForwardContent {
     #[prost(string, tag = "2")]
     pub original_sender_id: ::prost::alloc::string::String,
     /// 原消息类型：原消息的 MsgKind
-    #[prost(
-        enumeration = "crate::infra::grpc::grpc_socket::socket::MsgKind",
-        tag = "3"
-    )]
+    #[prost(enumeration = "crate::infra::grpc::grpc_socket::socket::MsgKind", tag = "3")]
     pub original_kind: i32,
     /// 摘要：转发的摘要信息
     #[prost(string, tag = "4")]
@@ -537,8 +554,10 @@ pub struct NotificationContent {
     pub body: ::prost::alloc::string::String,
     /// 元数据：通知的附加信息
     #[prost(map = "string, string", tag = "3")]
-    pub metadata:
-        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    pub metadata: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
 }
 /// ===============================
 /// ⚙️ 系统消息
@@ -667,8 +686,10 @@ pub struct Segment {
     pub seq_in_msg: u64,
     /// 通用扩展字段（以字符串键值对存储 JSON 扁平数据）：段的元数据
     #[prost(map = "string, string", tag = "3")]
-    pub metadata:
-        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    pub metadata: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
 }
 /// ======================================
 /// 📨 顶层消息结构
@@ -691,10 +712,7 @@ pub struct Content {
     #[prost(int64, tag = "4")]
     pub timestamp: i64,
     /// 主消息类型（socket 层 MsgKind，用于快速渲染判断）
-    #[prost(
-        enumeration = "crate::infra::grpc::grpc_socket::socket::MsgKind",
-        tag = "5"
-    )]
+    #[prost(enumeration = "crate::infra::grpc::grpc_socket::socket::MsgKind", tag = "5")]
     pub msg_kind: i32,
     /// 消息所属会话类型（单聊/群聊）：消息的会话场景
     #[prost(enumeration = "ChatScene", tag = "6")]
@@ -1190,14 +1208,16 @@ impl CallEndReason {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum CallModifyType {
+    /// 未指定，用作默认值，满足 proto3 首元素为 0 的要求
+    CmtUnspecified = 0,
     /// 静音/取消静音
-    CmtMute = 0,
+    CmtMute = 1,
     /// 开/关摄像头
-    CmtCamera = 1,
+    CmtCamera = 2,
     /// 保持/恢复通话
-    CmtHold = 2,
+    CmtHold = 3,
     /// 切换前后摄
-    CmtSwitchCamera = 3,
+    CmtSwitchCamera = 4,
 }
 impl CallModifyType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1206,6 +1226,7 @@ impl CallModifyType {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
+            Self::CmtUnspecified => "CMT_UNSPECIFIED",
             Self::CmtMute => "CMT_MUTE",
             Self::CmtCamera => "CMT_CAMERA",
             Self::CmtHold => "CMT_HOLD",
@@ -1215,6 +1236,7 @@ impl CallModifyType {
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
+            "CMT_UNSPECIFIED" => Some(Self::CmtUnspecified),
             "CMT_MUTE" => Some(Self::CmtMute),
             "CMT_CAMERA" => Some(Self::CmtCamera),
             "CMT_HOLD" => Some(Self::CmtHold),
@@ -1263,8 +1285,10 @@ impl ChatScene {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum ReactionAction {
-    RaAdd = 0,
-    RaRemove = 1,
+    /// 未指定动作
+    RaUnknown = 0,
+    RaAdd = 1,
+    RaRemove = 2,
 }
 impl ReactionAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1273,6 +1297,7 @@ impl ReactionAction {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
+            Self::RaUnknown => "RA_UNKNOWN",
             Self::RaAdd => "RA_ADD",
             Self::RaRemove => "RA_REMOVE",
         }
@@ -1280,6 +1305,7 @@ impl ReactionAction {
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
+            "RA_UNKNOWN" => Some(Self::RaUnknown),
             "RA_ADD" => Some(Self::RaAdd),
             "RA_REMOVE" => Some(Self::RaRemove),
             _ => None,

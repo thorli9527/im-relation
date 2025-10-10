@@ -162,7 +162,7 @@ impl UserServiceAuthOpt for UserService {
             .ok_or_else(|| anyhow!("login.error"))?;
 
         let stored_password = entity.password.clone();
-        if password != build_md5_with_key(&stored_password, &md5_key) {
+        if stored_password != build_md5_with_key(&password, &md5_key) {
             return Err(anyhow!("login.error"));
         }
         entity.password.clear();

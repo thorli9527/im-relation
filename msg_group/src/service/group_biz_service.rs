@@ -448,6 +448,15 @@ impl GroupBizService for GroupBizServiceImpl {
         let mut auto_reason = String::from("auto_join");
 
         match join_permission {
+            hotpb::JoinPermission::JoinUnspecified => {
+                // 缺省配置时，退化成需审批流程，避免误放行。
+                // 可以在配置中心修正 join_permission 后恢复到预期行为。
+                if inviter_is_manager {
+                    auto_join = true;
+                    auto_decider = req.inviter_id;
+                    auto_reason = String::from("admin_invite");
+                }
+            }
             hotpb::JoinPermission::Anyone => {
                 auto_join = true;
                 auto_reason = String::from("auto_anyone");

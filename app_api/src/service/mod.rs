@@ -26,4 +26,7 @@ pub async fn init() {
             node_util.reset_list(node_type as i32, urls);
         }
     }
+
+    // Initialize global service instances after node lists are ready.
+    user_service::UserService::init();
 }

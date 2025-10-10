@@ -1,15 +1,20 @@
 use crate::service::user_service::UserRegType;
+use common::support::util::validate::{
+    validate_email_str, validate_password as validate_password_strength, validate_phone,
+    validate_username,
+};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use validator::{Validate, ValidateEmail, ValidationError};
+use validator::{Validate, ValidationError};
 
 #[derive(Debug, Deserialize, Serialize, ToSchema, Validate, Clone)]
+#[validate(schema(function = "validate_register_request"))]
 pub struct RegisterRequest {
     /// 昵称
     #[validate(length(min = 4, message = "昵称至少4位"))]
     pub name: String,
-    /// 密码（至少6位，含字母和数字）
-    #[validate(length(min = 6, message = "密码至少8位"))]
+    /// 密码（至少8位，含字母和数字）
+    #[validate(length(min = 8, message = "密码至少8位"))]
     #[validate(custom(function = "validate_password"))]
     pub password: String,
 
@@ -32,34 +37,26 @@ pub struct RegisterVerifyRequest {
 }
 
 fn validate_target(value: &str) -> Result<(), ValidationError> {
-    if value.contains('@') {
-        if value.validate_email() {
-            Ok(())
-        } else {
-            Err(ValidationError::new("邮箱格式无效"))
-        }
-    } else {
-        let phone_re = regex::Regex::new(r"^\+?[0-9]{7,20}$").unwrap();
-        if phone_re.is_match(value) {
-            return Ok(());
-        }
-        let username_re = regex::Regex::new(r"^[A-Za-z0-9_]{3,32}$").unwrap();
-        if username_re.is_match(value) {
-            return Ok(());
-        }
-        Err(ValidationError::new("登录名格式错误"))
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(ValidationError::new("target.required"));
     }
+    if trimmed.contains('@') {
+        return validate_email_str(trimmed);
+    }
+
+    if trimmed.starts_with('+') || trimmed.chars().all(|c| c.is_ascii_digit()) {
+        if validate_phone(trimmed).is_ok() {
+            return Ok(());
+        }
+        return validate_username(trimmed);
+    }
+
+    validate_username(trimmed)
 }
 
 fn validate_password(pwd: &str) -> Result<(), ValidationError> {
-    let has_letter = pwd.chars().any(|c| c.is_ascii_alphabetic());
-    let has_digit = pwd.chars().any(|c| c.is_ascii_digit());
-
-    if has_letter && has_digit {
-        Ok(())
-    } else {
-        Err(ValidationError::new("密码必须包含字母和数字"))
-    }
+    validate_password_strength(pwd)
 }
 
 fn validate_verify_code(code: &str) -> Result<(), ValidationError> {
@@ -67,6 +64,19 @@ fn validate_verify_code(code: &str) -> Result<(), ValidationError> {
         Ok(())
     } else {
         Err(ValidationError::new("验证码格式错误"))
+    }
+}
+
+fn validate_register_request(req: &RegisterRequest) -> Result<(), ValidationError> {
+    let target = req.target.trim();
+    if target.is_empty() {
+        return Err(ValidationError::new("target.required"));
+    }
+
+    match req.reg_type {
+        UserRegType::Phone => validate_phone(target),
+        UserRegType::Email => validate_email_str(target),
+        UserRegType::LoginName => validate_username(target),
     }
 }
 
@@ -113,13 +123,4 @@ pub struct UpdateProfileRequestDto {
     pub session_token: String,
     pub avatar: Option<String>,
     pub gender: Option<i32>,
-}
-
-fn validate_phone(value: &str) -> Result<(), ValidationError> {
-    let phone_re = regex::Regex::new(r"^\+?[0-9]{7,20}$").unwrap();
-    if phone_re.is_match(value) {
-        Ok(())
-    } else {
-        Err(ValidationError::new("手机号格式错误"))
-    }
 }

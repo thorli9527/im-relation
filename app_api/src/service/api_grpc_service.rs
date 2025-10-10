@@ -28,7 +28,7 @@ use crate::service::{
 
 /// gRPC 外观层，将客户端 API 请求转发到用户、好友、会话等内部服务。
 #[derive(Default)]
-pub(crate) struct ApiGrpcService;
+pub struct ApiGrpcService;
 
 #[tonic::async_trait]
 impl ApiService for ApiGrpcService {

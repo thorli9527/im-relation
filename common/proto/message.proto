@@ -58,14 +58,16 @@ enum CallEndReason {
 
 // 通话内修改类型
 enum CallModifyType {
+  // 未指定，用作默认值，满足 proto3 首元素为 0 的要求
+  CMT_UNSPECIFIED = 0;
   // 静音/取消静音
-  CMT_MUTE = 0;
+  CMT_MUTE = 1;
   // 开/关摄像头
-  CMT_CAMERA = 1;
+  CMT_CAMERA = 2;
   // 保持/恢复通话
-  CMT_HOLD = 2;
+  CMT_HOLD = 3;
   // 切换前后摄
-  CMT_SWITCH_CAMERA = 3;
+  CMT_SWITCH_CAMERA = 4;
 }
 enum ChatScene {
   // 默认未知场景（防御值）
@@ -671,8 +673,10 @@ message MsgForward {
 
 // Reaction 操作
 enum ReactionAction {
-  RA_ADD = 0;
-  RA_REMOVE = 1;
+  // 未指定动作
+  RA_UNKNOWN = 0;
+  RA_ADD = 1;
+  RA_REMOVE = 2;
 }
 
 // 消息表态（emoji/reaction）

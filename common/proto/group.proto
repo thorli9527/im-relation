@@ -16,25 +16,29 @@ package group_service;
 
 // 群成员角色类型（与数据库/内存中的角色编码对齐）
 enum GroupRoleType {
+  // 未指定（默认值）
+  ROLE_UNSPECIFIED = 0;
   // 群主
-  Owner  = 0;
+  Owner  = 1;
   // 管理员
-  Admin  = 1;
+  Admin  = 2;
   // 普通成员
-  Member = 2;
+  Member = 3;
 }
 /**
  * 加群权限控制类型
  */
 enum JoinPermission {
+  // 未指定
+  JOIN_UNSPECIFIED = 0;
   // 任何人可加入
-  ANYONE = 0;
+  ANYONE = 1;
   // 加群需审批
-  NEED_APPROVAL = 1;
+  NEED_APPROVAL = 2;
   // 仅允许邀请加入
-  INVITE_ONLY = 2;
+  INVITE_ONLY = 3;
   // 不允许加入
-  CLOSED = 3;
+  CLOSED = 4;
 }
 /**
  * 群组类型
@@ -238,15 +242,15 @@ message CreateGroupReq {
  */
 message UpdateGroupProfileReq {
   // 操作者 UID（必须具备权限）
-  int64 operator_uid = 2;
+  int64 operator_uid = 1;
   // 目标群 ID
-  int64 group_id = 3;
+  int64 group_id = 2;
   // 新的群名称（可选）
-  optional string name = 4;
+  optional string name = 3;
   // 新头像（可选）
-  optional string avatar = 5;
+  optional string avatar = 4;
   // 新简介（可选）
-  optional string intro = 6;
+  optional string intro = 5;
 }
 /**
  * 解散群请求
