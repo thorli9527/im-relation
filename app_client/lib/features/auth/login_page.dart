@@ -1,35 +1,32 @@
 import 'dart:async';
-import 'dart:math';
 
+import 'package:fixnum/fixnum.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grpc/grpc.dart' show GrpcError;
-import 'package:im_client/core/api/grpc_channel.dart';
 import 'package:im_client/core/config/app_config.dart';
-import 'package:im_client/features/auth/data/auth_api_client.dart';
+import 'package:im_client/core/providers/app_providers.dart';
 import 'package:im_client/features/auth/models/login_payload.dart';
 import 'package:im_client/features/chat/chat_home_page.dart';
-import 'package:logger/logger.dart';
-
-// Pc device type value from `DeviceType::Pc` in `online_service.rs`.
-const int _pcDeviceTypeValue = 4;
 
 final RegExp _emailRegExp = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
 final RegExp _phoneRegExp = RegExp(r'^\+?\d[\d\s-]{6,}$');
 
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+class LoginPage extends ConsumerStatefulWidget {
+  const LoginPage({super.key, this.initialAccount, this.initialDeviceId});
+
+  final String? initialAccount;
+  final String? initialDeviceId;
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _targetController = TextEditingController();
   final _passwordController = TextEditingController();
   late final TextEditingController _deviceIdController;
-  AuthApiClient? _authClient;
-  AppConfigController? _configController;
 
   bool _obscurePassword = true;
   bool _isSubmitting = false;
@@ -37,24 +34,11 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    _deviceIdController = TextEditingController(text: _generateDeviceId());
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final controller = AppConfigScope.maybeOf(context);
-    if (_configController == controller && _authClient != null) {
-      return;
-    }
-    _configController?.removeListener(_handleConfigChanged);
-    _configController = controller;
-    if (controller != null) {
-      controller.addListener(_handleConfigChanged);
-      _rebuildClient(controller.value);
-    } else {
-      _rebuildClient(AppConfigData.fallback());
-    }
+    _deviceIdController = TextEditingController(
+      text: widget.initialDeviceId ?? '',
+    );
+    _targetController.text = widget.initialAccount ?? '';
+    _hydrateFromStore();
   }
 
   Color _applyOpacity(Color color, double opacity) {
@@ -62,49 +46,28 @@ class _LoginPageState extends State<LoginPage> {
     return color.withAlpha(value);
   }
 
+  Future<void> _hydrateFromStore() async {
+    final store = ref.read(localStoreProvider);
+    final profile = await store.getDeviceProfile();
+    final session = await store.getAuthSession();
+    if (!mounted) {
+      return;
+    }
+    if (widget.initialDeviceId == null && profile.deviceId.isNotEmpty) {
+      _deviceIdController.text = profile.deviceId;
+    }
+    final savedAccount = session.account;
+    if (widget.initialAccount == null && savedAccount?.isNotEmpty == true) {
+      _targetController.text = savedAccount!;
+    }
+  }
+
   @override
   void dispose() {
     _targetController.dispose();
     _passwordController.dispose();
     _deviceIdController.dispose();
-    _configController?.removeListener(_handleConfigChanged);
-    unawaited(_authClient?.dispose());
     super.dispose();
-  }
-
-  void _handleConfigChanged() {
-    final controller = _configController;
-    if (controller == null) {
-      return;
-    }
-    _rebuildClient(controller.value);
-  }
-
-  void _rebuildClient(AppConfigData data) {
-    final endpoint = data.activeServer;
-    final logger = Logger(
-      level: data.logLevel.loggerLevel,
-    );
-    final manager = GrpcChannelManager(
-      config: GrpcConfig(
-        host: endpoint.grpcHost,
-        port: endpoint.grpcPort,
-        useTls: endpoint.useTls,
-      ),
-      logger: logger,
-    );
-    unawaited(_authClient?.dispose());
-    _authClient = AuthApiClient(channelManager: manager);
-  }
-
-  String _generateDeviceId() {
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    final random = Random.secure();
-    final buffer = StringBuffer('dev-');
-    for (var i = 0; i < 10; i++) {
-      buffer.write(chars[random.nextInt(chars.length)]);
-    }
-    return buffer.toString();
   }
 
   LoginMethod _inferLoginMethod(String input) {
@@ -119,15 +82,8 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _submit() async {
-    final client = _authClient;
-    if (client == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('未初始化客户端配置，请检查设置。'),
-        ),
-      );
-      return;
-    }
+    final client = ref.read(authApiClientProvider);
+    final store = ref.read(localStoreProvider);
     final form = _formKey.currentState;
     if (form == null) {
       return;
@@ -139,15 +95,48 @@ class _LoginPageState extends State<LoginPage> {
       _isSubmitting = true;
     });
     try {
+      final profile = await store.getDeviceProfile();
+      final deviceId = _deviceIdController.text.trim().isEmpty
+          ? profile.deviceId
+          : _deviceIdController.text.trim();
+      final deviceType = profile.deviceType;
       final method = _inferLoginMethod(_targetController.text);
       final payload = LoginRequestPayload(
         loginMethod: method,
         target: _targetController.text.trim(),
         password: _passwordController.text,
-        deviceType: _pcDeviceTypeValue,
-        deviceId: _deviceIdController.text.trim(),
+        deviceType: deviceType,
+        deviceId: deviceId,
       );
       final response = await client.login(payload);
+      final validation = await client.validateToken(response.token);
+      if (!validation.ok) {
+        throw GrpcError.unauthenticated('token 无效');
+      }
+
+      final refreshedToken = validation.token.isNotEmpty
+          ? validation.token
+          : response.token;
+      final expiresAt = validation.expiresAt > Int64.ZERO
+          ? validation.expiresAt.toInt()
+          : response.expiresAt.toInt();
+      final userId = validation.userId.toInt();
+
+      response
+        ..token = refreshedToken
+        ..expiresAt = Int64(expiresAt);
+
+      await store.persistLoginSuccess(
+        userId: userId,
+        loginType: payload.loginType,
+        account: payload.target,
+        password: payload.password,
+        deviceType: payload.deviceType,
+        deviceId: payload.deviceId,
+        token: refreshedToken,
+        expiresAt: expiresAt,
+        socketAddr: response.socketAddr,
+      );
       if (!mounted) {
         return;
       }
@@ -156,6 +145,9 @@ class _LoginPageState extends State<LoginPage> {
           builder: (_) => ChatHomePage(
             session: response,
             account: _targetController.text.trim(),
+            userId: userId,
+            deviceId: payload.deviceId,
+            deviceType: payload.deviceType,
           ),
         ),
       );
@@ -163,21 +155,19 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) {
         return;
       }
-      final message = error.message?.isNotEmpty == true ? error.message! : '登录失败';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-        ),
-      );
+      final message = error.message?.isNotEmpty == true
+          ? error.message!
+          : '登录失败';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('登录出现错误: $error'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('登录出现错误: $error')));
     } finally {
       if (mounted) {
         setState(() {
@@ -187,22 +177,25 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  Future<void> _openSettings() async {
-    final controller = _configController;
+  Future<void> _openSettings(AppConfigData currentConfig) async {
     final fallbackData = AppConfigData.fallback();
-    final servers = controller?.servers ?? fallbackData.servers;
+    final servers = currentConfig.servers.isEmpty
+        ? fallbackData.servers
+        : currentConfig.servers;
     if (!mounted) {
       return;
     }
     if (servers.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('暂无可用服务器配置')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('暂无可用服务器配置')));
       return;
     }
-    var selectedServerId =
-        controller?.value.activeServerId ?? fallbackData.activeServerId;
-    var selectedLogLevel = controller?.value.logLevel ?? fallbackData.logLevel;
+    var selectedServerId = currentConfig.activeServerId.isNotEmpty
+        ? currentConfig.activeServerId
+        : servers.first.id;
+    var selectedLogLevel = currentConfig.logLevel;
+    final notifier = ref.read(appConfigNotifierProvider.notifier);
 
     await showDialog<void>(
       context: context,
@@ -217,14 +210,14 @@ class _LoginPageState extends State<LoginPage> {
                 children: [
                   DropdownButtonFormField<String>(
                     initialValue: selectedServerId,
-                    decoration: const InputDecoration(
-                      labelText: '服务器',
-                    ),
+                    decoration: const InputDecoration(labelText: '服务器'),
                     items: servers
                         .map(
                           (server) => DropdownMenuItem(
                             value: server.id,
-                            child: Text('${server.name} (${server.grpcHost}:${server.grpcPort})'),
+                            child: Text(
+                              '${server.name} (${server.grpcHost}:${server.grpcPort})',
+                            ),
                           ),
                         )
                         .toList(),
@@ -239,9 +232,7 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 16),
                   DropdownButtonFormField<LogLevelSetting>(
                     initialValue: selectedLogLevel,
-                    decoration: const InputDecoration(
-                      labelText: '日志级别',
-                    ),
+                    decoration: const InputDecoration(labelText: '日志级别'),
                     items: LogLevelSetting.values
                         .map(
                           (level) => DropdownMenuItem(
@@ -269,11 +260,9 @@ class _LoginPageState extends State<LoginPage> {
             ),
             FilledButton(
               onPressed: () {
-                if (controller != null) {
-                  controller
-                    ..setActiveServer(selectedServerId)
-                    ..setLogLevel(selectedLogLevel);
-                }
+                notifier
+                  ..setActiveServer(selectedServerId)
+                  ..setLogLevel(selectedLogLevel);
                 Navigator.of(context).pop();
               },
               child: const Text('保存'),
@@ -286,6 +275,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final config = ref.watch(appConfigNotifierProvider);
     final theme = Theme.of(context);
     final secondaryTextColor = _applyOpacity(
       theme.textTheme.bodyMedium?.color ?? theme.colorScheme.onSurface,
@@ -301,7 +291,9 @@ class _LoginPageState extends State<LoginPage> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final isWide = constraints.maxWidth >= 640;
-            final horizontalPadding = isWide ? constraints.maxWidth * 0.25 : 24.0;
+            final horizontalPadding = isWide
+                ? constraints.maxWidth * 0.25
+                : 24.0;
             return SingleChildScrollView(
               padding: EdgeInsets.symmetric(
                 horizontal: horizontalPadding,
@@ -318,7 +310,7 @@ class _LoginPageState extends State<LoginPage> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: IconButton(
-                          onPressed: _openSettings,
+                          onPressed: () => _openSettings(config),
                           tooltip: '配置',
                           icon: const Icon(Icons.tune),
                         ),
@@ -367,7 +359,9 @@ class _LoginPageState extends State<LoginPage> {
                               obscureText: _obscurePassword,
                               decoration: InputDecoration(
                                 labelText: '密码',
-                                prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                prefixIcon: const Icon(
+                                  Icons.lock_outline_rounded,
+                                ),
                                 suffixIcon: IconButton(
                                   onPressed: () {
                                     setState(() {
@@ -395,14 +389,18 @@ class _LoginPageState extends State<LoginPage> {
                             ElevatedButton(
                               onPressed: _isSubmitting ? null : _submit,
                               style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
                                 textStyle: const TextStyle(fontSize: 16),
                               ),
                               child: _isSubmitting
                                   ? const SizedBox(
                                       height: 20,
                                       width: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
                                     )
                                   : const Text('登录'),
                             ),

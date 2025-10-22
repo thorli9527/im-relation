@@ -56,6 +56,21 @@ message LoginResponse {
   string socket_addr = 3;
 }
 
+// 验证 session_token 是否有效。
+message ValidateSessionTokenRequest {
+  string session_token = 1;
+}
+
+// token 验证结果返回值。
+message ValidateSessionTokenResponse {
+  bool ok = 1;
+  int64 user_id = 2;
+  // token 失效时间（毫秒时间戳）。当 ok=false 时为 0。
+  uint64 expires_at = 3;
+  // 若验证成功，返回一个新的 session token。
+  string token = 4;
+}
+
 // 使用当前会话修改密码。
 message ChangePasswordRequest {
   string session_token = 1;
@@ -106,6 +121,33 @@ message UpdateProfileRequest {
 // 更新资料操作的反馈。
 message UpdateProfileResponse {
   bool ok = 1;
+}
+
+enum UserSearchType {
+  USER_SEARCH_UNKNOWN = 0;
+  USER_SEARCH_USER_ID = 1;
+  USER_SEARCH_USERNAME = 2;
+  USER_SEARCH_EMAIL = 3;
+  USER_SEARCH_PHONE = 4;
+}
+
+message SearchUserRequest {
+  UserSearchType search_type = 1;
+  string query = 2;
+}
+
+message UserProfile {
+  int64 user_id = 1;
+  string username = 2;
+  string avatar = 3;
+  optional string email = 4;
+  optional string phone = 5;
+  optional string signature = 6;
+  optional string region = 7;
+}
+
+message SearchUserResponse {
+  optional UserProfile user = 1;
 }
 
 message FriendSummary {
@@ -169,6 +211,8 @@ service ApiService {
   rpc VerifyRegisterCode(VerifyRegisterCodeRequest) returns (VerifyRegisterCodeResponse);
   // 执行登录流程：校验账号密码并下发会话信息。
   rpc Login(LoginRequest) returns (LoginResponse);
+  // 校验 session_token 有效性，并返回关联用户信息。
+  rpc ValidateSessionToken(ValidateSessionTokenRequest) returns (ValidateSessionTokenResponse);
   // 修改当前账号密码。
   rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
   // 替换绑定手机号。
@@ -183,4 +227,6 @@ service ApiService {
   rpc GetGroupMembers(GetGroupMembersRequest) returns (GetGroupMembersResponse);
   // 获取群成员详情，同时返回是否为好友
   rpc GetGroupMemberDetail(GetGroupMemberDetailRequest) returns (GetGroupMemberDetailResponse);
+  // 搜索单个用户信息
+  rpc SearchUser(SearchUserRequest) returns (SearchUserResponse);
 }

@@ -14,7 +14,7 @@ resolver = "2"
 # ========================
 # 🌐 Web 框架
 # ========================
-axum = { version = "0.8.4", features = ["macros"] }
+axum = { version = "0.8.4", features = ["macros", "ws"] }
 tower-http = { version = "0.5.2", features = ["trace", "fs"] }
 reqwest = { version = "0.12.5", default-features = false, features = ["json", "rustls-tls"] }
 argon2 = { version = "0.5.3" }
@@ -22,7 +22,7 @@ rand_core = { version = "0.9.3" }
 # ========================
 # 🗄 数据库相关
 # ========================
-sqlx = { version = "0.8.6", features = ["mysql", "runtime-tokio-rustls", "macros", "json"] }
+sqlx = { version = "0.8.6", features = ["mysql", "runtime-tokio-rustls", "macros", "json", "time"] }
 mongodb = { version = "3.2.4", features = ["sync"] }       # MongoDB 客户端（同步版）
 mongo_indexed_derive = { version = "2.0.0" }               # Mongo 索引宏派生
 deadpool-redis = { version = "0.21.1", features = ["tokio-comp"] }  # Redis 异步连接池（tokio）

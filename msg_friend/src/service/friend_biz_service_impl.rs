@@ -10,6 +10,7 @@ use common::infra::grpc::grpc_msg_friend::msg_friend_service::{
 };
 use common::infra::grpc::grpc_socket::socket::MsgKind as SocketMsgKind;
 use common::infra::kafka::topic_info::MSG_SEND_FRIEND_TOPIC;
+use common::support::grpc::internal_error;
 use log::{info, warn};
 use prost::Message;
 use std::sync::Arc;
@@ -71,7 +72,7 @@ impl FriendBizService for MsgFriendServiceImpl {
         // 落库申请（幂等）
         upsert_friend_request(self.inner.pool(), &row)
             .await
-            .map_err(|e| tonic::Status::internal(format!("persist friend_request failed: {e}")))?;
+            .map_err(|e| internal_error(format!("persist friend_request failed: {e}")))?;
         // 发送好友申请通知到 Kafka，由 socket 分发给目标用户。
 
         if let Some(kafka) = self.inner.kafka().cloned() {
@@ -119,7 +120,7 @@ impl FriendBizService for MsgFriendServiceImpl {
         // 查询申请详情
         let req_row = get_friend_request_by_id(self.inner.pool(), r.request_id)
             .await
-            .map_err(|e| tonic::Status::internal(format!("query friend_request failed: {e}")))?;
+            .map_err(|e| internal_error(format!("query friend_request failed: {e}")))?;
         if let Some(row) = req_row {
             // 记录决定
             let _ = mark_friend_request_decision(
@@ -130,9 +131,7 @@ impl FriendBizService for MsgFriendServiceImpl {
                 r.remark.clone(),
             )
             .await
-            .map_err(|e| {
-                tonic::Status::internal(format!("update friend_request decision failed: {e}"))
-            })?;
+            .map_err(|e| internal_error(format!("update friend_request decision failed: {e}")))?;
 
             if r.accept {
                 if let Some(cli) = self.inner.friend_client() {
@@ -145,9 +144,11 @@ impl FriendBizService for MsgFriendServiceImpl {
                         alias_for_user: row.remark.clone(),
                         alias_for_friend: r.remark.clone(),
                     };
-                    let _ = cli.clone().add_friend(req).await.map_err(|e| {
-                        tonic::Status::internal(format!("add_friend both failed: {e}"))
-                    })?;
+                    let _ = cli
+                        .clone()
+                        .add_friend(req)
+                        .await
+                        .map_err(|e| internal_error(format!("add_friend both failed: {e}")))?;
                 } else {
                     warn!("FriendBizService: friend_client not configured; accept ignored for request_id={}", row.id);
                 }
@@ -178,7 +179,7 @@ impl FriendBizService for MsgFriendServiceImpl {
                 .clone()
                 .remove_friend(req)
                 .await
-                .map_err(|e| tonic::Status::internal(format!("remove_friend failed: {e}")))?;
+                .map_err(|e| internal_error(format!("remove_friend failed: {e}")))?;
         } else {
             warn!("FriendBizService: friend_client not configured; DeleteFriend ignored");
         }
@@ -199,10 +200,11 @@ impl FriendBizService for MsgFriendServiceImpl {
                 friend_id: r.friend_user_id,
                 alias: Some(r.remark),
             };
-            let _ =
-                cli.clone().update_friend_alias(req).await.map_err(|e| {
-                    tonic::Status::internal(format!("update_friend_alias failed: {e}"))
-                })?;
+            let _ = cli
+                .clone()
+                .update_friend_alias(req)
+                .await
+                .map_err(|e| internal_error(format!("update_friend_alias failed: {e}")))?;
         } else {
             warn!("FriendBizService: friend_client not configured; UpdateFriendRemark ignored");
         }

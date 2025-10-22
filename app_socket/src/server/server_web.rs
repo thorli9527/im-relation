@@ -1,10 +1,9 @@
-//! Web (HTTP/WebSocket) and arbitration sync entrypoints.
+//! Lightweight HTTP entrypoints (e.g. health probes).
 
 use std::net::SocketAddr;
 
 use anyhow::Result;
 use axum::{routing::get, Json, Router};
-use common::config::AppConfig;
 use log::{info, warn};
 use serde_json::json;
 use tokio::net::TcpListener;
@@ -18,7 +17,12 @@ pub async fn start_web_server(bind: &str) -> Result<()> {
     let router = Router::new().route("/healthz", get(healthz));
 
     tokio::spawn(async move {
-        if let Err(err) = axum::serve(listener, router.into_make_service()).await {
+        if let Err(err) = axum::serve(
+            listener,
+            router.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await
+        {
             warn!("socket HTTP server exited: {}", err);
         }
     });

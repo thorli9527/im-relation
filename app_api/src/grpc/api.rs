@@ -70,6 +70,26 @@ pub struct LoginResponse {
     #[prost(string, tag = "3")]
     pub socket_addr: ::prost::alloc::string::String,
 }
+/// 验证 session_token 是否有效。
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ValidateSessionTokenRequest {
+    #[prost(string, tag = "1")]
+    pub session_token: ::prost::alloc::string::String,
+}
+/// token 验证结果返回值。
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ValidateSessionTokenResponse {
+    #[prost(bool, tag = "1")]
+    pub ok: bool,
+    #[prost(int64, tag = "2")]
+    pub user_id: i64,
+    /// token 失效时间（毫秒时间戳）。当 ok=false 时为 0。
+    #[prost(uint64, tag = "3")]
+    pub expires_at: u64,
+    /// 若验证成功，返回一个新的 session token。
+    #[prost(string, tag = "4")]
+    pub token: ::prost::alloc::string::String,
+}
 /// 使用当前会话修改密码。
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ChangePasswordRequest {
@@ -141,6 +161,31 @@ pub struct UpdateProfileRequest {
 pub struct UpdateProfileResponse {
     #[prost(bool, tag = "1")]
     pub ok: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SearchUserRequest {
+    #[prost(enumeration = "UserSearchType", tag = "1")]
+    pub search_type: i32,
+    #[prost(string, tag = "2")]
+    pub query: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UserProfile {
+    #[prost(int64, tag = "1")]
+    pub user_id: i64,
+    #[prost(string, tag = "2")]
+    pub username: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub avatar: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "4")]
+    pub email: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "5")]
+    pub phone: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SearchUserResponse {
+    #[prost(message, optional, tag = "1")]
+    pub user: ::core::option::Option<UserProfile>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FriendSummary {
@@ -223,6 +268,41 @@ pub struct GetGroupMemberDetailResponse {
     pub member: ::core::option::Option<GroupMemberSummary>,
     #[prost(bool, tag = "2")]
     pub is_friend: bool,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum UserSearchType {
+    UserSearchUnknown = 0,
+    UserSearchUserId = 1,
+    UserSearchUsername = 2,
+    UserSearchEmail = 3,
+    UserSearchPhone = 4,
+}
+impl UserSearchType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::UserSearchUnknown => "USER_SEARCH_UNKNOWN",
+            Self::UserSearchUserId => "USER_SEARCH_USER_ID",
+            Self::UserSearchUsername => "USER_SEARCH_USERNAME",
+            Self::UserSearchEmail => "USER_SEARCH_EMAIL",
+            Self::UserSearchPhone => "USER_SEARCH_PHONE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "USER_SEARCH_UNKNOWN" => Some(Self::UserSearchUnknown),
+            "USER_SEARCH_USER_ID" => Some(Self::UserSearchUserId),
+            "USER_SEARCH_USERNAME" => Some(Self::UserSearchUsername),
+            "USER_SEARCH_EMAIL" => Some(Self::UserSearchEmail),
+            "USER_SEARCH_PHONE" => Some(Self::UserSearchPhone),
+            _ => None,
+        }
+    }
 }
 /// Generated client implementations.
 pub mod api_service_client {
@@ -383,6 +463,31 @@ pub mod api_service_client {
             let path = http::uri::PathAndQuery::from_static("/api.ApiService/Login");
             let mut req = request.into_request();
             req.extensions_mut().insert(GrpcMethod::new("api.ApiService", "Login"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// 校验 session_token 有效性，并返回关联用户信息。
+        pub async fn validate_session_token(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ValidateSessionTokenRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ValidateSessionTokenResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/api.ApiService/ValidateSessionToken",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("api.ApiService", "ValidateSessionToken"));
             self.inner.unary(req, path, codec).await
         }
         /// 修改当前账号密码。
@@ -560,6 +665,30 @@ pub mod api_service_client {
                 .insert(GrpcMethod::new("api.ApiService", "GetGroupMemberDetail"));
             self.inner.unary(req, path, codec).await
         }
+        /// 搜索单个用户信息
+        pub async fn search_user(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SearchUserRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SearchUserResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/api.ApiService/SearchUser",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("api.ApiService", "SearchUser"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -596,6 +725,14 @@ pub mod api_service_server {
             &self,
             request: tonic::Request<super::LoginRequest>,
         ) -> std::result::Result<tonic::Response<super::LoginResponse>, tonic::Status>;
+        /// 校验 session_token 有效性，并返回关联用户信息。
+        async fn validate_session_token(
+            &self,
+            request: tonic::Request<super::ValidateSessionTokenRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ValidateSessionTokenResponse>,
+            tonic::Status,
+        >;
         /// 修改当前账号密码。
         async fn change_password(
             &self,
@@ -650,6 +787,14 @@ pub mod api_service_server {
             request: tonic::Request<super::GetGroupMemberDetailRequest>,
         ) -> std::result::Result<
             tonic::Response<super::GetGroupMemberDetailResponse>,
+            tonic::Status,
+        >;
+        /// 搜索单个用户信息
+        async fn search_user(
+            &self,
+            request: tonic::Request<super::SearchUserRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SearchUserResponse>,
             tonic::Status,
         >;
     }
@@ -850,6 +995,52 @@ pub mod api_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = LoginSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/api.ApiService/ValidateSessionToken" => {
+                    #[allow(non_camel_case_types)]
+                    struct ValidateSessionTokenSvc<T: ApiService>(pub Arc<T>);
+                    impl<
+                        T: ApiService,
+                    > tonic::server::UnaryService<super::ValidateSessionTokenRequest>
+                    for ValidateSessionTokenSvc<T> {
+                        type Response = super::ValidateSessionTokenResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ValidateSessionTokenRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ApiService>::validate_session_token(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ValidateSessionTokenSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -1166,6 +1357,51 @@ pub mod api_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = GetGroupMemberDetailSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/api.ApiService/SearchUser" => {
+                    #[allow(non_camel_case_types)]
+                    struct SearchUserSvc<T: ApiService>(pub Arc<T>);
+                    impl<
+                        T: ApiService,
+                    > tonic::server::UnaryService<super::SearchUserRequest>
+                    for SearchUserSvc<T> {
+                        type Response = super::SearchUserResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SearchUserRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ApiService>::search_user(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SearchUserSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

@@ -12,9 +12,14 @@ pub mod proto {
     //! 按照包名 `api` 将 `auth.proto` 生成的客户端代码引入当前模块命名空间。
     //! `tonic::include_proto!` 会在编译期将 `OUT_DIR` 下对应文件包含进来。
     tonic::include_proto!("api");
+
+    // 将 gRPC 客户端重导出到 `proto` 根部，方便测试代码直接引用。
+    pub use self::api_service_client::ApiServiceClient;
 }
 
-use proto::api_service_client::ApiServiceClient;
+use proto::ApiServiceClient;
+
+#[cfg(test)]
 use proto::{BuildRegisterCodeRequest, ChangePasswordRequest, LoginRequest};
 
 /// 建立到 `app_api` gRPC 服务的客户端连接。
@@ -22,7 +27,7 @@ use proto::{BuildRegisterCodeRequest, ChangePasswordRequest, LoginRequest};
 /// - 优先读取环境变量 `API_GRPC_ADDR`，便于在不同环境之间切换。
 /// - 若未设置环境变量，默认连接开发环境常用的 `127.0.0.1:50051`。
 /// - 引入 `connect_timeout` 和 `tcp_nodelay`，提高连接失败的反馈速度。
-async fn connect_client() -> ApiServiceClient<Channel> {
+pub async fn connect_client() -> ApiServiceClient<Channel> {
     let addr = std::env::var("API_GRPC_ADDR").unwrap_or_else(|_| {
         // 默认指向本地开发环境，可通过环境变量覆盖。
         "http://127.0.0.1:50051".into()

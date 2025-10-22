@@ -20,6 +20,7 @@ use anyhow::{anyhow, Context, Result};
 use futures::{StreamExt, TryStreamExt};
 use rand::RngCore;
 use serde_json::Value as JsonValue;
+use sqlx::types::time::PrimitiveDateTime;
 use sqlx::{mysql::MySqlRow, MySql, Pool, QueryBuilder, Row};
 use std::convert::TryFrom;
 use time::format_description::FormatItem;
@@ -459,12 +460,10 @@ impl SessionTokenRepo for SessionRepoSqlx {
         let device_type_val: i32 = row.try_get("device_type")?;
         let device_id: String = row.try_get("device_id")?;
         let mut status: i32 = row.try_get("status")?;
-        let expires_at_str: String = row.try_get("expires_at")?;
-        let expires_at =
-            OffsetDateTime::parse(&expires_at_str, &MYSQL_TS_FORMAT).map_err(|e| anyhow!(e))?;
-        let last_seen_str: String = row.try_get("last_seen_at")?;
-        let last_seen_at =
-            OffsetDateTime::parse(&last_seen_str, &MYSQL_TS_FORMAT).map_err(|e| anyhow!(e))?;
+        let expires_at_pd: PrimitiveDateTime = row.try_get("expires_at")?;
+        let expires_at = expires_at_pd.assume_utc();
+        let last_seen_pd: PrimitiveDateTime = row.try_get("last_seen_at")?;
+        let last_seen_at = last_seen_pd.assume_utc();
         let now = OffsetDateTime::now_utc();
         if expires_at <= now && status == 1 {
             sqlx::query(

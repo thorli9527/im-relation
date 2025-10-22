@@ -2,7 +2,12 @@ use std::convert::TryFrom;
 
 use anyhow::{anyhow, Result};
 use common::config::AppConfig;
-use common::infra::grpc::grpc_user::online_service::{DeviceType, GetUserReq};
+use common::infra::grpc::grpc_user::online_service::{
+    DeviceType, FindByContentReq, GetUserReq, SessionTokenStatus,
+    UpsertSessionTokenRequest as OnlineUpsertSessionTokenRequest, UserEntity,
+    ValidateSessionTokenRequest as OnlineValidateSessionTokenRequest,
+};
+use common::support::grpc::internal_error;
 use common::support::util::common_utils::hash_index;
 use log::warn;
 use tonic::{Request, Response, Status};
@@ -14,8 +19,10 @@ use crate::grpc::api::{
     ChangePasswordRequest, ChangePasswordResponse, ChangePhoneRequest, ChangePhoneResponse,
     FriendSummary, GetFriendListRequest, GetFriendListResponse, GetGroupMemberDetailRequest,
     GetGroupMemberDetailResponse, GetGroupMembersRequest, GetGroupMembersResponse,
-    GroupMemberSummary, LoginRequest, LoginResponse, UpdateProfileRequest, UpdateProfileResponse,
-    VerifyRegisterCodeRequest, VerifyRegisterCodeResponse,
+    GroupMemberSummary, LoginRequest, LoginResponse, SearchUserRequest, SearchUserResponse,
+    UpdateProfileRequest, UpdateProfileResponse, UserProfile, UserSearchType,
+    ValidateSessionTokenRequest, ValidateSessionTokenResponse, VerifyRegisterCodeRequest,
+    VerifyRegisterCodeResponse,
 };
 use crate::service::{
     auth_models::{
@@ -63,7 +70,7 @@ impl ApiService for ApiGrpcService {
             let uid = user_service
                 .register_login_name(&dto.name, &dto.password)
                 .await
-                .map_err(|err| Status::internal(err.to_string()))?;
+                .map_err(|err| internal_error(err))?;
             return Ok(Response::new(BuildRegisterCodeResponse {
                 reg_id: String::new(),
                 uid,
@@ -73,7 +80,7 @@ impl ApiService for ApiGrpcService {
         let reg_id = user_service
             .build_register_code(&dto.name, &dto.password, &reg_type, &dto.target)
             .await
-            .map_err(|err| Status::internal(err.to_string()))?;
+            .map_err(|err| internal_error(err))?;
 
         Ok(Response::new(BuildRegisterCodeResponse { reg_id, uid: 0 }))
     }
@@ -99,7 +106,7 @@ impl ApiService for ApiGrpcService {
         user_service
             .register_verify_code(&dto.reg_id, &dto.code)
             .await
-            .map_err(|err| Status::internal(err.to_string()))?;
+            .map_err(|err| internal_error(err))?;
 
         Ok(Response::new(VerifyRegisterCodeResponse { ok: true }))
     }
@@ -142,7 +149,7 @@ impl ApiService for ApiGrpcService {
                     Status::unauthenticated(msg)
                 } else {
                     warn!("login error: {msg}");
-                    Status::internal(msg)
+                    internal_error(err)
                 }
             })?;
 
@@ -158,6 +165,63 @@ impl ApiService for ApiGrpcService {
             token: session.token,
             expires_at: session.expires_at,
             socket_addr,
+        }))
+    }
+
+    async fn validate_session_token(
+        &self,
+        request: Request<ValidateSessionTokenRequest>,
+    ) -> Result<Response<ValidateSessionTokenResponse>, Status> {
+        let payload = request.into_inner();
+        let session_token = payload.session_token;
+        if session_token.trim().is_empty() {
+            return Err(Status::invalid_argument("session_token is required"));
+        }
+
+        let mut online_client = grpc_gateway::get_online_client()
+            .await
+            .map_err(|err| internal_error(err))?;
+
+        let resp = online_client
+            .validate_session_token(OnlineValidateSessionTokenRequest { session_token })
+            .await?
+            .into_inner();
+
+        let status = SessionTokenStatus::try_from(resp.status)
+            .map_err(|_| internal_error("invalid session token status"))?;
+
+        if status != SessionTokenStatus::StsActive {
+            return Ok(Response::new(ValidateSessionTokenResponse {
+                ok: false,
+                user_id: 0,
+                expires_at: 0,
+                token: String::new(),
+            }));
+        }
+
+        let device_type = DeviceType::try_from(resp.device_type)
+            .map_err(|_| internal_error("invalid device type"))?;
+        if resp.device_id.trim().is_empty() {
+            return Err(internal_error("session device_id missing"));
+        }
+
+        let upsert = online_client
+            .upsert_session_token(OnlineUpsertSessionTokenRequest {
+                user_id: resp.user_id,
+                device_type: device_type as i32,
+                device_id: resp.device_id.clone(),
+                login_ip: None,
+                user_agent: None,
+            })
+            .await?
+            .into_inner();
+
+        let user_id = resp.user_id;
+        Ok(Response::new(ValidateSessionTokenResponse {
+            ok: true,
+            user_id,
+            expires_at: upsert.expires_at,
+            token: upsert.session_token,
         }))
     }
 
@@ -183,7 +247,7 @@ impl ApiService for ApiGrpcService {
         user_service
             .change_password(&dto.session_token, &dto.old_password, &dto.new_password)
             .await
-            .map_err(|err| Status::internal(err.to_string()))?;
+            .map_err(|err| internal_error(err))?;
 
         Ok(Response::new(ChangePasswordResponse { ok: true }))
     }
@@ -223,7 +287,7 @@ impl ApiService for ApiGrpcService {
                 &dto.new_phone_code,
             )
             .await
-            .map_err(|err| Status::internal(err.to_string()))?;
+            .map_err(|err| internal_error(err))?;
 
         Ok(Response::new(ChangePhoneResponse { ok: true, phone }))
     }
@@ -262,7 +326,7 @@ impl ApiService for ApiGrpcService {
                 &dto.new_email_code,
             )
             .await
-            .map_err(|err| Status::internal(err.to_string()))?;
+            .map_err(|err| internal_error(err))?;
 
         Ok(Response::new(ChangeEmailResponse { ok: true, email }))
     }
@@ -303,7 +367,7 @@ impl ApiService for ApiGrpcService {
         user_service
             .update_profile(&dto.session_token, dto.gender, dto.avatar.as_deref())
             .await
-            .map_err(|err| Status::internal(err.to_string()))?;
+            .map_err(|err| internal_error(err))?;
 
         Ok(Response::new(UpdateProfileResponse { ok: true }))
     }
@@ -326,11 +390,10 @@ impl ApiService for ApiGrpcService {
         let active_session = session::ensure_active_session(&payload.session_token)
             .await
             .map_err(|err| {
-                let msg = err.to_string();
-                if msg == "session token inactive" {
-                    Status::unauthenticated(msg)
+                if err.to_string() == "session token inactive" {
+                    Status::unauthenticated("session token inactive")
                 } else {
-                    Status::internal(msg)
+                    internal_error(err)
                 }
             })?;
 
@@ -340,7 +403,7 @@ impl ApiService for ApiGrpcService {
             payload.page_size,
         )
         .await
-        .map_err(|err| Status::internal(err.to_string()))?;
+        .map_err(|err| internal_error(err))?;
         if entries.is_empty() {
             // 请求页无数据，直接返回空列表以避免额外 RPC 调用。
             return Ok(Response::new(GetFriendListResponse {
@@ -353,7 +416,7 @@ impl ApiService for ApiGrpcService {
 
         let mut client_rpc = grpc_gateway::get_user_rpc_client()
             .await
-            .map_err(|err| Status::internal(err.to_string()))?;
+            .map_err(|err| internal_error(err))?;
 
         // 将存储的好友信息与实时用户资料合并，保证返回数据最新。
         let mut friends = Vec::with_capacity(entries.len());
@@ -465,6 +528,91 @@ impl ApiService for ApiGrpcService {
             member: Some(member),
             is_friend: false,
         }))
+    }
+
+    async fn search_user(
+        &self,
+        request: Request<SearchUserRequest>,
+    ) -> Result<Response<SearchUserResponse>, Status> {
+        let payload = request.into_inner();
+        let query = payload.query.trim();
+        if query.is_empty() {
+            return Err(Status::invalid_argument("query is required"));
+        }
+
+        let search_type = UserSearchType::try_from(payload.search_type)
+            .map_err(|_| Status::invalid_argument("invalid search_type"))?;
+
+        let mut user_client = grpc_gateway::get_user_rpc_client()
+            .await
+            .map_err(|err| internal_error(err))?;
+
+        let user_entity = match search_type {
+            UserSearchType::UserSearchUserId => {
+                let id = query
+                    .parse::<i64>()
+                    .map_err(|_| Status::invalid_argument("query must be numeric for user_id"))?;
+                match user_client.get_user(GetUserReq { id }).await {
+                    Ok(resp) => Some(resp.into_inner()),
+                    Err(status) if status.code() == tonic::Code::NotFound => None,
+                    Err(status) => return Err(internal_error(status)),
+                }
+            }
+            UserSearchType::UserSearchUsername => {
+                let resp = user_client
+                    .find_by_name(FindByContentReq {
+                        content: query.to_string(),
+                    })
+                    .await
+                    .map_err(|status| internal_error(status))?;
+                resp.into_inner().user
+            }
+            UserSearchType::UserSearchEmail => {
+                let resp = user_client
+                    .find_by_email(FindByContentReq {
+                        content: query.to_string(),
+                    })
+                    .await
+                    .map_err(|status| internal_error(status))?;
+                resp.into_inner().user
+            }
+            UserSearchType::UserSearchPhone => {
+                let resp = user_client
+                    .find_by_phone(FindByContentReq {
+                        content: query.to_string(),
+                    })
+                    .await
+                    .map_err(|status| internal_error(status))?;
+                resp.into_inner().user
+            }
+            UserSearchType::UserSearchUnknown => {
+                return Err(Status::invalid_argument("search_type is required"));
+            }
+        };
+
+        let profile = user_entity.map(user_entity_to_profile);
+
+        Ok(Response::new(SearchUserResponse { user: profile }))
+    }
+}
+
+fn user_entity_to_profile(entity: UserEntity) -> UserProfile {
+    let signature = entity
+        .profile_fields
+        .get("signature")
+        .map(|s| s.to_string());
+    let region = entity
+        .profile_fields
+        .get("region")
+        .map(|s| s.to_string());
+    UserProfile {
+        user_id: entity.id,
+        username: entity.name,
+        avatar: entity.avatar,
+        email: entity.email,
+        phone: entity.phone,
+        signature,
+        region,
     }
 }
 

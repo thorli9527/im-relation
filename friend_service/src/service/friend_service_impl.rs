@@ -3,6 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tonic::{Request, Response, Status};
 
+use common::support::grpc::internal_error;
 use common::UserId;
 
 use crate::hot_cold::HotColdFriendFacade;
@@ -19,11 +20,6 @@ pub struct FriendServiceImpl<R: FriendRepo> {
 }
 
 impl<R: FriendRepo> FriendServiceImpl<R> {
-    #[inline]
-    fn internal(err: anyhow::Error, ctx: &str) -> Status {
-        Status::internal(format!("{ctx}: {err}"))
-    }
-
     /// i64 → UserId（u64 别名），带负数校验
     #[inline]
     fn cast_uid(x: i64, field: &'static str) -> Result<UserId, Status> {
@@ -73,7 +69,7 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
             .get_friends(uid)
             .await
             .map(|v| v.contains(&fid))
-            .map_err(|e| Self::internal(e, "add_friend/get_friends"))?;
+            .map_err(|e| internal_error(format!("add_friend/get_friends: {e}")))?;
 
         // 双向建立关系（事务在存储层）
         if let Err(e) = self
@@ -88,7 +84,7 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
             {
                 eprintln!("friend add compensation enqueue failed: {}", job_err);
             }
-            return Err(Self::internal(e, "add_friend/write"));
+            return Err(internal_error(format!("add_friend/write: {e}")));
         }
 
         Ok(Response::new(AddFriendResp { added: !already }))
@@ -108,12 +104,12 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
             .get_friends(uid)
             .await
             .map(|v| v.contains(&fid))
-            .map_err(|e| Self::internal(e, "remove_friend/get_friends"))?;
+            .map_err(|e| internal_error(format!("remove_friend/get_friends: {e}")))?;
 
         self.facade
             .remove_friend(uid, fid)
             .await
-            .map_err(|e| Self::internal(e, "remove_friend/write"))?;
+            .map_err(|e| internal_error(format!("remove_friend/write: {e}")))?;
 
         Ok(Response::new(RemoveFriendResp { removed: existed }))
     }
@@ -132,7 +128,7 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
             .get_friends(uid)
             .await
             .map(|v| v.contains(&fid))
-            .map_err(|e| Self::internal(e, "is_friend/get_friends"))?;
+            .map_err(|e| internal_error(format!("is_friend/get_friends: {e}")))?;
 
         Ok(Response::new(IsFriendResp { is_friend }))
     }
@@ -169,7 +165,7 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         self.facade
             .delete_user(uid)
             .await
-            .map_err(|e| Self::internal(e, "clear_friends/write"))?;
+            .map_err(|e| internal_error(format!("clear_friends/write: {e}")))?;
 
         Ok(Response::new(ClearFriendsResp {}))
     }

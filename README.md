@@ -17,7 +17,6 @@
 - `app_socket`：Socket 客户端/服务相关
 - `msg_gateway`：消息网关（如有）
 - `msg_friend`：好友消息模块
-- `app_main`：聚合/入口应用
 
 ## 快速开始
 

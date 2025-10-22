@@ -204,7 +204,7 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
 /// - token：与 Redis 中的 `app:token:{token}` 绑定进行校验（校验 id 一致性）；
 /// - 可选签名：如配置 md5_key，则校验 signature（简单示例，真实项目应替换更安全方案）；
 /// - 时间漂移：允许 5 分钟以内的时间偏差。
-async fn validate_auth(auth: &PbAuthMsg) -> anyhow::Result<Option<i64>> {
+pub(super) async fn validate_auth(auth: &PbAuthMsg) -> anyhow::Result<Option<i64>> {
     if auth.token.is_empty() {
         return Ok(None);
     }

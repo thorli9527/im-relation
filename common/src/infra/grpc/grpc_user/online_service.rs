@@ -250,10 +250,8 @@ pub struct UserEntity {
     #[prost(enumeration = "UserType", tag = "10")]
     pub user_type: i32,
     #[prost(map = "string, string", tag = "11")]
-    pub profile_fields: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::string::String,
-    >,
+    pub profile_fields:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
     #[prost(int64, tag = "12")]
     pub create_time: i64,
     #[prost(int64, tag = "13")]
@@ -287,10 +285,8 @@ pub struct RegisterUserReq {
     #[prost(enumeration = "UserType", tag = "10")]
     pub user_type: i32,
     #[prost(map = "string, string", tag = "11")]
-    pub profile_fields: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::string::String,
-    >,
+    pub profile_fields:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ChangePasswordReq {
@@ -380,8 +376,20 @@ impl SessionTokenStatus {
         }
     }
 }
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[derive(
+    serde::Serialize,
+    serde::Deserialize,
+    utoipa::ToSchema,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    ::prost::Enumeration,
+)]
 #[repr(i32)]
 pub enum DeviceType {
     Unknown = 0,
@@ -548,10 +556,10 @@ pub mod online_service_client {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
-    use tonic::codegen::*;
     use tonic::codegen::http::Uri;
+    use tonic::codegen::*;
     #[derive(Debug, Clone)]
     pub struct OnlineServiceClient<T> {
         inner: tonic::client::Grpc<T>,
@@ -595,9 +603,8 @@ pub mod online_service_client {
                     <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::Body>,
-            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+            <T as tonic::codegen::Service<http::Request<tonic::body::Body>>>::Error:
+                Into<StdError> + std::marker::Send + std::marker::Sync,
         {
             OnlineServiceClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -636,22 +643,13 @@ pub mod online_service_client {
         pub async fn set_online(
             &mut self,
             request: impl tonic::IntoRequest<super::SetOnlineRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::SetOnlineResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::SetOnlineResponse>, tonic::Status> {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/online_service.OnlineService/SetOnline",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/online_service.OnlineService/SetOnline");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("online_service.OnlineService", "SetOnline"));
@@ -661,74 +659,52 @@ pub mod online_service_client {
         pub async fn check_online(
             &mut self,
             request: impl tonic::IntoRequest<super::CheckOnlineRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::CheckOnlineResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::CheckOnlineResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/online_service.OnlineService/CheckOnline",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/online_service.OnlineService/CheckOnline");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("online_service.OnlineService", "CheckOnline"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "online_service.OnlineService",
+                "CheckOnline",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 批量查
         pub async fn check_online_batch(
             &mut self,
             request: impl tonic::IntoRequest<super::CheckOnlineBatchRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::CheckOnlineBatchResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::CheckOnlineBatchResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/online_service.OnlineService/CheckOnlineBatch",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("online_service.OnlineService", "CheckOnlineBatch"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "online_service.OnlineService",
+                "CheckOnlineBatch",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 统计信息
         pub async fn get_stats(
             &mut self,
             request: impl tonic::IntoRequest<super::GetStatsRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::GetStatsResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::GetStatsResponse>, tonic::Status> {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/online_service.OnlineService/GetStats",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/online_service.OnlineService/GetStats");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("online_service.OnlineService", "GetStats"));
@@ -738,111 +714,80 @@ pub mod online_service_client {
         pub async fn upsert_session_token(
             &mut self,
             request: impl tonic::IntoRequest<super::UpsertSessionTokenRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::UpsertSessionTokenResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::UpsertSessionTokenResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/online_service.OnlineService/UpsertSessionToken",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("online_service.OnlineService", "UpsertSessionToken"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "online_service.OnlineService",
+                "UpsertSessionToken",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 校验 session token 合法性
         pub async fn validate_session_token(
             &mut self,
             request: impl tonic::IntoRequest<super::ValidateSessionTokenRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::ValidateSessionTokenResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::ValidateSessionTokenResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/online_service.OnlineService/ValidateSessionToken",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "online_service.OnlineService",
-                        "ValidateSessionToken",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "online_service.OnlineService",
+                "ValidateSessionToken",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 吊销指定 token 或设备会话
         pub async fn revoke_session_token(
             &mut self,
             request: impl tonic::IntoRequest<super::RevokeSessionTokenRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::RevokeSessionTokenResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::RevokeSessionTokenResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/online_service.OnlineService/RevokeSessionToken",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("online_service.OnlineService", "RevokeSessionToken"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "online_service.OnlineService",
+                "RevokeSessionToken",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 批量刷新最后活跃时间
         pub async fn touch_session_token(
             &mut self,
             request: impl tonic::IntoRequest<super::TouchSessionTokenRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::TouchSessionTokenResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::TouchSessionTokenResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/online_service.OnlineService/TouchSessionToken",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("online_service.OnlineService", "TouchSessionToken"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "online_service.OnlineService",
+                "TouchSessionToken",
+            ));
             self.inner.unary(req, path, codec).await
         }
     }
@@ -854,10 +799,10 @@ pub mod user_rpc_service_client {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
-    use tonic::codegen::*;
     use tonic::codegen::http::Uri;
+    use tonic::codegen::*;
     #[derive(Debug, Clone)]
     pub struct UserRpcServiceClient<T> {
         inner: tonic::client::Grpc<T>,
@@ -901,9 +846,8 @@ pub mod user_rpc_service_client {
                     <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::Body>,
-            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+            <T as tonic::codegen::Service<http::Request<tonic::body::Body>>>::Error:
+                Into<StdError> + std::marker::Send + std::marker::Sync,
         {
             UserRpcServiceClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -942,81 +886,63 @@ pub mod user_rpc_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::FindByContentReq>,
         ) -> std::result::Result<tonic::Response<super::FindUserDto>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/online_service.UserRpcService/findByEmail",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/online_service.UserRpcService/findByEmail");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("online_service.UserRpcService", "findByEmail"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "online_service.UserRpcService",
+                "findByEmail",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn find_by_phone(
             &mut self,
             request: impl tonic::IntoRequest<super::FindByContentReq>,
         ) -> std::result::Result<tonic::Response<super::FindUserDto>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/online_service.UserRpcService/findByPhone",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/online_service.UserRpcService/findByPhone");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("online_service.UserRpcService", "findByPhone"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "online_service.UserRpcService",
+                "findByPhone",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn find_by_name(
             &mut self,
             request: impl tonic::IntoRequest<super::FindByContentReq>,
         ) -> std::result::Result<tonic::Response<super::FindUserDto>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/online_service.UserRpcService/findByName",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/online_service.UserRpcService/findByName");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("online_service.UserRpcService", "findByName"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "online_service.UserRpcService",
+                "findByName",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn register(
             &mut self,
             request: impl tonic::IntoRequest<super::RegisterUserReq>,
         ) -> std::result::Result<tonic::Response<super::UserEntity>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/online_service.UserRpcService/Register",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/online_service.UserRpcService/Register");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("online_service.UserRpcService", "Register"));
@@ -1026,104 +952,81 @@ pub mod user_rpc_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::ChangePasswordReq>,
         ) -> std::result::Result<tonic::Response<super::ChangeResponse>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/online_service.UserRpcService/ChangePassword",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("online_service.UserRpcService", "ChangePassword"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "online_service.UserRpcService",
+                "ChangePassword",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn change_phone(
             &mut self,
             request: impl tonic::IntoRequest<super::ChangePhoneReq>,
         ) -> std::result::Result<tonic::Response<super::UserEntity>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/online_service.UserRpcService/ChangePhone",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/online_service.UserRpcService/ChangePhone");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("online_service.UserRpcService", "ChangePhone"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "online_service.UserRpcService",
+                "ChangePhone",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn change_email(
             &mut self,
             request: impl tonic::IntoRequest<super::ChangeEmailReq>,
         ) -> std::result::Result<tonic::Response<super::UserEntity>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/online_service.UserRpcService/ChangeEmail",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/online_service.UserRpcService/ChangeEmail");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("online_service.UserRpcService", "ChangeEmail"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "online_service.UserRpcService",
+                "ChangeEmail",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn update_user(
             &mut self,
             request: impl tonic::IntoRequest<super::UpdateUserReq>,
         ) -> std::result::Result<tonic::Response<super::UserEntity>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/online_service.UserRpcService/UpdateUser",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/online_service.UserRpcService/UpdateUser");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("online_service.UserRpcService", "UpdateUser"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "online_service.UserRpcService",
+                "UpdateUser",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn get_user(
             &mut self,
             request: impl tonic::IntoRequest<super::GetUserReq>,
         ) -> std::result::Result<tonic::Response<super::UserEntity>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/online_service.UserRpcService/GetUser",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/online_service.UserRpcService/GetUser");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("online_service.UserRpcService", "GetUser"));
@@ -1136,18 +1039,12 @@ pub mod user_rpc_service_client {
             tonic::Response<tonic::codec::Streaming<super::UserEntity>>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/online_service.UserRpcService/GetUsers",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/online_service.UserRpcService/GetUsers");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("online_service.UserRpcService", "GetUsers"));
@@ -1162,7 +1059,7 @@ pub mod online_service_server {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
     use tonic::codegen::*;
     /// Generated trait containing gRPC methods that should be implemented for use with OnlineServiceServer.
@@ -1172,66 +1069,42 @@ pub mod online_service_server {
         async fn set_online(
             &self,
             request: tonic::Request<super::SetOnlineRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::SetOnlineResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::SetOnlineResponse>, tonic::Status>;
         /// 单查
         async fn check_online(
             &self,
             request: tonic::Request<super::CheckOnlineRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::CheckOnlineResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::CheckOnlineResponse>, tonic::Status>;
         /// 批量查
         async fn check_online_batch(
             &self,
             request: tonic::Request<super::CheckOnlineBatchRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::CheckOnlineBatchResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::CheckOnlineBatchResponse>, tonic::Status>;
         /// 统计信息
         async fn get_stats(
             &self,
             request: tonic::Request<super::GetStatsRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::GetStatsResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::GetStatsResponse>, tonic::Status>;
         /// 生成/刷新设备 session token
         async fn upsert_session_token(
             &self,
             request: tonic::Request<super::UpsertSessionTokenRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::UpsertSessionTokenResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::UpsertSessionTokenResponse>, tonic::Status>;
         /// 校验 session token 合法性
         async fn validate_session_token(
             &self,
             request: tonic::Request<super::ValidateSessionTokenRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::ValidateSessionTokenResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::ValidateSessionTokenResponse>, tonic::Status>;
         /// 吊销指定 token 或设备会话
         async fn revoke_session_token(
             &self,
             request: tonic::Request<super::RevokeSessionTokenRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::RevokeSessionTokenResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::RevokeSessionTokenResponse>, tonic::Status>;
         /// 批量刷新最后活跃时间
         async fn touch_session_token(
             &self,
             request: tonic::Request<super::TouchSessionTokenRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::TouchSessionTokenResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::TouchSessionTokenResponse>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct OnlineServiceServer<T> {
@@ -1254,10 +1127,7 @@ pub mod online_service_server {
                 max_encoding_message_size: None,
             }
         }
-        pub fn with_interceptor<F>(
-            inner: T,
-            interceptor: F,
-        ) -> InterceptedService<Self, F>
+        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
         where
             F: tonic::service::Interceptor,
         {
@@ -1312,15 +1182,9 @@ pub mod online_service_server {
                 "/online_service.OnlineService/SetOnline" => {
                     #[allow(non_camel_case_types)]
                     struct SetOnlineSvc<T: OnlineService>(pub Arc<T>);
-                    impl<
-                        T: OnlineService,
-                    > tonic::server::UnaryService<super::SetOnlineRequest>
-                    for SetOnlineSvc<T> {
+                    impl<T: OnlineService> tonic::server::UnaryService<super::SetOnlineRequest> for SetOnlineSvc<T> {
                         type Response = super::SetOnlineResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetOnlineRequest>,
@@ -1357,15 +1221,11 @@ pub mod online_service_server {
                 "/online_service.OnlineService/CheckOnline" => {
                     #[allow(non_camel_case_types)]
                     struct CheckOnlineSvc<T: OnlineService>(pub Arc<T>);
-                    impl<
-                        T: OnlineService,
-                    > tonic::server::UnaryService<super::CheckOnlineRequest>
-                    for CheckOnlineSvc<T> {
+                    impl<T: OnlineService> tonic::server::UnaryService<super::CheckOnlineRequest>
+                        for CheckOnlineSvc<T>
+                    {
                         type Response = super::CheckOnlineResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::CheckOnlineRequest>,
@@ -1402,23 +1262,19 @@ pub mod online_service_server {
                 "/online_service.OnlineService/CheckOnlineBatch" => {
                     #[allow(non_camel_case_types)]
                     struct CheckOnlineBatchSvc<T: OnlineService>(pub Arc<T>);
-                    impl<
-                        T: OnlineService,
-                    > tonic::server::UnaryService<super::CheckOnlineBatchRequest>
-                    for CheckOnlineBatchSvc<T> {
+                    impl<T: OnlineService>
+                        tonic::server::UnaryService<super::CheckOnlineBatchRequest>
+                        for CheckOnlineBatchSvc<T>
+                    {
                         type Response = super::CheckOnlineBatchResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::CheckOnlineBatchRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as OnlineService>::check_online_batch(&inner, request)
-                                    .await
+                                <T as OnlineService>::check_online_batch(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1448,15 +1304,9 @@ pub mod online_service_server {
                 "/online_service.OnlineService/GetStats" => {
                     #[allow(non_camel_case_types)]
                     struct GetStatsSvc<T: OnlineService>(pub Arc<T>);
-                    impl<
-                        T: OnlineService,
-                    > tonic::server::UnaryService<super::GetStatsRequest>
-                    for GetStatsSvc<T> {
+                    impl<T: OnlineService> tonic::server::UnaryService<super::GetStatsRequest> for GetStatsSvc<T> {
                         type Response = super::GetStatsResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::GetStatsRequest>,
@@ -1493,23 +1343,19 @@ pub mod online_service_server {
                 "/online_service.OnlineService/UpsertSessionToken" => {
                     #[allow(non_camel_case_types)]
                     struct UpsertSessionTokenSvc<T: OnlineService>(pub Arc<T>);
-                    impl<
-                        T: OnlineService,
-                    > tonic::server::UnaryService<super::UpsertSessionTokenRequest>
-                    for UpsertSessionTokenSvc<T> {
+                    impl<T: OnlineService>
+                        tonic::server::UnaryService<super::UpsertSessionTokenRequest>
+                        for UpsertSessionTokenSvc<T>
+                    {
                         type Response = super::UpsertSessionTokenResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::UpsertSessionTokenRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as OnlineService>::upsert_session_token(&inner, request)
-                                    .await
+                                <T as OnlineService>::upsert_session_token(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1539,26 +1385,19 @@ pub mod online_service_server {
                 "/online_service.OnlineService/ValidateSessionToken" => {
                     #[allow(non_camel_case_types)]
                     struct ValidateSessionTokenSvc<T: OnlineService>(pub Arc<T>);
-                    impl<
-                        T: OnlineService,
-                    > tonic::server::UnaryService<super::ValidateSessionTokenRequest>
-                    for ValidateSessionTokenSvc<T> {
+                    impl<T: OnlineService>
+                        tonic::server::UnaryService<super::ValidateSessionTokenRequest>
+                        for ValidateSessionTokenSvc<T>
+                    {
                         type Response = super::ValidateSessionTokenResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::ValidateSessionTokenRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as OnlineService>::validate_session_token(
-                                        &inner,
-                                        request,
-                                    )
-                                    .await
+                                <T as OnlineService>::validate_session_token(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1588,23 +1427,19 @@ pub mod online_service_server {
                 "/online_service.OnlineService/RevokeSessionToken" => {
                     #[allow(non_camel_case_types)]
                     struct RevokeSessionTokenSvc<T: OnlineService>(pub Arc<T>);
-                    impl<
-                        T: OnlineService,
-                    > tonic::server::UnaryService<super::RevokeSessionTokenRequest>
-                    for RevokeSessionTokenSvc<T> {
+                    impl<T: OnlineService>
+                        tonic::server::UnaryService<super::RevokeSessionTokenRequest>
+                        for RevokeSessionTokenSvc<T>
+                    {
                         type Response = super::RevokeSessionTokenResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::RevokeSessionTokenRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as OnlineService>::revoke_session_token(&inner, request)
-                                    .await
+                                <T as OnlineService>::revoke_session_token(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1634,23 +1469,19 @@ pub mod online_service_server {
                 "/online_service.OnlineService/TouchSessionToken" => {
                     #[allow(non_camel_case_types)]
                     struct TouchSessionTokenSvc<T: OnlineService>(pub Arc<T>);
-                    impl<
-                        T: OnlineService,
-                    > tonic::server::UnaryService<super::TouchSessionTokenRequest>
-                    for TouchSessionTokenSvc<T> {
+                    impl<T: OnlineService>
+                        tonic::server::UnaryService<super::TouchSessionTokenRequest>
+                        for TouchSessionTokenSvc<T>
+                    {
                         type Response = super::TouchSessionTokenResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::TouchSessionTokenRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as OnlineService>::touch_session_token(&inner, request)
-                                    .await
+                                <T as OnlineService>::touch_session_token(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1677,25 +1508,19 @@ pub mod online_service_server {
                     };
                     Box::pin(fut)
                 }
-                _ => {
-                    Box::pin(async move {
-                        let mut response = http::Response::new(
-                            tonic::body::Body::default(),
-                        );
-                        let headers = response.headers_mut();
-                        headers
-                            .insert(
-                                tonic::Status::GRPC_STATUS,
-                                (tonic::Code::Unimplemented as i32).into(),
-                            );
-                        headers
-                            .insert(
-                                http::header::CONTENT_TYPE,
-                                tonic::metadata::GRPC_CONTENT_TYPE,
-                            );
-                        Ok(response)
-                    })
-                }
+                _ => Box::pin(async move {
+                    let mut response = http::Response::new(tonic::body::Body::default());
+                    let headers = response.headers_mut();
+                    headers.insert(
+                        tonic::Status::GRPC_STATUS,
+                        (tonic::Code::Unimplemented as i32).into(),
+                    );
+                    headers.insert(
+                        http::header::CONTENT_TYPE,
+                        tonic::metadata::GRPC_CONTENT_TYPE,
+                    );
+                    Ok(response)
+                }),
             }
         }
     }
@@ -1724,7 +1549,7 @@ pub mod user_rpc_service_server {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
     use tonic::codegen::*;
     /// Generated trait containing gRPC methods that should be implemented for use with UserRpcServiceServer.
@@ -1769,8 +1594,7 @@ pub mod user_rpc_service_server {
         /// Server streaming response type for the GetUsers method.
         type GetUsersStream: tonic::codegen::tokio_stream::Stream<
                 Item = std::result::Result<super::UserEntity, tonic::Status>,
-            >
-            + std::marker::Send
+            > + std::marker::Send
             + 'static;
         async fn get_users(
             &self,
@@ -1798,10 +1622,7 @@ pub mod user_rpc_service_server {
                 max_encoding_message_size: None,
             }
         }
-        pub fn with_interceptor<F>(
-            inner: T,
-            interceptor: F,
-        ) -> InterceptedService<Self, F>
+        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
         where
             F: tonic::service::Interceptor,
         {
@@ -1856,15 +1677,9 @@ pub mod user_rpc_service_server {
                 "/online_service.UserRpcService/findByEmail" => {
                     #[allow(non_camel_case_types)]
                     struct findByEmailSvc<T: UserRpcService>(pub Arc<T>);
-                    impl<
-                        T: UserRpcService,
-                    > tonic::server::UnaryService<super::FindByContentReq>
-                    for findByEmailSvc<T> {
+                    impl<T: UserRpcService> tonic::server::UnaryService<super::FindByContentReq> for findByEmailSvc<T> {
                         type Response = super::FindUserDto;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::FindByContentReq>,
@@ -1901,15 +1716,9 @@ pub mod user_rpc_service_server {
                 "/online_service.UserRpcService/findByPhone" => {
                     #[allow(non_camel_case_types)]
                     struct findByPhoneSvc<T: UserRpcService>(pub Arc<T>);
-                    impl<
-                        T: UserRpcService,
-                    > tonic::server::UnaryService<super::FindByContentReq>
-                    for findByPhoneSvc<T> {
+                    impl<T: UserRpcService> tonic::server::UnaryService<super::FindByContentReq> for findByPhoneSvc<T> {
                         type Response = super::FindUserDto;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::FindByContentReq>,
@@ -1946,15 +1755,9 @@ pub mod user_rpc_service_server {
                 "/online_service.UserRpcService/findByName" => {
                     #[allow(non_camel_case_types)]
                     struct findByNameSvc<T: UserRpcService>(pub Arc<T>);
-                    impl<
-                        T: UserRpcService,
-                    > tonic::server::UnaryService<super::FindByContentReq>
-                    for findByNameSvc<T> {
+                    impl<T: UserRpcService> tonic::server::UnaryService<super::FindByContentReq> for findByNameSvc<T> {
                         type Response = super::FindUserDto;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::FindByContentReq>,
@@ -1991,15 +1794,9 @@ pub mod user_rpc_service_server {
                 "/online_service.UserRpcService/Register" => {
                     #[allow(non_camel_case_types)]
                     struct RegisterSvc<T: UserRpcService>(pub Arc<T>);
-                    impl<
-                        T: UserRpcService,
-                    > tonic::server::UnaryService<super::RegisterUserReq>
-                    for RegisterSvc<T> {
+                    impl<T: UserRpcService> tonic::server::UnaryService<super::RegisterUserReq> for RegisterSvc<T> {
                         type Response = super::UserEntity;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::RegisterUserReq>,
@@ -2036,23 +1833,18 @@ pub mod user_rpc_service_server {
                 "/online_service.UserRpcService/ChangePassword" => {
                     #[allow(non_camel_case_types)]
                     struct ChangePasswordSvc<T: UserRpcService>(pub Arc<T>);
-                    impl<
-                        T: UserRpcService,
-                    > tonic::server::UnaryService<super::ChangePasswordReq>
-                    for ChangePasswordSvc<T> {
+                    impl<T: UserRpcService> tonic::server::UnaryService<super::ChangePasswordReq>
+                        for ChangePasswordSvc<T>
+                    {
                         type Response = super::ChangeResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::ChangePasswordReq>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as UserRpcService>::change_password(&inner, request)
-                                    .await
+                                <T as UserRpcService>::change_password(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -2082,15 +1874,9 @@ pub mod user_rpc_service_server {
                 "/online_service.UserRpcService/ChangePhone" => {
                     #[allow(non_camel_case_types)]
                     struct ChangePhoneSvc<T: UserRpcService>(pub Arc<T>);
-                    impl<
-                        T: UserRpcService,
-                    > tonic::server::UnaryService<super::ChangePhoneReq>
-                    for ChangePhoneSvc<T> {
+                    impl<T: UserRpcService> tonic::server::UnaryService<super::ChangePhoneReq> for ChangePhoneSvc<T> {
                         type Response = super::UserEntity;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::ChangePhoneReq>,
@@ -2127,15 +1913,9 @@ pub mod user_rpc_service_server {
                 "/online_service.UserRpcService/ChangeEmail" => {
                     #[allow(non_camel_case_types)]
                     struct ChangeEmailSvc<T: UserRpcService>(pub Arc<T>);
-                    impl<
-                        T: UserRpcService,
-                    > tonic::server::UnaryService<super::ChangeEmailReq>
-                    for ChangeEmailSvc<T> {
+                    impl<T: UserRpcService> tonic::server::UnaryService<super::ChangeEmailReq> for ChangeEmailSvc<T> {
                         type Response = super::UserEntity;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::ChangeEmailReq>,
@@ -2172,15 +1952,9 @@ pub mod user_rpc_service_server {
                 "/online_service.UserRpcService/UpdateUser" => {
                     #[allow(non_camel_case_types)]
                     struct UpdateUserSvc<T: UserRpcService>(pub Arc<T>);
-                    impl<
-                        T: UserRpcService,
-                    > tonic::server::UnaryService<super::UpdateUserReq>
-                    for UpdateUserSvc<T> {
+                    impl<T: UserRpcService> tonic::server::UnaryService<super::UpdateUserReq> for UpdateUserSvc<T> {
                         type Response = super::UserEntity;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::UpdateUserReq>,
@@ -2217,14 +1991,9 @@ pub mod user_rpc_service_server {
                 "/online_service.UserRpcService/GetUser" => {
                     #[allow(non_camel_case_types)]
                     struct GetUserSvc<T: UserRpcService>(pub Arc<T>);
-                    impl<
-                        T: UserRpcService,
-                    > tonic::server::UnaryService<super::GetUserReq> for GetUserSvc<T> {
+                    impl<T: UserRpcService> tonic::server::UnaryService<super::GetUserReq> for GetUserSvc<T> {
                         type Response = super::UserEntity;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::GetUserReq>,
@@ -2261,16 +2030,14 @@ pub mod user_rpc_service_server {
                 "/online_service.UserRpcService/GetUsers" => {
                     #[allow(non_camel_case_types)]
                     struct GetUsersSvc<T: UserRpcService>(pub Arc<T>);
-                    impl<
-                        T: UserRpcService,
-                    > tonic::server::ServerStreamingService<super::GetUsersReq>
-                    for GetUsersSvc<T> {
+                    impl<T: UserRpcService>
+                        tonic::server::ServerStreamingService<super::GetUsersReq>
+                        for GetUsersSvc<T>
+                    {
                         type Response = super::UserEntity;
                         type ResponseStream = T::GetUsersStream;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::ResponseStream>,
-                            tonic::Status,
-                        >;
+                        type Future =
+                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::GetUsersReq>,
@@ -2304,25 +2071,19 @@ pub mod user_rpc_service_server {
                     };
                     Box::pin(fut)
                 }
-                _ => {
-                    Box::pin(async move {
-                        let mut response = http::Response::new(
-                            tonic::body::Body::default(),
-                        );
-                        let headers = response.headers_mut();
-                        headers
-                            .insert(
-                                tonic::Status::GRPC_STATUS,
-                                (tonic::Code::Unimplemented as i32).into(),
-                            );
-                        headers
-                            .insert(
-                                http::header::CONTENT_TYPE,
-                                tonic::metadata::GRPC_CONTENT_TYPE,
-                            );
-                        Ok(response)
-                    })
-                }
+                _ => Box::pin(async move {
+                    let mut response = http::Response::new(tonic::body::Body::default());
+                    let headers = response.headers_mut();
+                    headers.insert(
+                        tonic::Status::GRPC_STATUS,
+                        (tonic::Code::Unimplemented as i32).into(),
+                    );
+                    headers.insert(
+                        http::header::CONTENT_TYPE,
+                        tonic::metadata::GRPC_CONTENT_TYPE,
+                    );
+                    Ok(response)
+                }),
             }
         }
     }

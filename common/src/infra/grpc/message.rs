@@ -313,17 +313,7 @@ pub struct AvCallContent {
 pub mod av_call_content {
     #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
     #[serde(rename_all = "camelCase")]
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum CallAction {
         /// 未知操作
@@ -373,17 +363,7 @@ pub mod av_call_content {
     }
     #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
     #[serde(rename_all = "camelCase")]
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum CallType {
         /// 音频通话：仅语音通话
@@ -475,7 +455,10 @@ pub struct ForwardContent {
     #[prost(string, tag = "2")]
     pub original_sender_id: ::prost::alloc::string::String,
     /// 原消息类型：原消息的 MsgKind
-    #[prost(enumeration = "crate::infra::grpc::grpc_socket::socket::MsgKind", tag = "3")]
+    #[prost(
+        enumeration = "crate::infra::grpc::grpc_socket::socket::MsgKind",
+        tag = "3"
+    )]
     pub original_kind: i32,
     /// 摘要：转发的摘要信息
     #[prost(string, tag = "4")]
@@ -554,10 +537,8 @@ pub struct NotificationContent {
     pub body: ::prost::alloc::string::String,
     /// 元数据：通知的附加信息
     #[prost(map = "string, string", tag = "3")]
-    pub metadata: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::string::String,
-    >,
+    pub metadata:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
 /// ===============================
 /// ⚙️ 系统消息
@@ -686,10 +667,8 @@ pub struct Segment {
     pub seq_in_msg: u64,
     /// 通用扩展字段（以字符串键值对存储 JSON 扁平数据）：段的元数据
     #[prost(map = "string, string", tag = "3")]
-    pub metadata: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::string::String,
-    >,
+    pub metadata:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
 /// ======================================
 /// 📨 顶层消息结构
@@ -712,7 +691,10 @@ pub struct Content {
     #[prost(int64, tag = "4")]
     pub timestamp: i64,
     /// 主消息类型（socket 层 MsgKind，用于快速渲染判断）
-    #[prost(enumeration = "crate::infra::grpc::grpc_socket::socket::MsgKind", tag = "5")]
+    #[prost(
+        enumeration = "crate::infra::grpc::grpc_socket::socket::MsgKind",
+        tag = "5"
+    )]
     pub msg_kind: i32,
     /// 消息所属会话类型（单聊/群聊）：消息的会话场景
     #[prost(enumeration = "ChatScene", tag = "6")]
