@@ -14,6 +14,10 @@
       <sourceFolder url="file://$MODULE_DIR$/msg_gateway/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/msg_group/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/arb_service/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/friend_service/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/group_service/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/user_service/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/app_test/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/clients/flutter_pc/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/clients/flutter_pc/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/clients/flutter_pc/build" />
