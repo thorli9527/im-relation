@@ -92,23 +92,29 @@ impl Handler for FriendHandler {
                 }
             };
 
-            let mut client = match grpc_clients::friend_msg_client(&addr).await {
-                Ok(c) => c,
+            let mut processed_ok = false;
+
+            let mut handled = false;
+            match grpc_clients::friend_msg_client(&addr).await {
+                Ok(mut client) => {
+                    if let Some(result) = msg_handler::handle(kind, &payload, &mut client).await {
+                        processed_ok = result;
+                        handled = true;
+                    }
+                }
                 Err(e) => {
                     log::warn!("friend-msg client connect failed: {}", e);
-                    return;
                 }
-            };
+            }
 
-            let mut processed_ok = false;
-            if let Some(result) = msg_handler::handle(kind, &payload, &mut client).await {
-                processed_ok = result;
-            } else if let Some(result) = call_handler::handle(kind) {
-                processed_ok = result;
-            } else if let Some(result) = biz_handler::handle(&addr, kind, &payload).await {
-                processed_ok = result;
-            } else {
-                info!("FriendHandler: unhandled kind={} for now", kind as i32);
+            if !handled {
+                if let Some(result) = call_handler::handle(kind) {
+                    processed_ok = result;
+                } else if let Some(result) = biz_handler::handle(&addr, kind, &payload).await {
+                    processed_ok = result;
+                } else {
+                    info!("FriendHandler: unhandled kind={} for now", kind as i32);
+                }
             }
 
             if processed_ok {

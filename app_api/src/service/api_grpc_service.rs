@@ -423,7 +423,7 @@ impl ApiService for ApiGrpcService {
         for entry in entries.into_iter() {
             let friend_id = entry.friend_id;
             let user = client_rpc
-                .get_user(GetUserReq { id: friend_id })
+                .find_user_by_id(GetUserReq { id: friend_id })
                 .await?
                 .into_inner();
 
@@ -552,7 +552,7 @@ impl ApiService for ApiGrpcService {
                 let id = query
                     .parse::<i64>()
                     .map_err(|_| Status::invalid_argument("query must be numeric for user_id"))?;
-                match user_client.get_user(GetUserReq { id }).await {
+                match user_client.find_user_by_id(GetUserReq { id }).await {
                     Ok(resp) => Some(resp.into_inner()),
                     Err(status) if status.code() == tonic::Code::NotFound => None,
                     Err(status) => return Err(internal_error(status)),
@@ -601,10 +601,7 @@ fn user_entity_to_profile(entity: UserEntity) -> UserProfile {
         .profile_fields
         .get("signature")
         .map(|s| s.to_string());
-    let region = entity
-        .profile_fields
-        .get("region")
-        .map(|s| s.to_string());
+    let region = entity.profile_fields.get("region").map(|s| s.to_string());
     UserProfile {
         user_id: entity.id,
         username: entity.name,
@@ -613,6 +610,7 @@ fn user_entity_to_profile(entity: UserEntity) -> UserProfile {
         phone: entity.phone,
         signature,
         region,
+        add_friend_policy: entity.allow_add_friend,
     }
 }
 

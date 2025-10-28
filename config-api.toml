@@ -38,10 +38,9 @@ grpc_addr = "127.0.0.1:6001"
 #------------message_service
 [[msg_friend_nodes]]
 index = 0
-grpc_addr = "127.0.0.1:8002"
+grpc_addr = "127.0.0.1:8102"
 
 #------------group_service
 [[msg_group_nodes]]
 index = 0
 grpc_addr = "127.0.0.1:8103"
-

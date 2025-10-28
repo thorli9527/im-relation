@@ -163,6 +163,13 @@ impl KafkaInstanceService {
         // 控制发送超时时间为 50ms。
         let timeout = Duration::from_millis(50);
 
+        log::info!(
+            "Kafka produce topic={} key={} bytes={}",
+            topic,
+            message_id,
+            payload.len()
+        );
+
         match self.producer.send(record, timeout).await {
             Ok(delivery) => {
                 // 输出分区与 offset，便于链路追踪。
@@ -193,6 +200,13 @@ impl KafkaInstanceService {
         message.encode(&mut payload)?;
         let record = FutureRecord::to(topic).payload(&payload).key(message_id);
         let timeout = Duration::from_millis(50);
+
+        log::info!(
+            "Kafka produce topic={} key={} bytes={}",
+            topic,
+            message_id,
+            payload.len()
+        );
 
         match self.producer.send(record, timeout).await {
             Ok(delivery) => {

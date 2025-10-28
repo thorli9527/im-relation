@@ -1,4 +1,5 @@
 use crate::core::errors::AppError;
+use crate::infra::grpc::grpc_user::online_service::AddFriendPolicy;
 use crate::infra::redis::redis_pool::RedisPoolTools;
 use crate::support::node::NodeType;
 use anyhow::anyhow;
@@ -32,6 +33,7 @@ pub struct AppConfig {
     pub hot_group: Option<HotGroupConfig>,
     pub hot_friend: Option<HotFriendConfig>,
     pub hot_online: Option<HotOnlineConfig>,
+    pub user_defaults: Option<UserDefaultsConfig>,
     pub msg_friend: Option<MsgFriendConfig>,
     pub kafka: Option<KafkaConfig>,
     #[serde(default, deserialize_with = "deserialize_endpoints")]
@@ -59,6 +61,52 @@ pub struct HotOnlineConfig {
     pub hot_by_id_ttl: Option<u64>,
     pub hot_route_cap: Option<u64>,
     pub hot_route_ttl: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct UserDefaultsConfig {
+    #[serde(default)]
+    pub allow_add_friend: Option<AllowAddFriendSetting>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum AllowAddFriendSetting {
+    Int(i32),
+    Str(String),
+}
+
+impl AllowAddFriendSetting {
+    fn as_policy_value(&self) -> Option<i32> {
+        match self {
+            Self::Int(value) => Some(*value),
+            Self::Str(raw) => {
+                let trimmed = raw.trim();
+                if trimmed.is_empty() {
+                    return None;
+                }
+                if let Ok(num) = trimmed.parse::<i32>() {
+                    return Some(num);
+                }
+                if let Some(policy) = AddFriendPolicy::from_str_name(trimmed) {
+                    return Some(policy as i32);
+                }
+                let normalized = trimmed.to_ascii_uppercase();
+                if normalized == "UNSPECIFIED" {
+                    return Some(AddFriendPolicy::AddFriendUnspecified as i32);
+                }
+                AddFriendPolicy::from_str_name(normalized.as_str()).map(|policy| policy as i32)
+            }
+        }
+    }
+}
+
+impl UserDefaultsConfig {
+    pub fn allow_add_friend_policy(&self) -> Option<i32> {
+        self.allow_add_friend
+            .as_ref()
+            .and_then(AllowAddFriendSetting::as_policy_value)
+    }
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]
@@ -299,6 +347,10 @@ impl AppConfig {
 
     pub fn hot_online_cfg(&self) -> HotOnlineConfig {
         self.hot_online.clone().unwrap_or_default()
+    }
+
+    pub fn user_defaults_cfg(&self) -> UserDefaultsConfig {
+        self.user_defaults.clone().unwrap_or_default()
     }
 
     pub fn hot_group_cfg(&self) -> HotGroupConfig {

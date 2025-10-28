@@ -6,9 +6,9 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use common::config::AppConfig;
 use common::infra::grpc::grpc_user::online_service::{
-    user_rpc_service_client::UserRpcServiceClient, AuthType, ChangeEmailReq, ChangePasswordReq,
-    ChangePhoneReq, DeviceType, FindByContentReq, Gender, GetUserReq, RegisterUserReq,
-    UpdateUserReq, UpsertSessionTokenRequest, UserEntity, UserType,
+    user_rpc_service_client::UserRpcServiceClient, AddFriendPolicy, AuthType, ChangeEmailReq,
+    ChangePasswordReq, ChangePhoneReq, DeviceType, FindByContentReq, Gender, GetUserReq,
+    RegisterUserReq, UpdateUserReq, UpsertSessionTokenRequest, UserEntity, UserType,
 };
 use common::infra::redis::redis_pool::RedisPoolTools;
 use common::support::util::common_utils::{build_md5_with_key, build_uuid};
@@ -116,7 +116,7 @@ impl UserService {
         user_id: i64,
     ) -> anyhow::Result<UserEntity> {
         let resp = client
-            .get_user(GetUserReq { id: user_id })
+            .find_user_by_id(GetUserReq { id: user_id })
             .await?
             .into_inner();
         Ok(resp)
@@ -296,7 +296,7 @@ impl UserServiceAuthOpt for UserService {
                         phone: Some(phone),
                         language: None,
                         avatar: "".to_string(),
-                        allow_add_friend: 0,
+                        allow_add_friend: AddFriendPolicy::Anyone as i32,
                         gender: 0,
                         user_type: UserType::Normal as i32,
                         profile_fields: Default::default(),
@@ -321,7 +321,7 @@ impl UserServiceAuthOpt for UserService {
                         phone: None,
                         language: None,
                         avatar: "".to_string(),
-                        allow_add_friend: 0,
+                        allow_add_friend: AddFriendPolicy::Anyone as i32,
                         gender: 0,
                         user_type: UserType::Normal as i32,
                         profile_fields: Default::default(),
@@ -342,7 +342,7 @@ impl UserServiceAuthOpt for UserService {
                         phone: None,
                         language: None,
                         avatar: "".to_string(),
-                        allow_add_friend: 0,
+                        allow_add_friend: AddFriendPolicy::Anyone as i32,
                         gender: 0,
                         user_type: UserType::Normal as i32,
                         profile_fields: Default::default(),
@@ -385,7 +385,7 @@ impl UserServiceAuthOpt for UserService {
                 phone: None,
                 language: None,
                 avatar: "".to_string(),
-                allow_add_friend: 0,
+                allow_add_friend: AddFriendPolicy::Anyone as i32,
                 gender: 0,
                 user_type: UserType::Normal as i32,
                 profile_fields: Default::default(),

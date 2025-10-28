@@ -184,6 +184,8 @@ enum MsgKind {
    //通用业务ACK
   // 原 "sys.ack"
   MK_ACK = 906;
+  //心跳保活
+  MK_HEARTBEAT = 907;
   // ensure rebuild
   // end of enum
 }

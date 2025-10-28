@@ -1,4 +1,5 @@
 pub mod grpc;
+pub mod logging;
 pub mod node;
 pub mod util;
 

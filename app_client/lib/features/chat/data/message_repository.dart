@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:fixnum/fixnum.dart';
+import 'package:im_client/core/session/session_event.dart';
 import 'package:im_client/core/socket/socket_manager.dart';
 import 'package:im_client/core/storage/local_store.dart';
 import 'package:im_client/core/storage/messages/friend_biz_entity.dart';
@@ -11,6 +13,7 @@ import 'package:im_client/core/storage/messages/group_message_entity.dart';
 import 'package:im_client/core/storage/messages/message_status.dart';
 import 'package:im_client/core/storage/messages/outbox_message_entity.dart';
 import 'package:im_client/core/storage/messages/system_message_entity.dart';
+import 'package:im_client/core/storage/messages/voice_message_entity.dart';
 import 'package:im_client/gen/api/message.pb.dart' as msgpb;
 import 'package:im_client/gen/api/msg_friend.pb.dart' as friendpb;
 import 'package:im_client/gen/api/msg_group.pb.dart' as grouppb;
@@ -23,15 +26,20 @@ class MessageRepository {
     required LocalStore store,
     required SocketManager socketManager,
     required Logger logger,
+    required SessionEventNotifier sessionEvents,
   }) : _store = store,
        _socketManager = socketManager,
-       _logger = logger;
+       _logger = logger,
+       _sessionEvents = sessionEvents;
 
   final LocalStore _store;
   final SocketManager _socketManager;
   final Logger _logger;
+  final SessionEventNotifier _sessionEvents;
 
   Isar get _isar => _store.isar;
+
+  void dispose() {}
 
   Future<void> handleIncomingMessage(
     socketpb.ServerMsg message, {
@@ -89,6 +97,15 @@ class MessageRepository {
     }
   }
 
+  Stream<List<VoiceMessageEntity>> watchVoiceMessages({
+    required int ownerId,
+  }) async* {
+    yield await _fetchVoiceMessages(ownerId: ownerId);
+    await for (final _ in _isar.voiceMessageEntitys.watchLazy()) {
+      yield await _fetchVoiceMessages(ownerId: ownerId);
+    }
+  }
+
   Future<void> queueFriendText(
     String text, {
     required int ownerId,
@@ -139,6 +156,34 @@ class MessageRepository {
     });
 
     await _flushOutbox();
+  }
+
+  Future<void> sendFriendRequest({
+    required int ownerId,
+    required int targetUserId,
+    required String remark,
+    required String reason,
+    friendpb.FriendRequestSource source =
+        friendpb.FriendRequestSource.FRS_USER_ID,
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final request = friendpb.FriendRequest()
+      ..id = Int64(now)
+      ..fromUserId = Int64(ownerId)
+      ..toUserId = Int64(targetUserId)
+      ..reason = reason
+      ..source = source
+      ..createdAt = Int64(now);
+    if (remark.trim().isNotEmpty) {
+      request.remark = remark.trim();
+    }
+
+    final clientMsg = socketpb.ClientMsg()
+      ..kind = socketpb.MsgKind.MK_FRIEND_REQUEST
+      ..clientId = Int64(now)
+      ..payload = request.writeToBuffer();
+
+    await _socketManager.sendClientMessage(clientMsg);
   }
 
   Future<void> _handleFriendChat(
@@ -259,6 +304,7 @@ class MessageRepository {
     socketpb.ServerMsg msg, {
     required int ownerId,
   }) async {
+    _maybeEmitSessionEvent(msg);
     final payload = msg.payload.toList();
     String? preview;
     try {
@@ -279,6 +325,41 @@ class MessageRepository {
     await _isar.writeTxn(() async {
       await _isar.systemMessageEntitys.putByMessageId(entity);
     });
+  }
+
+  void _maybeEmitSessionEvent(socketpb.ServerMsg msg) {
+    if (msg.kind != socketpb.MsgKind.MK_SYS_NOTICE) {
+      return;
+    }
+    String raw;
+    try {
+      raw = utf8.decode(msg.payload, allowMalformed: false);
+    } catch (err) {
+      _logger.d('system notice payload decode failed: $err');
+      return;
+    }
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        return;
+      }
+      final noticeType = decoded['notice_type']?.toString();
+      if (noticeType != 'login_duplicate') {
+        return;
+      }
+      final content = decoded['content']?.toString();
+      _logger.i('session notice login_duplicate content=$content');
+      _sessionEvents.emit(
+        SessionEvent.kicked(noticeType: noticeType, message: content),
+      );
+    } catch (err, stackTrace) {
+      _logger.d(
+        'system notice payload parse failed',
+        error: err,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   Future<void> _handleAck(
@@ -397,6 +478,17 @@ class MessageRepository {
         .groupIdEqualTo(groupId)
         .findAll();
     result.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    return result.take(200).toList();
+  }
+
+  Future<List<VoiceMessageEntity>> _fetchVoiceMessages({
+    required int ownerId,
+  }) async {
+    final result = await _isar.voiceMessageEntitys
+        .filter()
+        .ownerIdEqualTo(ownerId)
+        .sortByTimestampDesc()
+        .findAll();
     return result.take(200).toList();
   }
 

@@ -1,13 +1,22 @@
 import 'dart:async';
+import 'dart:io' show Platform, exit;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:im_client/core/providers/app_providers.dart';
+import 'package:im_client/core/session/session_event.dart';
 import 'package:im_client/core/socket/socket_manager.dart';
 import 'package:im_client/core/storage/messages/friend_message_entity.dart';
+import 'package:im_client/core/storage/messages/message_status.dart';
+import 'package:im_client/core/storage/messages/voice_message_entity.dart';
 import 'package:im_client/features/chat/data/message_repository.dart';
+import 'package:im_client/features/debug/debug_dashboard_page.dart';
 import 'package:im_client/gen/api/auth.pb.dart';
 import 'package:im_client/gen/api/socket.pb.dart' as socketpb;
+
+enum _SidebarView { contacts, voice, messages, settings }
 
 class ChatHomePage extends ConsumerStatefulWidget {
   const ChatHomePage({
@@ -37,6 +46,11 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
   late final MessageRepository _messageRepository;
   late final TextEditingController _searchController;
   String _searchQuery = '';
+  _SidebarView _sidebarView = _SidebarView.contacts;
+  int? _selectedVoiceMessageId;
+  bool _isConnecting = false;
+  bool _isShuttingDown = false;
+  bool _kickDialogVisible = false;
 
   void _selectConversation(int friendId) {
     if (_selectedFriendId == friendId) {
@@ -44,6 +58,24 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
     }
     setState(() {
       _selectedFriendId = friendId;
+    });
+  }
+
+  void _changeSidebarView(_SidebarView view) {
+    if (_sidebarView == view) {
+      return;
+    }
+    setState(() {
+      _sidebarView = view;
+    });
+  }
+
+  void _selectVoiceMessage(int messageId) {
+    if (_selectedVoiceMessageId == messageId) {
+      return;
+    }
+    setState(() {
+      _selectedVoiceMessageId = messageId;
     });
   }
 
@@ -73,21 +105,18 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
           _socketStatus = '收到 $kindName (#${msg.id})';
         });
       },
-      onError: (error) {
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          _socketStatus = '连接错误: $error';
-        });
-      },
+      onError: (error) => _handleSocketTermination(error: error),
+      onDone: () => _handleSocketTermination(),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _connectSocket();
     });
   }
 
-  Future<void> _connectSocket() async {
+  Future<void> _connectSocket({bool isRetry = false}) async {
+    if (!mounted || _isConnecting || _isShuttingDown) {
+      return;
+    }
     final socketAddr = widget.session.socketAddr;
     if (socketAddr.isEmpty) {
       setState(() {
@@ -95,6 +124,10 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
       });
       return;
     }
+    _isConnecting = true;
+    setState(() {
+      _socketStatus = isRetry ? '正在重连...' : '正在连接...';
+    });
     try {
       await _socketManager.connect(
         address: socketAddr,
@@ -104,38 +137,782 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
         token: widget.session.token,
         resumeAckId: null,
       );
+      if (!mounted) {
+        return;
+      }
       setState(() {
-        _socketStatus = '已连接 $socketAddr';
+        final userLabel = widget.account.isNotEmpty
+            ? widget.account
+            : '用户${widget.userId}';
+        _socketStatus = '已连接 $socketAddr · $userLabel';
       });
     } on SocketConnectionException catch (err) {
-      setState(() {
-        _socketStatus = '连接失败: ${err.message}';
-      });
+      if (mounted) {
+        setState(() {
+          _socketStatus = '连接失败: ${err.message}';
+        });
+      }
     } catch (err) {
-      setState(() {
-        _socketStatus = '连接失败: $err';
-      });
+      if (mounted) {
+        setState(() {
+          _socketStatus = '连接失败: $err';
+        });
+      }
+    } finally {
+      _isConnecting = false;
     }
+  }
+
+  void _handleSocketTermination({Object? error}) {
+    if (_isShuttingDown || !mounted) {
+      return;
+    }
+    setState(() {
+      _socketStatus = error == null ? '连接已断开，准备重连' : '连接错误: $error';
+    });
+    _triggerReconnect();
+  }
+
+  void _triggerReconnect() {
+    if (!mounted || _isConnecting || _isShuttingDown) {
+      return;
+    }
+    unawaited(_connectSocket(isRetry: true));
   }
 
   @override
   void dispose() {
+    _isShuttingDown = true;
     _socketSubscription?.cancel();
     _socketManager.disconnect();
     _searchController.dispose();
     super.dispose();
   }
 
+  Future<void> _showKickedDialog(SessionEvent event) async {
+    if (_kickDialogVisible || !mounted) {
+      return;
+    }
+    _kickDialogVisible = true;
+    _isShuttingDown = true;
+    final notifier = ref.read(sessionEventProvider.notifier);
+    final message = event.message?.isNotEmpty == true
+        ? event.message!
+        : '你的账户已在另一台相同类型的设备上登录';
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('账号异地登录'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    notifier.clear();
+    await _socketManager.disconnect();
+    _kickDialogVisible = false;
+    if (kIsWeb) {
+      return;
+    }
+    if (Platform.isAndroid || Platform.isIOS) {
+      await SystemNavigator.pop();
+    } else {
+      exit(0);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final repository = ref.watch(messageRepositoryProvider);
+    Widget content;
+    switch (_sidebarView) {
+      case _SidebarView.contacts:
+        content = _buildConversationPage(
+          context,
+          theme,
+          repository,
+          title: '联系人',
+          searchHint: '搜索联系人',
+          emptyBuilder: (_) => const _EmptyHint(),
+          trailingBuilder: (ctx) => IconButton(
+            icon: const Icon(Icons.person_add_alt_1_rounded),
+            tooltip: '添加好友',
+            onPressed: () => _showAddFriendDialog(ctx),
+          ),
+        );
+        break;
+      case _SidebarView.voice:
+        content = _buildVoiceLayout(context, theme, repository);
+        break;
+      case _SidebarView.messages:
+        content = _buildConversationPage(
+          context,
+          theme,
+          repository,
+          title: '消息',
+          searchHint: '搜索消息',
+          emptyBuilder: (_) => const _MessagesEmptyHint(),
+          trailingBuilder: (ctx) => IconButton(
+            icon: const Icon(Icons.edit_note_rounded),
+            tooltip: '新聊天',
+            onPressed: () {
+              ScaffoldMessenger.of(
+                ctx,
+              ).showSnackBar(const SnackBar(content: Text('聊天功能建设中')));
+            },
+          ),
+        );
+        break;
+      case _SidebarView.settings:
+        content = _buildSettingsPage(context, theme);
+        break;
+    }
+    ref.listen<SessionEvent?>(sessionEventProvider, (previous, next) {
+      if (!mounted || next == null) {
+        return;
+      }
+      if (next.type == SessionEventType.kicked) {
+        unawaited(_showKickedDialog(next));
+      }
+    });
+    return KeyedSubtree(key: ValueKey(_sidebarView), child: content);
+  }
+
+  List<_FriendConversation> _groupByFriend(List<FriendMessageEntity> messages) {
+    final latest = <int, FriendMessageEntity>{};
+    for (final msg in messages) {
+      final existing = latest[msg.friendId];
+      if (existing == null || msg.timestamp > existing.timestamp) {
+        latest[msg.friendId] = msg;
+      }
+    }
+    final list = latest.values.toList()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    return list.map(_toConversation).toList();
+  }
+
+  List<_FriendConversation> _filterConversations(
+    List<_FriendConversation> conversations,
+  ) {
+    if (_searchQuery.isEmpty) {
+      return conversations;
+    }
+    final query = _searchQuery.toLowerCase();
+    return conversations
+        .where(
+          (conv) =>
+              conv.title.toLowerCase().contains(query) ||
+              conv.subtitle.toLowerCase().contains(query),
+        )
+        .toList();
+  }
+
+  _FriendConversation _toConversation(FriendMessageEntity entity) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(entity.timestamp).toLocal();
+    final title = '好友 #${entity.friendId}';
+    final subtitle = entity.textPreview?.isNotEmpty == true
+        ? entity.textPreview!
+        : '[${socketpb.MsgKind.valueOf(entity.kind)?.name ?? '消息'}]';
+    return _FriendConversation(
+      friendId: entity.friendId,
+      title: title,
+      subtitle: subtitle,
+      timeLabel: _formatListTileTime(dt),
+      timestamp: entity.timestamp,
+    );
+  }
+
+  Widget _buildVoiceLayout(
+    BuildContext context,
+    ThemeData theme,
+    MessageRepository repository,
+  ) {
+    return StreamBuilder<List<VoiceMessageEntity>>(
+      stream: repository.watchVoiceMessages(ownerId: widget.userId),
+      builder: (context, snapshot) {
+        final calls = snapshot.data ?? const [];
+        final sorted = List<VoiceMessageEntity>.from(calls)
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+        if (sorted.isNotEmpty &&
+            (_selectedVoiceMessageId == null ||
+                !sorted.any(
+                  (call) => call.messageId == _selectedVoiceMessageId,
+                ))) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            setState(() {
+              _selectedVoiceMessageId = sorted.first.messageId;
+            });
+          });
+        }
+
+        VoiceMessageEntity? selectedCall;
+        final currentSelectedId = _selectedVoiceMessageId;
+        if (currentSelectedId != null) {
+          for (final call in sorted) {
+            if (call.messageId == currentSelectedId) {
+              selectedCall = call;
+              break;
+            }
+          }
+        }
+        selectedCall ??= sorted.isNotEmpty ? sorted.first : null;
+
+        final sidebarWidth = MediaQuery.of(context).size.width >= 900
+            ? 320.0
+            : 280.0;
+
+        return Scaffold(
+          backgroundColor: theme.colorScheme.surface,
+          body: Row(
+            children: [
+              Container(
+                width: sidebarWidth,
+                color: theme.colorScheme.surfaceVariant.withOpacity(0.4),
+                child: SafeArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        child: Row(
+                          children: [
+                            Text(
+                              '最近通话',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Spacer(),
+                            TextButton(
+                              onPressed: sorted.isEmpty ? null : () {},
+                              child: const Text('编辑'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                        child: OutlinedButton.icon(
+                          onPressed: () => _showCreateCallDialog(
+                            context,
+                            theme,
+                            repository,
+                            sorted,
+                          ),
+                          icon: const Icon(Icons.add_call),
+                          label: const Text('创建新通话'),
+                        ),
+                      ),
+                      Expanded(
+                        child: sorted.isEmpty
+                            ? const _VoiceEmptyHint()
+                            : ListView.separated(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                itemCount: sorted.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 4),
+                                itemBuilder: (context, index) {
+                                  final call = sorted[index];
+                                  final title = _voiceEntryTitle(call);
+                                  final statusLabel = _voiceListStatus(call);
+                                  final timeLabel = _formatCallListTime(
+                                    call.timestamp,
+                                  );
+                                  final iconData = _voiceDirectionIcon(call);
+                                  final iconColor = _voiceDirectionColor(
+                                    theme,
+                                    call,
+                                  );
+                                  return _VoiceCallTile(
+                                    title: title,
+                                    subtitle: statusLabel,
+                                    timeLabel: timeLabel,
+                                    icon: iconData,
+                                    iconColor: iconColor,
+                                    isSelected:
+                                        call.messageId ==
+                                        _selectedVoiceMessageId,
+                                    onTap: () =>
+                                        _selectVoiceMessage(call.messageId),
+                                  );
+                                },
+                              ),
+                      ),
+                      SafeArea(
+                        top: false,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                          child: _SidebarBottomActions(
+                            currentView: _sidebarView,
+                            onSelect: _changeSidebarView,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Expanded(
+                child: SafeArea(
+                  child: _buildVoiceDetailPane(context, theme, selectedCall),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showCreateCallDialog(
+    BuildContext context,
+    ThemeData theme,
+    MessageRepository repository,
+    List<VoiceMessageEntity> history,
+  ) async {
+    final candidates = await _collectCallCandidates(
+      repository: repository,
+      history: history,
+    );
+    if (!mounted) return;
+    if (candidates.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('暂无可呼叫的联系人')));
+      return;
+    }
+
+    final candidateMap = {for (final item in candidates) item.key: item};
+    final frequentKeys = <String>[];
+    final seenFrequent = <String>{};
+    for (final call in history) {
+      final key = _callCandidateKey(call.isGroup, call.conversationId);
+      if (candidateMap.containsKey(key) && seenFrequent.add(key)) {
+        frequentKeys.add(key);
+        if (frequentKeys.length >= 6) {
+          break;
+        }
+      }
+    }
+
+    final searchController = TextEditingController();
+    final selectedKeys = <String>{};
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setState) {
+            void toggleSelection(String key) {
+              setState(() {
+                if (!selectedKeys.add(key)) {
+                  selectedKeys.remove(key);
+                }
+              });
+            }
+
+            final filter = searchController.text.trim().toLowerCase();
+            final filteredCandidates = filter.isEmpty
+                ? candidates
+                : candidates
+                      .where(
+                        (c) =>
+                            c.title.toLowerCase().contains(filter) ||
+                            c.subtitle.toLowerCase().contains(filter),
+                      )
+                      .toList();
+
+            final frequentCandidates = filter.isEmpty
+                ? [
+                    for (final key in frequentKeys)
+                      if (candidateMap[key] != null) candidateMap[key]!,
+                  ]
+                : const <_CallCandidate>[];
+
+            final listCandidates = filter.isEmpty
+                ? candidates
+                      .where((c) => !frequentKeys.contains(c.key))
+                      .toList()
+                : filteredCandidates;
+
+            final selectedCandidates = [
+              for (final key in selectedKeys)
+                if (candidateMap[key] != null) candidateMap[key]!,
+            ];
+
+            final canStartCall = selectedKeys.isNotEmpty;
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              title: const Text('创建通话'),
+              content: SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: searchController,
+                      autofocus: true,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon: searchController.text.isEmpty
+                            ? null
+                            : IconButton(
+                                icon: const Icon(Icons.clear_rounded),
+                                onPressed: () {
+                                  setState(() {
+                                    searchController.clear();
+                                  });
+                                },
+                              ),
+                        hintText: '搜索联系人名称',
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    if (selectedCandidates.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final entry in selectedCandidates)
+                            InputChip(
+                              label: Text(entry.title),
+                              onDeleted: () => setState(() {
+                                selectedKeys.remove(entry.key);
+                              }),
+                            ),
+                        ],
+                      ),
+                    ],
+                    if (filter.isEmpty) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        '常用联系人',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (frequentCandidates.isEmpty)
+                        Text(
+                          '暂无常用联系人',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        )
+                      else
+                        ...frequentCandidates.map(
+                          (candidate) => _CallCandidateTile(
+                            candidate: candidate,
+                            isSelected: selectedKeys.contains(candidate.key),
+                            onTap: () => toggleSelection(candidate.key),
+                          ),
+                        ),
+                      const SizedBox(height: 16),
+                      InkWell(
+                        onTap: () {
+                          Navigator.of(dialogCtx).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('通话链接功能建设中')),
+                          );
+                        },
+                        child: ListTile(
+                          leading: const Icon(Icons.link_rounded),
+                          title: const Text('生成通话链接'),
+                          subtitle: const Text('分享邀请链接以开始通话'),
+                        ),
+                      ),
+                      const Divider(height: 1),
+                    ],
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 320,
+                      child: listCandidates.isEmpty
+                          ? Center(
+                              child: Text(
+                                filter.isEmpty ? '暂无联系人' : '未找到匹配的联系人',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: listCandidates.length,
+                              itemBuilder: (context, index) {
+                                final candidate = listCandidates[index];
+                                final isSelected = selectedKeys.contains(
+                                  candidate.key,
+                                );
+                                return _CallCandidateTile(
+                                  candidate: candidate,
+                                  isSelected: isSelected,
+                                  onTap: () => toggleSelection(candidate.key),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogCtx).pop(),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: canStartCall
+                      ? () {
+                          Navigator.of(dialogCtx).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('通话功能建设中')),
+                          );
+                        }
+                      : null,
+                  child: const Text('开始通话'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<List<_CallCandidate>> _collectCallCandidates({
+    required MessageRepository repository,
+    required List<VoiceMessageEntity> history,
+  }) async {
+    final map = <String, _CallCandidate>{};
+
+    void addCandidate({
+      required bool isGroup,
+      required int conversationId,
+      required String title,
+      required String subtitle,
+    }) {
+      final key = _callCandidateKey(isGroup, conversationId);
+      map.putIfAbsent(
+        key,
+        () => _CallCandidate(
+          key: key,
+          title: title,
+          subtitle: subtitle,
+          isGroup: isGroup,
+          conversationId: conversationId,
+        ),
+      );
+    }
+
+    for (final call in history) {
+      final title = _voiceEntryTitle(call);
+      final subtitle = _voiceListStatus(call);
+      addCandidate(
+        isGroup: call.isGroup,
+        conversationId: call.conversationId,
+        title: title,
+        subtitle: subtitle,
+      );
+    }
+
+    try {
+      final friendMessages = await repository
+          .watchFriendMessages(ownerId: widget.userId)
+          .first;
+      final List<_FriendConversation> conversations = _groupByFriend(
+        friendMessages,
+      );
+      for (final conversation in conversations) {
+        addCandidate(
+          isGroup: false,
+          conversationId: conversation.friendId,
+          title: conversation.title,
+          subtitle: conversation.subtitle,
+        );
+      }
+    } catch (_) {
+      // 忽略加载失败，保持已有候选项。
+    }
+
+    final list = map.values.toList()
+      ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    return list;
+  }
+
+  Widget _buildVoiceDetailPane(
+    BuildContext context,
+    ThemeData theme,
+    VoiceMessageEntity? call,
+  ) {
+    if (call == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.mic_none_outlined, size: 72, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('请选择通话记录', style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+
+    final contactName = _voiceEntryTitle(call);
+    final statusLabel = _voiceDetailStatus(call);
+    final callTimeLabel = _formatCallDetailTime(call.timestamp);
+    final durationLabel = _formatVoiceDuration(call.durationSeconds);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(32, 32, 32, 24),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 36,
+                backgroundColor: theme.colorScheme.primary.withOpacity(0.16),
+                child: Text(
+                  contactName.characters.first.toUpperCase(),
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 24),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      contactName,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(statusLabel, style: theme.textTheme.bodyMedium),
+                    const SizedBox(height: 2),
+                    Text(
+                      callTimeLabel,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              FilledButton.icon(
+                onPressed: () {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('语音通话功能建设中')));
+                },
+                icon: const Icon(Icons.call_rounded),
+                label: const Text('语音通话'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('视频通话功能建设中')));
+                },
+                icon: const Icon(Icons.videocam_rounded),
+                label: const Text('视频通话'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('消息功能建设中')));
+                },
+                icon: const Icon(Icons.message_rounded),
+                label: const Text('发送消息'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _VoiceDetailRow(
+                icon: Icons.access_time_rounded,
+                label: '通话时长',
+                value: durationLabel.isEmpty ? '未知' : durationLabel,
+              ),
+              const SizedBox(height: 12),
+              _VoiceDetailRow(
+                icon: Icons.alternate_email_rounded,
+                label: call.isGroup ? '群组 ID' : '好友 ID',
+                value: call.conversationId.toString(),
+              ),
+              const SizedBox(height: 12),
+              _VoiceDetailRow(
+                icon: Icons.person_outline,
+                label: '发起人',
+                value: call.senderId.toString(),
+              ),
+              if (call.receiverId != null) ...[
+                const SizedBox(height: 12),
+                _VoiceDetailRow(
+                  icon: Icons.call_received_rounded,
+                  label: '接收人',
+                  value: call.receiverId!.toString(),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConversationPage(
+    BuildContext context,
+    ThemeData theme,
+    MessageRepository repository, {
+    required String title,
+    required String searchHint,
+    required Widget Function(BuildContext context) emptyBuilder,
+    required Widget Function(BuildContext context) trailingBuilder,
+  }) {
     return StreamBuilder<List<FriendMessageEntity>>(
       stream: repository.watchFriendMessages(ownerId: widget.userId),
       builder: (context, snapshot) {
         final messages = snapshot.data ?? const [];
-        final rawConversations = _groupByFriend(messages);
-        final conversations = rawConversations.map(_toConversation).toList();
+        final conversations = _groupByFriend(messages);
         final filteredConversations = _filterConversations(conversations);
 
         if (filteredConversations.isNotEmpty &&
@@ -175,6 +952,8 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
         final sidebarWidth = MediaQuery.of(context).size.width >= 900
             ? 320.0
             : 280.0;
+        final emptyWidget = emptyBuilder(context);
+        final trailing = trailingBuilder(context);
 
         return Scaffold(
           backgroundColor: theme.colorScheme.surface,
@@ -190,12 +969,13 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: _SidebarTopActions(
+                          title: title,
                           onSort: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('排序功能建设中')),
                             );
                           },
-                          onAddFriend: () => _showAddFriendDialog(context),
+                          trailing: trailing,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -203,10 +983,10 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: TextField(
                           controller: _searchController,
-                          decoration: const InputDecoration(
-                            prefixIcon: Icon(Icons.search_rounded),
-                            hintText: '搜索联系人',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            prefixIcon: const Icon(Icons.search_rounded),
+                            hintText: searchHint,
+                            border: const OutlineInputBorder(),
                             isDense: true,
                           ),
                         ),
@@ -219,7 +999,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
                             children: [
                               Expanded(
                                 child: filteredConversations.isEmpty
-                                    ? const _EmptyHint()
+                                    ? emptyWidget
                                     : ListView.separated(
                                         itemCount: filteredConversations.length,
                                         separatorBuilder: (_, __) =>
@@ -246,11 +1026,14 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
                           ),
                         ),
                       ),
-                      const SafeArea(
+                      SafeArea(
                         top: false,
                         child: Padding(
-                          padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
-                          child: _SidebarBottomActions(),
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                          child: _SidebarBottomActions(
+                            currentView: _sidebarView,
+                            onSelect: _changeSidebarView,
+                          ),
                         ),
                       ),
                     ],
@@ -374,47 +1157,200 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
     );
   }
 
-  List<FriendMessageEntity> _groupByFriend(List<FriendMessageEntity> messages) {
-    final latest = <int, FriendMessageEntity>{};
-    for (final msg in messages) {
-      final existing = latest[msg.friendId];
-      if (existing == null || msg.timestamp > existing.timestamp) {
-        latest[msg.friendId] = msg;
-      }
-    }
-    final list = latest.values.toList()
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    return list;
-  }
+  Widget _buildSettingsPage(BuildContext context, ThemeData theme) {
+    final sidebarWidth = MediaQuery.of(context).size.width >= 900
+        ? 320.0
+        : 280.0;
+    final tiles = <_SettingsTile>[
+      _SettingsTile(
+        icon: Icons.person_outline,
+        title: '账号与安全',
+        subtitle: '账号信息、密码与偏好设置',
+        onTap: () {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('账号设置功能建设中')));
+        },
+      ),
+      _SettingsTile(
+        icon: Icons.notifications_outlined,
+        title: '通知偏好',
+        subtitle: '消息提醒、声音与桌面通知',
+        onTap: () {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('通知设置功能建设中')));
+        },
+      ),
+      _SettingsTile(
+        icon: Icons.storage_rounded,
+        title: '存储管理',
+        subtitle: '缓存占用、媒体文件与数据导出',
+        onTap: () {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('存储管理功能建设中')));
+        },
+      ),
+      _SettingsTile(
+        icon: Icons.bug_report_outlined,
+        title: '调试工具',
+        subtitle: '查看/管理 Isar 数据与实时日志',
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const DebugDashboardPage()),
+          );
+        },
+      ),
+    ];
 
-  List<_FriendConversation> _filterConversations(
-    List<_FriendConversation> conversations,
-  ) {
-    if (_searchQuery.isEmpty) {
-      return conversations;
-    }
-    final query = _searchQuery.toLowerCase();
-    return conversations
-        .where(
-          (conv) =>
-              conv.title.toLowerCase().contains(query) ||
-              conv.subtitle.toLowerCase().contains(query),
-        )
-        .toList();
-  }
-
-  _FriendConversation _toConversation(FriendMessageEntity entity) {
-    final dt = DateTime.fromMillisecondsSinceEpoch(entity.timestamp).toLocal();
-    final title = '好友 #${entity.friendId}';
-    final subtitle = entity.textPreview?.isNotEmpty == true
-        ? entity.textPreview!
-        : '[${socketpb.MsgKind.valueOf(entity.kind)?.name ?? '消息'}]';
-    return _FriendConversation(
-      friendId: entity.friendId,
-      title: title,
-      subtitle: subtitle,
-      timeLabel: _formatListTileTime(dt),
-      timestamp: entity.timestamp,
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      body: Row(
+        children: [
+          Container(
+            width: sidebarWidth,
+            color: theme.colorScheme.surfaceVariant.withOpacity(0.4),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        Text(
+                          '设置中心',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Spacer(),
+                        Icon(
+                          Icons.settings_outlined,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      children: [
+                        _SettingsCategoryCard(
+                          title: '常规设置',
+                          child: Column(
+                            children: [
+                              const _SettingsSummaryRow(
+                                label: '应用版本',
+                                value: '1.0.0',
+                              ),
+                              const SizedBox(height: 4),
+                              _SettingsSummaryRow(
+                                label: '上次同步',
+                                value: _formatBubbleTime(
+                                  DateTime.now().millisecondsSinceEpoch,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _SettingsCategoryCard(
+                          title: '操作',
+                          child: Column(
+                            children: [
+                              for (var i = 0; i < tiles.length; i++)
+                                Column(
+                                  children: [
+                                    ListTile(
+                                      leading: Icon(tiles[i].icon),
+                                      title: Text(tiles[i].title),
+                                      subtitle: Text(tiles[i].subtitle),
+                                      onTap: tiles[i].onTap,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    if (i != tiles.length - 1)
+                                      const Divider(height: 1),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                      child: _SidebarBottomActions(
+                        currentView: _sidebarView,
+                        onSelect: _changeSidebarView,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: SafeArea(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(32, 24, 32, 48),
+                    children: [
+                      Text(
+                        '应用设置',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '管理账号信息、通知偏好、存储使用情况，以及开发调试工具等。',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Card(
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          children: [
+                            for (var i = 0; i < tiles.length; i++)
+                              Column(
+                                children: [
+                                  ListTile(
+                                    leading: Icon(tiles[i].icon),
+                                    title: Text(tiles[i].title),
+                                    subtitle: Text(tiles[i].subtitle),
+                                    onTap: tiles[i].onTap,
+                                  ),
+                                  if (i != tiles.length - 1)
+                                    const Divider(height: 1),
+                                ],
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -546,14 +1482,20 @@ String _formatListTileTime(DateTime dt) {
 }
 
 class _SidebarTopActions extends StatelessWidget {
-  const _SidebarTopActions({required this.onAddFriend, required this.onSort});
+  const _SidebarTopActions({
+    required this.title,
+    required this.onSort,
+    this.trailing,
+  });
 
-  final VoidCallback onAddFriend;
+  final String title;
   final VoidCallback onSort;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final trailingWidget = trailing ?? const SizedBox(width: 48, height: 48);
     return Row(
       children: [
         Tooltip(
@@ -565,20 +1507,14 @@ class _SidebarTopActions extends StatelessWidget {
         ),
         Expanded(
           child: Text(
-            '联系人',
+            title,
             textAlign: TextAlign.center,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
         ),
-        Tooltip(
-          message: '添加好友',
-          child: IconButton(
-            icon: const Icon(Icons.person_add_alt_1_rounded),
-            onPressed: onAddFriend,
-          ),
-        ),
+        SizedBox(width: 48, height: 48, child: Center(child: trailingWidget)),
       ],
     );
   }
@@ -603,12 +1539,225 @@ class _EmptyHint extends StatelessWidget {
   }
 }
 
-class _SidebarBottomActions extends StatelessWidget {
-  const _SidebarBottomActions();
+class _MessagesEmptyHint extends StatelessWidget {
+  const _MessagesEmptyHint();
 
   @override
   Widget build(BuildContext context) {
-    void placeholder() {}
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: const [
+          Icon(Icons.chat_bubble_outline_rounded, size: 48, color: Colors.grey),
+          SizedBox(height: 12),
+          Text('暂无会话', style: TextStyle(color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+}
+
+class _VoiceEmptyHint extends StatelessWidget {
+  const _VoiceEmptyHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: const [
+          Icon(Icons.history_toggle_off_rounded, size: 48, color: Colors.grey),
+          SizedBox(height: 12),
+          Text('暂无通话记录', style: TextStyle(color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+}
+
+class _CallCandidateTile extends StatelessWidget {
+  const _CallCandidateTile({
+    required this.candidate,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final _CallCandidate candidate;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final avatarColor = candidate.isGroup
+        ? theme.colorScheme.secondary
+        : theme.colorScheme.primary;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isSelected
+              ? theme.colorScheme.primary.withOpacity(0.08)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: ListTile(
+          leading: CircleAvatar(
+            radius: 20,
+            backgroundColor: avatarColor.withOpacity(0.15),
+            child: Text(
+              candidate.title.characters.first.toUpperCase(),
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: avatarColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          title: Text(candidate.title, style: theme.textTheme.bodyLarge),
+          subtitle: Text(
+            candidate.subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall,
+          ),
+          trailing: Icon(
+            isSelected ? Icons.check_circle_rounded : Icons.circle_outlined,
+            color: isSelected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outline,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VoiceCallTile extends StatelessWidget {
+  const _VoiceCallTile({
+    required this.title,
+    required this.subtitle,
+    required this.timeLabel,
+    required this.icon,
+    required this.iconColor,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final String timeLabel;
+  final IconData icon;
+  final Color iconColor;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final background = isSelected
+        ? theme.colorScheme.surface.withOpacity(0.9)
+        : Colors.transparent;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        onTap: onTap,
+        leading: CircleAvatar(
+          radius: 20,
+          backgroundColor: theme.colorScheme.primary.withOpacity(0.15),
+          child: Text(
+            title.characters.first.toUpperCase(),
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        title: Text(
+          title,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: Row(
+          children: [
+            Icon(icon, size: 16, color: iconColor),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                subtitle,
+                style: theme.textTheme.bodySmall,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        trailing: Text(
+          timeLabel,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VoiceDetailRow extends StatelessWidget {
+  const _VoiceDetailRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: theme.colorScheme.primary),
+        const SizedBox(width: 12),
+        Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            value,
+            style: theme.textTheme.bodyMedium,
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SidebarBottomActions extends StatelessWidget {
+  const _SidebarBottomActions({
+    required this.currentView,
+    required this.onSelect,
+  });
+
+  final _SidebarView currentView;
+  final void Function(_SidebarView view) onSelect;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Container(
@@ -625,22 +1774,26 @@ class _SidebarBottomActions extends StatelessWidget {
           _SidebarBottomActionButton(
             icon: Icons.people_alt_outlined,
             label: '联系人',
-            onTap: placeholder,
+            isActive: currentView == _SidebarView.contacts,
+            onTap: () => onSelect(_SidebarView.contacts),
           ),
           _SidebarBottomActionButton(
             icon: Icons.mic_none_outlined,
-            label: '语音',
-            onTap: placeholder,
+            label: '通话',
+            isActive: currentView == _SidebarView.voice,
+            onTap: () => onSelect(_SidebarView.voice),
           ),
           _SidebarBottomActionButton(
             icon: Icons.chat_bubble_outline_rounded,
             label: '消息',
-            onTap: placeholder,
+            isActive: currentView == _SidebarView.messages,
+            onTap: () => onSelect(_SidebarView.messages),
           ),
           _SidebarBottomActionButton(
             icon: Icons.settings_outlined,
             label: '设置',
-            onTap: placeholder,
+            isActive: currentView == _SidebarView.settings,
+            onTap: () => onSelect(_SidebarView.settings),
           ),
         ],
       ),
@@ -774,11 +1927,13 @@ class _SidebarBottomActionButton extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.isActive = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final bool isActive;
 
   @override
   Widget build(BuildContext context) {
@@ -789,12 +1944,20 @@ class _SidebarBottomActionButton extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
-          child: Padding(
+          child: Container(
+            decoration: BoxDecoration(
+              color: isActive
+                  ? theme.colorScheme.primary.withOpacity(0.12)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Icon(
               icon,
               size: 24,
-              color: theme.colorScheme.onSurfaceVariant,
+              color: isActive
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ),
@@ -900,25 +2063,45 @@ class _ChatToolbar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const Spacer(),
+          if (kDebugMode)
+            TextButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const DebugDashboardPage(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.bug_report_outlined),
+              label: const Text('Debug'),
+            ),
+          if (kDebugMode) const SizedBox(width: 8),
           IconButton(
             tooltip: '搜索',
             onPressed: () {},
@@ -1017,4 +2200,192 @@ class _MessageComposerState extends State<_MessageComposer> {
       ),
     );
   }
+}
+
+class _SettingsTile {
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+}
+
+class _SettingsCategoryCard extends StatelessWidget {
+  const _SettingsCategoryCard({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsSummaryRow extends StatelessWidget {
+  const _SettingsSummaryRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CallCandidate {
+  const _CallCandidate({
+    required this.key,
+    required this.title,
+    required this.subtitle,
+    required this.isGroup,
+    required this.conversationId,
+  });
+
+  final String key;
+  final String title;
+  final String subtitle;
+  final bool isGroup;
+  final int conversationId;
+}
+
+String _callCandidateKey(bool isGroup, int conversationId) =>
+    '${isGroup ? 'g' : 'u'}_$conversationId';
+
+String _voiceEntryTitle(VoiceMessageEntity call) {
+  return call.isGroup
+      ? '群组 #${call.conversationId}'
+      : '好友 #${call.conversationId}';
+}
+
+bool _isMissedIncoming(VoiceMessageEntity call) {
+  return !call.isOutgoing && call.status == MessageDeliveryStatus.failed;
+}
+
+bool _isFailedOutgoing(VoiceMessageEntity call) {
+  return call.isOutgoing && call.status == MessageDeliveryStatus.failed;
+}
+
+String _voiceListStatus(VoiceMessageEntity call) {
+  if (_isMissedIncoming(call)) {
+    return '未接来电';
+  }
+  if (_isFailedOutgoing(call)) {
+    return '未拨通';
+  }
+  final direction = call.isOutgoing ? '呼出' : '来电';
+  final duration = _formatVoiceDuration(call.durationSeconds);
+  return duration.isEmpty ? direction : '$direction · $duration';
+}
+
+String _voiceDetailStatus(VoiceMessageEntity call) {
+  if (_isMissedIncoming(call)) {
+    return '未接来电';
+  }
+  if (_isFailedOutgoing(call)) {
+    return '未拨通';
+  }
+  final prefix = call.isOutgoing ? '呼出通话' : '接听来电';
+  final duration = _formatVoiceDuration(call.durationSeconds);
+  return duration.isEmpty ? prefix : '$prefix · $duration';
+}
+
+IconData _voiceDirectionIcon(VoiceMessageEntity call) {
+  if (_isMissedIncoming(call)) {
+    return Icons.call_missed_rounded;
+  }
+  if (_isFailedOutgoing(call)) {
+    return Icons.call_missed_outgoing_rounded;
+  }
+  return call.isOutgoing
+      ? Icons.call_made_rounded
+      : Icons.call_received_rounded;
+}
+
+Color _voiceDirectionColor(ThemeData theme, VoiceMessageEntity call) {
+  if (call.status == MessageDeliveryStatus.failed) {
+    return theme.colorScheme.error;
+  }
+  return call.isOutgoing
+      ? theme.colorScheme.primary
+      : theme.colorScheme.secondary;
+}
+
+String _formatCallListTime(int timestamp) {
+  final dt = DateTime.fromMillisecondsSinceEpoch(timestamp).toLocal();
+  final now = DateTime.now();
+  final sameDay =
+      now.year == dt.year && now.month == dt.month && now.day == dt.day;
+  if (sameDay) {
+    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+  final sameYear = now.year == dt.year;
+  if (sameYear) {
+    return '${dt.month}/${dt.day}';
+  }
+  return '${dt.year}/${dt.month}/${dt.day}';
+}
+
+String _formatCallDetailTime(int timestamp) {
+  final dt = DateTime.fromMillisecondsSinceEpoch(timestamp).toLocal();
+  final year = dt.year.toString();
+  final month = dt.month.toString().padLeft(2, '0');
+  final day = dt.day.toString().padLeft(2, '0');
+  final hour = dt.hour.toString().padLeft(2, '0');
+  final minute = dt.minute.toString().padLeft(2, '0');
+  return '$year-$month-$day $hour:$minute';
+}
+
+String _formatVoiceDuration(int? seconds) {
+  if (seconds == null || seconds <= 0) {
+    return '';
+  }
+  final minutes = seconds ~/ 60;
+  final remaining = seconds % 60;
+  if (minutes == 0) {
+    return '${remaining}秒';
+  }
+  return '${minutes}分${remaining.toString().padLeft(2, '0')}秒';
 }

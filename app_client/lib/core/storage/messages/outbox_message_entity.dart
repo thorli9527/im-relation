@@ -25,6 +25,16 @@ class OutboxMessageEntity {
 
   /// 业务消息 ID（对于聊天消息为 message.Content.message_id）。
   int? messageId;
+  
+  /// 客户端生成的唯一消息 ID，用于幂等和 ACK 匹配。
+  @Index()
+  late int clientMessageId;
+  
+  /// 已经尝试发送的次数。
+  int retryCount = 0;
+  
+  /// 最后一次发送时间戳（毫秒）。
+  int? lastAttemptAt;
 
   @Index()
   late int createdAt;

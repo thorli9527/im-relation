@@ -9,14 +9,33 @@ import 'package:uuid/uuid.dart';
 
 import 'auth_session.dart';
 import 'device_profile.dart';
+import 'friend_entity.dart';
 import 'messages/friend_biz_entity.dart';
 import 'messages/friend_message_entity.dart';
 import 'messages/group_biz_entity.dart';
 import 'messages/group_message_entity.dart';
 import 'messages/outbox_message_entity.dart';
 import 'messages/system_message_entity.dart';
+import 'messages/voice_message_entity.dart';
+import 'group_entity.dart';
 
 const int kDefaultDeviceType = 4; // 对应后端 DeviceType::Pc。
+
+const String _workspaceIdFromDartDefine = String.fromEnvironment(
+  'IM_CLIENT_WORKSPACE',
+  defaultValue: '',
+);
+
+String _resolveWorkspaceId() {
+  final env = Platform.environment['IM_CLIENT_WORKSPACE'];
+  if (env != null && env.trim().isNotEmpty) {
+    return env.trim();
+  }
+  if (_workspaceIdFromDartDefine.isNotEmpty) {
+    return _workspaceIdFromDartDefine;
+  }
+  return 'default';
+}
 
 class LocalStore {
   LocalStore._(this._isar);
@@ -25,7 +44,8 @@ class LocalStore {
 
   static Future<LocalStore> open() async {
     final supportDir = await getApplicationSupportDirectory();
-    final dbDir = Directory(p.join(supportDir.path, 'isar'));
+    final workspaceId = _resolveWorkspaceId();
+    final dbDir = Directory(p.join(supportDir.path, 'isar', workspaceId));
     if (!await dbDir.exists()) {
       await dbDir.create(recursive: true);
     }
@@ -33,14 +53,18 @@ class LocalStore {
       [
         DeviceProfileSchema,
         AuthSessionSchema,
+        FriendEntitySchema,
+        GroupEntitySchema,
         FriendMessageEntitySchema,
         FriendBizEntitySchema,
         GroupMessageEntitySchema,
         GroupBizEntitySchema,
         OutboxMessageEntitySchema,
         SystemMessageEntitySchema,
+        VoiceMessageEntitySchema,
       ],
       directory: dbDir.path,
+      name: 'im_client_$workspaceId',
       inspector: kDebugMode,
     );
     final store = LocalStore._(isar);
@@ -54,12 +78,15 @@ class LocalStore {
       [
         DeviceProfileSchema,
         AuthSessionSchema,
+        FriendEntitySchema,
+        GroupEntitySchema,
         FriendMessageEntitySchema,
         FriendBizEntitySchema,
         GroupMessageEntitySchema,
         GroupBizEntitySchema,
         OutboxMessageEntitySchema,
         SystemMessageEntitySchema,
+        VoiceMessageEntitySchema,
       ],
       directory: tempDir.path,
       inspector: false,

@@ -287,10 +287,12 @@ pub enum MsgKind {
     MkMsgRecall = 905,
     /// 通用业务ACK
     /// 原 "sys.ack"
+    MkAck = 906,
+    /// 心跳保活
     ///
     /// ensure rebuild
     /// end of enum
-    MkAck = 906,
+    MkHeartbeat = 907,
 }
 impl MsgKind {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -351,6 +353,7 @@ impl MsgKind {
             Self::MkUserAccountData => "MK_USER_ACCOUNT_DATA",
             Self::MkMsgRecall => "MK_MSG_RECALL",
             Self::MkAck => "MK_ACK",
+            Self::MkHeartbeat => "MK_HEARTBEAT",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -408,6 +411,7 @@ impl MsgKind {
             "MK_USER_ACCOUNT_DATA" => Some(Self::MkUserAccountData),
             "MK_MSG_RECALL" => Some(Self::MkMsgRecall),
             "MK_ACK" => Some(Self::MkAck),
+            "MK_HEARTBEAT" => Some(Self::MkHeartbeat),
             _ => None,
         }
     }

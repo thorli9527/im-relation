@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:im_client/features/auth/application/startup_provider.dart';
 import 'package:im_client/features/auth/login_page.dart';
 import 'package:im_client/features/chat/chat_home_page.dart';

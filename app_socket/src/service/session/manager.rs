@@ -269,7 +269,7 @@ impl SessionManager {
             .insert(session_token.clone(), (user_id.clone(), session_id.clone()));
 
         for old in removed {
-            self.notify_kick(&old, "new_login");
+            self.notify_kick(&old, "same_device_login");
         }
 
         (handle, rx)
@@ -299,9 +299,8 @@ impl SessionManager {
     fn notify_kick(&self, handle: &SessionHandle, reason: &str) {
         let now_ms = current_millis();
         let payload = json!({
-            "event": "session_kick",
-            "reason": reason,
-            "device_type": format!("{:?}", handle.device_type),
+            "notice_type": "login_duplicate",
+            "content": "你的账户已在另一台相同类型的设备上登录",
         })
         .to_string();
         let msg = ServerMsg {
@@ -601,6 +600,10 @@ impl SessionManager {
             }
             // ACK 优先处理：从追踪表移除，避免误判为超时重试。
             self.acks.ack(id);
+            return;
+        }
+        if matches!(msg.kind, MsgKind::MkHeartbeat) {
+            // 心跳已在连接层处理，这里无需进一步分发。
             return;
         }
         let msg_kind = msg.kind.clone() as i32;

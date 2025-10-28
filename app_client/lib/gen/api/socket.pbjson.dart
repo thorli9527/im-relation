@@ -85,6 +85,7 @@ const MsgKind$json = {
     {'1': 'MK_USER_ACCOUNT_DATA', '2': 904},
     {'1': 'MK_MSG_RECALL', '2': 905},
     {'1': 'MK_ACK', '2': 906},
+    {'1': 'MK_HEARTBEAT', '2': 907},
   ],
 };
 
@@ -114,7 +115,7 @@ final $typed_data.Uint8List msgKindDescriptor = $convert.base64Decode(
     'NTEJoDEhYKEU1LX0dST1VQX1RSQU5TRkVSEJsDEhIKDU1LX1NZU19OT1RJQ0UQhAcSFQoQTUtf'
     'VVNFUl9QUkVTRU5DRRCFBxIbChZNS19VU0VSX1BST0ZJTEVfVVBEQVRFEIYHEhsKFk1LX1VTRV'
     'JfUFJJVkFDWV9VUERBVEUQhwcSGQoUTUtfVVNFUl9BQ0NPVU5UX0RBVEEQiAcSEgoNTUtfTVNH'
-    'X1JFQ0FMTBCJBxILCgZNS19BQ0sQigc=');
+    'X1JFQ0FMTBCJBxILCgZNS19BQ0sQigcSEQoMTUtfSEVBUlRCRUFUEIsH');
 
 @$core.Deprecated('Use authMsgDescriptor instead')
 const AuthMsg$json = {

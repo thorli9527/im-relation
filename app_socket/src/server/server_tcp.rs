@@ -15,21 +15,29 @@ use std::convert::TryFrom;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
+use tokio::time::Instant;
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
 use crate::service::grpc_clients;
 use crate::service::node_discovery::resolve_hot_online_addr;
+use common::infra::grpc::grpc_msg_friend::msg_friend_service::FriendRequest as PbFriendRequest;
 use common::infra::grpc::grpc_socket::socket as socket_proto;
 use common::infra::grpc::grpc_user::online_service::{
     SessionTokenStatus, ValidateSessionTokenRequest,
 };
+use common::infra::grpc::message as msgpb;
 use socket_proto::{
     AuthMsg as PbAuthMsg, ClientMsg as PbClientMsg, DeviceType as PbDeviceType,
     MsgKind as PbMsgKind, ServerMsg as PbServerMsg,
 };
 
+use crate::service::handles::{FriendHandler, GroupHandler, Handler, SystemHandler};
 use crate::service::session::SessionManager;
-use crate::service::types::{ClientMsg, DeviceType, UserId};
+use crate::service::types::{ClientMsg, DeviceType, MsgKind, UserId};
+
+use std::time::Duration;
+
+const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(180);
 
 impl From<PbDeviceType> for DeviceType {
     fn from(v: PbDeviceType) -> Self {
@@ -165,29 +173,83 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
         Ok(())
     });
 
-    // 3) 读循环：消费客户端上行 ClientMsg（含 ACK），仅将 ACK 上报给 SessionManager
-    while let Some(frame) = stream.next().await {
-        match frame {
-            Ok(bytes) => match PbClientMsg::decode(bytes.freeze()) {
-                Ok(pb) => {
-                    // 尝试将枚举值转换为定义的 MsgKind；未知值使用 MkUnknown 兜底。
-                    let kind = PbMsgKind::try_from(pb.kind).unwrap_or(PbMsgKind::MkUnknown);
-                    let cmsg = ClientMsg {
-                        ack: pb.ack,
-                        client_id: pb.client_id,
-                        kind,
-                        payload: pb.payload,
-                    };
-                    // 上报给 SessionManager：包含 ACK 处理与业务分发。
-                    sm.on_client_msg(user_id, cmsg);
-                }
-                Err(e) => {
-                    warn!("{} invalid client msg: {:?}", peer, e);
-                }
-            },
-            Err(e) => {
-                warn!("{} read error: {:?}", peer, e);
+    // 3) 读循环：消费客户端上行 ClientMsg（含 ACK）并检测心跳
+    let heartbeat_timer = tokio::time::sleep(HEARTBEAT_TIMEOUT);
+    tokio::pin!(heartbeat_timer);
+    heartbeat_timer
+        .as_mut()
+        .reset(Instant::now() + HEARTBEAT_TIMEOUT);
+
+    let mut heartbeat_timed_out = false;
+
+    loop {
+        tokio::select! {
+            _ = &mut heartbeat_timer => {
+                warn!(
+                    "{} heartbeat timeout exceeded {}s, closing connection uid={} sid={}",
+                    peer,
+                    HEARTBEAT_TIMEOUT.as_secs(),
+                    user_id,
+                    session_id
+                );
+                heartbeat_timed_out = true;
                 break;
+            }
+            frame = stream.next() => {
+                match frame {
+                    Some(Ok(bytes)) => {
+                        match PbClientMsg::decode(bytes.freeze()) {
+                            Ok(pb) => {
+                                heartbeat_timer
+                                    .as_mut()
+                                    .reset(Instant::now() + HEARTBEAT_TIMEOUT);
+                                let kind = PbMsgKind::try_from(pb.kind).unwrap_or(PbMsgKind::MkUnknown);
+                                if let Some(ack_id) = pb.ack {
+                                    info!("{} <- ack {} uid={}", peer, ack_id, user_id);
+                                }
+                                log_client_payload(kind, &pb.payload);
+                                if kind == PbMsgKind::MkHeartbeat {
+                                    continue;
+                                }
+                                let client_msg = ClientMsg {
+                                    ack: pb.ack,
+                                    client_id: pb.client_id,
+                                    kind,
+                                    payload: pb.payload,
+                                };
+                                if client_msg.ack.is_some() || client_msg.kind == MsgKind::MkAck {
+                                    sm.on_client_msg(user_id, client_msg);
+                                    continue;
+                                }
+
+                                let kind_val = client_msg.kind as i32;
+                                if (100..300).contains(&kind_val) {
+                                    FriendHandler.handle(user_id, &client_msg);
+                                    continue;
+                                }
+                                if (300..500).contains(&kind_val) {
+                                    GroupHandler.handle(user_id, &client_msg);
+                                    continue;
+                                }
+                                if (900..1000).contains(&kind_val) {
+                                    SystemHandler.handle(user_id, &client_msg);
+                                    continue;
+                                }
+
+                                // 其余类型仍走 SessionManager 兜底（例如后续新增业务）。
+                                sm.on_client_msg(user_id, client_msg);
+                            }
+                            Err(e) => {
+                                warn!("{} invalid client msg: {:?}", peer, e);
+                            }
+                        }
+                    }
+                    Some(Err(e)) => {
+                        warn!("{} read error: {:?}", peer, e);
+                        break;
+                    }
+                    None => break,
+                }
             }
         }
     }
@@ -196,8 +258,44 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
     sm.unregister(&user_id, &session_id);
     // ensure writer ends
     // 若写协程尚未结束（可能因 channel close），此处等待以释放资源。
+    if heartbeat_timed_out {
+        writer.abort();
+    }
     let _ = writer.await;
     Ok(())
+}
+
+fn log_client_payload(kind: PbMsgKind, payload: &[u8]) {
+    match kind {
+        PbMsgKind::MkFriend | PbMsgKind::MkGroup => match msgpb::Content::decode(payload) {
+            Ok(content) => {
+                info!(
+                    "decoded client message kind={:?} content={:?}",
+                    kind, content
+                );
+            }
+            Err(err) => {
+                warn!("failed to decode client {:?} payload: {:?}", kind, err);
+            }
+        },
+        PbMsgKind::MkFriendRequest => match PbFriendRequest::decode(payload) {
+            Ok(req) => info!("decoded client friend request: {:?}", req),
+            Err(err) => warn!("failed to decode friend request payload: {:?}", err),
+        },
+        PbMsgKind::MkHeartbeat => {}
+        PbMsgKind::MkAck => {
+            // ack handled separately via pb.ack field; nothing to decode.
+        }
+        _ => {
+            if !payload.is_empty() {
+                info!(
+                    "client payload kind={:?} length={} bytes",
+                    kind,
+                    payload.len()
+                );
+            }
+        }
+    }
 }
 
 /// 基础鉴权：

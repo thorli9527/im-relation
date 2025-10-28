@@ -181,6 +181,12 @@ pub struct UserProfile {
     pub email: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag = "5")]
     pub phone: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "6")]
+    pub signature: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "7")]
+    pub region: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(enumeration = "AddFriendPolicy", tag = "8")]
+    pub add_friend_policy: i32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SearchUserResponse {
@@ -300,6 +306,38 @@ impl UserSearchType {
             "USER_SEARCH_USERNAME" => Some(Self::UserSearchUsername),
             "USER_SEARCH_EMAIL" => Some(Self::UserSearchEmail),
             "USER_SEARCH_PHONE" => Some(Self::UserSearchPhone),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum AddFriendPolicy {
+    AddFriendUnspecified = 0,
+    Anyone = 1,
+    RequireVerify = 2,
+    PhoneOnly = 3,
+}
+impl AddFriendPolicy {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::AddFriendUnspecified => "ADD_FRIEND_UNSPECIFIED",
+            Self::Anyone => "ANYONE",
+            Self::RequireVerify => "REQUIRE_VERIFY",
+            Self::PhoneOnly => "PHONE_ONLY",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ADD_FRIEND_UNSPECIFIED" => Some(Self::AddFriendUnspecified),
+            "ANYONE" => Some(Self::Anyone),
+            "REQUIRE_VERIFY" => Some(Self::RequireVerify),
+            "PHONE_ONLY" => Some(Self::PhoneOnly),
             _ => None,
         }
     }

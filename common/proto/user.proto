@@ -302,14 +302,14 @@ message FindByContentReq {
 }
 
 service UserRpcService {
-  rpc findByEmail(FindByContentReq) returns (FindUserDto);
-  rpc findByPhone(FindByContentReq) returns (FindUserDto);
-  rpc findByName(FindByContentReq) returns (FindUserDto);
+  rpc FindByEmail(FindByContentReq) returns (FindUserDto);
+  rpc FindByPhone(FindByContentReq) returns (FindUserDto);
+  rpc FindByName(FindByContentReq) returns (FindUserDto);
   rpc Register(RegisterUserReq) returns (UserEntity);
   rpc ChangePassword(ChangePasswordReq) returns (ChangeResponse);
   rpc ChangePhone(ChangePhoneReq) returns (UserEntity);
   rpc ChangeEmail(ChangeEmailReq) returns (UserEntity);
   rpc UpdateUser(UpdateUserReq) returns (UserEntity);
-  rpc GetUser(GetUserReq) returns (UserEntity);
-  rpc GetUsers(GetUsersReq) returns (stream UserEntity);
+  rpc FindUserById(GetUserReq) returns (UserEntity);
+  rpc FindUsersByIds(GetUsersReq) returns (stream UserEntity);
 }

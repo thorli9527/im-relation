@@ -7,15 +7,16 @@ use prost_types::FieldMask;
 use sqlx::{MySql, QueryBuilder, Row};
 use tonic::{Request, Response, Status};
 
-use common::config::get_db;
+use common::config::{get_db, AppConfig};
 use common::support::util::common_utils::build_snow_id;
 
 use crate::db::traits::{ClientReadRepo, DirectoryReadRepo};
 use crate::hot_cold::{ClientHot, Normalizer};
 use common::infra::grpc::grpc_user::online_service::user_rpc_service_server::UserRpcService;
 use common::infra::grpc::grpc_user::online_service::{
-    ChangeEmailReq, ChangePasswordReq, ChangePhoneReq, ChangeResponse, FindByContentReq,
-    FindUserDto, GetUserReq, GetUsersReq, RegisterUserReq, UpdateUserReq, UserEntity,
+    AddFriendPolicy, ChangeEmailReq, ChangePasswordReq, ChangePhoneReq, ChangeResponse,
+    FindByContentReq, FindUserDto, GetUserReq, GetUsersReq, RegisterUserReq, UpdateUserReq,
+    UserEntity,
 };
 use tokio_stream::iter;
 
@@ -232,7 +233,7 @@ where
     N: Normalizer,
     I: IdAllocator,
 {
-    type GetUsersStream =
+    type FindUsersByIdsStream =
         Pin<Box<dyn tokio_stream::Stream<Item = Result<UserEntity, Status>> + Send + 'static>>;
 
     async fn find_by_email(
@@ -386,6 +387,18 @@ where
             .begin()
             .await
             .map_err(|e| Status::internal(format!("user_info begin: {e}")))?;
+        let default_allow_add_friend = AppConfig::get()
+            .user_defaults_cfg()
+            .allow_add_friend_policy()
+            .unwrap_or(AddFriendPolicy::Anyone as i32);
+
+        let allow_add_friend = if r.allow_add_friend == AddFriendPolicy::AddFriendUnspecified as i32
+        {
+            default_allow_add_friend
+        } else {
+            r.allow_add_friend
+        };
+
         sqlx::query(
             r#"
             INSERT INTO user_info(
@@ -406,7 +419,7 @@ where
         .bind(&r.password) // 直接存储明文密码
         .bind(r.language.as_deref())
         .bind(&r.avatar)
-        .bind(r.allow_add_friend as i32)
+        .bind(allow_add_friend)
         .bind(r.gender as i32)
         .bind(r.user_type as i32)
         .bind(email_norm.as_ref().map(|b| b.as_ref()))
@@ -793,7 +806,10 @@ where
         Ok(Response::new((*out).clone()))
     }
 
-    async fn get_user(&self, req: Request<GetUserReq>) -> Result<Response<UserEntity>, Status> {
+    async fn find_user_by_id(
+        &self,
+        req: Request<GetUserReq>,
+    ) -> Result<Response<UserEntity>, Status> {
         let id = req.into_inner().id;
         self.touch_online(id);
 
@@ -805,10 +821,10 @@ where
         Ok(Response::new((*ent).clone()))
     }
 
-    async fn get_users(
+    async fn find_users_by_ids(
         &self,
         req: Request<GetUsersReq>,
-    ) -> Result<Response<Self::GetUsersStream>, Status> {
+    ) -> Result<Response<Self::FindUsersByIdsStream>, Status> {
         let ids = req.into_inner().ids;
         if ids.is_empty() {
             let stream = iter(std::iter::empty::<Result<UserEntity, Status>>());

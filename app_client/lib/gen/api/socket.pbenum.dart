@@ -191,6 +191,8 @@ class MsgKind extends $pb.ProtobufEnum {
   /// 通用业务ACK
   ///  原 "sys.ack"
   static const MsgKind MK_ACK = MsgKind._(906, _omitEnumNames ? '' : 'MK_ACK');
+  /// 心跳保活
+  static const MsgKind MK_HEARTBEAT = MsgKind._(907, _omitEnumNames ? '' : 'MK_HEARTBEAT');
 
   static const $core.List<MsgKind> values = <MsgKind> [
     MK_UNKNOWN,
@@ -245,6 +247,7 @@ class MsgKind extends $pb.ProtobufEnum {
     MK_USER_ACCOUNT_DATA,
     MK_MSG_RECALL,
     MK_ACK,
+    MK_HEARTBEAT,
   ];
 
   static final $core.Map<$core.int, MsgKind> _byValue = $pb.ProtobufEnum.initByValue(values);

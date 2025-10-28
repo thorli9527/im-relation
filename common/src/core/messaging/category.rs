@@ -64,7 +64,7 @@ impl MsgKind {
             | MkGroupTransfer => MsgCategory::Group,
             // 其余通用/系统枚举归类到 System。
             MkSysNotice | MkUserPresence | MkUserProfileUpdate | MkUserPrivacyUpdate
-            | MkUserAccountData | MkMsgRecall | MkAck => MsgCategory::System,
+            | MkUserAccountData | MkMsgRecall | MkAck | MkHeartbeat => MsgCategory::System,
             // 未识别的类型统一标记为 Unknown，后续上游可兜底处理。
             MkUnknown => MsgCategory::Unknown,
         }

@@ -1167,6 +1167,7 @@ class UserProfile extends $pb.GeneratedMessage {
     $core.String? phone,
     $core.String? signature,
     $core.String? region,
+    AddFriendPolicy? addFriendPolicy,
   }) {
     final result = create();
     if (userId != null) result.userId = userId;
@@ -1176,6 +1177,7 @@ class UserProfile extends $pb.GeneratedMessage {
     if (phone != null) result.phone = phone;
     if (signature != null) result.signature = signature;
     if (region != null) result.region = region;
+    if (addFriendPolicy != null) result.addFriendPolicy = addFriendPolicy;
     return result;
   }
 
@@ -1192,6 +1194,7 @@ class UserProfile extends $pb.GeneratedMessage {
     ..aOS(5, _omitFieldNames ? '' : 'phone')
     ..aOS(6, _omitFieldNames ? '' : 'signature')
     ..aOS(7, _omitFieldNames ? '' : 'region')
+    ..e<AddFriendPolicy>(8, _omitFieldNames ? '' : 'addFriendPolicy', $pb.PbFieldType.OE, defaultOrMaker: AddFriendPolicy.ADD_FRIEND_UNSPECIFIED, valueOf: AddFriendPolicy.valueOf, enumValues: AddFriendPolicy.values)
     ..hasRequiredFields = false
   ;
 
@@ -1274,6 +1277,15 @@ class UserProfile extends $pb.GeneratedMessage {
   $core.bool hasRegion() => $_has(6);
   @$pb.TagNumber(7)
   void clearRegion() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  AddFriendPolicy get addFriendPolicy => $_getN(7);
+  @$pb.TagNumber(8)
+  set addFriendPolicy(AddFriendPolicy value) => $_setField(8, value);
+  @$pb.TagNumber(8)
+  $core.bool hasAddFriendPolicy() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearAddFriendPolicy() => $_clearField(8);
 }
 
 class SearchUserResponse extends $pb.GeneratedMessage {

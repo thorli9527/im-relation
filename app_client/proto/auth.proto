@@ -131,6 +131,13 @@ enum UserSearchType {
   USER_SEARCH_PHONE = 4;
 }
 
+enum AddFriendPolicy {
+  ADD_FRIEND_UNSPECIFIED = 0;
+  ANYONE = 1;
+  REQUIRE_VERIFY = 2;
+  PHONE_ONLY = 3;
+}
+
 message SearchUserRequest {
   UserSearchType search_type = 1;
   string query = 2;
@@ -144,6 +151,7 @@ message UserProfile {
   optional string phone = 5;
   optional string signature = 6;
   optional string region = 7;
+  AddFriendPolicy add_friend_policy = 8;
 }
 
 message SearchUserResponse {

@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 
 use anyhow::{anyhow, Context, Result};
 use common::config::AppConfig;
+use common::support::logging::GrpcWarnLayer;
 use tonic::transport::Server;
 
 use crate::grpc::api::api_service_server::ApiServiceServer;
@@ -21,6 +22,7 @@ pub async fn start() -> Result<()> {
         .context("invalid grpc listen address")?;
 
     Server::builder()
+        .layer(GrpcWarnLayer::new())
         .add_service(ApiServiceServer::new(ApiGrpcService::default()))
         .serve(addr)
         .await?;

@@ -891,11 +891,11 @@ pub mod user_rpc_service_client {
             })?;
             let codec = tonic::codec::ProstCodec::default();
             let path =
-                http::uri::PathAndQuery::from_static("/online_service.UserRpcService/findByEmail");
+                http::uri::PathAndQuery::from_static("/online_service.UserRpcService/FindByEmail");
             let mut req = request.into_request();
             req.extensions_mut().insert(GrpcMethod::new(
                 "online_service.UserRpcService",
-                "findByEmail",
+                "FindByEmail",
             ));
             self.inner.unary(req, path, codec).await
         }
@@ -908,11 +908,11 @@ pub mod user_rpc_service_client {
             })?;
             let codec = tonic::codec::ProstCodec::default();
             let path =
-                http::uri::PathAndQuery::from_static("/online_service.UserRpcService/findByPhone");
+                http::uri::PathAndQuery::from_static("/online_service.UserRpcService/FindByPhone");
             let mut req = request.into_request();
             req.extensions_mut().insert(GrpcMethod::new(
                 "online_service.UserRpcService",
-                "findByPhone",
+                "FindByPhone",
             ));
             self.inner.unary(req, path, codec).await
         }
@@ -925,11 +925,11 @@ pub mod user_rpc_service_client {
             })?;
             let codec = tonic::codec::ProstCodec::default();
             let path =
-                http::uri::PathAndQuery::from_static("/online_service.UserRpcService/findByName");
+                http::uri::PathAndQuery::from_static("/online_service.UserRpcService/FindByName");
             let mut req = request.into_request();
             req.extensions_mut().insert(GrpcMethod::new(
                 "online_service.UserRpcService",
-                "findByName",
+                "FindByName",
             ));
             self.inner.unary(req, path, codec).await
         }
@@ -1017,7 +1017,7 @@ pub mod user_rpc_service_client {
             ));
             self.inner.unary(req, path, codec).await
         }
-        pub async fn get_user(
+        pub async fn find_user_by_id(
             &mut self,
             request: impl tonic::IntoRequest<super::GetUserReq>,
         ) -> std::result::Result<tonic::Response<super::UserEntity>, tonic::Status> {
@@ -1026,13 +1026,15 @@ pub mod user_rpc_service_client {
             })?;
             let codec = tonic::codec::ProstCodec::default();
             let path =
-                http::uri::PathAndQuery::from_static("/online_service.UserRpcService/GetUser");
+                http::uri::PathAndQuery::from_static("/online_service.UserRpcService/FindUserById");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("online_service.UserRpcService", "GetUser"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "online_service.UserRpcService",
+                "FindUserById",
+            ));
             self.inner.unary(req, path, codec).await
         }
-        pub async fn get_users(
+        pub async fn find_users_by_ids(
             &mut self,
             request: impl tonic::IntoRequest<super::GetUsersReq>,
         ) -> std::result::Result<
@@ -1043,11 +1045,14 @@ pub mod user_rpc_service_client {
                 tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
             })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path =
-                http::uri::PathAndQuery::from_static("/online_service.UserRpcService/GetUsers");
+            let path = http::uri::PathAndQuery::from_static(
+                "/online_service.UserRpcService/FindUsersByIds",
+            );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("online_service.UserRpcService", "GetUsers"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "online_service.UserRpcService",
+                "FindUsersByIds",
+            ));
             self.inner.server_streaming(req, path, codec).await
         }
     }
@@ -1587,19 +1592,19 @@ pub mod user_rpc_service_server {
             &self,
             request: tonic::Request<super::UpdateUserReq>,
         ) -> std::result::Result<tonic::Response<super::UserEntity>, tonic::Status>;
-        async fn get_user(
+        async fn find_user_by_id(
             &self,
             request: tonic::Request<super::GetUserReq>,
         ) -> std::result::Result<tonic::Response<super::UserEntity>, tonic::Status>;
-        /// Server streaming response type for the GetUsers method.
-        type GetUsersStream: tonic::codegen::tokio_stream::Stream<
+        /// Server streaming response type for the FindUsersByIds method.
+        type FindUsersByIdsStream: tonic::codegen::tokio_stream::Stream<
                 Item = std::result::Result<super::UserEntity, tonic::Status>,
             > + std::marker::Send
             + 'static;
-        async fn get_users(
+        async fn find_users_by_ids(
             &self,
             request: tonic::Request<super::GetUsersReq>,
-        ) -> std::result::Result<tonic::Response<Self::GetUsersStream>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<Self::FindUsersByIdsStream>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct UserRpcServiceServer<T> {
@@ -1674,10 +1679,10 @@ pub mod user_rpc_service_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
-                "/online_service.UserRpcService/findByEmail" => {
+                "/online_service.UserRpcService/FindByEmail" => {
                     #[allow(non_camel_case_types)]
-                    struct findByEmailSvc<T: UserRpcService>(pub Arc<T>);
-                    impl<T: UserRpcService> tonic::server::UnaryService<super::FindByContentReq> for findByEmailSvc<T> {
+                    struct FindByEmailSvc<T: UserRpcService>(pub Arc<T>);
+                    impl<T: UserRpcService> tonic::server::UnaryService<super::FindByContentReq> for FindByEmailSvc<T> {
                         type Response = super::FindUserDto;
                         type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
@@ -1697,7 +1702,7 @@ pub mod user_rpc_service_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = findByEmailSvc(inner);
+                        let method = FindByEmailSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -1713,10 +1718,10 @@ pub mod user_rpc_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/online_service.UserRpcService/findByPhone" => {
+                "/online_service.UserRpcService/FindByPhone" => {
                     #[allow(non_camel_case_types)]
-                    struct findByPhoneSvc<T: UserRpcService>(pub Arc<T>);
-                    impl<T: UserRpcService> tonic::server::UnaryService<super::FindByContentReq> for findByPhoneSvc<T> {
+                    struct FindByPhoneSvc<T: UserRpcService>(pub Arc<T>);
+                    impl<T: UserRpcService> tonic::server::UnaryService<super::FindByContentReq> for FindByPhoneSvc<T> {
                         type Response = super::FindUserDto;
                         type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
@@ -1736,7 +1741,7 @@ pub mod user_rpc_service_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = findByPhoneSvc(inner);
+                        let method = FindByPhoneSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -1752,10 +1757,10 @@ pub mod user_rpc_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/online_service.UserRpcService/findByName" => {
+                "/online_service.UserRpcService/FindByName" => {
                     #[allow(non_camel_case_types)]
-                    struct findByNameSvc<T: UserRpcService>(pub Arc<T>);
-                    impl<T: UserRpcService> tonic::server::UnaryService<super::FindByContentReq> for findByNameSvc<T> {
+                    struct FindByNameSvc<T: UserRpcService>(pub Arc<T>);
+                    impl<T: UserRpcService> tonic::server::UnaryService<super::FindByContentReq> for FindByNameSvc<T> {
                         type Response = super::FindUserDto;
                         type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
@@ -1775,7 +1780,7 @@ pub mod user_rpc_service_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = findByNameSvc(inner);
+                        let method = FindByNameSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -1988,10 +1993,10 @@ pub mod user_rpc_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/online_service.UserRpcService/GetUser" => {
+                "/online_service.UserRpcService/FindUserById" => {
                     #[allow(non_camel_case_types)]
-                    struct GetUserSvc<T: UserRpcService>(pub Arc<T>);
-                    impl<T: UserRpcService> tonic::server::UnaryService<super::GetUserReq> for GetUserSvc<T> {
+                    struct FindUserByIdSvc<T: UserRpcService>(pub Arc<T>);
+                    impl<T: UserRpcService> tonic::server::UnaryService<super::GetUserReq> for FindUserByIdSvc<T> {
                         type Response = super::UserEntity;
                         type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
@@ -2000,7 +2005,7 @@ pub mod user_rpc_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as UserRpcService>::get_user(&inner, request).await
+                                <T as UserRpcService>::find_user_by_id(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -2011,7 +2016,7 @@ pub mod user_rpc_service_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = GetUserSvc(inner);
+                        let method = FindUserByIdSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -2027,15 +2032,15 @@ pub mod user_rpc_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/online_service.UserRpcService/GetUsers" => {
+                "/online_service.UserRpcService/FindUsersByIds" => {
                     #[allow(non_camel_case_types)]
-                    struct GetUsersSvc<T: UserRpcService>(pub Arc<T>);
+                    struct FindUsersByIdsSvc<T: UserRpcService>(pub Arc<T>);
                     impl<T: UserRpcService>
                         tonic::server::ServerStreamingService<super::GetUsersReq>
-                        for GetUsersSvc<T>
+                        for FindUsersByIdsSvc<T>
                     {
                         type Response = super::UserEntity;
-                        type ResponseStream = T::GetUsersStream;
+                        type ResponseStream = T::FindUsersByIdsStream;
                         type Future =
                             BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
                         fn call(
@@ -2044,7 +2049,7 @@ pub mod user_rpc_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as UserRpcService>::get_users(&inner, request).await
+                                <T as UserRpcService>::find_users_by_ids(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -2055,7 +2060,7 @@ pub mod user_rpc_service_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = GetUsersSvc(inner);
+                        let method = FindUsersByIdsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

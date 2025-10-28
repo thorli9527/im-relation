@@ -20,6 +20,9 @@ hot_by_id_ttl = 300
 hot_route_cap = 200000
 hot_route_ttl = 120
 
+[user_defaults]
+allow_add_friend = "ANYONE"
+
 #
 #
 ##-----------app_socket

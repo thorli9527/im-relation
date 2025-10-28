@@ -32,6 +32,22 @@ final $typed_data.Uint8List userSearchTypeDescriptor = $convert.base64Decode(
     'hfVVNFUl9JRBABEhgKFFVTRVJfU0VBUkNIX1VTRVJOQU1FEAISFQoRVVNFUl9TRUFSQ0hfRU1B'
     'SUwQAxIVChFVU0VSX1NFQVJDSF9QSE9ORRAE');
 
+@$core.Deprecated('Use addFriendPolicyDescriptor instead')
+const AddFriendPolicy$json = {
+  '1': 'AddFriendPolicy',
+  '2': [
+    {'1': 'ADD_FRIEND_UNSPECIFIED', '2': 0},
+    {'1': 'ANYONE', '2': 1},
+    {'1': 'REQUIRE_VERIFY', '2': 2},
+    {'1': 'PHONE_ONLY', '2': 3},
+  ],
+};
+
+/// Descriptor for `AddFriendPolicy`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List addFriendPolicyDescriptor = $convert.base64Decode(
+    'Cg9BZGRGcmllbmRQb2xpY3kSGgoWQUREX0ZSSUVORF9VTlNQRUNJRklFRBAAEgoKBkFOWU9ORR'
+    'ABEhIKDlJFUVVJUkVfVkVSSUZZEAISDgoKUEhPTkVfT05MWRAD');
+
 @$core.Deprecated('Use buildRegisterCodeRequestDescriptor instead')
 const BuildRegisterCodeRequest$json = {
   '1': 'BuildRegisterCodeRequest',
@@ -307,6 +323,7 @@ const UserProfile$json = {
     {'1': 'phone', '3': 5, '4': 1, '5': 9, '9': 1, '10': 'phone', '17': true},
     {'1': 'signature', '3': 6, '4': 1, '5': 9, '9': 2, '10': 'signature', '17': true},
     {'1': 'region', '3': 7, '4': 1, '5': 9, '9': 3, '10': 'region', '17': true},
+    {'1': 'add_friend_policy', '3': 8, '4': 1, '5': 14, '6': '.api.AddFriendPolicy', '10': 'addFriendPolicy'},
   ],
   '8': [
     {'1': '_email'},
@@ -321,8 +338,9 @@ final $typed_data.Uint8List userProfileDescriptor = $convert.base64Decode(
     'CgtVc2VyUHJvZmlsZRIXCgd1c2VyX2lkGAEgASgDUgZ1c2VySWQSGgoIdXNlcm5hbWUYAiABKA'
     'lSCHVzZXJuYW1lEhYKBmF2YXRhchgDIAEoCVIGYXZhdGFyEhkKBWVtYWlsGAQgASgJSABSBWVt'
     'YWlsiAEBEhkKBXBob25lGAUgASgJSAFSBXBob25liAEBEiEKCXNpZ25hdHVyZRgGIAEoCUgCUg'
-    'lzaWduYXR1cmWIAQESGwoGcmVnaW9uGAcgASgJSANSBnJlZ2lvbogBAUIICgZfZW1haWxCCAoG'
-    'X3Bob25lQgwKCl9zaWduYXR1cmVCCQoHX3JlZ2lvbg==');
+    'lzaWduYXR1cmWIAQESGwoGcmVnaW9uGAcgASgJSANSBnJlZ2lvbogBARJAChFhZGRfZnJpZW5k'
+    'X3BvbGljeRgIIAEoDjIULmFwaS5BZGRGcmllbmRQb2xpY3lSD2FkZEZyaWVuZFBvbGljeUIICg'
+    'ZfZW1haWxCCAoGX3Bob25lQgwKCl9zaWduYXR1cmVCCQoHX3JlZ2lvbg==');
 
 @$core.Deprecated('Use searchUserResponseDescriptor instead')
 const SearchUserResponse$json = {

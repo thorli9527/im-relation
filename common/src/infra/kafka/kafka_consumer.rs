@@ -9,7 +9,7 @@
 //! - 关闭自动提交，交由业务控制
 
 use anyhow::Result;
-use log::warn;
+use log::{info, warn};
 use std::future::Future;
 use std::sync::Arc;
 
@@ -17,6 +17,7 @@ use crate::infra::kafka::topic_info::TopicInfo;
 use rdkafka::config::ClientConfig;
 use rdkafka::consumer::{Consumer, StreamConsumer};
 use rdkafka::message::OwnedMessage;
+use rdkafka::Message;
 
 /// 启动 Kafka 消费循环
 ///
@@ -54,6 +55,13 @@ where
         // 阻塞等待下一条消息。
         match arc_consumer.recv().await {
             Ok(msg) => {
+                let topic = msg.topic().to_string();
+                let partition = msg.partition();
+                let offset = msg.offset();
+                info!(
+                    "Kafka consume topic={} partition={} offset={}",
+                    topic, partition, offset
+                );
                 // 转换为可跨 await 使用的 OwnedMessage。
                 let owned = msg.detach();
                 match handler(owned, arc_consumer.clone()).await {
@@ -63,6 +71,10 @@ where
                             // 仅在处理方确认后异步提交 offset。
                             arc_consumer
                                 .commit_message(&msg, rdkafka::consumer::CommitMode::Async)?;
+                            info!(
+                                "Kafka commit topic={} partition={} offset={} (async)",
+                                topic, partition, offset
+                            );
                         }
                     }
                     Err(e) => {

@@ -66,6 +66,7 @@ num_enum.workspace = true                      # 数值枚举转换支持
 tonic.workspace = true
 prost-types.workspace = true
 tracing.workspace = true
+tower.workspace = true
 config = { workspace = true }
 deadpool-redis.workspace = true
 env_logger.workspace = true

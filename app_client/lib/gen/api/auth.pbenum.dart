@@ -35,5 +35,24 @@ class UserSearchType extends $pb.ProtobufEnum {
   const UserSearchType._(super.value, super.name);
 }
 
+class AddFriendPolicy extends $pb.ProtobufEnum {
+  static const AddFriendPolicy ADD_FRIEND_UNSPECIFIED = AddFriendPolicy._(0, _omitEnumNames ? '' : 'ADD_FRIEND_UNSPECIFIED');
+  static const AddFriendPolicy ANYONE = AddFriendPolicy._(1, _omitEnumNames ? '' : 'ANYONE');
+  static const AddFriendPolicy REQUIRE_VERIFY = AddFriendPolicy._(2, _omitEnumNames ? '' : 'REQUIRE_VERIFY');
+  static const AddFriendPolicy PHONE_ONLY = AddFriendPolicy._(3, _omitEnumNames ? '' : 'PHONE_ONLY');
+
+  static const $core.List<AddFriendPolicy> values = <AddFriendPolicy> [
+    ADD_FRIEND_UNSPECIFIED,
+    ANYONE,
+    REQUIRE_VERIFY,
+    PHONE_ONLY,
+  ];
+
+  static final $core.List<AddFriendPolicy?> _byValue = $pb.ProtobufEnum.$_initByValueList(values, 3);
+  static AddFriendPolicy? valueOf($core.int value) =>  value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const AddFriendPolicy._(super.value, super.name);
+}
+
 
 const $core.bool _omitEnumNames = $core.bool.fromEnvironment('protobuf.omit_enum_names');

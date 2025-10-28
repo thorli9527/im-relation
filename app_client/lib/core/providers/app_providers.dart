@@ -6,6 +6,8 @@ import 'package:logger/logger.dart';
 import 'package:im_client/core/api/grpc_channel.dart';
 import 'package:im_client/core/config/app_config.dart';
 import 'package:im_client/core/config/app_config_controller.dart';
+import 'package:im_client/core/logging/debug_log_buffer.dart';
+import 'package:im_client/core/session/session_event.dart';
 import 'package:im_client/core/socket/socket_manager.dart';
 import 'package:im_client/core/storage/local_store.dart';
 import 'package:im_client/features/auth/data/auth_api_client.dart';
@@ -24,10 +26,24 @@ final localStoreProvider = Provider<LocalStore>((ref) {
   throw UnimplementedError('Local store must be overridden at app bootstrap');
 });
 
+/// 调试日志缓冲区（用于 UI 展示最近日志）。
+final debugLogBufferProvider = ChangeNotifierProvider<DebugLogBuffer>(
+  (ref) => DebugLogBuffer(),
+);
+
 /// Provides a logger instance aligned with the current log level setting.
 final loggerProvider = Provider<Logger>((ref) {
   final config = ref.watch(appConfigNotifierProvider);
-  return Logger(level: config.logLevel.loggerLevel);
+  final buffer = ref.read(debugLogBufferProvider);
+  return Logger(
+    level: config.logLevel.loggerLevel,
+    printer: PrettyPrinter(
+      colors: false,
+      dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
+      noBoxingByDefault: true,
+    ),
+    output: MultiOutput([ConsoleOutput(), buffer]),
+  );
 });
 
 /// Resolves the active gRPC endpoint based on the current configuration.
@@ -77,9 +93,19 @@ final messageRepositoryProvider = Provider<MessageRepository>((ref) {
   final store = ref.watch(localStoreProvider);
   final socketManager = ref.watch(socketManagerProvider);
   final logger = ref.watch(loggerProvider);
-  return MessageRepository(
+  final sessionEvents = ref.watch(sessionEventProvider.notifier);
+  final repository = MessageRepository(
     store: store,
     socketManager: socketManager,
     logger: logger,
+    sessionEvents: sessionEvents,
   );
+  ref.onDispose(repository.dispose);
+  return repository;
 });
+
+/// 会话事件（被踢下线等）。
+final sessionEventProvider =
+    StateNotifierProvider<SessionEventNotifier, SessionEvent?>(
+      (ref) => SessionEventNotifier(),
+    );
