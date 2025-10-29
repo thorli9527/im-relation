@@ -4,6 +4,7 @@ import 'message_status.dart';
 
 part 'friend_message_entity.g.dart';
 
+/// 好友聊天消息的本地缓存表。
 @collection
 class FriendMessageEntity {
   FriendMessageEntity();

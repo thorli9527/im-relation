@@ -1,9 +1,11 @@
+/// 联系人界面的“添加好友”入口，包含弹窗逻辑与申请提交流程。
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:im_client/core/providers/app_providers.dart';
 import 'package:im_client/gen/api/auth.pb.dart';
 import 'package:im_client/gen/api/msg_friend.pb.dart' as friendpb;
 
+/// 在任意位置展示添加好友按钮，内部负责弹出搜索对话框。
 class AddFriendButton extends ConsumerWidget {
   const AddFriendButton({super.key, required this.ownerId});
 
@@ -25,6 +27,7 @@ class AddFriendButton extends ConsumerWidget {
   }
 }
 
+/// 弹出添加好友对话框并处理搜索/申请的完整流程。
 Future<void> _showAddFriendDialog(
   BuildContext context,
   WidgetRef ref, {
@@ -229,8 +232,10 @@ Future<void> _showAddFriendDialog(
   controller.dispose();
 }
 
+/// 搜索框输入可能匹配的几种账户类型。
 enum _FriendSearchType { username, phone, email }
 
+/// 根据用户输入推断搜索类型，优先匹配邮箱和手机号。
 _FriendSearchType _detectSearchType(String query) {
   final trimmed = query.trim();
   final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
@@ -244,6 +249,7 @@ _FriendSearchType _detectSearchType(String query) {
   return _FriendSearchType.username;
 }
 
+/// 将内部搜索类型映射到后端定义的 gRPC 枚举。
 UserSearchType _grpcSearchTypeFor(_FriendSearchType type) {
   switch (type) {
     case _FriendSearchType.phone:
@@ -255,6 +261,7 @@ UserSearchType _grpcSearchTypeFor(_FriendSearchType type) {
   }
 }
 
+/// 展示一次搜索命中的用户资料，方便发起申请。
 class _UserSearchResultCard extends StatelessWidget {
   const _UserSearchResultCard({required this.profile});
 
@@ -316,6 +323,7 @@ class _UserSearchResultCard extends StatelessWidget {
   }
 }
 
+/// 统一封装好友申请提交逻辑。
 Future<void> _sendFriendRequest({
   required WidgetRef ref,
   required int ownerId,
@@ -335,6 +343,7 @@ Future<void> _sendFriendRequest({
   );
 }
 
+/// 将后端好友策略值格式化为中文说明。
 String _policyDisplayName(AddFriendPolicy policy) {
   switch (policy) {
     case AddFriendPolicy.ANYONE:
@@ -349,6 +358,7 @@ String _policyDisplayName(AddFriendPolicy policy) {
   }
 }
 
+/// 当对方需要验证时弹出备注+理由输入框。
 Future<bool?> _showFriendRequestForm({
   required BuildContext context,
   required BuildContext dialogContext,

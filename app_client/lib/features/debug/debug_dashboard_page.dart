@@ -1,3 +1,4 @@
+/// 内置调试面板，提供 Isar 数据管理与日志查询功能。
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,7 @@ import 'package:im_client/core/storage/local_store.dart';
 
 import 'isar_debug_defs.dart';
 
+/// 顶层调试页面，包含数据管理与日志查询两个 Tab。
 class DebugDashboardPage extends StatelessWidget {
   const DebugDashboardPage({super.key});
 
@@ -35,6 +37,7 @@ class DebugDashboardPage extends StatelessWidget {
   }
 }
 
+/// 展示本地 Isar 数据的浏览与编辑界面。
 class _DataManagementTab extends ConsumerStatefulWidget {
   const _DataManagementTab();
 
@@ -42,6 +45,7 @@ class _DataManagementTab extends ConsumerStatefulWidget {
   ConsumerState<_DataManagementTab> createState() => _DataManagementTabState();
 }
 
+/// 实现集合列表展示与 CRUD 交互。
 class _DataManagementTabState extends ConsumerState<_DataManagementTab> {
   int _reloadToken = 0;
 
@@ -49,6 +53,7 @@ class _DataManagementTabState extends ConsumerState<_DataManagementTab> {
 
   Isar get _isar => _store.isar;
 
+  /// 触发 `FutureBuilder` 重新获取集合数据。
   void _refresh() {
     if (!mounted) {
       return;
@@ -58,6 +63,7 @@ class _DataManagementTabState extends ConsumerState<_DataManagementTab> {
     });
   }
 
+  /// 清空指定集合，弹窗确认后执行。
   Future<void> _clearCollection(IsarDebugCollection collection) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -86,6 +92,7 @@ class _DataManagementTabState extends ConsumerState<_DataManagementTab> {
     }
   }
 
+  /// 删除单条记录，附带二次确认。
   Future<void> _deleteRecord(
     IsarDebugCollection collection,
     dynamic record,
@@ -118,6 +125,7 @@ class _DataManagementTabState extends ConsumerState<_DataManagementTab> {
     }
   }
 
+  /// 打开记录编辑器，保存成功后刷新页面。
   Future<void> _openEditor({
     required IsarDebugCollection collection,
     required dynamic record,
@@ -277,7 +285,8 @@ class _DataManagementTabState extends ConsumerState<_DataManagementTab> {
     );
   }
 
-  String _buildRecordSummary(IsarDebugCollection collection, dynamic record) {
+/// 将记录总结为短文本，用于列表 subtitle。
+String _buildRecordSummary(IsarDebugCollection collection, dynamic record) {
     final buffer = StringBuffer();
     for (final field in collection.fields) {
       final value = field.getValue(record);
@@ -298,6 +307,7 @@ class _DataManagementTabState extends ConsumerState<_DataManagementTab> {
   }
 }
 
+/// 展示实时日志缓冲，可筛选等级并复制内容。
 class _LogViewerTab extends ConsumerStatefulWidget {
   const _LogViewerTab();
 
@@ -305,6 +315,7 @@ class _LogViewerTab extends ConsumerStatefulWidget {
   ConsumerState<_LogViewerTab> createState() => _LogViewerTabState();
 }
 
+/// 维护日志筛选状态与滚动控制。
 class _LogViewerTabState extends ConsumerState<_LogViewerTab> {
   final TextEditingController _searchController = TextEditingController();
   Level? _levelFilter;
@@ -322,6 +333,7 @@ class _LogViewerTabState extends ConsumerState<_LogViewerTab> {
     super.dispose();
   }
 
+  /// 搜索框内容变化时刷新 UI。
   void _onSearchChanged() {
     if (!mounted) {
       return;
@@ -329,6 +341,7 @@ class _LogViewerTabState extends ConsumerState<_LogViewerTab> {
     setState(() {});
   }
 
+  /// 更新日志等级过滤条件。
   void _setLevelFilter(Level? level) {
     if (!mounted) {
       return;
@@ -486,6 +499,7 @@ class _LogViewerTabState extends ConsumerState<_LogViewerTab> {
     );
   }
 
+  /// 将单条日志复制到剪贴板并提示用户。
   void _copyRecord(DebugLogRecord record) {
     final buffer = StringBuffer()
       ..writeln(
@@ -510,6 +524,7 @@ class _LogViewerTabState extends ConsumerState<_LogViewerTab> {
   }
 }
 
+/// 在日志列表中突出显示等级的小圆点。
 class _LevelIndicator extends StatelessWidget {
   const _LevelIndicator({required this.level});
 
@@ -564,6 +579,7 @@ String _formatTime(DateTime time) {
   return '$hour:$minute:$second.$millisecond';
 }
 
+/// UI 中可选择的日志等级枚举顺序。
 const List<Level> _availableLevels = [
   Level.trace,
   Level.debug,
@@ -575,6 +591,7 @@ const List<Level> _availableLevels = [
   Level.off,
 ];
 
+/// 表单弹窗，实现调试集合中单条记录的编辑体验。
 class _RecordEditorDialog extends StatefulWidget {
   const _RecordEditorDialog({
     required this.collection,
@@ -590,6 +607,7 @@ class _RecordEditorDialog extends StatefulWidget {
   State<_RecordEditorDialog> createState() => _RecordEditorDialogState();
 }
 
+/// 维护字段绑定与表单状态的具体实现。
 class _RecordEditorDialogState extends State<_RecordEditorDialog> {
   final _formKey = GlobalKey<FormState>();
   late final List<_FieldBinding> _bindings;
@@ -749,6 +767,7 @@ class _RecordEditorDialogState extends State<_RecordEditorDialog> {
   }
 }
 
+/// 将字段定义与输入控件绑定在一起，便于统一保存逻辑。
 class _FieldBinding {
   _FieldBinding.textField({
     required this.field,
@@ -772,6 +791,7 @@ class _FieldBinding {
   }
 }
 
+/// 根据字段类型渲染对应的输入控件。
 class _FieldEditor extends StatelessWidget {
   const _FieldEditor({required this.binding, required this.validator});
 

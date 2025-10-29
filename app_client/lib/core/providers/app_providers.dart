@@ -1,3 +1,4 @@
+/// 全局的 Riverpod provider 声明，统一管理核心依赖的创建与销毁。
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

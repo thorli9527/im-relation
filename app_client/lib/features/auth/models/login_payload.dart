@@ -1,3 +1,4 @@
+/// 登录请求相关的轻量模型与辅助枚举。
 import 'package:im_client/gen/api/auth.pb.dart';
 
 /// Backend `UserLogType` ids mirrored here to avoid magic numbers.
@@ -41,6 +42,7 @@ extension LoginMethodX on LoginMethod {
   }
 }
 
+/// 构造用于 gRPC 的登录请求，附带序列化工具。
 class LoginRequestPayload {
   LoginRequestPayload({
     required this.loginMethod,

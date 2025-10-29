@@ -1,3 +1,4 @@
+/// gRPC 客户端拦截器，实现标准化的请求/响应日志输出。
 import 'dart:async';
 
 import 'package:grpc/grpc.dart';

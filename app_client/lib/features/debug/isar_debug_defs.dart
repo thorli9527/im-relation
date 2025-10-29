@@ -1,3 +1,4 @@
+/// 调试面板中对 Isar 数据库的结构化描述与工具函数。
 import 'dart:convert';
 
 import 'package:isar/isar.dart';
@@ -17,6 +18,7 @@ import 'package:im_client/core/storage/messages/voice_message_entity.dart';
 
 enum DebugFieldType { string, text, int, double, boolean, dateTime, bytes }
 
+/// 描述集合字段在调试界面中的展示与编辑方式。
 class DebugField<T> {
   const DebugField({
     required this.name,
@@ -37,6 +39,7 @@ class DebugField<T> {
   final void Function(T record, dynamic value)? setValue;
 }
 
+/// 类型擦除后的字段描述，便于 UI 层统一处理。
 class DebugFieldView {
   const DebugFieldView({
     required this.name,
@@ -57,6 +60,7 @@ class DebugFieldView {
   final void Function(dynamic record, dynamic value)? setValue;
 }
 
+/// 定义调试集合所需的方法，方便枚举与 CRUD 操作。
 abstract class IsarDebugCollection {
   String get name;
   List<DebugFieldView> get fields;
@@ -69,6 +73,7 @@ abstract class IsarDebugCollection {
   String displayTitle(dynamic record);
 }
 
+/// 泛型实现，将具体的 Isar 集合映射为调试集合。
 class TypedIsarDebugCollection<T> implements IsarDebugCollection {
   TypedIsarDebugCollection({
     required this.name,
@@ -149,6 +154,7 @@ class TypedIsarDebugCollection<T> implements IsarDebugCollection {
   String displayTitle(dynamic record) => _titleBuilder(record as T);
 }
 
+/// 将不同类型的值格式化为人类可读的字符串。
 String formatDebugValue(DebugFieldType type, dynamic value) {
   if (value == null) {
     return '';
@@ -178,8 +184,10 @@ String formatDebugValue(DebugFieldType type, dynamic value) {
   }
 }
 
+/// 返回所有注册的调试集合定义。
 List<IsarDebugCollection> buildIsarDebugCollections() => _collections;
 
+/// 预定义要在调试面板中展示的集合列表。
 final List<IsarDebugCollection> _collections = [
   TypedIsarDebugCollection<DeviceProfile>(
     name: 'DeviceProfile',

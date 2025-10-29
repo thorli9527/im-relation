@@ -1,3 +1,4 @@
+/// 桌面端聊天主界面，负责维护 socket 连接状态并渲染多种侧边栏视图。
 import 'dart:async';
 import 'dart:io' show Platform, exit;
 
@@ -16,8 +17,10 @@ import 'package:im_client/features/debug/debug_dashboard_page.dart';
 import 'package:im_client/gen/api/auth.pb.dart';
 import 'package:im_client/gen/api/socket.pb.dart' as socketpb;
 
+/// 侧边栏支持的不同视图标签。
 enum _SidebarView { contacts, voice, messages, settings }
 
+/// 聊天主页，展示联系人、消息、语音记录与设置等多标签内容。
 class ChatHomePage extends ConsumerStatefulWidget {
   const ChatHomePage({
     super.key,
@@ -38,6 +41,7 @@ class ChatHomePage extends ConsumerStatefulWidget {
   ConsumerState<ChatHomePage> createState() => _ChatHomePageState();
 }
 
+/// 内部 state 负责监听 socket 状态、拉取消息并响应交互。
 class _ChatHomePageState extends ConsumerState<ChatHomePage> {
   int? _selectedFriendId;
   StreamSubscription<socketpb.ServerMsg>? _socketSubscription;
@@ -52,6 +56,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
   bool _isShuttingDown = false;
   bool _kickDialogVisible = false;
 
+  /// 切换当前选中的好友会话，避免重复刷新。
   void _selectConversation(int friendId) {
     if (_selectedFriendId == friendId) {
       return;
@@ -61,6 +66,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
     });
   }
 
+  /// 切换侧边栏视图，例如联系人、语音或设置。
   void _changeSidebarView(_SidebarView view) {
     if (_sidebarView == view) {
       return;
@@ -70,6 +76,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
     });
   }
 
+  /// 高亮某条语音消息时更新右侧详情区域。
   void _selectVoiceMessage(int messageId) {
     if (_selectedVoiceMessageId == messageId) {
       return;
@@ -82,6 +89,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
   @override
   void initState() {
     super.initState();
+    // 初始化 socket 管理器与仓库引用，并监听搜索框输入。
     _socketManager = ref.read(socketManagerProvider);
     _messageRepository = ref.read(messageRepositoryProvider);
     _searchController = TextEditingController();
@@ -108,11 +116,13 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
       onError: (error) => _handleSocketTermination(error: error),
       onDone: () => _handleSocketTermination(),
     );
+    // 等待首帧构建完成，再发起网络连接以避免阻塞页面展示。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _connectSocket();
     });
   }
 
+  /// 建立或重试 socket 连接，并更新界面提示。
   Future<void> _connectSocket({bool isRetry = false}) async {
     if (!mounted || _isConnecting || _isShuttingDown) {
       return;
@@ -163,6 +173,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
     }
   }
 
+  /// socket 异常断开时的统一入口，触发自动重连。
   void _handleSocketTermination({Object? error}) {
     if (_isShuttingDown || !mounted) {
       return;
@@ -173,6 +184,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
     _triggerReconnect();
   }
 
+  /// 若当前允许，则排队一次重连任务。
   void _triggerReconnect() {
     if (!mounted || _isConnecting || _isShuttingDown) {
       return;
@@ -189,6 +201,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
     super.dispose();
   }
 
+  /// 展示“被踢下线”对话框，并在用户确认后退出当前应用。
   Future<void> _showKickedDialog(SessionEvent event) async {
     if (_kickDialogVisible || !mounted) {
       return;
@@ -287,6 +300,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
     return KeyedSubtree(key: ValueKey(_sidebarView), child: content);
   }
 
+  /// 以好友维度聚合最新一条消息，用于会话列表展示。
   List<_FriendConversation> _groupByFriend(List<FriendMessageEntity> messages) {
     final latest = <int, FriendMessageEntity>{};
     for (final msg in messages) {
@@ -300,6 +314,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
     return list.map(_toConversation).toList();
   }
 
+  /// 根据搜索关键字过滤会话列表。
   List<_FriendConversation> _filterConversations(
     List<_FriendConversation> conversations,
   ) {
@@ -316,6 +331,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
         .toList();
   }
 
+  /// 将消息实体转换为侧边栏所需的摘要信息。
   _FriendConversation _toConversation(FriendMessageEntity entity) {
     final dt = DateTime.fromMillisecondsSinceEpoch(entity.timestamp).toLocal();
     final title = '好友 #${entity.friendId}';
@@ -331,6 +347,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
     );
   }
 
+  /// 构建语音通话列表与详情布局。
   Widget _buildVoiceLayout(
     BuildContext context,
     ThemeData theme,
@@ -348,6 +365,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
                 !sorted.any(
                   (call) => call.messageId == _selectedVoiceMessageId,
                 ))) {
+          // 确保至少选中最新一条语音通话，避免右侧详情为空。
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             setState(() {
@@ -477,6 +495,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
     );
   }
 
+  /// 展示新建语音通话时的联系人选择弹窗。
   Future<void> _showCreateCallDialog(
     BuildContext context,
     ThemeData theme,
@@ -697,6 +716,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
     );
   }
 
+  /// 汇总历史通话与最近对话，作为拨号候选项。
   Future<List<_CallCandidate>> _collectCallCandidates({
     required MessageRepository repository,
     required List<VoiceMessageEntity> history,
@@ -757,6 +777,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
     return list;
   }
 
+  /// 绘制语音通话详情区，展示联系人、状态与操作。
   Widget _buildVoiceDetailPane(
     BuildContext context,
     ThemeData theme,
@@ -899,6 +920,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
     );
   }
 
+  /// 通用的联系人/消息列表布局，包括搜索与自定义按钮。
   Widget _buildConversationPage(
     BuildContext context,
     ThemeData theme,
@@ -1157,6 +1179,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
     );
   }
 
+  /// 渲染设置标签，提供调试工具入口、socket 状态等信息。
   Widget _buildSettingsPage(BuildContext context, ThemeData theme) {
     final sidebarWidth = MediaQuery.of(context).size.width >= 900
         ? 320.0
@@ -1354,6 +1377,7 @@ class _ChatHomePageState extends ConsumerState<ChatHomePage> {
     );
   }
 
+  /// 打开全局添加好友弹窗，复用通用按钮逻辑。
   Future<void> _showAddFriendDialog(BuildContext context) async {
     final controller = TextEditingController();
     var isLoading = false;

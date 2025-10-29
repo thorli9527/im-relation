@@ -1,3 +1,4 @@
+/// 应用启动流程：校验本地会话并尝试自动登录。
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +6,7 @@ import 'package:im_client/core/providers/app_providers.dart';
 import 'package:im_client/features/auth/models/login_payload.dart';
 import 'package:im_client/gen/api/auth.pb.dart';
 
+/// 封装启动流程结果，方便 UI 决定后续导航。
 class StartupResult {
   const StartupResult._({
     required this.needsLogin,
@@ -24,6 +26,7 @@ class StartupResult {
   final LoginResponse? session;
   final String? error;
 
+  /// 构造“需要登录”的结果，携带设备信息用于表单预填。
   factory StartupResult.loginRequired({
     required String deviceId,
     int? deviceType,
@@ -35,6 +38,7 @@ class StartupResult {
     account: account,
   );
 
+  /// 构造“已登录”结果，包含会话与用户信息。
   factory StartupResult.loggedIn({
     required String account,
     required LoginResponse session,
@@ -50,10 +54,12 @@ class StartupResult {
     session: session,
   );
 
+  /// 构造异常结果，提示用户手动重试。
   factory StartupResult.error(String message) =>
       StartupResult._(needsLogin: true, error: message);
 }
 
+/// 启动时执行的异步流程，优先校验 token，必要时尝试静默重新登录。
 final authStartupProvider = FutureProvider<StartupResult>((ref) async {
   final store = ref.read(localStoreProvider);
   final device = await store.getDeviceProfile();

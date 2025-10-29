@@ -1,3 +1,4 @@
+/// 基于 Isar 的本地持久层，负责缓存登录会话、好友、消息等数据。
 import 'dart:io';
 import 'dart:math';
 
@@ -26,6 +27,7 @@ const String _workspaceIdFromDartDefine = String.fromEnvironment(
   defaultValue: '',
 );
 
+/// 读取环境变量或编译常量获取工作空间前缀，便于多账户隔离。
 String _resolveWorkspaceId() {
   final env = Platform.environment['IM_CLIENT_WORKSPACE'];
   if (env != null && env.trim().isNotEmpty) {
@@ -37,11 +39,13 @@ String _resolveWorkspaceId() {
   return 'default';
 }
 
+/// 封装 Isar 数据库的打开、初始化与常用读写方法。
 class LocalStore {
   LocalStore._(this._isar);
 
   final Isar _isar;
 
+  /// 打开本地持久化实例，不存在时自动创建目录并初始化基础数据。
   static Future<LocalStore> open() async {
     final supportDir = await getApplicationSupportDirectory();
     final workspaceId = _resolveWorkspaceId();
@@ -72,6 +76,7 @@ class LocalStore {
     return store;
   }
 
+  /// 提供内存版数据库，主要用于测试或临时环境。
   static Future<LocalStore> inMemory() async {
     final tempDir = await Directory.systemTemp.createTemp('isar_test');
     final isar = await Isar.open(
@@ -98,11 +103,13 @@ class LocalStore {
 
   Isar get isar => _isar;
 
+  /// 确保关键表存在默认记录（设备信息 & 会话信息）。
   Future<void> _initialize() async {
     await ensureDeviceProfile();
     await ensureAuthSession();
   }
 
+  /// 获取设备信息，若不存在则自动生成一条默认记录。
   Future<DeviceProfile> ensureDeviceProfile() async {
     final existing = await _isar.deviceProfiles.get(0);
     if (existing != null) {
@@ -121,6 +128,7 @@ class LocalStore {
     return profile;
   }
 
+  /// 获取登录会话记录，若为空则创建初始状态。
   Future<AuthSession> ensureAuthSession() async {
     final existing = await _isar.authSessions.get(0);
     if (existing != null) {
@@ -136,16 +144,19 @@ class LocalStore {
     return session;
   }
 
+  /// 直接返回设备信息，内部确保记录已存在。
   Future<DeviceProfile> getDeviceProfile() async {
     final profile = await ensureDeviceProfile();
     return profile;
   }
 
+  /// 直接返回会话信息，内部确保记录已存在。
   Future<AuthSession> getAuthSession() async {
     final session = await ensureAuthSession();
     return session;
   }
 
+  /// 标记用户已退出登录，并清理敏感字段。
   Future<void> markLoggedOut() async {
     final session = await ensureAuthSession();
     session
@@ -160,6 +171,7 @@ class LocalStore {
     });
   }
 
+  /// 在登录成功后落地会话与设备信息，供后续自动登录使用。
   Future<void> persistLoginSuccess({
     required int userId,
     required int loginType,
@@ -197,6 +209,7 @@ class LocalStore {
     });
   }
 
+  /// 刷新已登录用户的会话 token，保持本地数据有效。
   Future<void> refreshToken({
     required String token,
     required int expiresAt,
@@ -214,6 +227,7 @@ class LocalStore {
     });
   }
 
+  /// 生成近似随机的设备 ID，兼顾可读性与唯一性。
   String _generateDeviceId() {
     final uuid = const Uuid().v4().replaceAll('-', '');
     final random = Random.secure().nextInt(9999).toString().padLeft(4, '0');

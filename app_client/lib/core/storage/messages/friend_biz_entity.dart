@@ -2,6 +2,7 @@ import 'package:isar/isar.dart';
 
 part 'friend_biz_entity.g.dart';
 
+/// 好友相关业务事件（好友申请、备注更新等）。
 @collection
 class FriendBizEntity {
   FriendBizEntity();

@@ -4,6 +4,7 @@ import 'message_status.dart';
 
 part 'group_message_entity.g.dart';
 
+/// 群聊消息的本地缓存表。
 @collection
 class GroupMessageEntity {
   GroupMessageEntity();

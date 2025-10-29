@@ -1,3 +1,4 @@
+/// 负责解析 socket 消息、同步到本地 Isar，并提供消息流订阅接口。
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -21,6 +22,7 @@ import 'package:im_client/gen/api/socket.pb.dart' as socketpb;
 import 'package:isar/isar.dart';
 import 'package:logger/logger.dart';
 
+/// 聊天消息仓库，根据 socket 推送更新 Isar，同时管理发送队列。
 class MessageRepository {
   MessageRepository({
     required LocalStore store,
@@ -41,6 +43,7 @@ class MessageRepository {
 
   void dispose() {}
 
+  /// 根据消息类型分发到对应的持久化处理流程。
   Future<void> handleIncomingMessage(
     socketpb.ServerMsg message, {
     required int ownerId,
@@ -77,6 +80,7 @@ class MessageRepository {
     }
   }
 
+  /// 订阅好友消息变更，首帧返回当前数据随后监听 Isar 更新。
   Stream<List<FriendMessageEntity>> watchFriendMessages({
     required int ownerId,
     int? friendId,
@@ -87,6 +91,7 @@ class MessageRepository {
     }
   }
 
+  /// 订阅群聊消息变更，按群 ID 过滤。
   Stream<List<GroupMessageEntity>> watchGroupMessages({
     required int ownerId,
     required int groupId,
@@ -97,6 +102,7 @@ class MessageRepository {
     }
   }
 
+  /// 订阅语音通话记录，用于语音标签渲染。
   Stream<List<VoiceMessageEntity>> watchVoiceMessages({
     required int ownerId,
   }) async* {
@@ -106,6 +112,7 @@ class MessageRepository {
     }
   }
 
+  /// 将好友文本消息写入本地并加入发送队列。
   Future<void> queueFriendText(
     String text, {
     required int ownerId,
@@ -158,6 +165,7 @@ class MessageRepository {
     await _flushOutbox();
   }
 
+  /// 通过 socket 发送好友申请，默认来源为用户 ID。
   Future<void> sendFriendRequest({
     required int ownerId,
     required int targetUserId,
@@ -186,6 +194,7 @@ class MessageRepository {
     await _socketManager.sendClientMessage(clientMsg);
   }
 
+  /// 处理单聊消息，保存到好友消息表。
   Future<void> _handleFriendChat(
     socketpb.ServerMsg msg, {
     required int ownerId,
@@ -212,6 +221,7 @@ class MessageRepository {
     });
   }
 
+  /// 处理群聊消息，并记录发送方向。
   Future<void> _handleGroupChat(
     socketpb.ServerMsg msg, {
     required int ownerId,
@@ -234,6 +244,7 @@ class MessageRepository {
     });
   }
 
+  /// 解析好友业务事件（加好友、删除等），按事件 ID 去重。
   Future<void> _handleFriendBiz(
     socketpb.ServerMsg msg, {
     required int ownerId,
@@ -269,6 +280,7 @@ class MessageRepository {
     });
   }
 
+  /// 解析群聊业务事件（改名、公告等），按事件 ID 落库。
   Future<void> _handleGroupBiz(
     socketpb.ServerMsg msg, {
     required int ownerId,
@@ -300,6 +312,7 @@ class MessageRepository {
     });
   }
 
+  /// 持久化系统通知，并尝试触发会话事件（如被踢下线）。
   Future<void> _handleSystemMsg(
     socketpb.ServerMsg msg, {
     required int ownerId,
@@ -327,6 +340,7 @@ class MessageRepository {
     });
   }
 
+  /// 根据系统通知内容判断是否需要发出会话事件。
   void _maybeEmitSessionEvent(socketpb.ServerMsg msg) {
     if (msg.kind != socketpb.MsgKind.MK_SYS_NOTICE) {
       return;
@@ -362,6 +376,7 @@ class MessageRepository {
     }
   }
 
+  /// 更新本地消息及出站队列的发送状态。
   Future<void> _handleAck(
     socketpb.ServerMsg msg, {
     required int ownerId,
@@ -393,6 +408,7 @@ class MessageRepository {
     });
   }
 
+  /// 将待发送的离线消息逐条写入 socket，并更新状态。
   Future<void> _flushOutbox() async {
     final pending = await _isar.outboxMessageEntitys
         .filter()
@@ -446,6 +462,7 @@ class MessageRepository {
     }
   }
 
+  /// 从消息内容中提取第一个文本片段，用作列表摘要。
   String? _extractText(msgpb.Content content) {
     for (final body in content.contents) {
       if (body.hasText()) {
@@ -455,6 +472,7 @@ class MessageRepository {
     return null;
   }
 
+  /// 查询指定好友最近的消息，限制返回数量防止 UI 过载。
   Future<List<FriendMessageEntity>> _fetchFriendMessages({
     required int ownerId,
     int? friendId,
@@ -468,6 +486,7 @@ class MessageRepository {
     return result.take(200).toList();
   }
 
+  /// 查询某个群的消息列表，并按时间排序返回。
   Future<List<GroupMessageEntity>> _fetchGroupMessages({
     required int ownerId,
     required int groupId,
@@ -481,6 +500,7 @@ class MessageRepository {
     return result.take(200).toList();
   }
 
+  /// 查询最新语音通话记录，用于语音标签的左侧列表。
   Future<List<VoiceMessageEntity>> _fetchVoiceMessages({
     required int ownerId,
   }) async {
@@ -492,6 +512,7 @@ class MessageRepository {
     return result.take(200).toList();
   }
 
+  /// 判断消息类型是否属于好友业务事件。
   bool _isFriendBiz(socketpb.MsgKind kind) {
     const friendBizKinds = {
       socketpb.MsgKind.MK_FRIEND_REQUEST,
@@ -503,6 +524,7 @@ class MessageRepository {
     return friendBizKinds.contains(kind);
   }
 
+  /// 判断消息类型是否属于群业务事件。
   bool _isGroupBiz(socketpb.MsgKind kind) {
     const groupBizKinds = {
       socketpb.MsgKind.MK_GROUP_UPDATE_NAME,
@@ -518,6 +540,7 @@ class MessageRepository {
     return groupBizKinds.contains(kind);
   }
 
+  /// 判断消息类型是否属于系统通知类别。
   bool _isSystemKind(socketpb.MsgKind kind) {
     const systemKinds = {
       socketpb.MsgKind.MK_SYS_NOTICE,

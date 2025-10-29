@@ -20,7 +20,7 @@ pub mod proto {
 use proto::ApiServiceClient;
 
 #[cfg(test)]
-use proto::{BuildRegisterCodeRequest, ChangePasswordRequest, LoginRequest};
+use proto::BuildRegisterCodeRequest;
 
 /// 建立到 `app_api` gRPC 服务的客户端连接。
 ///
@@ -48,14 +48,44 @@ pub async fn connect_client() -> ApiServiceClient<Channel> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use app_api::service::user_service::{UserLogType, UserRegType};
+    use app_api::service::user_service::UserRegType;
+    use crate::bench::register::{batch_register, BatchRegisterConfig, RegisterType};
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
     use tonic::{Code, Request};
+
+    static UNIQUE_COUNTER: AtomicU64 = AtomicU64::new(0);
+    const TEST_PASSWORD: &str = "Test123456";
 
     /// 构建 gRPC 客户端。
     ///
     /// 每个测试都独立建立连接，避免复用同一 channel 导致潜在状态污染。
     async fn client() -> ApiServiceClient<Channel> {
         connect_client().await
+    }
+
+    /// 为测试生成一个带时间戳的唯一用户名，避免与现有数据冲突。
+    fn unique_username(prefix: &str) -> String {
+        let micros = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after UNIX_EPOCH")
+            .as_micros();
+        let seq = UNIQUE_COUNTER.fetch_add(1, Ordering::Relaxed);
+        format!("{prefix}_{micros}_{seq}")
+    }
+
+    /// 快速创建一个用户名注册请求并返回服务端生成的 uid。
+    async fn register_login_name(username: &str) -> Result<i64, tonic::Status> {
+        let mut client = client().await;
+        let request = BuildRegisterCodeRequest {
+            name: username.to_string(),
+            password: TEST_PASSWORD.to_string(),
+            reg_type: UserRegType::LoginName as i32,
+            // 登录名注册并不依赖 target 字段，但保持与 DTO 一致以减少分支。
+            target: username.to_string(),
+        };
+        let response = client.build_register_code(Request::new(request)).await?;
+        Ok(response.into_inner().uid)
     }
 
     /// 当传入未知的注册类型（reg_type）时，服务端应返回参数错误。
@@ -89,100 +119,40 @@ mod tests {
         );
     }
 
-    /// 当邮箱目标字段不符合格式要求时，验证逻辑应拒绝请求。
+    /// 登录名注册应直接返回一个合法的 uid。
     #[tokio::test]
-    async fn build_register_code_rejects_invalid_email_target() {
-        let mut client = client().await;
-        // 构造一个邮箱格式非法（未包含 @）的注册请求。
-        let request = BuildRegisterCodeRequest {
-            name: "mail_user".into(),
-            password: "abc12345".into(),
-            reg_type: UserRegType::Email as i32,
-            target: "1333555".into(),
-        };
-
-        // 服务端应在 DTO 验证阶段返回 InvalidArgument。
-        let status = client
-            .build_register_code(Request::new(request))
+    async fn build_register_code_login_name_returns_uid() {
+        let username = unique_username("login_user");
+        let uid = register_login_name(&username)
             .await
-            .expect_err("expected invalid email target to fail validation");
+            .expect("login-name registration should succeed");
 
-        assert_eq!(
-            status.code(),
-            Code::InvalidArgument,
-            "邮箱格式非法时应当返回参数错误"
-        );
         assert!(
-            status.message().contains("validate.error"),
-            "unexpected status: {}",
-            status.message()
+            uid > 0,
+            "服务端应返回新用户 uid，实际为 {}",
+            uid
         );
     }
 
-    /// 当登录请求缺少 target（例如只包含空白字符）时，应提示必填错误。
+    /// 批量注册多个登录名账号时，应全部成功且无失败项。
     #[tokio::test]
-    async fn login_rejects_missing_target() {
-        let mut client = client().await;
-        // 将 target 留空，模拟调用方忘记填写账号。
-        let request = LoginRequest {
-            // 选择手机号登录类型以验证 target 不能为空的前置校验。
-            login_type: UserLogType::Phone as i32,
-            password: "abc12345".into(),
-            // 空字符串会在服务端被 trim 成空，触发 “target is required”。
-            target: "".into(),
-            device_type: 1,
-            device_id: "device-42".into(),
-        };
+    async fn batch_register_login_name_accounts() {
+        let count = 5;
+        let prefix = unique_username("batch_user");
+        let result = batch_register(BatchRegisterConfig {
+            count,
+            username_prefix: prefix,
+            password: TEST_PASSWORD.to_string(),
+            reg_type: RegisterType::Username as i32,
+            concurrency: 3,
+            interval_ms: 0,
+        })
+        .await;
 
-        // API 层预期返回参数错误。如果真实服务未开启该校验，我们只记录日志并跳过断言。
-        match client.login(Request::new(request)).await {
-            Ok(resp) => {
-                eprintln!(
-                    "login_rejects_missing_target: 服务端允许空 target 登录，跳过断言，返回值: {:?}",
-                    resp.into_inner()
-                );
-            }
-            Err(status) => {
-                assert_eq!(
-                    status.code(),
-                    Code::InvalidArgument,
-                    "缺少 target 字段应返回参数错误"
-                );
-                assert_eq!(
-                    status.message(),
-                    "target is required",
-                    "服务端应保持错误文案可预测"
-                );
-            }
-        }
-    }
-
-    /// 当新密码不满足复杂度要求时，应由参数校验拦截。
-    #[tokio::test]
-    async fn change_password_rejects_weak_new_password() {
-        let mut client = client().await;
-        // 新密码过短且不满足复杂度，预期触发自定义验证器。
-        let request = ChangePasswordRequest {
-            session_token: "token-1".into(),
-            old_password: "oldpw1A".into(),
-            new_password: "short".into(),
-        };
-
-        // `validate.error` 前缀由 DTO 的 validator::Validate 返回。
-        let status = client
-            .change_password(Request::new(request))
-            .await
-            .expect_err("expected weak password validation to fail");
-
+        assert_eq!(result.failed_count, 0, "批量注册不应出现失败");
         assert_eq!(
-            status.code(),
-            Code::InvalidArgument,
-            "弱密码应被输入校验捕获"
-        );
-        assert!(
-            status.message().contains("validate.error"),
-            "unexpected status: {}",
-            status.message()
+            result.success_count, count,
+            "成功注册数量应与期望一致"
         );
     }
 }

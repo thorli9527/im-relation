@@ -4,6 +4,7 @@ import 'message_status.dart';
 
 part 'outbox_message_entity.g.dart';
 
+/// 待发送消息队列，用于补偿 socket 网络波动。
 @collection
 class OutboxMessageEntity {
   OutboxMessageEntity();

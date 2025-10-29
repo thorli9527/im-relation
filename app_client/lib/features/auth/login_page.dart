@@ -1,3 +1,4 @@
+/// gRPC 登录页面，负责凭证输入、配置切换以及登录结果处理。
 import 'dart:async';
 
 import 'package:fixnum/fixnum.dart';
@@ -12,6 +13,7 @@ import 'package:im_client/features/chat/chat_home_page.dart';
 final RegExp _emailRegExp = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
 final RegExp _phoneRegExp = RegExp(r'^\+?\d[\d\s-]{6,}$');
 
+/// 登录入口界面，可根据缓存预填账号与设备信息。
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key, this.initialAccount, this.initialDeviceId});
 
@@ -22,6 +24,7 @@ class LoginPage extends ConsumerStatefulWidget {
   ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
+/// 处理登录流程、表单校验以及配置弹窗的状态类。
 class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _targetController = TextEditingController();
@@ -46,6 +49,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     return color.withAlpha(value);
   }
 
+  /// 从本地存储中恢复设备 ID 与最近一次登录账号。
   Future<void> _hydrateFromStore() async {
     final store = ref.read(localStoreProvider);
     final profile = await store.getDeviceProfile();
@@ -70,6 +74,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     super.dispose();
   }
 
+  /// 根据输入内容推断对应的登录方式。
   LoginMethod _inferLoginMethod(String input) {
     final trimmed = input.trim();
     if (_emailRegExp.hasMatch(trimmed)) {
@@ -81,6 +86,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     return LoginMethod.username;
   }
 
+  /// 执行登录流程，并在成功后跳转到聊天主页。
   Future<void> _submit() async {
     final client = ref.read(authApiClientProvider);
     final store = ref.read(localStoreProvider);
@@ -177,6 +183,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
+  /// 打开客户端配置弹窗，允许切换服务端与日志等级。
   Future<void> _openSettings(AppConfigData currentConfig) async {
     final fallbackData = AppConfigData.fallback();
     final servers = currentConfig.servers.isEmpty
@@ -437,6 +444,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
+  /// 校验账号输入，允许用户名、邮箱或手机号。
   String? _validateTarget(String? value) {
     final trimmed = value?.trim() ?? '';
     if (trimmed.isEmpty) {

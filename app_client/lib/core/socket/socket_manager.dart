@@ -1,3 +1,4 @@
+/// TCP socket 管理器，负责与 app_socket 建立连接、维持心跳并落地消息。
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -10,6 +11,7 @@ import 'package:im_client/gen/api/msg_friend.pb.dart' as friendpb;
 import 'package:protobuf/protobuf.dart' as pb;
 import 'package:logger/logger.dart';
 
+/// 包装 socket 连接阶段的异常，保留原始错误方便日志排查。
 class SocketConnectionException implements Exception {
   SocketConnectionException(this.message, [this.inner]);
 
@@ -20,6 +22,7 @@ class SocketConnectionException implements Exception {
   String toString() => inner == null ? message : '$message: $inner';
 }
 
+/// 负责建立 TCP 连接、自动重连、心跳保活以及消息编解码的核心类。
 class SocketManager {
   SocketManager({required Logger logger}) : _logger = logger {
     _reader = _FrameReader(onFrame: _handleFrame);
@@ -40,10 +43,13 @@ class SocketManager {
   int _reconnectAttempt = 0;
   bool _autoReconnectEnabled = false;
 
+  /// 广播通道，暴露原始的服务端消息给上层仓库。
   Stream<socketpb.ServerMsg> get messages => _incomingController.stream;
 
+  /// 当前是否持有活跃的 socket 连接。
   bool get isConnected => _socket != null;
 
+  /// 主动建立连接，同时启用自动重连与心跳机制。
   Future<void> connect({
     required String address,
     required int userId,
@@ -87,6 +93,7 @@ class SocketManager {
     }
   }
 
+  /// 主动断开连接并关闭自动重连，用于用户退出或应用销毁。
   Future<void> disconnect() async {
     _autoReconnectEnabled = false;
     _connectionOptions = null;
@@ -96,11 +103,13 @@ class SocketManager {
     await _cleanupSocket();
   }
 
+  /// 释放全部资源，包含 StreamController 及底层连接。
   Future<void> dispose() async {
     await disconnect();
     await _incomingController.close();
   }
 
+  /// 清理与 socket 相关的状态与监听，确保下次重连前处于全新状态。
   Future<void> _cleanupSocket() async {
     _stopHeartbeat();
     _reader.reset();
@@ -110,6 +119,7 @@ class SocketManager {
     _socket = null;
   }
 
+  /// 建立真实的 TCP 连接，并发送握手报文（AuthMsg）。
   Future<void> _establishConnection(
     _ConnectionOptions options,
     int? resumeAckId,
@@ -163,6 +173,7 @@ class SocketManager {
     }
   }
 
+  /// 根据指数退避窗口安排下一次重连，确保不会重复排队。
   void _scheduleReconnect() {
     if (!_autoReconnectEnabled || _connectionOptions == null) {
       return;
@@ -184,6 +195,7 @@ class SocketManager {
     }
   }
 
+  /// 执行重连逻辑，失败时继续排队直到成功或被显式停止。
   Future<void> _attemptReconnect() async {
     final options = _connectionOptions;
     if (!_autoReconnectEnabled || options == null) {
@@ -209,11 +221,13 @@ class SocketManager {
     }
   }
 
+  /// 取消正在等待的重连任务。
   void _cancelReconnectTimer() {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
   }
 
+  /// 支持 `tcp://` 与裸地址两种写法，统一转换为 `Uri`。
   Uri _parseAddress(String address) {
     if (address.contains('://')) {
       return Uri.parse(address);
@@ -221,6 +235,7 @@ class SocketManager {
     return Uri.parse('tcp://$address');
   }
 
+  /// 定期发送心跳以保持长连接，首次建立时立即发送一次。
   void _startHeartbeat() {
     _stopHeartbeat();
     _heartbeatTimer = Timer.periodic(
@@ -230,15 +245,18 @@ class SocketManager {
     _queueHeartbeat();
   }
 
+  /// 停止心跳定时器，通常在断开连接或清理时调用。
   void _stopHeartbeat() {
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
   }
 
+  /// 安排一次异步心跳发送，避免阻塞当前调用栈。
   void _queueHeartbeat() {
     unawaited(_sendHeartbeat());
   }
 
+  /// 向服务器发送心跳包，若连接已断开则静默跳过。
   Future<void> _sendHeartbeat() async {
     if (_socket == null) {
       return;
@@ -254,6 +272,7 @@ class SocketManager {
     }
   }
 
+  /// 将 protobuf 消息编码为带长度前缀的帧并写入 socket。
   Future<void> _sendMessage(pb.GeneratedMessage message) async {
     final socket = _socket;
     if (socket == null) {
@@ -283,10 +302,12 @@ class SocketManager {
     await socket.flush();
   }
 
+  /// 公开的发送接口，供业务层写出任意客户端消息。
   Future<void> sendClientMessage(socketpb.ClientMsg message) async {
     await _sendMessage(message);
   }
 
+  /// 处理服务端推送的完整帧，解析后写入消息流并自动回复 ACK。
   void _handleFrame(Uint8List frame) {
     try {
       final msg = socketpb.ServerMsg.fromBuffer(frame);
@@ -302,6 +323,7 @@ class SocketManager {
     }
   }
 
+  /// 将 ACK 写回服务端，告知已处理的消息编号。
   Future<void> _sendAck(int id) async {
     if (id <= 0) {
       return;
@@ -318,6 +340,7 @@ class SocketManager {
     }
   }
 
+  /// 统一处理 socket 断开场景，确保清理并尝试重连。
   Future<void> _handleSocketClosed(Object? error) async {
     if (error != null) {
       _logger.w('socket closed with error: $error');
@@ -329,6 +352,7 @@ class SocketManager {
     _scheduleReconnect();
   }
 
+  /// 为调试目的解码服务器负载，失败时仍保持主流程继续。
   void _logDecodedServerPayload(socketpb.ServerMsg msg) {
     try {
       switch (msg.kind) {
@@ -363,6 +387,7 @@ class SocketManager {
     }
   }
 
+  /// 为调试目的解码客户端负载，便于观察发送内容。
   void _logDecodedClientPayload(socketpb.ClientMsg msg) {
     try {
       switch (msg.kind) {
@@ -412,6 +437,7 @@ class SocketManager {
   }
 }
 
+/// 记录一次连接所需的所有参数，方便重连时复用。
 class _ConnectionOptions {
   const _ConnectionOptions({
     required this.address,
@@ -428,16 +454,19 @@ class _ConnectionOptions {
   final String token;
 }
 
+/// 将 TCP 字节流重组为长度前缀帧的工具。
 class _FrameReader {
   _FrameReader({required this.onFrame});
 
   final void Function(Uint8List frame) onFrame;
   Uint8List _buffer = Uint8List(0);
 
+  /// 丢弃缓存数据，重新从空白状态开始接收。
   void reset() {
     _buffer = Uint8List(0);
   }
 
+  /// 接收 socket 读取的原始字节并尝试拼接成完整帧。
   void add(List<int> chunk) {
     if (chunk.isEmpty) {
       return;
@@ -453,6 +482,7 @@ class _FrameReader {
     _process();
   }
 
+  /// 解析内部缓冲，多次提取完整帧并回调 `onFrame`。
   void _process() {
     var offset = 0;
     while (_buffer.length - offset >= 4) {

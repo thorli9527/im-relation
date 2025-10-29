@@ -1,6 +1,8 @@
+/// 将 `logger` 输出缓冲到内存，供调试界面展示最近日志。
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 
+/// 单条日志的标准化结构，便于界面统一渲染。
 class DebugLogRecord {
   DebugLogRecord({
     required this.level,
@@ -18,6 +20,7 @@ class DebugLogRecord {
   final Object? error;
   final StackTrace? stackTrace;
 
+  /// 将 `logger` 框架的输出事件转换为内部结构。
   factory DebugLogRecord.fromOutput(OutputEvent event) {
     final logEvent = event.origin;
     return DebugLogRecord(
@@ -31,6 +34,7 @@ class DebugLogRecord {
   }
 }
 
+/// 环形缓冲实现，既作为 `LogOutput` 接收日志，又向监听者广播变更。
 class DebugLogBuffer extends ChangeNotifier implements LogOutput {
   DebugLogBuffer({this.capacity = 500});
 
@@ -39,6 +43,7 @@ class DebugLogBuffer extends ChangeNotifier implements LogOutput {
 
   List<DebugLogRecord> get records => List.unmodifiable(_records);
 
+  /// 清空所有历史记录并通知监听者。
   void clear() {
     if (_records.isEmpty) {
       return;
@@ -51,6 +56,7 @@ class DebugLogBuffer extends ChangeNotifier implements LogOutput {
   Future<void> init() async {}
 
   @override
+  /// 将新的日志事件放入缓存，超过容量时丢弃最旧记录。
   void output(OutputEvent event) {
     final record = DebugLogRecord.fromOutput(event);
     _records.add(record);

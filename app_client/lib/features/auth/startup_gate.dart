@@ -1,9 +1,11 @@
+/// 根据启动状态决定展示登录页或主界面的网关组件。
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:im_client/features/auth/application/startup_provider.dart';
 import 'package:im_client/features/auth/login_page.dart';
 import 'package:im_client/features/chat/chat_home_page.dart';
 
+/// 应用启动入口：结合本地缓存与网络校验决定后续导航。
 class StartupGate extends ConsumerWidget {
   const StartupGate({super.key});
 
@@ -59,6 +61,7 @@ class StartupGate extends ConsumerWidget {
   }
 }
 
+/// 启动异常时的统一错误展示，附带重试按钮。
 class _StartupErrorView extends StatelessWidget {
   const _StartupErrorView({required this.message, required this.onRetry});
 
