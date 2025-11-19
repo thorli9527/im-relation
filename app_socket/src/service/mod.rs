@@ -4,7 +4,6 @@
 //! - `types`：基础类型与消息模型（ServerMsg/ClientMsg/SendOpts 等）；
 //! - `session`：会话注册、扇出下发、ACK 跟踪与重试（并发核心，内含分片定时器）；
 //! - `dispatcher`：按用户一致性哈希做分片，有界 mpsc 背压，降低跨用户互相影响；
-//! - `handles`：按业务域划分的上行情景处理（好友/群/系统）。
 //!
 //! 线程模型与并发：
 //! - 入口（TCP/WebSocket）负责解析与投递到 `SessionManager::on_client_msg`；
@@ -22,12 +21,10 @@
 
 pub mod dispatcher;
 pub mod grpc_clients;
-pub mod handles;
 pub mod node_discovery;
 pub mod session;
 pub mod types;
 
 // 对外再导出，维持原有对外 API
-pub use handles::{FriendHandler, FriendMsgHandler, GroupHandler, Handler, SystemHandler};
 pub use session::{MultiLoginPolicy, SessionManager, SessionPolicy};
 pub use types::{ClientMsg, SendOpts, ServerMsg};

@@ -14,8 +14,7 @@ use tokio_util::sync::CancellationToken;
 use tonic::service::Routes;
 
 use crate::service::hot_group_client::{connect as connect_hot_group, HgGroupClient};
-use crate::service::{GroupBizServiceImpl, GroupMsgServiceImpl};
-use common::infra::grpc::grpc_msg_group::msg_group_service::group_biz_service_server::GroupBizServiceServer;
+use crate::service::GroupMsgServiceImpl;
 use common::infra::grpc::grpc_msg_group::msg_group_service::group_msg_service_server::GroupMsgServiceServer;
 
 mod kafka_producer;
@@ -138,10 +137,8 @@ pub async fn run_server() -> Result<()> {
 
     let http_router = Router::new().route("/healthz", get(healthz));
 
-    let biz_service = GroupBizServiceImpl::new(services.clone());
     let msg_service = GroupMsgServiceImpl::new(services.clone());
-    let routes = Routes::new(GroupBizServiceServer::new(biz_service))
-        .add_service(GroupMsgServiceServer::new(msg_service));
+    let routes = Routes::new(GroupMsgServiceServer::new(msg_service));
 
     info!(
         "msg_group listening on grpc={} http={}",

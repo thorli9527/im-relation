@@ -1,5 +1,6 @@
 //! 好友消息相关的数据访问模块。
 
+pub mod conversation_snapshot;
 pub mod device_keys;
 pub mod friend_requests;
 pub mod messages;
@@ -14,4 +15,9 @@ pub use device_keys::{fetch_device_bundles, upsert_device_keys, DeviceKeysRow};
 
 pub use friend_requests::{
     get_friend_request_by_id, mark_friend_request_decision, upsert_friend_request, FriendRequestRow,
+};
+
+pub use conversation_snapshot::{
+    delete_friend_conversation_snapshot, list_friend_conversation_snapshots,
+    upsert_friend_conversation_snapshot, FriendConversationSnapshot,
 };

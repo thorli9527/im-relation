@@ -9,6 +9,10 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
+use common::infra::grpc::message as msg_message;
+use common::infra::grpc::message as msgpb;
+use prost::Message;
+
 // 使用 common 中的 UserId 类型
 /// 业务种类（与 TCP/Kafka 边界一致的枚举）
 // Ensure the `common` crate is included in Cargo.toml and accessible in your project.
@@ -52,24 +56,23 @@ pub type MessageId = i64;
 
 /// 服务端下行消息（发给客户端）。
 ///
-/// `id` 用于客户端 ACK 对齐；`kind` 与 `payload` 表示业务含义；
-/// `ts_ms` 便于客户端基于服务端时间排序消息。
+/// `id` 用于客户端 ACK 对齐；`payload` 表示具体业务内容；`ts_ms` 便于客户端基于服务端时间排序消息。
 #[derive(Clone, Debug)]
 pub struct ServerMsg {
     /// 消息唯一 ID（用于客户端 ACK 对齐）
     pub id: MessageId,
-    /// 业务类型（枚举）
-    pub kind: MsgKind,
-    /// 二进制负载（业务自行定义 Protobuf 或其他二进制）
-    pub payload: Vec<u8>,
+    /// 解码后的结构化内容（由 `message.Content` 表示）
+    pub payload: msg_message::Content,
+    /// 原始 protobuf 负载（发送给客户端）
+    pub raw_payload: Vec<u8>,
     /// 业务时间戳（毫秒）
     pub ts_ms: i64,
 }
 
 /// 客户端上行消息（含 ACK）。
 ///
-/// * `ack`：存在时表示确认服务端下行 `ServerMsg.id`。
-/// * `client_id`：客户端幂等 ID，用于上行去重。
+/// * `ack`：存在时表示对服务端某条 `ServerMsg.id` 的确认；
+/// * `client_id`：客户端幂等 ID，用于去重；
 /// * `kind`/`payload`：具体业务负载。
 #[derive(Clone, Debug)]
 pub struct ClientMsg {
@@ -77,11 +80,13 @@ pub struct ClientMsg {
     pub ack: Option<MessageId>,
     /// 客户端上行幂等ID（新字段）：用于去重/重试对账；不参与下行 ACK 语义
     pub client_id: Option<MessageId>,
-    /// 业务类型（非 ACK 时使用，枚举）
-    pub kind: MsgKind,
-    /// 二进制负载（非 ACK 时使用）
-    pub payload: Vec<u8>,
+    /// 解码后的结构化内容（由 `message.Content` 表示）
+    pub payload: msg_message::Content,
+    /// 原始 protobuf 负载（仍然需要用于 Typing/部分 handler）
+    pub raw_payload: Vec<u8>,
 }
+
+// keep helper at bottom
 
 /// 发送选项。
 pub type AckCallback = Arc<dyn Fn(MessageId) + Send + Sync>;
@@ -133,4 +138,57 @@ impl Default for SendOpts {
             drop_hook: None,
         }
     }
+}
+
+pub fn infer_msg_kind(payload: &[u8]) -> MsgKind {
+    if payload.is_empty() {
+        return MsgKind::MkHeartbeat;
+    }
+
+    if let Ok(content) = msgpb::Content::decode(payload) {
+        if content.heartbeat.unwrap_or(false) {
+            return MsgKind::MkHeartbeat;
+        }
+        if let Ok(scene) = msgpb::ChatScene::try_from(content.scene) {
+            return match scene {
+                msgpb::ChatScene::Single => MsgKind::MkFriend,
+                msgpb::ChatScene::Group => MsgKind::MkGroup,
+                _ => MsgKind::MkUnknown,
+            };
+        }
+    }
+
+    if msgpb::FriendBusinessContent::decode(payload).is_ok() {
+        return MsgKind::MkFriendRequest;
+    }
+
+    if msgpb::GroupBusinessContent::decode(payload).is_ok() {
+        return MsgKind::MkGroupJoinRequest;
+    }
+
+    if let Ok(typing) = msgpb::Typing::decode(payload) {
+        return match typing.target {
+            Some(msgpb::typing::Target::GroupId(_)) => MsgKind::MkGroupTyping,
+            Some(msgpb::typing::Target::ToUserId(_)) => MsgKind::MkFriendTyping,
+            None => MsgKind::MkUnknown,
+        };
+    }
+
+    if msgpb::MsgRead::decode(payload).is_ok() {
+        return MsgKind::MkFriendMsgRead;
+    }
+    if msgpb::MsgDeliveredAck::decode(payload).is_ok() {
+        return MsgKind::MkFriendMsgDeliveredAck;
+    }
+    if msgpb::MsgReadAck::decode(payload).is_ok() {
+        return MsgKind::MkFriendMsgReadAck;
+    }
+    if msgpb::MsgRecall::decode(payload).is_ok() {
+        return MsgKind::MkFriendMsgRecall;
+    }
+    if msgpb::MsgForward::decode(payload).is_ok() {
+        return MsgKind::MkFriendMsgForward;
+    }
+
+    MsgKind::MkUnknown
 }

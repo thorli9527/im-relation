@@ -6,11 +6,12 @@
 //! - 下行：`SessionManager` 经分发后投递 `ServerMsg`，本模块编码为 Protobuf 后写回；
 //! - 鉴权：调用 hot_online_service 校验 session_token，确保设备唯一并遵守 15 天 TTL。
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use bytes::BytesMut;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info, warn};
 use prost::Message;
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -19,23 +20,25 @@ use tokio::time::Instant;
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
 use crate::service::grpc_clients;
-use crate::service::node_discovery::resolve_hot_online_addr;
-use common::infra::grpc::grpc_msg_friend::msg_friend_service::FriendRequest as PbFriendRequest;
+use crate::service::node_discovery::{
+    fetch_msg_friend_addr, fetch_node_addr, resolve_hot_online_addr,
+};
 use common::infra::grpc::grpc_socket::socket as socket_proto;
 use common::infra::grpc::grpc_user::online_service::{
-    SessionTokenStatus, ValidateSessionTokenRequest,
+    SessionTokenStatus, UpdateUserReq, UserEntity, ValidateSessionTokenRequest,
 };
 use common::infra::grpc::message as msgpb;
+use common::support::node::NodeType;
+use prost_types::FieldMask;
 use socket_proto::{
     AuthMsg as PbAuthMsg, ClientMsg as PbClientMsg, DeviceType as PbDeviceType,
-    MsgKind as PbMsgKind, ServerMsg as PbServerMsg,
+    ServerMsg as PbServerMsg,
 };
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tonic::Request;
 
-use crate::service::handles::{FriendHandler, GroupHandler, Handler, SystemHandler};
-use crate::service::session::SessionManager;
-use crate::service::types::{ClientMsg, DeviceType, MsgKind, UserId};
-
-use std::time::Duration;
+use crate::service::session::{SessionHandle, SessionManager};
+use crate::service::types::{ClientMsg, DeviceType, SendOpts, ServerMsg, UserId};
 
 const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(180);
 
@@ -67,7 +70,10 @@ pub async fn start_tcp_server() -> anyhow::Result<()> {
     let listener = TcpListener::bind(&bind)
         .await
         .context("bind tcp listener")?;
-    info!("tcp socket listening on {} (index={})", bind, node_index);
+    warn!(
+        "TCP socket server listening on {} (index={})",
+        bind, node_index
+    );
 
     tokio::spawn(async move {
         loop {
@@ -134,13 +140,20 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
     }
     let (handle, mut rx) = sm.register(
         auth.user_id as UserId,
-        device_type,
+        device_type.clone(),
         auth.device_id.clone(),
         auth.token.clone(),
         token_expiry_ms,
     );
     let user_id = handle.user_id;
     let session_id = handle.session_id.clone();
+
+    warn!(
+        "{} auth success: uid={} device_id={} device_type={:?} resume={} last_ack={}",
+        peer, user_id, auth.device_id, device_type, auth.resume, auth.last_ack_id
+    );
+
+    send_connection_success(&handle);
 
     // split 将 Framed 拆为 sink (写端) 与 stream (读端)，便于分别驱动写协程和读循环。
     let (mut sink, mut stream) = framed.split();
@@ -162,8 +175,7 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
             // 将内部结构转换为 Protobuf，再交由 LengthDelimitedCodec 写入 TCP。
             let pb = PbServerMsg {
                 id: msg.id,
-                kind: msg.kind as i32,
-                payload: msg.payload.clone(),
+                payload: msg.raw_payload.clone(),
                 ts_ms: msg.ts_ms,
             };
             let mut buf = BytesMut::with_capacity(pb.encoded_len());
@@ -203,41 +215,74 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
                                 heartbeat_timer
                                     .as_mut()
                                     .reset(Instant::now() + HEARTBEAT_TIMEOUT);
-                                let kind = PbMsgKind::try_from(pb.kind).unwrap_or(PbMsgKind::MkUnknown);
                                 if let Some(ack_id) = pb.ack {
                                     info!("{} <- ack {} uid={}", peer, ack_id, user_id);
                                 }
-                                log_client_payload(kind, &pb.payload);
-                                if kind == PbMsgKind::MkHeartbeat {
-                                    continue;
-                                }
+                                let raw_payload = pb.payload;
+                                let payload =
+                                    msgpb::Content::decode(raw_payload.as_slice()).unwrap_or_default();
                                 let client_msg = ClientMsg {
                                     ack: pb.ack,
                                     client_id: pb.client_id,
-                                    kind,
-                                    payload: pb.payload,
+                                    payload: payload.clone(),
+                                    raw_payload,
                                 };
-                                if client_msg.ack.is_some() || client_msg.kind == MsgKind::MkAck {
-                                    sm.on_client_msg(user_id, client_msg);
+                                if payload.heartbeat.unwrap_or(false) {
                                     continue;
                                 }
 
-                                let kind_val = client_msg.kind as i32;
-                                if (100..300).contains(&kind_val) {
-                                    FriendHandler.handle(user_id, &client_msg);
-                                    continue;
-                                }
-                                if (300..500).contains(&kind_val) {
-                                    GroupHandler.handle(user_id, &client_msg);
-                                    continue;
-                                }
-                                if (900..1000).contains(&kind_val) {
-                                    SystemHandler.handle(user_id, &client_msg);
+                                if client_msg.ack.is_some() {
+                                    SessionManager::get().on_client_msg(user_id, client_msg);
                                     continue;
                                 }
 
-                                // 其余类型仍走 SessionManager 兜底（例如后续新增业务）。
-                                sm.on_client_msg(user_id, client_msg);
+                                let ref_message_id = payload.message_id;
+                                if payload.friend_business.is_some() {
+                                    spawn_friend_forward(user_id, payload.clone(), ref_message_id);
+                                    continue;
+                                }
+                                if payload.group_business.is_some() {
+                                    spawn_group_forward(user_id, payload.clone(), ref_message_id);
+                                    continue;
+                                }
+                                if let Some(profile_update) = find_profile_event(&payload) {
+                                    spawn_profile_event(user_id, profile_update, ref_message_id);
+                                    continue;
+                                }
+                                if payload.system_business.is_some() {
+                                    spawn_system_business(
+                                        user_id,
+                                        payload.system_business.clone(),
+                                        ref_message_id,
+                                    );
+                                    continue;
+                                }
+
+                                match msgpb::ChatScene::try_from(payload.scene) {
+                                    Ok(msgpb::ChatScene::Single) => {
+                                        let domain = build_domain_message(&payload);
+                                        tokio::spawn(async move {
+                                            if let Err(err) = forward_friend_message(domain).await {
+                                                warn!("friend msg forward failed: {}", err);
+                                            } else {
+                                                send_client_ack(user_id, ref_message_id);
+                                            }
+                                        });
+                                    }
+                                    Ok(msgpb::ChatScene::Group) => {
+                                        let domain = build_domain_message(&payload);
+                                        tokio::spawn(async move {
+                                            if let Err(err) = forward_group_message(domain).await {
+                                                warn!("group msg forward failed: {}", err);
+                                            } else {
+                                                send_client_ack(user_id, ref_message_id);
+                                            }
+                                        });
+                                    }
+                                    _ => {
+                                        SessionManager::get().on_client_msg(user_id, client_msg);
+                                    }
+                                }
                             }
                             Err(e) => {
                                 warn!("{} invalid client msg: {:?}", peer, e);
@@ -265,37 +310,272 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
     Ok(())
 }
 
-fn log_client_payload(kind: PbMsgKind, payload: &[u8]) {
-    match kind {
-        PbMsgKind::MkFriend | PbMsgKind::MkGroup => match msgpb::Content::decode(payload) {
-            Ok(content) => {
-                info!(
-                    "decoded client message kind={:?} content={:?}",
-                    kind, content
-                );
-            }
-            Err(err) => {
-                warn!("failed to decode client {:?} payload: {:?}", kind, err);
-            }
-        },
-        PbMsgKind::MkFriendRequest => match PbFriendRequest::decode(payload) {
-            Ok(req) => info!("decoded client friend request: {:?}", req),
-            Err(err) => warn!("failed to decode friend request payload: {:?}", err),
-        },
-        PbMsgKind::MkHeartbeat => {}
-        PbMsgKind::MkAck => {
-            // ack handled separately via pb.ack field; nothing to decode.
-        }
+fn build_domain_message(content: &msgpb::Content) -> msgpb::DomainMessage {
+    let scene = msgpb::ChatScene::try_from(content.scene).unwrap_or(msgpb::ChatScene::ChatUnknown);
+    let category = match scene {
+        msgpb::ChatScene::Single => msgpb::MsgCategory::Friend,
+        msgpb::ChatScene::Group => msgpb::MsgCategory::Group,
         _ => {
-            if !payload.is_empty() {
-                info!(
-                    "client payload kind={:?} length={} bytes",
-                    kind,
-                    payload.len()
-                );
+            if content.friend_business.is_some() {
+                msgpb::MsgCategory::Friend
+            } else if content.group_business.is_some() {
+                msgpb::MsgCategory::Group
+            } else {
+                msgpb::MsgCategory::System
             }
         }
+    };
+
+    msgpb::DomainMessage {
+        message_id: content.message_id,
+        sender_id: content.sender_id,
+        receiver_id: content.receiver_id,
+        timestamp: content.timestamp,
+        ts_ms: content.timestamp,
+        delivery: None,
+        scene: content.scene,
+        category: category as i32,
+        contents: content.contents.clone(),
+        friend_business: content.friend_business.clone(),
+        group_business: content.group_business.clone(),
     }
+}
+
+async fn forward_friend_message(domain: msgpb::DomainMessage) -> anyhow::Result<()> {
+    let addr = fetch_msg_friend_addr()
+        .await?
+        .ok_or_else(|| anyhow!("msg_friend address missing"))?;
+    let mut client = grpc_clients::friend_msg_client(&addr)
+        .await
+        .context("connect to msg_friend failed")?;
+    client
+        .handle_friend_message(Request::new(domain))
+        .await
+        .context("handle_friend_message rpc failed")?;
+    Ok(())
+}
+
+async fn forward_group_message(domain: msgpb::DomainMessage) -> anyhow::Result<()> {
+    let addr = fetch_node_addr(NodeType::MesGroup)
+        .await?
+        .ok_or_else(|| anyhow!("msg_group address missing"))?;
+    let mut client = grpc_clients::group_msg_client(&addr)
+        .await
+        .context("connect to msg_group failed")?;
+    client
+        .handle_group_message(Request::new(domain))
+        .await
+        .context("handle_group_message rpc failed")?;
+    Ok(())
+}
+
+fn spawn_friend_forward(user_id: UserId, payload: msgpb::Content, ref_message_id: Option<u64>) {
+    let domain = build_domain_message(&payload);
+    tokio::spawn(async move {
+        if let Err(err) = forward_friend_message(domain).await {
+            warn!("friend msg forward failed: {}", err);
+        } else {
+            send_client_ack(user_id, ref_message_id);
+        }
+    });
+}
+
+fn spawn_group_forward(user_id: UserId, payload: msgpb::Content, ref_message_id: Option<u64>) {
+    let domain = build_domain_message(&payload);
+    tokio::spawn(async move {
+        if let Err(err) = forward_group_message(domain).await {
+            warn!("group msg forward failed: {}", err);
+        } else {
+            send_client_ack(user_id, ref_message_id);
+        }
+    });
+}
+
+fn spawn_profile_event(
+    user_id: UserId,
+    profile: msgpb::ProfileEventContent,
+    ref_message_id: Option<u64>,
+) {
+    tokio::spawn(async move {
+        if let Err(err) = handle_profile_event(user_id, profile).await {
+            warn!("profile event failed: {}", err);
+        } else {
+            send_client_ack(user_id, ref_message_id);
+        }
+    });
+}
+
+fn spawn_system_business(
+    user_id: UserId,
+    business: Option<msgpb::SystemBusinessContent>,
+    ref_message_id: Option<u64>,
+) {
+    let business = match business {
+        Some(b) => b,
+        None => return,
+    };
+    tokio::spawn(async move {
+        if let Err(err) = handle_system_business(user_id, business).await {
+            warn!("system business handling failed: {}", err);
+        } else {
+            send_client_ack(user_id, ref_message_id);
+        }
+    });
+}
+
+fn find_profile_event(payload: &msgpb::Content) -> Option<msgpb::ProfileEventContent> {
+    payload
+        .contents
+        .iter()
+        .find_map(|item| match &item.content {
+            Some(msgpb::message_content::Content::ProfileUpdate(update)) => Some(update.clone()),
+            _ => None,
+        })
+}
+
+async fn handle_profile_event(
+    user_id: UserId,
+    profile: msgpb::ProfileEventContent,
+) -> anyhow::Result<()> {
+    let addr = resolve_hot_online_addr().await?;
+    let mut client = grpc_clients::user_rpc_client(&addr)
+        .await
+        .context("connect to user rpc failed")?;
+
+    let event_type = msgpb::profile_event_content::ProfileEventType::from_i32(profile.event_type)
+        .unwrap_or(msgpb::profile_event_content::ProfileEventType::EventUnknown);
+    let new_value = profile.new_value;
+
+    let mut patch = build_profile_user_patch(user_id);
+    let mut paths = Vec::new();
+
+    match event_type {
+        msgpb::profile_event_content::ProfileEventType::EventName => {
+            patch.name = new_value;
+            paths.push("name".to_string());
+        }
+        msgpb::profile_event_content::ProfileEventType::EventAvatar => {
+            patch.avatar = new_value;
+            paths.push("avatar".to_string());
+        }
+        msgpb::profile_event_content::ProfileEventType::EventEmail => {
+            patch.email = Some(new_value);
+            paths.push("email".to_string());
+        }
+        msgpb::profile_event_content::ProfileEventType::EventPhone => {
+            patch.phone = Some(new_value);
+            paths.push("phone".to_string());
+        }
+        msgpb::profile_event_content::ProfileEventType::EventLogout => {
+            info!("user {} requested logout via profile event", user_id);
+            return Ok(());
+        }
+        _ => return Ok(()),
+    }
+
+    if paths.is_empty() {
+        return Ok(());
+    }
+
+    let req = UpdateUserReq {
+        patch: Some(patch),
+        update_mask: Some(FieldMask { paths }),
+    };
+    client
+        .update_user(Request::new(req))
+        .await
+        .context("update user profile via socket failed")?;
+    Ok(())
+}
+
+fn build_profile_user_patch(user_id: UserId) -> UserEntity {
+    UserEntity {
+        id: user_id,
+        password: String::new(),
+        name: String::new(),
+        email: None,
+        phone: None,
+        language: None,
+        avatar: String::new(),
+        allow_add_friend: 0,
+        gender: 0,
+        user_type: 0,
+        profile_fields: HashMap::new(),
+        create_time: 0,
+        update_time: 0,
+        version: 0,
+        profile_version: 0,
+    }
+}
+
+async fn handle_system_business(
+    user_id: UserId,
+    business: msgpb::SystemBusinessContent,
+) -> anyhow::Result<()> {
+    info!(
+        "user {} system business received: type={} title={}",
+        user_id, business.business_type, business.title
+    );
+    Ok(())
+}
+
+fn send_client_ack(user_id: UserId, ref_message_id: Option<u64>) {
+    let ts_ms = current_time_millis();
+    let mut payload = msgpb::Content::default();
+    payload.ack = Some(msgpb::AckContent {
+        ok: true,
+        code: 0,
+        message: "forwarded".to_string(),
+        ref_message_id,
+        extra: Vec::new(),
+    });
+    let raw_payload = payload.encode_to_vec();
+    let msg = ServerMsg {
+        id: ts_ms,
+        payload,
+        raw_payload,
+        ts_ms,
+    };
+    let opts = SendOpts {
+        require_ack: false,
+        ..Default::default()
+    };
+    let _ = SessionManager::get().send_to_user(user_id, msg, opts);
+}
+
+fn send_connection_success(handle: &SessionHandle) {
+    let ts_ms = current_time_millis();
+    let mut payload = msgpb::Content::default();
+    let mut metadata = HashMap::new();
+    metadata.insert("session_id".to_string(), handle.session_id.clone());
+    payload.system_business = Some(msgpb::SystemBusinessContent {
+        business_type: msgpb::SystemBusinessType::SystemBusinessUpgrade as i32,
+        title: "连接成功".to_string(),
+        detail: "Socket 连接鉴权完成".to_string(),
+        metadata,
+        summary: Some("连接成功".to_string()),
+        body: Some("欢迎回来！".to_string()),
+        display_area: msgpb::system_business_content::DisplayArea::DisplayPopup as i32,
+        action_url: None,
+        valid_from: None,
+        valid_to: None,
+    });
+
+    let raw_payload = payload.encode_to_vec();
+    let msg = ServerMsg {
+        id: ts_ms,
+        payload,
+        raw_payload,
+        ts_ms,
+    };
+    let _ = handle.send(msg);
+}
+
+fn current_time_millis() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64
 }
 
 /// 基础鉴权：

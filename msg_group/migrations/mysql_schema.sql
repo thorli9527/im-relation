@@ -25,6 +25,24 @@ ENGINE=InnoDB
 COMMENT='msg_group 群聊消息表，按 group_id 哈希分片'
 PARTITION BY HASH(`group_id`) PARTITIONS 32;
 
+-- msg_group: 会话快照（用于最近群会话列表/未读统计）
+CREATE TABLE IF NOT EXISTS `conversation_snapshot` (
+  `user_id`        BIGINT  NOT NULL COMMENT '快照所属用户ID',
+  `group_id`       BIGINT  NOT NULL COMMENT '群ID',
+  `last_msg_id`    BIGINT  NOT NULL DEFAULT 0 COMMENT '最近消息ID',
+  `last_msg_kind`  INT     NOT NULL DEFAULT 0 COMMENT '最近消息类型',
+  `last_sender_id` BIGINT  NOT NULL DEFAULT 0 COMMENT '最近消息发送者',
+  `last_timestamp` BIGINT  NOT NULL DEFAULT 0 COMMENT '最近消息时间(毫秒)',
+  `unread_count`   INT     NOT NULL DEFAULT 0 COMMENT '未读数量',
+  `created_at`     BIGINT  NOT NULL COMMENT '创建时间(毫秒)',
+  `updated_at`     BIGINT  NOT NULL COMMENT '更新时间(毫秒)',
+  PRIMARY KEY (`user_id`, `group_id`),
+  KEY `idx_user_updated` (`user_id`, `updated_at` DESC),
+  KEY `idx_group_updated` (`group_id`, `updated_at` DESC)
+)
+ENGINE=InnoDB
+PARTITION BY HASH(`user_id`) PARTITIONS 32;
+
 
 -- group_join_request: 入群申请与邀请记录。
 -- 状态机：0-待处理，1-已同意，2-已拒绝，3-申请人取消。

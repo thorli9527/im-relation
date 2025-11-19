@@ -98,6 +98,9 @@ fn row_to_entity(r: &MySqlRow) -> Result<UserEntity> {
         .try_get::<i32, _>("version")
         .or_else(|_| r.try_get::<i16, _>("version").map(|v| v as i32))
         .context("missing 'version'")?;
+    let profile_version: i64 = r
+        .try_get::<i64, _>("profile_version")
+        .context("missing 'profile_version'")?;
 
     Ok(UserEntity {
         id,
@@ -114,6 +117,7 @@ fn row_to_entity(r: &MySqlRow) -> Result<UserEntity> {
         create_time,
         update_time,
         version,
+        profile_version,
     })
 }
 
@@ -132,7 +136,8 @@ const SELECT_ENTITY_PROJECTION: &str = r#"
     profile_fields,
     CAST(UNIX_TIMESTAMP(created_at) AS SIGNED) AS create_time,
     CAST(UNIX_TIMESTAMP(updated_at) AS SIGNED) AS update_time,
-    version
+    version,
+    profile_version
 "#;
 
 // ====================== Client 主表只读仓库（单库/分区） ======================

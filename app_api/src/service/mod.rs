@@ -1,13 +1,14 @@
 use common::config::AppConfig;
 use common::support::node::{NodeType, NodeUtil};
 
-pub mod api_grpc_service;
-pub mod auth_models;
+pub mod auth_models {
+    pub use super::user_service::auth_models::*;
+}
 pub mod friend_gateway;
-pub mod grpc_gateway;
-pub mod session;
+pub mod group_gateway;
+pub mod message_gateway;
+pub mod user_gateway;
 pub mod user_service;
-pub mod user_service_impl;
 
 /// Initialize service-level shared state from static configuration.
 pub async fn init() {

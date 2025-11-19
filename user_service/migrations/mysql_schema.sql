@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS user_info (
                     created_at       DATETIME(3)   NOT NULL,                      -- (12)
                     updated_at       DATETIME(3)   NOT NULL,                      -- (13)
                     version          INT           NOT NULL DEFAULT 0,
+                    profile_version  BIGINT        NOT NULL DEFAULT 0,
                     KEY k_email (email_norm(191)),
                     KEY k_phone (phone_norm),
                     KEY k_name  (name)

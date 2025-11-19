@@ -234,6 +234,8 @@ message CreateGroupReq {
   optional string avatar = 5;
   // 群简介（可选）
   optional string intro = 6;
+  // 群公告（可选）
+  optional string announcement = 7;
 }
 
 /**

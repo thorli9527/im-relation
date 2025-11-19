@@ -27,6 +27,26 @@ CREATE TABLE IF NOT EXISTS `message_info` (
     ENGINE=InnoDB
     PARTITION BY KEY(`sender_id`, `receiver_id`) PARTITIONS 16;
 
+-- msg_friend: 会话快照（用于最近会话列表/未读统计）
+CREATE TABLE IF NOT EXISTS `conversation_snapshot` (
+    `owner_id`        BIGINT      NOT NULL COMMENT '快照所属用户ID',
+    `peer_id`         BIGINT      NOT NULL COMMENT '对端用户ID',
+    `conversation_id` BIGINT      NOT NULL COMMENT '会话标识(按 owner_id 和 peer_id 组合生成)',
+    `last_msg_id`     BIGINT      NOT NULL DEFAULT 0 COMMENT '最近消息ID',
+    `last_msg_kind`   INT         NOT NULL DEFAULT 0 COMMENT '最近消息类型',
+    `last_sender_id`  BIGINT      NOT NULL DEFAULT 0 COMMENT '最近消息发送者',
+    `last_receiver_id` BIGINT     NOT NULL DEFAULT 0 COMMENT '最近消息接收者',
+    `last_timestamp`  BIGINT      NOT NULL DEFAULT 0 COMMENT '最近消息时间(毫秒)',
+    `unread_count`    INT         NOT NULL DEFAULT 0 COMMENT '未读数量',
+    `created_at`      BIGINT      NOT NULL COMMENT '创建时间(毫秒)',
+    `updated_at`      BIGINT      NOT NULL COMMENT '更新时间(毫秒)',
+    PRIMARY KEY (`owner_id`, `conversation_id`),
+    KEY `idx_owner_updated` (`owner_id`, `updated_at` DESC),
+    KEY `idx_owner_peer` (`owner_id`, `peer_id`)
+)
+ENGINE=InnoDB
+PARTITION BY KEY(`owner_id`) PARTITIONS 16;
+
 
 -- msg_friend: 设备密钥（最小托管实现）
 CREATE TABLE IF NOT EXISTS `device_keys` (

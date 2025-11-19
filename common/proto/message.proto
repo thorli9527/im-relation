@@ -76,6 +76,8 @@ enum ChatScene {
   SINGLE = 1;
   // 群聊会话：群组内的多人聊天
   GROUP = 2;
+  // 资料/系统事件会话
+  PROFILE = 3;
 }
 // ======================================
 // 💠 消息内容结构（oneof 类型）
@@ -113,22 +115,22 @@ message MessageContent {
     VoipContent voip = 14;
     // 通知消息：系统通知
     NotificationContent notification = 15;
-    // 系统消息：系统级消息
-    SystemContent system = 16;
     // 提醒消息：提醒事项
     ReminderContent reminder = 17;
     // 群组事件：群组相关事件
     GroupEventContent group_event = 18;
+    // 好友事件：用于同步别名/备注变更等
+    FriendEventContent friend_event = 24;
     // 名片消息：联系人分享
     ContactCardContent contact_card = 19;
     // 投票消息：投票内容
     VoteContent vote = 20;
     // 红包消息：红包内容
     RedEnvelopeContent red_envelope = 21;
-    // 加密内容封装（端到端加密）
-    EncryptedContent encrypted = 22;
-    // 通用业务确认/通知（处理结果回执）
-    AckContent ack = 23;
+    // 删除消息：用于通知各端某条消息已经被删除（可选回滚/撤回）
+    DeleteContent delete = 22;
+    // 个人信息更新：昵称/头像/邮箱/电话等同步
+    ProfileEventContent profile_update = 27;
   }
 }
 
@@ -143,12 +145,160 @@ message AckContent {
   int32 code = 2;
   // 文本信息（可本地化）
   string message = 3;
-  // 请求的业务种类（如 socket 的 MsgKind 值）
-  int32 request_kind = 4;
   // 可选的引用消息 ID（与此次处理相关的消息）
   optional uint64 ref_message_id = 5;
   // 附加数据（预留）
   bytes extra = 6;
+}
+
+// ===============================
+// 🗑️ 删除消息
+// ===============================
+// 通知各端某条消息已经被移除，可用于撤回或用户主动删除
+message DeleteContent {
+  // 被删除的消息 ID（由 sender 生成）
+  uint64 message_id = 1;
+  // 发起删除的用户 ID
+  int64 deleted_by = 2;
+  // 删除事件发生的时间
+  int64 deleted_at = 3;
+  // 是否同步所有成员（true 表示“撤回”，false 仅在当前设备隐藏）
+  bool for_everyone = 4;
+  // 可选的删除原因（例如“违规内容”）
+  string reason = 5;
+}
+
+// ===============================
+// 🤝 好友业务消息
+// ===============================
+// 将申请与审核组织在同一个业务载体内，便于 socket 推送和前端统一渲染
+message FriendBusinessContent {
+  oneof action {
+    FriendRequestPayload request = 1;
+    FriendRequestDecisionPayload decision = 2;
+  }
+}
+
+// 好友申请来源
+enum FriendRequestSource {
+  // 未知来源
+  FRS_UNKNOWN = 0;
+  // 二维码添加
+  FRS_QR_CODE = 1;
+  // 手机联系人
+  FRS_PHONE_CONTACTS = 2;
+  // 用户ID添加
+  FRS_USER_ID = 3;
+  // 群成员添加
+  FRS_GROUP_MEMBER = 4;
+}
+
+// 好友申请信息
+message FriendRequestPayload {
+  uint64 request_id = 1;
+  int64 from_user_id = 2;
+  int64 to_user_id = 3;
+  string reason = 4;
+  FriendRequestSource source = 5;
+  int64 created_at = 6;
+  string remark = 7;
+  // 申请人想展示的别名/昵称（可用于邀请卡片）
+  string alias = 8;
+}
+
+// 好友申请处理（接受/拒绝），加入默认消息字段以便自动下发欢迎/提示
+message FriendRequestDecisionPayload {
+  uint64 request_id = 1;
+  bool accepted = 2;
+  string remark = 3;
+  int64 decided_at = 4;
+  bool send_default_message = 5;
+  string default_message = 6;
+  // 审批人希望展示给申请人的别名/称呼
+  string alias = 7;
+}
+
+// ===============================
+// 🤝 好友事件
+// ===============================
+// 用于同步好友别名/备注变更等典型事件
+enum FriendEventType {
+  FE_UNSPECIFIED = 0;
+  // 好友别名更新（operator_id 为发起人）
+  FE_ALIAS_UPDATED = 1;
+  // 好友备注更新
+  FE_REMARK_UPDATED = 2;
+  // 好友被拉黑/解除黑名单
+  FE_BLACKLIST_UPDATED = 3;
+}
+
+message FriendEventContent {
+  // 触发事件的用户（通常是 operator/发起者）
+  int64 operator_id = 1;
+  // 关联的好友 ID（事件对象）
+  int64 friend_id = 2;
+  // 事件类型
+  FriendEventType type = 3;
+  // 新别名（可选）
+  optional string alias = 4;
+  // 新备注（可选）
+  optional string remark = 5;
+  // 事件发生时间
+  int64 at = 6;
+  // 事件原因（例如“客户端修改”/“审批”）
+  string reason = 7;
+  // 可扩展 metadata
+  map<string, string> metadata = 8;
+}
+
+// ===============================
+// 👥 群业务消息
+// ===============================
+// 将加群申请与审核封装在同一业务载体
+message GroupBusinessContent {
+  oneof action {
+    GroupJoinRequestPayload join_request = 1;
+    GroupJoinDecisionPayload join_decision = 2;
+    GroupCreateContent create = 3;
+  }
+}
+
+// 加群申请
+message GroupJoinRequestPayload {
+  uint64 request_id = 1;
+  int64 group_id = 2;
+  int64 applicant_id = 3;
+  string reason = 4;
+  int64 created_at = 5;
+  repeated int64 via_member_ids = 6;
+}
+
+// 加群申请审批
+message GroupJoinDecisionPayload {
+  uint64 request_id = 1;
+  int64 group_id = 2;
+  bool approved = 3;
+  int64 decided_at = 4;
+  string remark = 5;
+  repeated int64 approved_member_ids = 6;
+  bool send_default_message = 7;
+  string default_message = 8;
+}
+
+// ===============================
+// 🏗️ 群创建/初始化
+// ===============================
+message GroupCreationMember {
+  int64 member_id = 1;
+  optional string alias = 2;
+  optional int32 role = 3;
+}
+
+message GroupCreateContent {
+  string group_name = 1;
+  repeated GroupCreationMember members = 2;
+  string notice = 3;
+  GroupEventContent event = 5;
 }
 
 // ===============================
@@ -352,8 +502,6 @@ message ForwardContent {
   uint64 original_message_id = 1;
   // 原发送者 ID：原消息的发送者
   string original_sender_id = 2;
-  // 原消息类型：原消息的 MsgKind
-  socket.MsgKind original_kind = 3;
   // 摘要：转发的摘要信息
   string summary = 4;
 }
@@ -412,15 +560,48 @@ message NotificationContent {
   map<string, string> metadata = 3;
 }
 
-// ===============================
-// ⚙️ 系统消息
-// ===============================
-// 用于系统级消息，包含系统代码和内容
-message SystemContent {
-  // 内容：系统消息的内容
-  string content = 1;
-  // 代码：系统消息的代码标识
-  string code = 2;
+message SystemBusinessContent {
+  // 类型：允许预定义枚举以便客户端/服务端统一处理
+  SystemBusinessType business_type = 1;
+  // 标题
+  string title = 2;
+  // 详细内容（可用 JSON 等结构）
+  string detail = 3;
+  // 附加上下文，如关联 ID、发起方等
+  map<string, string> metadata = 4;
+  // 短摘要（可用于列表）
+  optional string summary = 5;
+  // 具体正文内容或跳转文案
+  optional string body = 6;
+  // 展示区域（例如首页/弹窗/ banner）
+  SystemBusinessContent.DisplayArea display_area = 7;
+  // 关联跳转地址
+  optional string action_url = 8;
+  optional int64 valid_from = 9;
+  optional int64 valid_to = 10;
+  // 显示区域：用于控制客户端在哪些位置展示
+  enum DisplayArea {
+    DISPLAY_UNKNOWN = 0;
+    DISPLAY_HOME = 1;
+    DISPLAY_POPUP = 2;
+    DISPLAY_BANNER = 3;
+  }
+}
+
+// 系统业务类型枚举，便于各端通过业务组识别场景。
+enum SystemBusinessType {
+  // 默认值：未知/未分类
+  SYSTEM_BUSINESS_UNKNOWN = 0;
+  // 维护相关任务（暂停服务、升级等）
+  SYSTEM_BUSINESS_MAINTENANCE = 1;
+  // 告警/风险通知
+  SYSTEM_BUSINESS_ALERT = 2;
+  // 升级/迁移/功能上线
+  SYSTEM_BUSINESS_UPGRADE = 3;
+  // 策略/规则调整、权限变更等
+  SYSTEM_BUSINESS_POLICY = 4;
+  // 账户在其它设备/地点上线，被动下线通知
+  SYSTEM_BUSINESS_PASSIVE_LOGOUT = 5;
 }
 
 // ===============================
@@ -434,20 +615,224 @@ message ReminderContent {
   int64 remind_at = 2;
 }
 
+// 个人资料事件载体
+message ProfileEventContent {
+  enum ProfileEventType {
+    EVENT_UNKNOWN = 0;
+    EVENT_NAME = 1;
+    EVENT_AVATAR = 2;
+    EVENT_EMAIL = 3;
+    EVENT_PHONE = 4;
+    EVENT_LOGOUT = 5;
+  }
+  ProfileEventType event_type = 1;
+  string new_value = 2;
+  map<string, string> metadata = 3;
+}
+
 // ===============================
 // 👥 群组事件
 // ===============================
 // 用于群组相关事件，包含群组信息和操作者
-message GroupEventContent {
-  // 群组 ID：事件相关的群组
-  int64 group_id = 1;
-  // 事件：事件的具体描述
-  string event = 2;
-  // 操作者 ID：执行操作的用户
+  message GroupEventContent {
+    // 群组 ID：事件相关的群组
+    int64 group_id = 1;
+    // 事件“类型”：机器可读
+    GroupEventType type = 2;
+  // 操作者 ID（系统事件/定时任务可填 0）
   int64 operator_id = 3;
+  // 事件发生时间（用于审计/排序）
+  int64 at = 4;
+  // 统一可观测：人类可读原因、灰度标记等
+  string reason = 6;
+  // 附加 metadata（灰度开关、来源端、客户端版本等）
+  map<string, string> metadata = 7;
+    // 关联的申请/消息/工单等（如审批 request_id、公告消息 id）
+    optional uint64 ref_id = 8;
+    // 幂等追踪/链路排查（如 ULID/UUID）
+    string trace_id = 9;
+
+    oneof payload {
+      // 成员变更事件（入群/退群/踢人/邀请/审批等）
+      GroupMemberChanged member_changed = 10;
+      // 成员角色变更（升降级、转让群主等）
+      GroupRoleChanged role_changed = 11;
+      // 群资料更新（名称/头像/描述等）
+      GroupInfoUpdated info_updated = 12;
+      // 权限配置更新（加群策略、邀请权限等）
+      GroupPermissionUpdated permission_updated = 13;
+      // 禁言开关或成员被禁言
+      GroupMuteChanged mute_changed = 14;
+      // 成员被封禁/解除封禁
+      GroupBanChanged ban_changed = 15;
+      // 邀请链接变更
+      GroupInviteLinkUpdated invite_link_updated = 16;
+      // 公告内容变更
+      GroupAnnouncementUpdated announcement_updated = 17;
+      // 置顶消息变更（新增/移除）
+      GroupPinChanged pin_changed = 18;
+      // 入群/退群事件（仅额外场景）
+      GroupJoinLeave join_leave = 19;
+      // 自定义事件负载（可扩展）
+      GroupCustomEvent custom = 99;
+    }
+  }
+
+message GroupMemberChanged {
+  enum Action {
+    ACTION_UNSPECIFIED = 0;
+    ACTION_JOINED = 1;
+    ACTION_LEFT = 2;
+    ACTION_KICKED = 3;
+    ACTION_INVITED = 4;
+    ACTION_APPROVED = 5;
+  }
+  Action action = 1;
+  int64 member_id = 2;
+  string member_alias = 3;
+  int64 occurred_at = 4;
+  repeated int64 via_member_ids = 5;
+  string note = 6;
 }
 
+message GroupRoleChanged {
+  enum RoleChangeType {
+    ROLE_CHANGE_UNSPECIFIED = 0;
+    ROLE_PROMOTED = 1;
+    ROLE_DEMOTED = 2;
+    OWNER_TRANSFERRED = 3;
+  }
+  RoleChangeType change_type = 1;
+  int64 target_member_id = 2;
+  string previous_role = 3;
+  string current_role = 4;
+}
 
+message GroupInfoUpdated {
+  // 变更前群名称。
+  string previous_name = 1;
+  // 变更后群名称。
+  string current_name = 2;
+  // 变更前群头像 URL。
+  string previous_avatar = 3;
+  // 变更后群头像 URL。
+  string current_avatar = 4;
+  // 变更前群简介/描述。
+  string previous_description = 5;
+  // 变更后群简介/描述。
+  string current_description = 6;
+}
+
+message GroupPermissionUpdated {
+  // 变更前的权限配置（key/value 表示权限项和值）。
+  map<string, string> previous_permissions = 1;
+  // 变更后的权限配置。
+  map<string, string> current_permissions = 2;
+}
+
+message GroupMuteChanged {
+  // 是否开启全员禁言。
+  bool enable_all_mute = 1;
+  // 针对的成员 ID（若针对个人禁言）。
+  int64 target_member_id = 2;
+  // 禁言结束时间。
+  int64 mute_until = 3;
+}
+
+message GroupBanChanged {
+  // 被封禁成员 ID。
+  int64 member_id = 1;
+  // 封禁结束时间。
+  int64 banned_until = 2;
+  // 封禁原因。
+  string reason = 3;
+}
+
+message GroupInviteLinkUpdated {
+  // 邀请链接是否可用。
+  bool enabled = 1;
+  // 链接地址。
+  string link = 2;
+  // 链接刷新时间。
+  int64 refreshed_at = 3;
+}
+
+message GroupAnnouncementUpdated {
+  // 消息 ID（如果公告来自某条消息）。
+  uint64 message_id = 1;
+  // 变更前内容。
+  string previous_announcement = 2;
+  // 当前公告内容。
+  string current_announcement = 3;
+}
+
+message GroupPinChanged {
+  // 置顶条目 ID。
+  string pin_id = 1;
+  // 是否被置顶。
+  bool pinned = 2;
+}
+
+message GroupJoinLeave {
+  // 描述成员进入/退出群的事件类型。
+  enum MemberEvent {
+    // 默认值，表示未指定具体事件。
+    MEMBER_EVENT_UNSPECIFIED = 0;
+    // 成员主动离开群组。
+    MEMBER_EVENT_LEFT = 1;
+    // 成员被管理员或系统移除。
+    MEMBER_EVENT_REMOVED = 2;
+  }
+  // 事件类型。
+  MemberEvent event = 1;
+  // 变动成员 ID。
+  int64 member_id = 2;
+}
+
+message GroupCustomEvent {
+  string label = 1;
+  string data = 2;
+}
+
+// ===============================
+// 事件枚举
+// ===============================
+enum GroupEventType {
+  GE_UNSPECIFIED = 0;
+
+  // 成员类
+  GE_MEMBER_JOINED = 1;
+  GE_MEMBER_LEFT = 2;
+  GE_MEMBER_KICKED = 3;
+  GE_MEMBER_INVITED = 4;
+  GE_MEMBER_APPROVED = 5;
+
+  // 角色类
+  GE_ROLE_PROMOTED = 10;
+  GE_ROLE_DEMOTED = 11;
+  GE_OWNER_TRANSFERRED = 12;
+
+  // 资料/设置类
+  GE_INFO_UPDATED = 20;
+  GE_PERMS_UPDATED = 21;
+  GE_INVITE_LINK_UPDATED = 22;
+  GE_ANNOUNCEMENT_UPDATED = 23;
+
+  // 管控类
+  GE_MUTE_ON = 30;
+  GE_MUTE_OFF = 31;
+  GE_MEMBER_MUTED = 32;
+  GE_MEMBER_UNMUTED = 33;
+  GE_MEMBER_BANNED = 34;
+  GE_MEMBER_UNBANNED = 35;
+
+  // 消息管理
+  GE_PIN_ADDED = 40;
+  GE_PIN_REMOVED = 41;
+
+  // 其他/扩展
+  GE_CUSTOM = 1000;
+}
 
 // ===============================
 // 📇 名片消息
@@ -521,13 +906,53 @@ message Content {
   // 消息发送时间（毫秒时间戳）：消息创建的时间
   int64 timestamp = 4;
 
-  // 主消息类型（socket 层 MsgKind，用于快速渲染判断）
-  socket.MsgKind msg_kind = 5;
   // 消息所属会话类型（单聊/群聊）：消息的会话场景
   ChatScene scene = 6;
 
   // 多段复合内容（如文本 + 图片）：消息的具体内容
   repeated MessageContent contents = 10;
+  // 好友申请/受理业务载荷（顶层直接表征）
+  FriendBusinessContent friend_business = 11;
+  // 群申请/受理业务载荷
+  GroupBusinessContent group_business = 12;
+  // 标记：表示该帧仅用于连接保活（心跳）
+  optional bool heartbeat = 13;
+  // 通用业务确认/通知（处理结果回执）
+  AckContent ack = 23;
+  // 系统业务通知：可承载系统事件/任务执行结果
+  SystemBusinessContent system_business = 25;
+}
+
+// 消息所属大类：好友、群、系统或未知。
+enum MsgCategory {
+  // 默认值：未知/未分类消息。
+  MSG_CATEGORY_UNKNOWN = 0;
+  // 好友相关消息。
+  MSG_CATEGORY_FRIEND = 1;
+  // 群聊相关消息。
+  MSG_CATEGORY_GROUP = 2;
+  // 系统/通用通知。
+  MSG_CATEGORY_SYSTEM = 3;
+}
+
+message DeliveryOptions {
+  bool require_ack = 1;
+  optional uint64 expire_ms = 2;
+  optional uint32 max_retry = 3;
+}
+
+message DomainMessage {
+  optional uint64 message_id = 1;
+  int64 sender_id = 2;
+  int64 receiver_id = 3;
+  int64 timestamp = 4;
+  int64 ts_ms = 5;
+  DeliveryOptions delivery = 6;
+  ChatScene scene = 7;
+  MsgCategory category = 8;
+  repeated MessageContent contents = 9;
+  FriendBusinessContent friend_business = 10;
+  GroupBusinessContent group_business = 11;
 }
 
 // =====================
@@ -746,27 +1171,4 @@ message QueryMessagesResponse {
   repeated Content messages = 1;
   // 是否还有更多数据
   bool has_more = 2;
-}
-
-// ===============
-// 加密载荷封装（端到端加密）
-// ===============
-// 说明：服务端只透传本结构中的密文，不解密
-message EncryptedContent {
-  // 加密方案标识，如 "x25519+chacha20poly1305"
-  string scheme = 1;
-  // 发送方的会话公钥（如 X25519 公钥）
-  bytes sender_pub = 2;
-  // 会话/密钥标识（便于接收端定位密钥材料）
-  string key_id = 3;
-  // AEAD 随机数/计数随机量
-  bytes nonce = 4;
-  // AEAD 密文（含认证标签）；密文内容为“单条 MessageContent 的 Protobuf 编码”
-  // 注意：仅对 MessageContent 加密，顶层 Content 的元数据（sender/receiver/timestamp/scene/msg_kind）保持明文
-  bytes ciphertext = 5;
-  // 附加认证数据（A.A.D.，可为空）
-  // 建议包含：message_id|sender_id|receiver_id|scene|timestamp（按一致序拼接），用于端到端防篡改
-  bytes aad = 6;
-  // 发送方本地单调消息序号（防重放/乱序）
-  uint64 msg_no = 7;
 }

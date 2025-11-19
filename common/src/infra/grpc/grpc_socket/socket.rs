@@ -43,8 +43,6 @@ pub struct ClientMsg {
     #[prost(int64, optional, tag = "1")]
     pub ack: ::core::option::Option<i64>,
     /// 业务类型（枚举）
-    #[prost(enumeration = "MsgKind", tag = "2")]
-    pub kind: i32,
     /// 二进制负载（建议为具体业务的 Protobuf）
     #[prost(bytes = "vec", tag = "3")]
     pub payload: ::prost::alloc::vec::Vec<u8>,
@@ -58,43 +56,12 @@ pub struct ServerMsg {
     /// 消息唯一 ID（用于客户端 ACK 对齐）
     #[prost(int64, tag = "1")]
     pub id: i64,
-    /// 业务类型（枚举）
-    #[prost(enumeration = "MsgKind", tag = "2")]
-    pub kind: i32,
     /// 二进制负载（建议为具体业务的 Protobuf）
     #[prost(bytes = "vec", tag = "3")]
     pub payload: ::prost::alloc::vec::Vec<u8>,
     /// 业务时间戳（毫秒）
     #[prost(int64, tag = "4")]
     pub ts_ms: i64,
-}
-/// Kafka 投递消息（生产者 → socket 分发）
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct KafkaMsg {
-    /// 目标用户 ID
-    #[prost(int64, tag = "1")]
-    pub to: i64,
-    /// 消息唯一 ID（可选；缺省由消费者在接收处生成）
-    #[prost(int64, optional, tag = "2")]
-    pub id: ::core::option::Option<i64>,
-    /// 业务类型（枚举）
-    #[prost(enumeration = "MsgKind", tag = "3")]
-    pub kind: i32,
-    /// 二进制负载（建议为具体业务的 Protobuf）
-    #[prost(bytes = "vec", tag = "4")]
-    pub payload: ::prost::alloc::vec::Vec<u8>,
-    /// 是否需要 ACK（缺省 true）
-    #[prost(bool, optional, tag = "5")]
-    pub require_ack: ::core::option::Option<bool>,
-    /// ACK 超时时间（毫秒，缺省 10000）
-    #[prost(uint64, optional, tag = "6")]
-    pub expire_ms: ::core::option::Option<u64>,
-    /// 最大重试次数（缺省 2）
-    #[prost(uint32, optional, tag = "7")]
-    pub max_retry: ::core::option::Option<u32>,
-    /// 业务时间戳（毫秒；缺省使用 id）
-    #[prost(int64, optional, tag = "8")]
-    pub ts_ms: ::core::option::Option<i64>,
 }
 /// 设备类型：用于多端登录策略控制
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]

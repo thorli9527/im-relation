@@ -1,7 +1,9 @@
 use anyhow::{anyhow, Result};
 use common::config::AppConfig;
 use common::infra::grpc::grpc_friend::friend_service::friend_service_client::FriendServiceClient;
-use common::infra::grpc::grpc_friend::friend_service::{FriendEntry, GetFriendsPageDetailedReq};
+use common::infra::grpc::grpc_friend::friend_service::{
+    FriendEntry, GetFriendsPageDetailedReq, IsFriendReq,
+};
 use common::infra::grpc::GrpcClientManager;
 use common::support::node::{NodeType, NodeUtil};
 use common::support::util::common_utils::hash_index;
@@ -81,4 +83,15 @@ pub async fn get_friends_page_detailed(
         .into_inner();
 
     Ok(response.friends)
+}
+
+pub async fn is_friend(user_id: i64, friend_id: i64) -> Result<bool> {
+    let addr = resolve_friend_addr(user_id).await?;
+    let mut client = connect_friend_service(&addr).await?;
+    let resp = client
+        .is_friend(IsFriendReq { user_id, friend_id })
+        .await
+        .map_err(|status| anyhow!("friend service is_friend failed: {status}"))?
+        .into_inner();
+    Ok(resp.is_friend)
 }

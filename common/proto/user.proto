@@ -241,6 +241,7 @@ message UserEntity {
   int64 create_time = 12;
   int64 update_time = 13;
   int32 version = 14;
+  int64 profile_version = 15;
   reserved 100 to 119;
 }
 
@@ -249,7 +250,7 @@ message FindUserDto {
 }
 
 message RegisterUserReq {
-  string name = 1;
+  reserved 1;
   string password = 2;
   optional string email = 4;
   optional string phone = 5;

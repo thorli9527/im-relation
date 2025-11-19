@@ -4,7 +4,7 @@
 //! dispatching to the respective server modules so they can read arbitration, database, and socket
 //! topology information.
 
-use app_api::{server_grpc, server_web, service};
+use app_api::{server_web, service};
 use common::config::AppConfig;
 
 #[tokio::main]
@@ -14,8 +14,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Warm arbitration caches and other shared state so both servers share the same view.
     service::init().await;
 
-    // Web (Axum) + gRPC run concurrently; surface-level errors bubble up as boxed errors.
-    tokio::try_join!(server_web::start(), server_grpc::start())
-        .map(|_| ())
-        .map_err(|e| -> Box<dyn std::error::Error> { e.into() })
+    server_web::start().await?;
+    Ok(())
 }

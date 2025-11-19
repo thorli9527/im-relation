@@ -11,9 +11,9 @@ use prost::Message;
 use tokio::sync::mpsc;
 use tokio::time::sleep;
 
-use crate::service::handles::{FriendHandler, GroupHandler, Handler as _, SystemHandler};
 use crate::service::types::{
-    ClientMsg, DeviceId, DeviceType, MessageId, MsgKind, SendOpts, ServerMsg, SessionId, UserId,
+    infer_msg_kind, ClientMsg, DeviceId, DeviceType, MessageId, MsgKind, SendOpts, ServerMsg,
+    SessionId, UserId,
 };
 use serde_json::json;
 use time::OffsetDateTime;
@@ -296,7 +296,7 @@ impl SessionManager {
     }
 
     /// 通知被踢下线的旧会话，以便客户端展示原因。
-    fn notify_kick(&self, handle: &SessionHandle, reason: &str) {
+    fn notify_kick(&self, handle: &SessionHandle, _reason: &str) {
         let now_ms = current_millis();
         let payload = json!({
             "notice_type": "login_duplicate",
@@ -305,8 +305,8 @@ impl SessionManager {
         .to_string();
         let msg = ServerMsg {
             id: now_ms,
-            kind: MsgKind::MkSysNotice,
-            payload: payload.into_bytes(),
+            payload: msgpb::Content::default(),
+            raw_payload: payload.into_bytes(),
             ts_ms: now_ms,
         };
         let _ = handle.send(msg);
@@ -445,12 +445,9 @@ impl SessionManager {
 
         let msg = ServerMsg {
             id: current_millis(),
-            kind: match scene {
-                SceneKey::Direct { .. } => MsgKind::MkFriendTyping,
-                SceneKey::Group { .. } => MsgKind::MkGroupTyping,
-            },
-            payload: buf,
+            payload: msgpb::Content::default(),
             ts_ms: at_ms,
+            raw_payload: buf,
         };
 
         let mut fanout = 0u64;
@@ -602,27 +599,15 @@ impl SessionManager {
             self.acks.ack(id);
             return;
         }
-        if matches!(msg.kind, MsgKind::MkHeartbeat) {
+        let kind = infer_msg_kind(&msg.raw_payload);
+        if matches!(kind, MsgKind::MkHeartbeat) {
             // 心跳已在连接层处理，这里无需进一步分发。
             return;
         }
-        let msg_kind = msg.kind.clone() as i32;
-        // 处理好友消息 100-300 为好友消息
-        if (100..300).contains(&msg_kind) {
-            FriendHandler.handle(user_id, &msg);
-            return;
-        }
-        // 处理群消息 300-500 为群消息
-        if (300..500).contains(&msg_kind) {
-            GroupHandler.handle(user_id, &msg);
-            return;
-        }
-        // 处理系统消息 900-1000 为系统消息
-        if (900..1000).contains(&msg_kind) {
-            SystemHandler.handle(user_id, &msg);
-            return;
-        }
-        // 其他类型：暂不处理
+        warn!(
+            "SessionManager: unhandled client msg kind={:?} from user={}",
+            kind, user_id
+        );
     }
 
     /// 更新点对点会话的 Typing 状态。
@@ -740,19 +725,19 @@ mod tests {
             .await
             .expect("a1 timeout")
             .expect("a1 none");
-        assert_eq!(msg_a1.kind, MsgKind::MkFriendTyping);
+        assert_eq!(infer_msg_kind(&msg_a1.raw_payload), MsgKind::MkFriendTyping);
 
         let msg_a2 = timeout(Duration::from_millis(200), rx_a2.recv())
             .await
             .expect("a2 timeout")
             .expect("a2 none");
-        assert_eq!(msg_a2.kind, MsgKind::MkFriendTyping);
+        assert_eq!(infer_msg_kind(&msg_a2.raw_payload), MsgKind::MkFriendTyping);
 
         let msg_b = timeout(Duration::from_millis(200), rx_b.recv())
             .await
             .expect("b timeout")
             .expect("b none");
-        let typing = msgpb::Typing::decode(msg_b.payload.as_slice()).unwrap();
+        let typing = msgpb::Typing::decode(msg_b.raw_payload.as_slice()).unwrap();
         assert!(matches!(typing.target, Some(typing::Target::ToUserId(1))));
     }
 
@@ -782,13 +767,16 @@ mod tests {
             .await
             .expect("actor timeout")
             .expect("actor none");
-        assert_eq!(msg_actor.kind, MsgKind::MkGroupTyping);
+        assert_eq!(
+            infer_msg_kind(&msg_actor.raw_payload),
+            MsgKind::MkGroupTyping
+        );
 
         let msg_m1 = timeout(Duration::from_millis(200), rx_m1.recv())
             .await
             .expect("m1 timeout")
             .expect("m1 none");
-        let typing = msgpb::Typing::decode(msg_m1.payload.as_slice()).unwrap();
+        let typing = msgpb::Typing::decode(msg_m1.raw_payload.as_slice()).unwrap();
         assert!(matches!(typing.target, Some(typing::Target::GroupId(99))));
     }
 
@@ -823,7 +811,7 @@ mod tests {
             .await
             .expect("expire timeout")
             .expect("expire none");
-        let typing = msgpb::Typing::decode(msg_b.payload.as_slice()).unwrap();
+        let typing = msgpb::Typing::decode(msg_b.raw_payload.as_slice()).unwrap();
         assert_eq!(typing.state, TypingState::TypingNone as i32);
     }
 

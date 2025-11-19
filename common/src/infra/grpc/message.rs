@@ -3,20 +3,16 @@
 /// 💠 消息内容结构（oneof 类型）
 /// ======================================
 /// 使用 oneof 定义不同类型的消息内容，确保消息类型的互斥性
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MessageContent {
     #[prost(
         oneof = "message_content::Content",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 24, 19, 20, 21, 22, 27"
     )]
     pub content: ::core::option::Option<message_content::Content>,
 }
 /// Nested message and enum types in `MessageContent`.
 pub mod message_content {
-    #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-    #[serde(rename_all = "camelCase")]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Content {
         /// 文本消息：纯文本内容
@@ -64,15 +60,15 @@ pub mod message_content {
         /// 通知消息：系统通知
         #[prost(message, tag = "15")]
         Notification(super::NotificationContent),
-        /// 系统消息：系统级消息
-        #[prost(message, tag = "16")]
-        System(super::SystemContent),
         /// 提醒消息：提醒事项
         #[prost(message, tag = "17")]
         Reminder(super::ReminderContent),
         /// 群组事件：群组相关事件
         #[prost(message, tag = "18")]
         GroupEvent(super::GroupEventContent),
+        /// 好友事件：用于同步别名/备注变更等
+        #[prost(message, tag = "24")]
+        FriendEvent(super::FriendEventContent),
         /// 名片消息：联系人分享
         #[prost(message, tag = "19")]
         ContactCard(super::ContactCardContent),
@@ -82,20 +78,18 @@ pub mod message_content {
         /// 红包消息：红包内容
         #[prost(message, tag = "21")]
         RedEnvelope(super::RedEnvelopeContent),
-        /// 加密内容封装（端到端加密）
+        /// 删除消息：用于通知各端某条消息已经被删除（可选回滚/撤回）
         #[prost(message, tag = "22")]
-        Encrypted(super::EncryptedContent),
-        /// 通用业务确认/通知（处理结果回执）
-        #[prost(message, tag = "23")]
-        Ack(super::AckContent),
+        Delete(super::DeleteContent),
+        /// 个人信息更新：昵称/头像/邮箱/电话等同步
+        #[prost(message, tag = "27")]
+        ProfileUpdate(super::ProfileEventContent),
     }
 }
 /// ===============================
 /// ✅ 通用业务确认/通知（处理结果回执）
 /// ===============================
 /// 用于服务端向客户端回传“该业务已处理”的标准结构。
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct AckContent {
     /// 是否成功
@@ -107,9 +101,6 @@ pub struct AckContent {
     /// 文本信息（可本地化）
     #[prost(string, tag = "3")]
     pub message: ::prost::alloc::string::String,
-    /// 请求的业务种类（如 socket 的 MsgKind 值）
-    #[prost(int32, tag = "4")]
-    pub request_kind: i32,
     /// 可选的引用消息 ID（与此次处理相关的消息）
     #[prost(uint64, optional, tag = "5")]
     pub ref_message_id: ::core::option::Option<u64>,
@@ -118,11 +109,200 @@ pub struct AckContent {
     pub extra: ::prost::alloc::vec::Vec<u8>,
 }
 /// ===============================
+/// 🗑️ 删除消息
+/// ===============================
+/// 通知各端某条消息已经被移除，可用于撤回或用户主动删除
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DeleteContent {
+    /// 被删除的消息 ID（由 sender 生成）
+    #[prost(uint64, tag = "1")]
+    pub message_id: u64,
+    /// 发起删除的用户 ID
+    #[prost(int64, tag = "2")]
+    pub deleted_by: i64,
+    /// 删除事件发生的时间
+    #[prost(int64, tag = "3")]
+    pub deleted_at: i64,
+    /// 是否同步所有成员（true 表示“撤回”，false 仅在当前设备隐藏）
+    #[prost(bool, tag = "4")]
+    pub for_everyone: bool,
+    /// 可选的删除原因（例如“违规内容”）
+    #[prost(string, tag = "5")]
+    pub reason: ::prost::alloc::string::String,
+}
+/// ===============================
+/// 🤝 好友业务消息
+/// ===============================
+/// 将申请与审核组织在同一个业务载体内，便于 socket 推送和前端统一渲染
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FriendBusinessContent {
+    #[prost(oneof = "friend_business_content::Action", tags = "1, 2")]
+    pub action: ::core::option::Option<friend_business_content::Action>,
+}
+/// Nested message and enum types in `FriendBusinessContent`.
+pub mod friend_business_content {
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    pub enum Action {
+        #[prost(message, tag = "1")]
+        Request(super::FriendRequestPayload),
+        #[prost(message, tag = "2")]
+        Decision(super::FriendRequestDecisionPayload),
+    }
+}
+/// 好友申请信息
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FriendRequestPayload {
+    #[prost(uint64, tag = "1")]
+    pub request_id: u64,
+    #[prost(int64, tag = "2")]
+    pub from_user_id: i64,
+    #[prost(int64, tag = "3")]
+    pub to_user_id: i64,
+    #[prost(string, tag = "4")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(enumeration = "FriendRequestSource", tag = "5")]
+    pub source: i32,
+    #[prost(int64, tag = "6")]
+    pub created_at: i64,
+    #[prost(string, tag = "7")]
+    pub remark: ::prost::alloc::string::String,
+    /// 申请人想展示的别名/昵称（可用于邀请卡片）
+    #[prost(string, tag = "8")]
+    pub alias: ::prost::alloc::string::String,
+}
+/// 好友申请处理（接受/拒绝），加入默认消息字段以便自动下发欢迎/提示
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FriendRequestDecisionPayload {
+    #[prost(uint64, tag = "1")]
+    pub request_id: u64,
+    #[prost(bool, tag = "2")]
+    pub accepted: bool,
+    #[prost(string, tag = "3")]
+    pub remark: ::prost::alloc::string::String,
+    #[prost(int64, tag = "4")]
+    pub decided_at: i64,
+    #[prost(bool, tag = "5")]
+    pub send_default_message: bool,
+    #[prost(string, tag = "6")]
+    pub default_message: ::prost::alloc::string::String,
+    /// 审批人希望展示给申请人的别名/称呼
+    #[prost(string, tag = "7")]
+    pub alias: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FriendEventContent {
+    /// 触发事件的用户（通常是 operator/发起者）
+    #[prost(int64, tag = "1")]
+    pub operator_id: i64,
+    /// 关联的好友 ID（事件对象）
+    #[prost(int64, tag = "2")]
+    pub friend_id: i64,
+    /// 事件类型
+    #[prost(enumeration = "FriendEventType", tag = "3")]
+    pub r#type: i32,
+    /// 新别名（可选）
+    #[prost(string, optional, tag = "4")]
+    pub alias: ::core::option::Option<::prost::alloc::string::String>,
+    /// 新备注（可选）
+    #[prost(string, optional, tag = "5")]
+    pub remark: ::core::option::Option<::prost::alloc::string::String>,
+    /// 事件发生时间
+    #[prost(int64, tag = "6")]
+    pub at: i64,
+    /// 事件原因（例如“客户端修改”/“审批”）
+    #[prost(string, tag = "7")]
+    pub reason: ::prost::alloc::string::String,
+    /// 可扩展 metadata
+    #[prost(map = "string, string", tag = "8")]
+    pub metadata: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
+}
+/// ===============================
+/// 👥 群业务消息
+/// ===============================
+/// 将加群申请与审核封装在同一业务载体
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GroupBusinessContent {
+    #[prost(oneof = "group_business_content::Action", tags = "1, 2, 3")]
+    pub action: ::core::option::Option<group_business_content::Action>,
+}
+/// Nested message and enum types in `GroupBusinessContent`.
+pub mod group_business_content {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Action {
+        #[prost(message, tag = "1")]
+        JoinRequest(super::GroupJoinRequestPayload),
+        #[prost(message, tag = "2")]
+        JoinDecision(super::GroupJoinDecisionPayload),
+        #[prost(message, tag = "3")]
+        Create(super::GroupCreateContent),
+    }
+}
+/// 加群申请
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GroupJoinRequestPayload {
+    #[prost(uint64, tag = "1")]
+    pub request_id: u64,
+    #[prost(int64, tag = "2")]
+    pub group_id: i64,
+    #[prost(int64, tag = "3")]
+    pub applicant_id: i64,
+    #[prost(string, tag = "4")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(int64, tag = "5")]
+    pub created_at: i64,
+    #[prost(int64, repeated, tag = "6")]
+    pub via_member_ids: ::prost::alloc::vec::Vec<i64>,
+}
+/// 加群申请审批
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GroupJoinDecisionPayload {
+    #[prost(uint64, tag = "1")]
+    pub request_id: u64,
+    #[prost(int64, tag = "2")]
+    pub group_id: i64,
+    #[prost(bool, tag = "3")]
+    pub approved: bool,
+    #[prost(int64, tag = "4")]
+    pub decided_at: i64,
+    #[prost(string, tag = "5")]
+    pub remark: ::prost::alloc::string::String,
+    #[prost(int64, repeated, tag = "6")]
+    pub approved_member_ids: ::prost::alloc::vec::Vec<i64>,
+    #[prost(bool, tag = "7")]
+    pub send_default_message: bool,
+    #[prost(string, tag = "8")]
+    pub default_message: ::prost::alloc::string::String,
+}
+/// ===============================
+/// 🏗️ 群创建/初始化
+/// ===============================
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GroupCreationMember {
+    #[prost(int64, tag = "1")]
+    pub member_id: i64,
+    #[prost(string, optional, tag = "2")]
+    pub alias: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int32, optional, tag = "3")]
+    pub role: ::core::option::Option<i32>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GroupCreateContent {
+    #[prost(string, tag = "1")]
+    pub group_name: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "2")]
+    pub members: ::prost::alloc::vec::Vec<GroupCreationMember>,
+    #[prost(string, tag = "3")]
+    pub notice: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "5")]
+    pub event: ::core::option::Option<GroupEventContent>,
+}
+/// ===============================
 /// 📄 文本消息
 /// ===============================
 /// 支持纯文本和富文本格式，包含内联实体（链接、@用户、话题等）
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TextContent {
     /// 文本主体内容：消息的文本内容
@@ -133,8 +313,6 @@ pub struct TextContent {
     pub entities: ::prost::alloc::vec::Vec<InlineEntity>,
 }
 /// 内联实体：用于在文本中标记特殊元素
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct InlineEntity {
     /// 起始位置（UTF-8 字符索引）：实体在文本中的开始位置
@@ -154,8 +332,6 @@ pub struct InlineEntity {
 /// 🖼️ 图片消息
 /// ===============================
 /// 包含图片的完整信息，支持原图和缩略图
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ImageContent {
     /// 原图 URL：图片的完整地址
@@ -181,8 +357,6 @@ pub struct ImageContent {
 /// 🔊 音频消息
 /// ===============================
 /// 支持语音聊天和音乐播放，包含时长和格式信息
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct AudioContent {
     /// 音频文件 URL：音频文件的地址
@@ -205,8 +379,6 @@ pub struct AudioContent {
 /// 🎞️ 视频消息
 /// ===============================
 /// 包含视频文件和封面图，支持播放控制
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct VideoContent {
     /// 视频文件 URL：视频文件的地址
@@ -235,8 +407,6 @@ pub struct VideoContent {
 /// 📍 位置消息
 /// ===============================
 /// 包含地理位置信息，支持地址描述和地图显示
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct LocationContent {
     /// 纬度：地理位置的纬度坐标
@@ -259,8 +429,6 @@ pub struct LocationContent {
 /// 📁 文件消息
 /// ===============================
 /// 支持任意文件类型，包含文件信息和图标
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct FileContent {
     /// 文件 URL：文件的下载地址
@@ -283,8 +451,6 @@ pub struct FileContent {
 /// 📞 音视频通话信令
 /// ===============================
 /// 用于音视频通话的控制信令，包含通话状态和参与者信息
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct AvCallContent {
     /// 通话 ID：通话的唯一标识
@@ -311,9 +477,17 @@ pub struct AvCallContent {
 }
 /// Nested message and enum types in `AVCallContent`.
 pub mod av_call_content {
-    #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-    #[serde(rename_all = "camelCase")]
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum CallAction {
         /// 未知操作
@@ -361,9 +535,17 @@ pub mod av_call_content {
             }
         }
     }
-    #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-    #[serde(rename_all = "camelCase")]
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum CallType {
         /// 音频通话：仅语音通话
@@ -396,8 +578,6 @@ pub mod av_call_content {
 /// 💠 自定义结构化消息
 /// ===============================
 /// 支持开发者自定义的消息结构，通常以 JSON 格式承载
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CustomContent {
     /// 自定义类型：消息的自定义类型标识
@@ -411,8 +591,6 @@ pub struct CustomContent {
 /// 😄 表情消息
 /// ===============================
 /// 支持标准 emoji 和自定义表情
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EmojiContent {
     /// 表情类型：标准 emoji 类型
@@ -426,8 +604,6 @@ pub struct EmojiContent {
 /// ⛔ 撤回消息
 /// ===============================
 /// 用于通知消息撤回，包含撤回的目标消息信息
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RevokeContent {
     /// 目标消息 ID：被撤回的消息ID
@@ -444,8 +620,6 @@ pub struct RevokeContent {
 /// 📤 转发消息
 /// ===============================
 /// 用于消息转发，包含原消息的基本信息
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ForwardContent {
     /// 原消息 ID：被转发消息的ID
@@ -454,12 +628,6 @@ pub struct ForwardContent {
     /// 原发送者 ID：原消息的发送者
     #[prost(string, tag = "2")]
     pub original_sender_id: ::prost::alloc::string::String,
-    /// 原消息类型：原消息的 MsgKind
-    #[prost(
-        enumeration = "crate::infra::grpc::grpc_socket::socket::MsgKind",
-        tag = "3"
-    )]
-    pub original_kind: i32,
     /// 摘要：转发的摘要信息
     #[prost(string, tag = "4")]
     pub summary: ::prost::alloc::string::String,
@@ -468,8 +636,6 @@ pub struct ForwardContent {
 /// 📌 引用回复消息
 /// ===============================
 /// 用于回复特定消息，包含被引用消息的信息
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct QuoteContent {
     /// 被引用消息 ID：被回复消息的ID
@@ -486,8 +652,6 @@ pub struct QuoteContent {
 /// 🌐 HTML 卡片
 /// ===============================
 /// 用于富文本内容，支持网页链接和预览
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HtmlContent {
     /// 标题：卡片的标题
@@ -504,8 +668,6 @@ pub struct HtmlContent {
 /// 📞 VOIP 通话记录
 /// ===============================
 /// 用于记录通话历史，包含通话的基本信息
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct VoipContent {
     /// 主叫 ID：发起通话的用户
@@ -525,8 +687,6 @@ pub struct VoipContent {
 /// 🔔 通知消息
 /// ===============================
 /// 用于系统通知，包含标题、内容和元数据
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct NotificationContent {
     /// 标题：通知的标题
@@ -537,30 +697,95 @@ pub struct NotificationContent {
     pub body: ::prost::alloc::string::String,
     /// 元数据：通知的附加信息
     #[prost(map = "string, string", tag = "3")]
-    pub metadata:
-        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    pub metadata: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
 }
-/// ===============================
-/// ⚙️ 系统消息
-/// ===============================
-/// 用于系统级消息，包含系统代码和内容
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct SystemContent {
-    /// 内容：系统消息的内容
-    #[prost(string, tag = "1")]
-    pub content: ::prost::alloc::string::String,
-    /// 代码：系统消息的代码标识
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SystemBusinessContent {
+    /// 类型：允许预定义枚举以便客户端/服务端统一处理
+    #[prost(enumeration = "SystemBusinessType", tag = "1")]
+    pub business_type: i32,
+    /// 标题
     #[prost(string, tag = "2")]
-    pub code: ::prost::alloc::string::String,
+    pub title: ::prost::alloc::string::String,
+    /// 详细内容（可用 JSON 等结构）
+    #[prost(string, tag = "3")]
+    pub detail: ::prost::alloc::string::String,
+    /// 附加上下文，如关联 ID、发起方等
+    #[prost(map = "string, string", tag = "4")]
+    pub metadata: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
+    /// 短摘要（可用于列表）
+    #[prost(string, optional, tag = "5")]
+    pub summary: ::core::option::Option<::prost::alloc::string::String>,
+    /// 具体正文内容或跳转文案
+    #[prost(string, optional, tag = "6")]
+    pub body: ::core::option::Option<::prost::alloc::string::String>,
+    /// 展示区域（例如首页/弹窗/ banner）
+    #[prost(enumeration = "system_business_content::DisplayArea", tag = "7")]
+    pub display_area: i32,
+    /// 关联跳转地址
+    #[prost(string, optional, tag = "8")]
+    pub action_url: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int64, optional, tag = "9")]
+    pub valid_from: ::core::option::Option<i64>,
+    #[prost(int64, optional, tag = "10")]
+    pub valid_to: ::core::option::Option<i64>,
+}
+/// Nested message and enum types in `SystemBusinessContent`.
+pub mod system_business_content {
+    /// 显示区域：用于控制客户端在哪些位置展示
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
+    #[repr(i32)]
+    pub enum DisplayArea {
+        DisplayUnknown = 0,
+        DisplayHome = 1,
+        DisplayPopup = 2,
+        DisplayBanner = 3,
+    }
+    impl DisplayArea {
+        /// String value of the enum field names used in the ProtoBuf definition.
+        ///
+        /// The values are not transformed in any way and thus are considered stable
+        /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+        pub fn as_str_name(&self) -> &'static str {
+            match self {
+                Self::DisplayUnknown => "DISPLAY_UNKNOWN",
+                Self::DisplayHome => "DISPLAY_HOME",
+                Self::DisplayPopup => "DISPLAY_POPUP",
+                Self::DisplayBanner => "DISPLAY_BANNER",
+            }
+        }
+        /// Creates an enum from field names used in the ProtoBuf definition.
+        pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+            match value {
+                "DISPLAY_UNKNOWN" => Some(Self::DisplayUnknown),
+                "DISPLAY_HOME" => Some(Self::DisplayHome),
+                "DISPLAY_POPUP" => Some(Self::DisplayPopup),
+                "DISPLAY_BANNER" => Some(Self::DisplayBanner),
+                _ => None,
+            }
+        }
+    }
 }
 /// ===============================
 /// ⏰ 提醒事项
 /// ===============================
 /// 用于提醒功能，包含提醒文本和时间
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ReminderContent {
     /// 文本：提醒的内容
@@ -570,30 +795,429 @@ pub struct ReminderContent {
     #[prost(int64, tag = "2")]
     pub remind_at: i64,
 }
+/// 个人资料事件载体
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ProfileEventContent {
+    #[prost(enumeration = "profile_event_content::ProfileEventType", tag = "1")]
+    pub event_type: i32,
+    #[prost(string, tag = "2")]
+    pub new_value: ::prost::alloc::string::String,
+    #[prost(map = "string, string", tag = "3")]
+    pub metadata: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
+}
+/// Nested message and enum types in `ProfileEventContent`.
+pub mod profile_event_content {
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
+    #[repr(i32)]
+    pub enum ProfileEventType {
+        EventUnknown = 0,
+        EventName = 1,
+        EventAvatar = 2,
+        EventEmail = 3,
+        EventPhone = 4,
+        EventLogout = 5,
+    }
+    impl ProfileEventType {
+        /// String value of the enum field names used in the ProtoBuf definition.
+        ///
+        /// The values are not transformed in any way and thus are considered stable
+        /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+        pub fn as_str_name(&self) -> &'static str {
+            match self {
+                Self::EventUnknown => "EVENT_UNKNOWN",
+                Self::EventName => "EVENT_NAME",
+                Self::EventAvatar => "EVENT_AVATAR",
+                Self::EventEmail => "EVENT_EMAIL",
+                Self::EventPhone => "EVENT_PHONE",
+                Self::EventLogout => "EVENT_LOGOUT",
+            }
+        }
+        /// Creates an enum from field names used in the ProtoBuf definition.
+        pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+            match value {
+                "EVENT_UNKNOWN" => Some(Self::EventUnknown),
+                "EVENT_NAME" => Some(Self::EventName),
+                "EVENT_AVATAR" => Some(Self::EventAvatar),
+                "EVENT_EMAIL" => Some(Self::EventEmail),
+                "EVENT_PHONE" => Some(Self::EventPhone),
+                "EVENT_LOGOUT" => Some(Self::EventLogout),
+                _ => None,
+            }
+        }
+    }
+}
 /// ===============================
 /// 👥 群组事件
 /// ===============================
 /// 用于群组相关事件，包含群组信息和操作者
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GroupEventContent {
     /// 群组 ID：事件相关的群组
     #[prost(int64, tag = "1")]
     pub group_id: i64,
-    /// 事件：事件的具体描述
-    #[prost(string, tag = "2")]
-    pub event: ::prost::alloc::string::String,
-    /// 操作者 ID：执行操作的用户
+    /// 事件“类型”：机器可读
+    #[prost(enumeration = "GroupEventType", tag = "2")]
+    pub r#type: i32,
+    /// 操作者 ID（系统事件/定时任务可填 0）
     #[prost(int64, tag = "3")]
     pub operator_id: i64,
+    /// 事件发生时间（用于审计/排序）
+    #[prost(int64, tag = "4")]
+    pub at: i64,
+    /// 统一可观测：人类可读原因、灰度标记等
+    #[prost(string, tag = "6")]
+    pub reason: ::prost::alloc::string::String,
+    /// 附加 metadata（灰度开关、来源端、客户端版本等）
+    #[prost(map = "string, string", tag = "7")]
+    pub metadata: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
+    /// 关联的申请/消息/工单等（如审批 request_id、公告消息 id）
+    #[prost(uint64, optional, tag = "8")]
+    pub ref_id: ::core::option::Option<u64>,
+    /// 幂等追踪/链路排查（如 ULID/UUID）
+    #[prost(string, tag = "9")]
+    pub trace_id: ::prost::alloc::string::String,
+    #[prost(
+        oneof = "group_event_content::Payload",
+        tags = "10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 99"
+    )]
+    pub payload: ::core::option::Option<group_event_content::Payload>,
+}
+/// Nested message and enum types in `GroupEventContent`.
+pub mod group_event_content {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Payload {
+        /// 成员变更事件（入群/退群/踢人/邀请/审批等）
+        #[prost(message, tag = "10")]
+        MemberChanged(super::GroupMemberChanged),
+        /// 成员角色变更（升降级、转让群主等）
+        #[prost(message, tag = "11")]
+        RoleChanged(super::GroupRoleChanged),
+        /// 群资料更新（名称/头像/描述等）
+        #[prost(message, tag = "12")]
+        InfoUpdated(super::GroupInfoUpdated),
+        /// 权限配置更新（加群策略、邀请权限等）
+        #[prost(message, tag = "13")]
+        PermissionUpdated(super::GroupPermissionUpdated),
+        /// 禁言开关或成员被禁言
+        #[prost(message, tag = "14")]
+        MuteChanged(super::GroupMuteChanged),
+        /// 成员被封禁/解除封禁
+        #[prost(message, tag = "15")]
+        BanChanged(super::GroupBanChanged),
+        /// 邀请链接变更
+        #[prost(message, tag = "16")]
+        InviteLinkUpdated(super::GroupInviteLinkUpdated),
+        /// 公告内容变更
+        #[prost(message, tag = "17")]
+        AnnouncementUpdated(super::GroupAnnouncementUpdated),
+        /// 置顶消息变更（新增/移除）
+        #[prost(message, tag = "18")]
+        PinChanged(super::GroupPinChanged),
+        /// 入群/退群事件（仅额外场景）
+        #[prost(message, tag = "19")]
+        JoinLeave(super::GroupJoinLeave),
+        /// 自定义事件负载（可扩展）
+        #[prost(message, tag = "99")]
+        Custom(super::GroupCustomEvent),
+    }
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GroupMemberChanged {
+    #[prost(enumeration = "group_member_changed::Action", tag = "1")]
+    pub action: i32,
+    #[prost(int64, tag = "2")]
+    pub member_id: i64,
+    #[prost(string, tag = "3")]
+    pub member_alias: ::prost::alloc::string::String,
+    #[prost(int64, tag = "4")]
+    pub occurred_at: i64,
+    #[prost(int64, repeated, tag = "5")]
+    pub via_member_ids: ::prost::alloc::vec::Vec<i64>,
+    #[prost(string, tag = "6")]
+    pub note: ::prost::alloc::string::String,
+}
+/// Nested message and enum types in `GroupMemberChanged`.
+pub mod group_member_changed {
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
+    #[repr(i32)]
+    pub enum Action {
+        Unspecified = 0,
+        Joined = 1,
+        Left = 2,
+        Kicked = 3,
+        Invited = 4,
+        Approved = 5,
+    }
+    impl Action {
+        /// String value of the enum field names used in the ProtoBuf definition.
+        ///
+        /// The values are not transformed in any way and thus are considered stable
+        /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+        pub fn as_str_name(&self) -> &'static str {
+            match self {
+                Self::Unspecified => "ACTION_UNSPECIFIED",
+                Self::Joined => "ACTION_JOINED",
+                Self::Left => "ACTION_LEFT",
+                Self::Kicked => "ACTION_KICKED",
+                Self::Invited => "ACTION_INVITED",
+                Self::Approved => "ACTION_APPROVED",
+            }
+        }
+        /// Creates an enum from field names used in the ProtoBuf definition.
+        pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+            match value {
+                "ACTION_UNSPECIFIED" => Some(Self::Unspecified),
+                "ACTION_JOINED" => Some(Self::Joined),
+                "ACTION_LEFT" => Some(Self::Left),
+                "ACTION_KICKED" => Some(Self::Kicked),
+                "ACTION_INVITED" => Some(Self::Invited),
+                "ACTION_APPROVED" => Some(Self::Approved),
+                _ => None,
+            }
+        }
+    }
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GroupRoleChanged {
+    #[prost(enumeration = "group_role_changed::RoleChangeType", tag = "1")]
+    pub change_type: i32,
+    #[prost(int64, tag = "2")]
+    pub target_member_id: i64,
+    #[prost(string, tag = "3")]
+    pub previous_role: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub current_role: ::prost::alloc::string::String,
+}
+/// Nested message and enum types in `GroupRoleChanged`.
+pub mod group_role_changed {
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
+    #[repr(i32)]
+    pub enum RoleChangeType {
+        RoleChangeUnspecified = 0,
+        RolePromoted = 1,
+        RoleDemoted = 2,
+        OwnerTransferred = 3,
+    }
+    impl RoleChangeType {
+        /// String value of the enum field names used in the ProtoBuf definition.
+        ///
+        /// The values are not transformed in any way and thus are considered stable
+        /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+        pub fn as_str_name(&self) -> &'static str {
+            match self {
+                Self::RoleChangeUnspecified => "ROLE_CHANGE_UNSPECIFIED",
+                Self::RolePromoted => "ROLE_PROMOTED",
+                Self::RoleDemoted => "ROLE_DEMOTED",
+                Self::OwnerTransferred => "OWNER_TRANSFERRED",
+            }
+        }
+        /// Creates an enum from field names used in the ProtoBuf definition.
+        pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+            match value {
+                "ROLE_CHANGE_UNSPECIFIED" => Some(Self::RoleChangeUnspecified),
+                "ROLE_PROMOTED" => Some(Self::RolePromoted),
+                "ROLE_DEMOTED" => Some(Self::RoleDemoted),
+                "OWNER_TRANSFERRED" => Some(Self::OwnerTransferred),
+                _ => None,
+            }
+        }
+    }
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GroupInfoUpdated {
+    /// 变更前群名称。
+    #[prost(string, tag = "1")]
+    pub previous_name: ::prost::alloc::string::String,
+    /// 变更后群名称。
+    #[prost(string, tag = "2")]
+    pub current_name: ::prost::alloc::string::String,
+    /// 变更前群头像 URL。
+    #[prost(string, tag = "3")]
+    pub previous_avatar: ::prost::alloc::string::String,
+    /// 变更后群头像 URL。
+    #[prost(string, tag = "4")]
+    pub current_avatar: ::prost::alloc::string::String,
+    /// 变更前群简介/描述。
+    #[prost(string, tag = "5")]
+    pub previous_description: ::prost::alloc::string::String,
+    /// 变更后群简介/描述。
+    #[prost(string, tag = "6")]
+    pub current_description: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GroupPermissionUpdated {
+    /// 变更前的权限配置（key/value 表示权限项和值）。
+    #[prost(map = "string, string", tag = "1")]
+    pub previous_permissions: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
+    /// 变更后的权限配置。
+    #[prost(map = "string, string", tag = "2")]
+    pub current_permissions: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GroupMuteChanged {
+    /// 是否开启全员禁言。
+    #[prost(bool, tag = "1")]
+    pub enable_all_mute: bool,
+    /// 针对的成员 ID（若针对个人禁言）。
+    #[prost(int64, tag = "2")]
+    pub target_member_id: i64,
+    /// 禁言结束时间。
+    #[prost(int64, tag = "3")]
+    pub mute_until: i64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GroupBanChanged {
+    /// 被封禁成员 ID。
+    #[prost(int64, tag = "1")]
+    pub member_id: i64,
+    /// 封禁结束时间。
+    #[prost(int64, tag = "2")]
+    pub banned_until: i64,
+    /// 封禁原因。
+    #[prost(string, tag = "3")]
+    pub reason: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GroupInviteLinkUpdated {
+    /// 邀请链接是否可用。
+    #[prost(bool, tag = "1")]
+    pub enabled: bool,
+    /// 链接地址。
+    #[prost(string, tag = "2")]
+    pub link: ::prost::alloc::string::String,
+    /// 链接刷新时间。
+    #[prost(int64, tag = "3")]
+    pub refreshed_at: i64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GroupAnnouncementUpdated {
+    /// 消息 ID（如果公告来自某条消息）。
+    #[prost(uint64, tag = "1")]
+    pub message_id: u64,
+    /// 变更前内容。
+    #[prost(string, tag = "2")]
+    pub previous_announcement: ::prost::alloc::string::String,
+    /// 当前公告内容。
+    #[prost(string, tag = "3")]
+    pub current_announcement: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GroupPinChanged {
+    /// 置顶条目 ID。
+    #[prost(string, tag = "1")]
+    pub pin_id: ::prost::alloc::string::String,
+    /// 是否被置顶。
+    #[prost(bool, tag = "2")]
+    pub pinned: bool,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GroupJoinLeave {
+    /// 事件类型。
+    #[prost(enumeration = "group_join_leave::MemberEvent", tag = "1")]
+    pub event: i32,
+    /// 变动成员 ID。
+    #[prost(int64, tag = "2")]
+    pub member_id: i64,
+}
+/// Nested message and enum types in `GroupJoinLeave`.
+pub mod group_join_leave {
+    /// 描述成员进入/退出群的事件类型。
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
+    #[repr(i32)]
+    pub enum MemberEvent {
+        /// 默认值，表示未指定具体事件。
+        Unspecified = 0,
+        /// 成员主动离开群组。
+        Left = 1,
+        /// 成员被管理员或系统移除。
+        Removed = 2,
+    }
+    impl MemberEvent {
+        /// String value of the enum field names used in the ProtoBuf definition.
+        ///
+        /// The values are not transformed in any way and thus are considered stable
+        /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+        pub fn as_str_name(&self) -> &'static str {
+            match self {
+                Self::Unspecified => "MEMBER_EVENT_UNSPECIFIED",
+                Self::Left => "MEMBER_EVENT_LEFT",
+                Self::Removed => "MEMBER_EVENT_REMOVED",
+            }
+        }
+        /// Creates an enum from field names used in the ProtoBuf definition.
+        pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+            match value {
+                "MEMBER_EVENT_UNSPECIFIED" => Some(Self::Unspecified),
+                "MEMBER_EVENT_LEFT" => Some(Self::Left),
+                "MEMBER_EVENT_REMOVED" => Some(Self::Removed),
+                _ => None,
+            }
+        }
+    }
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GroupCustomEvent {
+    #[prost(string, tag = "1")]
+    pub label: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub data: ::prost::alloc::string::String,
 }
 /// ===============================
 /// 📇 名片消息
 /// ===============================
 /// 用于分享联系人信息，包含用户的基本信息
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ContactCardContent {
     /// 目标 ID：被分享用户的ID
@@ -613,8 +1237,6 @@ pub struct ContactCardContent {
 /// 📊 投票消息
 /// ===============================
 /// 用于群组投票功能，包含投票选项和结果
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct VoteContent {
     /// 主题：投票的主题
@@ -634,8 +1256,6 @@ pub struct VoteContent {
 /// 💰 红包消息
 /// ===============================
 /// 用于红包功能，包含红包金额和状态
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RedEnvelopeContent {
     /// 发送者 ID：红包发送者
@@ -655,8 +1275,6 @@ pub struct RedEnvelopeContent {
 /// ✂️ Segment - 消息段结构（用于复合内容）
 /// ======================================
 /// 表示一条消息中的一个独立段（如文本段、图片段等），支持排序、编辑、标记等
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Segment {
     /// 消息段内容（如文本、图片等，使用 oneof 封装）：段的具体内容
@@ -667,15 +1285,15 @@ pub struct Segment {
     pub seq_in_msg: u64,
     /// 通用扩展字段（以字符串键值对存储 JSON 扁平数据）：段的元数据
     #[prost(map = "string, string", tag = "3")]
-    pub metadata:
-        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    pub metadata: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
 }
 /// ======================================
 /// 📨 顶层消息结构
 /// ======================================
 /// 定义了消息的基本框架，包含发送者、接收者、时间等元数据
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Content {
     /// 唯一消息 ID（客户端生成或服务端补全）：消息的唯一标识
@@ -690,22 +1308,63 @@ pub struct Content {
     /// 消息发送时间（毫秒时间戳）：消息创建的时间
     #[prost(int64, tag = "4")]
     pub timestamp: i64,
-    /// 主消息类型（socket 层 MsgKind，用于快速渲染判断）
-    #[prost(
-        enumeration = "crate::infra::grpc::grpc_socket::socket::MsgKind",
-        tag = "5"
-    )]
-    pub msg_kind: i32,
     /// 消息所属会话类型（单聊/群聊）：消息的会话场景
     #[prost(enumeration = "ChatScene", tag = "6")]
     pub scene: i32,
     /// 多段复合内容（如文本 + 图片）：消息的具体内容
     #[prost(message, repeated, tag = "10")]
     pub contents: ::prost::alloc::vec::Vec<MessageContent>,
+    /// 好友申请/受理业务载荷（顶层直接表征）
+    #[prost(message, optional, tag = "11")]
+    pub friend_business: ::core::option::Option<FriendBusinessContent>,
+    /// 群申请/受理业务载荷
+    #[prost(message, optional, tag = "12")]
+    pub group_business: ::core::option::Option<GroupBusinessContent>,
+    /// 标记：表示该帧仅用于连接保活（心跳）
+    #[prost(bool, optional, tag = "13")]
+    pub heartbeat: ::core::option::Option<bool>,
+    /// 通用业务确认/通知（处理结果回执）
+    #[prost(message, optional, tag = "23")]
+    pub ack: ::core::option::Option<AckContent>,
+    /// 系统业务通知：可承载系统事件/任务执行结果
+    #[prost(message, optional, tag = "25")]
+    pub system_business: ::core::option::Option<SystemBusinessContent>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DeliveryOptions {
+    #[prost(bool, tag = "1")]
+    pub require_ack: bool,
+    #[prost(uint64, optional, tag = "2")]
+    pub expire_ms: ::core::option::Option<u64>,
+    #[prost(uint32, optional, tag = "3")]
+    pub max_retry: ::core::option::Option<u32>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DomainMessage {
+    #[prost(uint64, optional, tag = "1")]
+    pub message_id: ::core::option::Option<u64>,
+    #[prost(int64, tag = "2")]
+    pub sender_id: i64,
+    #[prost(int64, tag = "3")]
+    pub receiver_id: i64,
+    #[prost(int64, tag = "4")]
+    pub timestamp: i64,
+    #[prost(int64, tag = "5")]
+    pub ts_ms: i64,
+    #[prost(message, optional, tag = "6")]
+    pub delivery: ::core::option::Option<DeliveryOptions>,
+    #[prost(enumeration = "ChatScene", tag = "7")]
+    pub scene: i32,
+    #[prost(enumeration = "MsgCategory", tag = "8")]
+    pub category: i32,
+    #[prost(message, repeated, tag = "9")]
+    pub contents: ::prost::alloc::vec::Vec<MessageContent>,
+    #[prost(message, optional, tag = "10")]
+    pub friend_business: ::core::option::Option<FriendBusinessContent>,
+    #[prost(message, optional, tag = "11")]
+    pub group_business: ::core::option::Option<GroupBusinessContent>,
 }
 /// 发起呼叫（带 SDP offer）
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CallInvite {
     /// 通话ID（全局唯一字符串/雪花）
@@ -731,8 +1390,6 @@ pub struct CallInvite {
     pub created_at: u64,
 }
 /// 取消呼叫（振铃阶段）
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CallCancel {
     /// 通话ID
@@ -749,8 +1406,6 @@ pub struct CallCancel {
     pub at: u64,
 }
 /// 拒绝呼叫
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CallReject {
     /// 通话ID
@@ -767,8 +1422,6 @@ pub struct CallReject {
     pub at: u64,
 }
 /// 接受呼叫（带 SDP answer）
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CallAccept {
     /// 通话ID
@@ -785,8 +1438,6 @@ pub struct CallAccept {
     pub at: u64,
 }
 /// 通话结束/挂断
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CallHangup {
     /// 通话ID
@@ -806,8 +1457,6 @@ pub struct CallHangup {
     pub at: u64,
 }
 /// 通话中修改（静音/开关摄像头等）
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CallModify {
     /// 通话ID
@@ -827,8 +1476,6 @@ pub struct CallModify {
     pub at: u64,
 }
 /// DTMF 信令
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CallDtmf {
     /// 通话ID
@@ -845,8 +1492,6 @@ pub struct CallDtmf {
     pub at: u64,
 }
 /// 送达回执确认（客户端→服务端：收到 delivered）
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct MsgDeliveredAck {
     #[prost(int64, tag = "1")]
@@ -857,8 +1502,6 @@ pub struct MsgDeliveredAck {
     pub ack_at: i64,
 }
 /// 已读上报（客户端→服务端）
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct MsgRead {
     #[prost(int64, tag = "1")]
@@ -872,8 +1515,6 @@ pub struct MsgRead {
     pub read_at: i64,
 }
 /// 已读回执确认（服务端→客户端：收到 read）
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct MsgReadAck {
     #[prost(int64, tag = "1")]
@@ -884,8 +1525,6 @@ pub struct MsgReadAck {
     pub ack_at: i64,
 }
 /// 消息撤回
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct MsgRecall {
     #[prost(int64, tag = "1")]
@@ -898,8 +1537,6 @@ pub struct MsgRecall {
     pub recalled_at: i64,
 }
 /// 消息转发
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct MsgForward {
     #[prost(int64, tag = "1")]
@@ -914,8 +1551,6 @@ pub struct MsgForward {
     pub created_at: i64,
 }
 /// 消息表态（emoji/reaction）
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct MsgReaction {
     #[prost(int64, tag = "1")]
@@ -930,8 +1565,6 @@ pub struct MsgReaction {
     pub at: i64,
 }
 /// 正在输入
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Typing {
     #[prost(int64, tag = "1")]
@@ -947,8 +1580,6 @@ pub struct Typing {
 }
 /// Nested message and enum types in `Typing`.
 pub mod typing {
-    #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-    #[serde(rename_all = "camelCase")]
     #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Oneof)]
     pub enum Target {
         #[prost(int64, tag = "2")]
@@ -958,8 +1589,6 @@ pub mod typing {
     }
 }
 /// 查询好友消息历史
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct QueryFriendMessagesRequest {
     /// 当前用户 ID
@@ -979,8 +1608,6 @@ pub struct QueryFriendMessagesRequest {
     pub limit: u32,
 }
 /// 查询群聊消息历史
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct QueryGroupMessagesRequest {
     /// 群 ID
@@ -997,8 +1624,6 @@ pub struct QueryGroupMessagesRequest {
     pub limit: u32,
 }
 /// 历史消息查询统一响应
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryMessagesResponse {
     /// 消息列表（按时间倒序或应用约定排序）
@@ -1008,44 +1633,10 @@ pub struct QueryMessagesResponse {
     #[prost(bool, tag = "2")]
     pub has_more: bool,
 }
-/// ===============
-/// 加密载荷封装（端到端加密）
-/// ===============
-/// 说明：服务端只透传本结构中的密文，不解密
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct EncryptedContent {
-    /// 加密方案标识，如 "x25519+chacha20poly1305"
-    #[prost(string, tag = "1")]
-    pub scheme: ::prost::alloc::string::String,
-    /// 发送方的会话公钥（如 X25519 公钥）
-    #[prost(bytes = "vec", tag = "2")]
-    pub sender_pub: ::prost::alloc::vec::Vec<u8>,
-    /// 会话/密钥标识（便于接收端定位密钥材料）
-    #[prost(string, tag = "3")]
-    pub key_id: ::prost::alloc::string::String,
-    /// AEAD 随机数/计数随机量
-    #[prost(bytes = "vec", tag = "4")]
-    pub nonce: ::prost::alloc::vec::Vec<u8>,
-    /// AEAD 密文（含认证标签）；密文内容为“单条 MessageContent 的 Protobuf 编码”
-    /// 注意：仅对 MessageContent 加密，顶层 Content 的元数据（sender/receiver/timestamp/scene/msg_kind）保持明文
-    #[prost(bytes = "vec", tag = "5")]
-    pub ciphertext: ::prost::alloc::vec::Vec<u8>,
-    /// 附加认证数据（A.A.D.，可为空）
-    /// 建议包含：message_id|sender_id|receiver_id|scene|timestamp（按一致序拼接），用于端到端防篡改
-    #[prost(bytes = "vec", tag = "6")]
-    pub aad: ::prost::alloc::vec::Vec<u8>,
-    /// 发送方本地单调消息序号（防重放/乱序）
-    #[prost(uint64, tag = "7")]
-    pub msg_no: u64,
-}
 /// ======================================
 /// 😄 Emoji 类型定义（标准 + 自定义）
 /// ======================================
 /// 定义了系统中支持的 emoji 类型，包括标准 emoji 和自定义表情
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum EmojiType {
@@ -1103,8 +1694,6 @@ impl EmojiType {
     }
 }
 /// 通话媒体类型
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum CallMediaType {
@@ -1134,8 +1723,6 @@ impl CallMediaType {
     }
 }
 /// 通话结束原因
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum CallEndReason {
@@ -1185,8 +1772,6 @@ impl CallEndReason {
     }
 }
 /// 通话内修改类型
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum CallModifyType {
@@ -1227,8 +1812,6 @@ impl CallModifyType {
         }
     }
 }
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum ChatScene {
@@ -1238,6 +1821,8 @@ pub enum ChatScene {
     Single = 1,
     /// 群聊会话：群组内的多人聊天
     Group = 2,
+    /// 资料/系统事件会话
+    Profile = 3,
 }
 impl ChatScene {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1249,6 +1834,7 @@ impl ChatScene {
             Self::ChatUnknown => "CHAT_UNKNOWN",
             Self::Single => "SINGLE",
             Self::Group => "GROUP",
+            Self::Profile => "PROFILE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1257,13 +1843,269 @@ impl ChatScene {
             "CHAT_UNKNOWN" => Some(Self::ChatUnknown),
             "SINGLE" => Some(Self::Single),
             "GROUP" => Some(Self::Group),
+            "PROFILE" => Some(Self::Profile),
+            _ => None,
+        }
+    }
+}
+/// 好友申请来源
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum FriendRequestSource {
+    /// 未知来源
+    FrsUnknown = 0,
+    /// 二维码添加
+    FrsQrCode = 1,
+    /// 手机联系人
+    FrsPhoneContacts = 2,
+    /// 用户ID添加
+    FrsUserId = 3,
+    /// 群成员添加
+    FrsGroupMember = 4,
+}
+impl FriendRequestSource {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::FrsUnknown => "FRS_UNKNOWN",
+            Self::FrsQrCode => "FRS_QR_CODE",
+            Self::FrsPhoneContacts => "FRS_PHONE_CONTACTS",
+            Self::FrsUserId => "FRS_USER_ID",
+            Self::FrsGroupMember => "FRS_GROUP_MEMBER",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "FRS_UNKNOWN" => Some(Self::FrsUnknown),
+            "FRS_QR_CODE" => Some(Self::FrsQrCode),
+            "FRS_PHONE_CONTACTS" => Some(Self::FrsPhoneContacts),
+            "FRS_USER_ID" => Some(Self::FrsUserId),
+            "FRS_GROUP_MEMBER" => Some(Self::FrsGroupMember),
+            _ => None,
+        }
+    }
+}
+/// ===============================
+/// 🤝 好友事件
+/// ===============================
+/// 用于同步好友别名/备注变更等典型事件
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum FriendEventType {
+    FeUnspecified = 0,
+    /// 好友别名更新（operator_id 为发起人）
+    FeAliasUpdated = 1,
+    /// 好友备注更新
+    FeRemarkUpdated = 2,
+    /// 好友被拉黑/解除黑名单
+    FeBlacklistUpdated = 3,
+}
+impl FriendEventType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::FeUnspecified => "FE_UNSPECIFIED",
+            Self::FeAliasUpdated => "FE_ALIAS_UPDATED",
+            Self::FeRemarkUpdated => "FE_REMARK_UPDATED",
+            Self::FeBlacklistUpdated => "FE_BLACKLIST_UPDATED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "FE_UNSPECIFIED" => Some(Self::FeUnspecified),
+            "FE_ALIAS_UPDATED" => Some(Self::FeAliasUpdated),
+            "FE_REMARK_UPDATED" => Some(Self::FeRemarkUpdated),
+            "FE_BLACKLIST_UPDATED" => Some(Self::FeBlacklistUpdated),
+            _ => None,
+        }
+    }
+}
+/// 系统业务类型枚举，便于各端通过业务组识别场景。
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum SystemBusinessType {
+    /// 默认值：未知/未分类
+    SystemBusinessUnknown = 0,
+    /// 维护相关任务（暂停服务、升级等）
+    SystemBusinessMaintenance = 1,
+    /// 告警/风险通知
+    SystemBusinessAlert = 2,
+    /// 升级/迁移/功能上线
+    SystemBusinessUpgrade = 3,
+    /// 策略/规则调整、权限变更等
+    SystemBusinessPolicy = 4,
+    /// 账户在其它设备/地点上线，被动下线通知
+    SystemBusinessPassiveLogout = 5,
+}
+impl SystemBusinessType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::SystemBusinessUnknown => "SYSTEM_BUSINESS_UNKNOWN",
+            Self::SystemBusinessMaintenance => "SYSTEM_BUSINESS_MAINTENANCE",
+            Self::SystemBusinessAlert => "SYSTEM_BUSINESS_ALERT",
+            Self::SystemBusinessUpgrade => "SYSTEM_BUSINESS_UPGRADE",
+            Self::SystemBusinessPolicy => "SYSTEM_BUSINESS_POLICY",
+            Self::SystemBusinessPassiveLogout => "SYSTEM_BUSINESS_PASSIVE_LOGOUT",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "SYSTEM_BUSINESS_UNKNOWN" => Some(Self::SystemBusinessUnknown),
+            "SYSTEM_BUSINESS_MAINTENANCE" => Some(Self::SystemBusinessMaintenance),
+            "SYSTEM_BUSINESS_ALERT" => Some(Self::SystemBusinessAlert),
+            "SYSTEM_BUSINESS_UPGRADE" => Some(Self::SystemBusinessUpgrade),
+            "SYSTEM_BUSINESS_POLICY" => Some(Self::SystemBusinessPolicy),
+            "SYSTEM_BUSINESS_PASSIVE_LOGOUT" => Some(Self::SystemBusinessPassiveLogout),
+            _ => None,
+        }
+    }
+}
+/// ===============================
+/// 事件枚举
+/// ===============================
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum GroupEventType {
+    GeUnspecified = 0,
+    /// 成员类
+    GeMemberJoined = 1,
+    GeMemberLeft = 2,
+    GeMemberKicked = 3,
+    GeMemberInvited = 4,
+    GeMemberApproved = 5,
+    /// 角色类
+    GeRolePromoted = 10,
+    GeRoleDemoted = 11,
+    GeOwnerTransferred = 12,
+    /// 资料/设置类
+    GeInfoUpdated = 20,
+    GePermsUpdated = 21,
+    GeInviteLinkUpdated = 22,
+    GeAnnouncementUpdated = 23,
+    /// 管控类
+    GeMuteOn = 30,
+    GeMuteOff = 31,
+    GeMemberMuted = 32,
+    GeMemberUnmuted = 33,
+    GeMemberBanned = 34,
+    GeMemberUnbanned = 35,
+    /// 消息管理
+    GePinAdded = 40,
+    GePinRemoved = 41,
+    /// 其他/扩展
+    GeCustom = 1000,
+}
+impl GroupEventType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::GeUnspecified => "GE_UNSPECIFIED",
+            Self::GeMemberJoined => "GE_MEMBER_JOINED",
+            Self::GeMemberLeft => "GE_MEMBER_LEFT",
+            Self::GeMemberKicked => "GE_MEMBER_KICKED",
+            Self::GeMemberInvited => "GE_MEMBER_INVITED",
+            Self::GeMemberApproved => "GE_MEMBER_APPROVED",
+            Self::GeRolePromoted => "GE_ROLE_PROMOTED",
+            Self::GeRoleDemoted => "GE_ROLE_DEMOTED",
+            Self::GeOwnerTransferred => "GE_OWNER_TRANSFERRED",
+            Self::GeInfoUpdated => "GE_INFO_UPDATED",
+            Self::GePermsUpdated => "GE_PERMS_UPDATED",
+            Self::GeInviteLinkUpdated => "GE_INVITE_LINK_UPDATED",
+            Self::GeAnnouncementUpdated => "GE_ANNOUNCEMENT_UPDATED",
+            Self::GeMuteOn => "GE_MUTE_ON",
+            Self::GeMuteOff => "GE_MUTE_OFF",
+            Self::GeMemberMuted => "GE_MEMBER_MUTED",
+            Self::GeMemberUnmuted => "GE_MEMBER_UNMUTED",
+            Self::GeMemberBanned => "GE_MEMBER_BANNED",
+            Self::GeMemberUnbanned => "GE_MEMBER_UNBANNED",
+            Self::GePinAdded => "GE_PIN_ADDED",
+            Self::GePinRemoved => "GE_PIN_REMOVED",
+            Self::GeCustom => "GE_CUSTOM",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "GE_UNSPECIFIED" => Some(Self::GeUnspecified),
+            "GE_MEMBER_JOINED" => Some(Self::GeMemberJoined),
+            "GE_MEMBER_LEFT" => Some(Self::GeMemberLeft),
+            "GE_MEMBER_KICKED" => Some(Self::GeMemberKicked),
+            "GE_MEMBER_INVITED" => Some(Self::GeMemberInvited),
+            "GE_MEMBER_APPROVED" => Some(Self::GeMemberApproved),
+            "GE_ROLE_PROMOTED" => Some(Self::GeRolePromoted),
+            "GE_ROLE_DEMOTED" => Some(Self::GeRoleDemoted),
+            "GE_OWNER_TRANSFERRED" => Some(Self::GeOwnerTransferred),
+            "GE_INFO_UPDATED" => Some(Self::GeInfoUpdated),
+            "GE_PERMS_UPDATED" => Some(Self::GePermsUpdated),
+            "GE_INVITE_LINK_UPDATED" => Some(Self::GeInviteLinkUpdated),
+            "GE_ANNOUNCEMENT_UPDATED" => Some(Self::GeAnnouncementUpdated),
+            "GE_MUTE_ON" => Some(Self::GeMuteOn),
+            "GE_MUTE_OFF" => Some(Self::GeMuteOff),
+            "GE_MEMBER_MUTED" => Some(Self::GeMemberMuted),
+            "GE_MEMBER_UNMUTED" => Some(Self::GeMemberUnmuted),
+            "GE_MEMBER_BANNED" => Some(Self::GeMemberBanned),
+            "GE_MEMBER_UNBANNED" => Some(Self::GeMemberUnbanned),
+            "GE_PIN_ADDED" => Some(Self::GePinAdded),
+            "GE_PIN_REMOVED" => Some(Self::GePinRemoved),
+            "GE_CUSTOM" => Some(Self::GeCustom),
+            _ => None,
+        }
+    }
+}
+/// 消息所属大类：好友、群、系统或未知。
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum MsgCategory {
+    /// 默认值：未知/未分类消息。
+    Unknown = 0,
+    /// 好友相关消息。
+    Friend = 1,
+    /// 群聊相关消息。
+    Group = 2,
+    /// 系统/通用通知。
+    System = 3,
+}
+impl MsgCategory {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unknown => "MSG_CATEGORY_UNKNOWN",
+            Self::Friend => "MSG_CATEGORY_FRIEND",
+            Self::Group => "MSG_CATEGORY_GROUP",
+            Self::System => "MSG_CATEGORY_SYSTEM",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "MSG_CATEGORY_UNKNOWN" => Some(Self::Unknown),
+            "MSG_CATEGORY_FRIEND" => Some(Self::Friend),
+            "MSG_CATEGORY_GROUP" => Some(Self::Group),
+            "MSG_CATEGORY_SYSTEM" => Some(Self::System),
             _ => None,
         }
     }
 }
 /// Reaction 操作
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum ReactionAction {
@@ -1295,8 +2137,6 @@ impl ReactionAction {
     }
 }
 /// 正在输入状态
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum TypingState {

@@ -15,10 +15,7 @@ use tokio_util::sync::CancellationToken;
 use tonic::service::Routes;
 
 use crate::hot_friend_client::{connect as connect_hot_friend, HfFriendClient};
-use crate::service::friend_biz_service_impl::MsgFriendServiceImpl;
-use common::infra::grpc::grpc_msg_friend::msg_friend_service::friend_biz_service_server::FriendBizServiceServer;
 use common::infra::grpc::grpc_msg_friend::msg_friend_service::friend_msg_service_server::FriendMsgServiceServer;
-use common::infra::grpc::grpc_msg_friend::msg_friend_service::key_service_server::KeyServiceServer;
 
 mod kafka_producer;
 mod server_grpc;
@@ -149,13 +146,8 @@ pub async fn run_server() -> Result<()> {
 
     let http_router = Router::new().route("/healthz", get(healthz));
 
-    let friend_biz_service_server =
-        FriendBizServiceServer::new(MsgFriendServiceImpl::new(Arc::new(services.clone())));
     let msg_service_server = FriendMsgServiceServer::new(services.clone());
-    let key_service_server = KeyServiceServer::new(services.clone());
-    let routes = Routes::new(msg_service_server)
-        .add_service(friend_biz_service_server)
-        .add_service(key_service_server);
+    let routes = Routes::new(msg_service_server);
 
     info!(
         "msg_friend listening on grpc={} http={}",

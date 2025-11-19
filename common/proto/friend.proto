@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "message.proto";
+
 package friend_service;
 
 // ==== 基础引用 ====
@@ -13,10 +15,14 @@ message FriendRef {
 message AddFriendReq {
   int64 user_id  = 1;
   int64 friend_id = 2;
+  // 申请人给好友写的备注（默认与名字一致，可用于联系人列表展示）
+  optional string remark = 3;
   // 新增：user_id 对 friend_id 的别名（优先于 alias）
   optional string alias_for_user = 4;
   // 新增：friend_id 对 user_id 的别名（即反向别名）
   optional string alias_for_friend = 5;
+  // 好友申请来源（默认未知）
+  .message.FriendRequestSource source = 6;
 }
 
 message AddFriendResp {
@@ -58,6 +64,10 @@ message FriendEntry {
   optional string apply_source = 3;
   // 好友头像 URL
   optional string avatar = 4;
+  // 好友备注信息；未设置则为空字符串
+  optional string remark = 5;
+  // 表示该好友是否在黑名单（true=拉黑中）
+  bool blacklisted = 6;
 }
 
 message GetFriendsDetailedReq {
@@ -97,6 +107,27 @@ message UpdateFriendAliasResp {
   bool updated = 1;
 }
 
+message UpdateFriendRemarkReq {
+  int64 user_id = 1;
+  int64 friend_id = 2;
+  optional string remark = 3;
+}
+
+message UpdateFriendRemarkResp {
+  bool updated = 1;
+}
+
+message UpdateFriendBlacklistReq {
+  int64 user_id = 1;
+  int64 friend_id = 2;
+  bool blocked = 3;
+  optional string reason = 4;
+}
+
+message UpdateFriendBlacklistResp {
+  bool updated = 1;
+}
+
 message ClearFriendsReq {
   int64 user_id = 1;
 }
@@ -117,5 +148,7 @@ service FriendService {
 
   // 新增：更新别名与清空
   rpc UpdateFriendAlias       (UpdateFriendAliasReq)       returns (UpdateFriendAliasResp);
+  rpc UpdateFriendRemark      (UpdateFriendRemarkReq)      returns (UpdateFriendRemarkResp);
+  rpc UpdateFriendBlacklist   (UpdateFriendBlacklistReq)   returns (UpdateFriendBlacklistResp);
   rpc ClearFriends            (ClearFriendsReq)            returns (ClearFriendsResp);
 }

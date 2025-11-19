@@ -9,31 +9,13 @@ import "message.proto";
 
 package msg_friend_service;
 
-// =====================
 // 基础枚举/类型
-// =====================
-
-// 好友申请来源
-enum FriendRequestSource {
-  // 未知来源
-  FRS_UNKNOWN = 0;
-  // 二维码添加
-  FRS_QR_CODE = 1;
-  // 手机联系人
-  FRS_PHONE_CONTACTS = 2;
-  // 用户ID添加
-  FRS_USER_ID = 3;
-  // 群成员添加
-  FRS_GROUP_MEMBER = 4;
-}
 
 // 消息主类型使用 socket.MsgKind，contents 可承载完整消息体
 
 // 与消息（状态/通话/typing/reaction）相关定义统一迁移到 message.proto
 
-// =====================
 // 好友申请/关系（MK_FRIEND_REQUEST 等）
-// =====================
 
 // 好友申请
 message FriendRequest {
@@ -46,11 +28,13 @@ message FriendRequest {
   // 申请理由
   string reason = 4;
   // 申请来源
-  FriendRequestSource source = 5;
+  .message.FriendRequestSource source = 5;
   // 申请创建时间
   int64 created_at = 6;
   // 好友别名/备注（可选）
   optional string remark = 7;
+  // 申请人想展示的别名/昵称
+  optional string alias = 8;
 }
 
 // 处理好友申请（接受/拒绝）
@@ -63,6 +47,8 @@ message FriendRequestDecision {
   optional string remark = 3;
   // 处理时间
   int64 decided_at = 4;
+  // 审批者希望展示的别名
+  optional string alias = 5;
 }
 
 // 删除好友
@@ -85,17 +71,6 @@ message FriendUpdateRemark {
   string remark = 3;
   // 时间
   int64 updated_at = 4;
-}
-
-service FriendBizService {
-  // 发送好友申请
-  rpc SendFriendRequest(FriendRequest) returns (google.protobuf.Empty);
-  // 处理好友申请
-  rpc HandleFriendRequest(FriendRequestDecision) returns (google.protobuf.Empty);
-  // 删除好友
-  rpc DeleteFriend(FriendDelete) returns (google.protobuf.Empty);
-  // 更新好友备注
-  rpc UpdateFriendRemark(FriendUpdateRemark) returns (google.protobuf.Empty);
 }
 
 // 最小设备密钥 RPC（密钥托管与分发）
@@ -130,22 +105,56 @@ message ListUserFriendMessagesRequest {
   uint32 limit = 3;
 }
 
+// 会话快照
+message FriendConversationSnapshot {
+  int64 owner_id = 1;
+  int64 peer_id = 2;
+  int64 conversation_id = 3;
+  int64 last_msg_id = 4;
+  int64 last_sender_id = 6;
+  int64 last_receiver_id = 7;
+  int64 last_timestamp = 8;
+  uint32 unread_count = 9;
+  int64 updated_at = 10;
+  int64 created_at = 11;
+}
+
+message ListFriendConversationsRequest {
+  int64 owner_id = 1;
+  // 缺省 20
+  uint32 limit = 2;
+  // 游标分页：取 updated_at 更早的记录
+  int64 before_updated_at = 3;
+  // 当 updated_at 相同时按 conversation_id 继续向前翻页
+  int64 before_conversation_id = 4;
+}
+
+message ListFriendConversationsResponse {
+  repeated FriendConversationSnapshot snapshots = 1;
+  bool has_more = 2;
+}
+
+message UpsertFriendConversationSnapshotRequest {
+  FriendConversationSnapshot snapshot = 1;
+}
+
+message DeleteFriendConversationSnapshotRequest {
+  int64 owner_id = 1;
+  int64 conversation_id = 2;
+}
+
 // 好友消息服务（非群聊）
 service FriendMsgService {
-  rpc SendMessage(message.Content) returns (google.protobuf.Empty);
-  rpc ReportMsgRead(message.MsgRead) returns (google.protobuf.Empty);
-  rpc AckMsgDelivered(message.MsgDeliveredAck) returns (google.protobuf.Empty);
-  rpc AckMsgRead(message.MsgReadAck) returns (google.protobuf.Empty);
-  rpc RecallMsg(message.MsgRecall) returns (google.protobuf.Empty);
-  rpc ForwardMsg(message.MsgForward) returns (google.protobuf.Empty);
   // 分页查询好友间的历史消息
   rpc ListFriendMessages(message.QueryFriendMessagesRequest) returns (message.QueryMessagesResponse);
   // 聚合查询用户的好友消息
   rpc ListUserFriendMessages(ListUserFriendMessagesRequest) returns (message.QueryMessagesResponse);
-}
-
-// 设备密钥服务
-service KeyService {
-  rpc UploadDeviceKeys(UploadDeviceKeysRequest) returns (UploadDeviceKeysResponse);
-  rpc FetchDeviceKeys(FetchDeviceKeysRequest) returns (FetchDeviceKeysResponse);
+  // 获取最近好友会话列表
+  rpc ListFriendConversations(ListFriendConversationsRequest) returns (ListFriendConversationsResponse);
+  // 更新或新增好友会话快照
+  rpc UpsertFriendConversationSnapshot(UpsertFriendConversationSnapshotRequest) returns (google.protobuf.Empty);
+  // 删除好友会话快照
+  rpc DeleteFriendConversationSnapshot(DeleteFriendConversationSnapshotRequest) returns (google.protobuf.Empty);
+  // 处理通用的好友消息域结构
+  rpc HandleFriendMessage(message.DomainMessage) returns (google.protobuf.Empty);
 }

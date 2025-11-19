@@ -2,6 +2,8 @@ CREATE TABLE IF NOT EXISTS friend_edge (
                              user_id BIGINT UNSIGNED NOT NULL,
                              friend_id BIGINT UNSIGNED NOT NULL,
                              alias VARCHAR ( 64 ) NULL,-- NULL/空串 表示无别名
+                             remark VARCHAR(256) NULL DEFAULT NULL,-- 好友备注
+                             blacklisted TINYINT(1) NOT NULL DEFAULT 0,-- 黑名单标记
                              created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                              updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                              PRIMARY KEY ( user_id, friend_id ),

@@ -145,7 +145,8 @@ impl ShardMap {
     /// 主动剔除某个 gid 的所有旧分页（减少过期页堆积）
     fn invalidate_gid_pages(&self, gid: GroupId) {
         // key: &(GroupId, usize, usize, u64), value: &Arc<[MemberRef]>
-        self.page_cache
+        let _ = self
+            .page_cache
             .invalidate_entries_if(move |&(k_gid, _, _, _), _| k_gid == gid);
     }
 

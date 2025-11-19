@@ -18,6 +18,7 @@ log.workspace = true
 common = { path = "../common" }
 sqlx.workspace = true
 axum.workspace = true
+base64.workspace = true
 
 [build-dependencies]
 tonic-build.workspace = true

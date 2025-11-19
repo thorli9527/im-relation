@@ -20,8 +20,6 @@ pub struct AppConfig {
     pub database: Option<DatabaseConfig>,
     pub server: Option<ServerConfig>,
     pub sys: Option<SysConfig>,
-    #[serde(alias = "grpc")]
-    pub arb: Option<ArbConfig>,
     pub redis: Option<RedisConfig>,
     pub socket: Option<SocketConfig>,
     #[serde(
@@ -444,25 +442,6 @@ impl AppConfig {
         }
     }
 
-    pub fn get_arb(&self) -> ArbConfig {
-        self.arb.clone().unwrap_or_default()
-    }
-
-    pub fn arb(&self) -> Option<&ArbConfig> {
-        self.arb.as_ref()
-    }
-
-    pub fn arb_server_addr(&self) -> Option<String> {
-        self.arb
-            .as_ref()
-            .and_then(|cfg| {
-                cfg.server_addr
-                    .clone()
-                    .or_else(|| cfg.host.clone())
-                    .or_else(|| cfg.url.as_ref().and_then(|u| u.host.clone()))
-            })
-            .or_else(|| self.server.as_ref()?.http_addr())
-    }
     /// 获取单例
     pub fn get() -> Arc<Self> {
         INSTANCE.get().expect("INSTANCE is not initialized").clone()
@@ -478,12 +457,6 @@ pub fn init_log(log_lovel: &str) -> Result<(), AppError> {
     Ok(())
 }
 
-/// Fetches the optional arbitration access token configured for arbitration-aware gateways.
-pub fn grpc_access_token() -> Option<String> {
-    AppConfig::get()
-        .arb()
-        .and_then(|cfg| cfg.access_token.clone())
-}
 static INSTANCE: OnceCell<Arc<AppConfig>> = OnceCell::new();
 
 #[derive(Debug, Deserialize, Clone, Default)]
@@ -521,16 +494,6 @@ pub struct ServerConfig {
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]
-pub struct ArbConfig {
-    pub server_addr: Option<String>,
-    pub access_token: Option<String>,
-    #[serde(default)]
-    pub host: Option<String>,
-    #[serde(default)]
-    pub url: Option<ArbUrlConfig>,
-}
-
-#[derive(Debug, Deserialize, Clone, Default)]
 pub struct RedisConfig {
     pub url: String,
 }
@@ -541,11 +504,6 @@ pub struct KafkaConfig {
     pub group_id: Option<String>,
     #[serde(default)]
     pub replicas: Option<i32>,
-}
-
-#[derive(Debug, Deserialize, Clone, Default)]
-pub struct ArbUrlConfig {
-    pub host: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]

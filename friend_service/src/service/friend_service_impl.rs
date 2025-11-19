@@ -10,7 +10,7 @@ use crate::hot_cold::HotColdFriendFacade;
 use common::infra::grpc::grpc_friend::friend_service::friend_service_server::FriendService;
 use common::infra::grpc::grpc_friend::friend_service::*;
 // 新版：对齐 FriendRepo（非旧 FriendStorage）
-use crate::store::mysql::FriendRepo;
+use crate::store::mysql::{FriendEntry as RepoFriendEntry, FriendRepo};
 use common::config::get_db;
 use sqlx::Executor as _;
 
@@ -29,24 +29,23 @@ impl<R: FriendRepo> FriendServiceImpl<R> {
         Ok(x as UserId)
     }
 
-    /// 将 Vec<UserId> 转为 Vec<i64>（proto 使用 i64）
     #[inline]
-    fn ids_to_i64(ids: Vec<UserId>) -> Vec<i64> {
-        ids.into_iter().map(|id| id as i64).collect()
-    }
-
-    /// 简单分页（page 从 1 起，page_size 至少 1，最大上限可按需调整）
-    #[inline]
-    fn paginate(mut items: Vec<UserId>, page: usize, page_size: usize) -> Vec<UserId> {
-        let page = page.max(1);
-        let page_size = page_size.clamp(1, 10_000);
-        items.sort_unstable(); // 若上游已保证有序，可去掉
-        let start = (page - 1) * page_size;
-        if start >= items.len() {
-            return Vec::new();
+    fn convert_entry(entry: RepoFriendEntry, include_alias: bool) -> FriendEntry {
+        let RepoFriendEntry {
+            friend_id,
+            alias,
+            remark,
+            blacklisted,
+            ..
+        } = entry;
+        FriendEntry {
+            friend_id: friend_id as i64,
+            alias: if include_alias { alias } else { None },
+            apply_source: None,
+            avatar: None,
+            remark,
+            blacklisted,
         }
-        let end = (start + page_size).min(items.len());
-        items[start..end].to_vec()
     }
 }
 
@@ -59,8 +58,9 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         let req = request.into_inner();
         let uid = Self::cast_uid(req.user_id, "user_id")?;
         let fid = Self::cast_uid(req.friend_id, "friend_id")?;
-        // 仅使用新字段 alias_for_user
-        let alias_for_user = req.alias_for_user.as_deref();
+        // 备注字段兼容旧别名逻辑：若 alias_for_user 未提供，则使用 remark
+        let remark = req.remark.as_deref();
+        let alias_for_user = req.alias_for_user.as_deref().or(remark);
         let alias_for_friend = req.alias_for_friend.as_deref();
 
         // 判断是否已存在（决定返回布尔）
@@ -137,21 +137,128 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         &self,
         request: Request<GetFriendsDetailedReq>,
     ) -> Result<Response<GetFriendsDetailedResp>, Status> {
-        todo!()
+        let req = request.into_inner();
+        let uid = Self::cast_uid(req.user_id, "user_id")?;
+
+        let mut cursor: Option<UserId> = None;
+        let mut friends = Vec::new();
+        loop {
+            let (batch, next) = self
+                .facade
+                .page_friends_detailed(uid, cursor, 1024)
+                .await
+                .map_err(|e| internal_error(format!("get_friends_detailed: {e}")))?;
+            if batch.is_empty() {
+                break;
+            }
+            friends.extend(
+                batch
+                    .into_iter()
+                    .map(|entry| Self::convert_entry(entry, req.alias)),
+            );
+            cursor = next;
+            if cursor.is_none() {
+                break;
+            }
+        }
+
+        Ok(Response::new(GetFriendsDetailedResp { friends }))
     }
 
     async fn get_friends_page_detailed(
         &self,
         request: Request<GetFriendsPageDetailedReq>,
     ) -> Result<Response<GetFriendsPageDetailedResp>, Status> {
-        todo!()
+        let req = request.into_inner();
+        let uid = Self::cast_uid(req.user_id, "user_id")?;
+        let page = req.page.max(1) as usize;
+        let page_size = req.page_size.clamp(1, 5_000) as u32;
+
+        let mut current_page = 1usize;
+        let mut cursor: Option<UserId> = None;
+        loop {
+            let (batch, next) = self
+                .facade
+                .page_friends_detailed(uid, cursor, page_size)
+                .await
+                .map_err(|e| internal_error(format!("get_friends_page_detailed: {e}")))?;
+
+            if current_page == page {
+                let friends = batch
+                    .into_iter()
+                    .map(|entry| Self::convert_entry(entry, true))
+                    .collect();
+                return Ok(Response::new(GetFriendsPageDetailedResp { friends }));
+            }
+
+            if batch.is_empty() || next.is_none() {
+                return Ok(Response::new(GetFriendsPageDetailedResp {
+                    friends: Vec::new(),
+                }));
+            }
+
+            cursor = next;
+            current_page += 1;
+        }
     }
 
     async fn update_friend_alias(
         &self,
         request: Request<UpdateFriendAliasReq>,
     ) -> Result<Response<UpdateFriendAliasResp>, Status> {
-        todo!()
+        let req = request.into_inner();
+        let uid = Self::cast_uid(req.user_id, "user_id")?;
+        let fid = Self::cast_uid(req.friend_id, "friend_id")?;
+        let alias = req
+            .alias
+            .as_deref()
+            .and_then(|s| if s.is_empty() { None } else { Some(s) });
+
+        let updated = self
+            .facade
+            .update_friend_alias(uid, fid, alias)
+            .await
+            .map_err(|e| internal_error(format!("update_friend_alias: {e}")))?;
+
+        Ok(Response::new(UpdateFriendAliasResp { updated }))
+    }
+
+    async fn update_friend_remark(
+        &self,
+        request: Request<UpdateFriendRemarkReq>,
+    ) -> Result<Response<UpdateFriendRemarkResp>, Status> {
+        let req = request.into_inner();
+        let uid = Self::cast_uid(req.user_id, "user_id")?;
+        let fid = Self::cast_uid(req.friend_id, "friend_id")?;
+        let remark = req
+            .remark
+            .as_deref()
+            .and_then(|s| if s.is_empty() { None } else { Some(s) });
+
+        let updated = self
+            .facade
+            .update_friend_remark(uid, fid, remark)
+            .await
+            .map_err(|e| internal_error(format!("update_friend_remark: {e}")))?;
+
+        Ok(Response::new(UpdateFriendRemarkResp { updated }))
+    }
+
+    async fn update_friend_blacklist(
+        &self,
+        request: Request<UpdateFriendBlacklistReq>,
+    ) -> Result<Response<UpdateFriendBlacklistResp>, Status> {
+        let req = request.into_inner();
+        let uid = Self::cast_uid(req.user_id, "user_id")?;
+        let fid = Self::cast_uid(req.friend_id, "friend_id")?;
+
+        let updated = self
+            .facade
+            .update_friend_blacklist(uid, fid, req.blocked)
+            .await
+            .map_err(|e| internal_error(format!("update_friend_blacklist: {e}")))?;
+
+        Ok(Response::new(UpdateFriendBlacklistResp { updated }))
     }
 
     async fn clear_friends(

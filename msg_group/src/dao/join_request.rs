@@ -137,6 +137,25 @@ pub async fn get_join_request(
     Ok(row.map(|r| GroupJoinRequestRow::from_row(&r)))
 }
 
+/// 通过申请 ID 查询加群记录。
+pub async fn get_join_request_by_id(
+    pool: &Pool<MySql>,
+    request_id: i64,
+) -> Result<Option<GroupJoinRequestRow>> {
+    let row = sqlx::query(
+        r#"
+        SELECT *
+          FROM group_join_request
+         WHERE id = ?
+        "#,
+    )
+    .bind(request_id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row.map(|r| GroupJoinRequestRow::from_row(&r)))
+}
+
 /// 更新加群申请状态（审批通过/拒绝等）。
 pub async fn update_join_request_status(
     pool: &Pool<MySql>,

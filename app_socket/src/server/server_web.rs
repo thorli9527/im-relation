@@ -4,14 +4,14 @@ use std::net::SocketAddr;
 
 use anyhow::Result;
 use axum::{routing::get, Json, Router};
-use log::{info, warn};
+use log::warn;
 use serde_json::json;
 use tokio::net::TcpListener;
 
 /// Start a lightweight HTTP server exposing `/healthz` for probes.
 pub async fn start_web_server(bind: &str) -> Result<()> {
     let addr: SocketAddr = bind.parse()?;
-    info!("socket HTTP server listening on {}", addr);
+    warn!("HTTP server (app_socket) listening on {}", addr);
 
     let listener = TcpListener::bind(addr).await?;
     let router = Router::new().route("/healthz", get(healthz));

@@ -17,6 +17,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use bytes::Bytes;
 use crossbeam_utils::CachePadded;
 use futures::stream::{self, StreamExt};
+use log::error;
 use moka::future::Cache;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -432,6 +433,8 @@ where
                 move |e| {
                     // moka 的加载错误（包括闭包返回 Err）也会到这里
                     Stats::inc(&stats.by_id_load_err);
+                    //打印异常堆栈
+                    error!("get_by_id: {}", e);
                     anyhow!("cache(by_id) try_get_with failed: {}", e)
                 }
             })?;

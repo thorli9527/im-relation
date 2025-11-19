@@ -1,8 +1,7 @@
-use common::infra::grpc::grpc_msg_friend::msg_friend_service::friend_biz_service_client::FriendBizServiceClient;
 use common::infra::grpc::grpc_msg_friend::msg_friend_service::friend_msg_service_client::FriendMsgServiceClient;
-use common::infra::grpc::grpc_msg_group::msg_group_service::group_biz_service_client::GroupBizServiceClient;
 use common::infra::grpc::grpc_msg_group::msg_group_service::group_msg_service_client::GroupMsgServiceClient;
 use common::infra::grpc::grpc_user::online_service::online_service_client::OnlineServiceClient;
+use common::infra::grpc::grpc_user::online_service::user_rpc_service_client::UserRpcServiceClient;
 use common::infra::grpc::GrpcClientManager;
 use once_cell::sync::OnceCell;
 use tonic::transport::{Channel, Error as TransportError};
@@ -57,13 +56,6 @@ define_grpc_client!(
     invalidate_friend_msg
 );
 define_grpc_client!(
-    FriendBizServiceClient<Channel>,
-    FRIEND_BIZ_MANAGER,
-    friend_biz_manager,
-    friend_biz_client,
-    invalidate_friend_biz
-);
-define_grpc_client!(
     GroupMsgServiceClient<Channel>,
     GROUP_MSG_MANAGER,
     group_msg_manager,
@@ -71,11 +63,11 @@ define_grpc_client!(
     invalidate_group_msg
 );
 define_grpc_client!(
-    GroupBizServiceClient<Channel>,
-    GROUP_BIZ_MANAGER,
-    group_biz_manager,
-    group_biz_client,
-    invalidate_group_biz
+    UserRpcServiceClient<Channel>,
+    USER_RPC_MANAGER,
+    user_rpc_manager,
+    user_rpc_client,
+    invalidate_user_rpc
 );
 define_grpc_client!(
     OnlineServiceClient<Channel>,

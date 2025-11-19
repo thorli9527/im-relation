@@ -23,7 +23,7 @@ use tokio::runtime::Handle;
 
 use crate::autotune::{auto_tune_cache, AutoTuneConfig, CacheAutoTune};
 use crate::hot_shard_store::{HotShardStore, PersistFn};
-use crate::store::mysql::FriendRepo;
+use crate::store::mysql::{FriendEntry, FriendRepo};
 
 #[inline]
 fn shard_index(uid: UserId, shards: usize) -> usize {
@@ -316,6 +316,36 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
         alias: Option<&str>,
     ) -> anyhow::Result<bool> {
         self.storage.set_alias(uid, fid, alias).await
+    }
+
+    /// 更新好友 remark
+    pub async fn update_friend_remark(
+        &self,
+        uid: UserId,
+        fid: UserId,
+        remark: Option<&str>,
+    ) -> anyhow::Result<bool> {
+        self.storage.set_remark(uid, fid, remark).await
+    }
+
+    /// 拉黑/解黑好友
+    pub async fn update_friend_blacklist(
+        &self,
+        uid: UserId,
+        fid: UserId,
+        blocked: bool,
+    ) -> anyhow::Result<bool> {
+        self.storage.set_blacklist(uid, fid, blocked).await
+    }
+
+    /// 读取分页好友详情（含别名等信息），按 friend_id 升序游标翻页。
+    pub async fn page_friends_detailed(
+        &self,
+        uid: UserId,
+        cursor: Option<UserId>,
+        limit: u32,
+    ) -> anyhow::Result<(Vec<FriendEntry>, Option<UserId>)> {
+        self.storage.page_friends(uid, cursor, limit).await
     }
 
     // ====== 内部工具 ======

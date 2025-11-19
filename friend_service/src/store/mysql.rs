@@ -12,6 +12,8 @@ use std::sync::Arc;
 pub struct FriendEntry {
     pub friend_id: UserId,
     pub alias: Option<String>,
+    pub remark: Option<String>,
+    pub blacklisted: bool,
     pub created_at: i64, // UNIX_TIMESTAMP 秒
     pub updated_at: i64,
 }
@@ -41,6 +43,8 @@ pub trait FriendRepo: Send + Sync + 'static {
     ) -> Result<()>;
     async fn remove_friend(&self, user: UserId, friend: UserId) -> Result<bool>;
     async fn set_alias(&self, user: UserId, friend: UserId, alias: Option<&str>) -> Result<bool>;
+    async fn set_remark(&self, user: UserId, friend: UserId, remark: Option<&str>) -> Result<bool>;
+    async fn set_blacklist(&self, user: UserId, friend: UserId, blocked: bool) -> Result<bool>;
     async fn is_friend(&self, user: UserId, friend: UserId) -> Result<bool>;
     async fn page_friends(
         &self,
@@ -97,12 +101,13 @@ impl FriendRepo for FriendStorage {
     ) -> Result<AddOutcome> {
         let insert_res = sqlx::query(
             r#"
-        INSERT INTO friend_edge (user_id, friend_id, alias)
-        VALUES (?, ?, ?)
+        INSERT INTO friend_edge (user_id, friend_id, alias, remark)
+        VALUES (?, ?, ?, ?)
         "#,
         )
         .bind(user as u64)
         .bind(friend as u64)
+        .bind(alias)
         .bind(alias)
         .execute(self.db())
         .await;
@@ -155,10 +160,11 @@ impl FriendRepo for FriendStorage {
                     sqlx::query(
                         r#"
                     UPDATE friend_edge
-                    SET alias = ?, updated_at = CURRENT_TIMESTAMP
+                    SET alias = ?, remark = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE user_id=? AND friend_id=?
                     "#,
                     )
+                    .bind(alias)
                     .bind(alias)
                     .bind(user as u64)
                     .bind(friend as u64)
@@ -192,13 +198,14 @@ impl FriendRepo for FriendStorage {
         // 双向 UPSERT（幂等），别名按传入值覆盖
         sqlx::query(
             r#"
-            INSERT INTO friend_edge (user_id, friend_id, alias)
-            VALUES (?, ?, ?)
-            ON DUPLICATE KEY UPDATE alias=VALUES(alias), updated_at=CURRENT_TIMESTAMP
+            INSERT INTO friend_edge (user_id, friend_id, alias, remark)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE alias=VALUES(alias), remark=VALUES(remark), updated_at=CURRENT_TIMESTAMP
             "#,
         )
         .bind(a as u64)
         .bind(b as u64)
+        .bind(alias_for_a)
         .bind(alias_for_a)
         .execute(&mut *tx)
         .await
@@ -206,13 +213,14 @@ impl FriendRepo for FriendStorage {
 
         sqlx::query(
             r#"
-            INSERT INTO friend_edge (user_id, friend_id, alias)
-            VALUES (?, ?, ?)
-            ON DUPLICATE KEY UPDATE alias=VALUES(alias), updated_at=CURRENT_TIMESTAMP
+            INSERT INTO friend_edge (user_id, friend_id, alias, remark)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE alias=VALUES(alias), remark=VALUES(remark), updated_at=CURRENT_TIMESTAMP
             "#,
         )
         .bind(b as u64)
         .bind(a as u64)
+        .bind(alias_for_b)
         .bind(alias_for_b)
         .execute(&mut *tx)
         .await
@@ -300,13 +308,16 @@ impl FriendRepo for FriendStorage {
             let res = sqlx::query(
                 r#"
                 UPDATE friend_edge
-                SET alias=?, updated_at=CURRENT_TIMESTAMP
-                WHERE user_id=? AND friend_id=? AND (alias IS NULL OR alias <> ?)
+                SET alias=?, remark=?, updated_at=CURRENT_TIMESTAMP
+                WHERE user_id=? AND friend_id=?
+                  AND (alias IS NULL OR alias <> ? OR remark IS NULL OR remark <> ?)
                 "#,
             )
             .bind(a)
+            .bind(a)
             .bind(user as u64)
             .bind(friend as u64)
+            .bind(a)
             .bind(a)
             .execute(self.db())
             .await
@@ -316,8 +327,8 @@ impl FriendRepo for FriendStorage {
             let res = sqlx::query(
                 r#"
                 UPDATE friend_edge
-                SET alias=NULL, updated_at=CURRENT_TIMESTAMP
-                WHERE user_id=? AND friend_id=? AND alias IS NOT NULL
+                SET alias=NULL, remark=NULL, updated_at=CURRENT_TIMESTAMP
+                WHERE user_id=? AND friend_id=? AND (alias IS NOT NULL OR remark IS NOT NULL)
                 "#,
             )
             .bind(user as u64)
@@ -328,6 +339,42 @@ impl FriendRepo for FriendStorage {
             res.rows_affected() > 0
         };
         Ok(changed)
+    }
+
+    async fn set_remark(&self, user: UserId, friend: UserId, remark: Option<&str>) -> Result<bool> {
+        let rows = sqlx::query(
+            r#"
+            UPDATE friend_edge
+            SET remark=?, updated_at=CURRENT_TIMESTAMP
+            WHERE user_id=? AND friend_id=?
+            "#,
+        )
+        .bind(remark)
+        .bind(user as u64)
+        .bind(friend as u64)
+        .execute(self.db())
+        .await
+        .with_context(|| "set_remark: update remark failed")?
+        .rows_affected();
+        Ok(rows > 0)
+    }
+
+    async fn set_blacklist(&self, user: UserId, friend: UserId, blocked: bool) -> Result<bool> {
+        let rows = sqlx::query(
+            r#"
+            UPDATE friend_edge
+            SET blacklisted=?, updated_at=CURRENT_TIMESTAMP
+            WHERE user_id=? AND friend_id=?
+            "#,
+        )
+        .bind(blocked as i32)
+        .bind(user as u64)
+        .bind(friend as u64)
+        .execute(self.db())
+        .await
+        .with_context(|| "set_blacklist: update flag failed")?
+        .rows_affected();
+        Ok(rows > 0)
     }
 
     async fn is_friend(&self, user: UserId, friend: UserId) -> Result<bool> {
@@ -353,7 +400,7 @@ impl FriendRepo for FriendStorage {
         let rows: Vec<MySqlRow> = if let Some(cur) = cursor {
             sqlx::query(
                 r#"
-                SELECT friend_id, alias,
+                SELECT friend_id, alias, remark, blacklisted,
                        UNIX_TIMESTAMP(created_at), UNIX_TIMESTAMP(updated_at)
                 FROM friend_edge
                 WHERE user_id=? AND friend_id > ?
@@ -369,7 +416,7 @@ impl FriendRepo for FriendStorage {
         } else {
             sqlx::query(
                 r#"
-                SELECT friend_id, alias,
+                SELECT friend_id, alias, remark, blacklisted,
                        UNIX_TIMESTAMP(created_at), UNIX_TIMESTAMP(updated_at)
                 FROM friend_edge
                 WHERE user_id=?
@@ -390,12 +437,16 @@ impl FriendRepo for FriendStorage {
         for r in rows.into_iter() {
             let fid: u64 = r.try_get(0)?;
             let alias: Option<String> = r.try_get(1)?;
-            let created_at: i64 = r.try_get(2)?;
-            let updated_at: i64 = r.try_get(3)?;
+            let remark: Option<String> = r.try_get(2)?;
+            let blacklisted: i32 = r.try_get(3)?;
+            let created_at: i64 = r.try_get(4)?;
+            let updated_at: i64 = r.try_get(5)?;
             next = Some(fid as UserId);
             items.push(FriendEntry {
                 friend_id: fid as UserId,
                 alias,
+                remark,
+                blacklisted: blacklisted != 0,
                 created_at,
                 updated_at,
             });
@@ -422,13 +473,16 @@ impl FriendRepo for FriendStorage {
 
         for chunk in items.chunks(self.chunk) {
             let mut qb: QueryBuilder<MySql> =
-                QueryBuilder::new("INSERT INTO friend_edge (user_id, friend_id, alias) ");
+                QueryBuilder::new("INSERT INTO friend_edge (user_id, friend_id, alias, remark) ");
             qb.push_values(chunk, |mut b, (fid, alias)| {
                 b.push_bind(user as u64)
                     .push_bind(*fid as u64)
+                    .push_bind(*alias)
                     .push_bind(*alias);
             });
-            qb.push(" ON DUPLICATE KEY UPDATE alias=VALUES(alias), updated_at=CURRENT_TIMESTAMP ");
+            qb.push(
+                " ON DUPLICATE KEY UPDATE alias=VALUES(alias), remark=VALUES(remark), updated_at=CURRENT_TIMESTAMP ",
+            );
 
             qb.build()
                 .execute(&mut *tx)

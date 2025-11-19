@@ -29,11 +29,6 @@ fn generate_message() -> Result<(), Box<dyn Error>> {
 
     let mut config = prost_build::Config::new();
     config.out_dir(out_dir);
-    config.type_attribute(
-        ".",
-        "#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]",
-    );
-    config.type_attribute(".", "#[serde(rename_all = \"camelCase\")]");
     config.extern_path(".socket", "crate::infra::grpc::grpc_socket::socket");
     config.compile_protos(&["proto/message.proto"], &["proto"])?;
 
@@ -63,11 +58,6 @@ fn generate_grpc_with_serde(
     let mut builder = tonic_build::configure();
     builder = builder.build_server(true);
     builder = builder.build_client(true);
-    builder = builder.type_attribute(
-        ".",
-        "#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]",
-    );
-    builder = builder.type_attribute(".", "#[serde(rename_all = \"camelCase\")]");
     builder = builder.out_dir(out_dir);
     if extern_message {
         builder = builder.extern_path(".message", "crate::infra::grpc::message");
@@ -92,7 +82,7 @@ fn generate_grpc_user() -> Result<(), Box<dyn Error>> {
     builder = builder.build_client(true);
     builder = builder.type_attribute(
         "online_service.UserEntity",
-        "#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]",
+        "#[derive(serde::Serialize, serde::Deserialize)]",
     );
     builder = builder.type_attribute(
         "online_service.UserEntity",
@@ -100,7 +90,7 @@ fn generate_grpc_user() -> Result<(), Box<dyn Error>> {
     );
     builder = builder.type_attribute(
         "online_service.DeviceType",
-        "#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]",
+        "#[derive(serde::Serialize, serde::Deserialize)]",
     );
     builder = builder.out_dir(out_dir);
 

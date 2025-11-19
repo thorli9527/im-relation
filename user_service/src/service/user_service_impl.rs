@@ -329,20 +329,9 @@ where
     ) -> Result<Response<UserEntity>, Status> {
         let r = req.into_inner();
 
-        if r.name.trim().is_empty() {
-            return Err(Status::invalid_argument("name required"));
-        }
         if r.password.trim().is_empty() {
             return Err(Status::invalid_argument("password required"));
         }
-
-        // 规范化（读写一致）
-        let name_norm_b = self
-            .normalizer
-            .name_norm(&r.name)
-            .map_err(|e| Status::invalid_argument(format!("bad name: {e}")))?;
-        let name_norm = std::str::from_utf8(&name_norm_b)
-            .map_err(|e| Status::invalid_argument(format!("name not utf8: {e}")))?;
 
         let email_norm = match r.email.as_deref() {
             Some(e) if !e.is_empty() => Some(
@@ -361,6 +350,10 @@ where
             _ => None,
         };
 
+        if email_norm.is_none() && phone_norm.is_none() {
+            return Err(Status::invalid_argument("email or phone required"));
+        }
+
         // 发号、准备写库
         let id = self
             .id_alloc
@@ -374,7 +367,6 @@ where
             .begin()
             .await
             .map_err(|e| Status::internal(format!("dir begin: {e}")))?;
-        self.upsert_uid_name(&mut dir_tx, name_norm, id).await?;
         if let Some(ref en) = email_norm {
             self.upsert_uid_email(&mut dir_tx, en.as_ref(), id).await?;
         }
@@ -405,17 +397,17 @@ where
               id, name, password, language, avatar,
               allow_add_friend, gender, user_type,
               email_norm, phone_norm,
-              created_at, updated_at, version
+              created_at, updated_at, version, profile_version
             ) VALUES (
               ?, ?, ?, ?, ?,
               ?, ?, ?,
               ?, ?,
-              NOW(3), NOW(3), 0
+              NOW(3), NOW(3), 0, 0
             )
         "#,
         )
         .bind(id)
-        .bind(&r.name)
+        .bind("")
         .bind(&r.password) // 直接存储明文密码
         .bind(r.language.as_deref())
         .bind(&r.avatar)
@@ -543,7 +535,7 @@ where
             .await
             .map_err(|e| Status::internal(format!("user_info begin: {e}")))?;
         sqlx::query(
-            "UPDATE user_info SET phone_norm=?, updated_at=NOW(3), version=version+1 WHERE id=?",
+            "UPDATE user_info SET phone_norm=?, updated_at=NOW(3), version=version+1, profile_version=profile_version+1 WHERE id=?",
         )
         .bind(new_phone_norm.as_ref().map(|b| b.as_ref()))
         .bind(r.id)
@@ -620,7 +612,7 @@ where
             .await
             .map_err(|e| Status::internal(format!("user_info begin: {e}")))?;
         sqlx::query(
-            "UPDATE user_info SET email_norm=?, updated_at=NOW(3), version=version+1 WHERE id=?",
+            "UPDATE user_info SET email_norm=?, updated_at=NOW(3), version=version+1, profile_version=profile_version+1 WHERE id=?",
         )
         .bind(new_email_norm.as_ref().map(|b| b.as_ref()))
         .bind(r.id)
@@ -783,8 +775,10 @@ where
             qb.push("user_type=").push_bind(patch.user_type);
         }
 
-        qb.push(", updated_at=NOW(3), version=version+1 WHERE id=")
-            .push_bind(patch.id);
+        qb.push(
+            ", updated_at=NOW(3), version=version+1, profile_version=profile_version+1 WHERE id=",
+        )
+        .push_bind(patch.id);
         qb.build()
             .execute(db)
             .await

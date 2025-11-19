@@ -13,8 +13,8 @@ services=(
   group_service
   msg_friend
   msg_group
-  app_api
   app_socket
+  app_api
 )
 
 mkdir -p logs
