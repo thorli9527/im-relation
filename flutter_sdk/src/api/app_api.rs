@@ -1,4 +1,7 @@
-use std::time::Duration;
+use std::{
+    thread,
+    time::{Duration, Instant},
+};
 
 use flutter_rust_bridge::frb;
 use log::{error, info};
@@ -7,7 +10,10 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::api::{client, config_api};
-use crate::service::{auth_service, config_service::ConfigService, socket_client::SocketClient};
+use crate::service::{
+    auth_service, config_service::ConfigService, message_service::MessageService,
+    socket_client::SocketClient,
+};
 use crate::{common::db, domain, service};
 
 include!("app_api_types.rs");
@@ -59,23 +65,9 @@ pub fn verify_register_code(payload: VerifyRegisterCodeRequest) -> Result<Operat
     post_request("/register/verify", &payload)
 }
 
-fn perform_login(payload: &LoginRequest) -> Result<LoginResult, String> {
-    let login_result = post_request::<LoginRequest, LoginResult>("/login", payload)?;
-    auth_service::handle_login(payload, &login_result)?;
-    Ok(login_result)
-}
-
 #[frb]
-pub fn login(payload: LoginRequest) -> Result<LoginResult, String> {
-    perform_login(&payload)
-}
-
-#[frb]
-pub fn login_and_wait_for_socket(
-    payload: LoginRequest,
-    timeout_secs: Option<u64>,
-) -> Result<LoginResult, String> {
-    let result = perform_login(&payload).map_err(|err| {
+pub fn login(payload: LoginRequest, timeout_secs: Option<u64>) -> Result<LoginResult, String> {
+    let (result, auth_message_id) = perform_login(&payload).map_err(|err| {
         error!("login_and_wait_for_socket: login failed: {}", err);
         err
     })?;
@@ -84,25 +76,10 @@ pub fn login_and_wait_for_socket(
     receiver
         .recv_timeout(duration)
         .map_err(|_| "socket connection timeout".to_string())?;
+    info!("socket 连接成功，正在等待鉴权...");
+    wait_for_auth_ack(auth_message_id, Duration::from_secs(30))?;
+    info!("基础鉴权已完成");
     Ok(result)
-}
-
-#[frb]
-pub fn test_http_login(payload: LoginRequest) -> Result<LoginResult, String> {
-    info!(
-        "test_http_login payload: target={}, deviceId={}",
-        payload.target, payload.device_id
-    );
-    match post_request::<LoginRequest, LoginResult>("/login", &payload) {
-        Ok(res) => {
-            info!("test_http_login success socket={}", res.socket_addr);
-            Ok(res)
-        }
-        Err(err) => {
-            error!("test_http_login failed: {err}");
-            Err(err)
-        }
-    }
 }
 
 #[frb]
@@ -176,6 +153,24 @@ pub fn get_recent_conversations(
     get_request("/conversations/recent", &query)
 }
 
+fn perform_login(payload: &LoginRequest) -> Result<(LoginResult, i64), String> {
+    let login_result = post_request::<LoginRequest, LoginResult>("/login", payload)?;
+    let auth_message_id = auth_service::handle_login(payload, &login_result)?;
+    Ok((login_result, auth_message_id))
+}
+
+fn wait_for_auth_ack(message_id: i64, timeout: Duration) -> Result<(), String> {
+    let deadline = Instant::now() + timeout;
+    while Instant::now() < deadline {
+        if let Some(entity) = MessageService::get().find_by_id(message_id)? {
+            if entity.ack_status {
+                return Ok(());
+            }
+        }
+        thread::sleep(Duration::from_millis(200));
+    }
+    Err("socket 鉴权应答超时".to_string())
+}
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GroupMembersQueryParams {

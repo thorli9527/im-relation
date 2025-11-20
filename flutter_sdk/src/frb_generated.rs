@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1109894082;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 351463190;
 
 // Section: executor
 
@@ -1007,7 +1007,7 @@ fn wire__crate__api__config_api__get_token_expire_at_impl(
         },
     )
 }
-fn wire__crate__api__config_api__get_user_id_impl(
+fn wire__crate__api__config_api__get_uid_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -1015,7 +1015,7 @@ fn wire__crate__api__config_api__get_user_id_impl(
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "get_user_id",
+            debug_name: "get_uid",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -1032,7 +1032,7 @@ fn wire__crate__api__config_api__get_user_id_impl(
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::config_api::get_user_id()?;
+                    let output_ok = crate::api::config_api::get_uid()?;
                     Ok(output_ok)
                 })())
             }
@@ -1126,47 +1126,11 @@ fn wire__crate__api__app_api__login_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_payload = <crate::api::app_api::LoginRequest>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::app_api::login(api_payload)?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__app_api__login_and_wait_for_socket_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "login_and_wait_for_socket",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_payload = <crate::api::app_api::LoginRequest>::sse_decode(&mut deserializer);
             let api_timeout_secs = <Option<u64>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::app_api::login_and_wait_for_socket(
-                        api_payload,
-                        api_timeout_secs,
-                    )?;
+                    let output_ok = crate::api::app_api::login(api_payload, api_timeout_secs)?;
                     Ok(output_ok)
                 })())
             }
@@ -1740,7 +1704,7 @@ fn wire__crate__api__config_api__set_token_expire_at_impl(
         },
     )
 }
-fn wire__crate__api__config_api__set_user_id_impl(
+fn wire__crate__api__config_api__set_uid_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -1748,7 +1712,7 @@ fn wire__crate__api__config_api__set_user_id_impl(
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "set_user_id",
+            debug_name: "set_uid",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -1762,11 +1726,11 @@ fn wire__crate__api__config_api__set_user_id_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_user_id = <i64>::sse_decode(&mut deserializer);
+            let api_uid = <i64>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::config_api::set_user_id(api_user_id)?;
+                    let output_ok = crate::api::config_api::set_uid(api_uid)?;
                     Ok(output_ok)
                 })())
             }
@@ -1800,39 +1764,6 @@ fn wire__crate__api__config_api__set_username_impl(
             move |context| {
                 transform_result_sse::<_, String>((move || {
                     let output_ok = crate::api::config_api::set_username(api_username)?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__app_api__test_http_login_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "test_http_login",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_payload = <crate::api::app_api::LoginRequest>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::app_api::test_http_login(api_payload)?;
                     Ok(output_ok)
                 })())
             }
@@ -2906,76 +2837,69 @@ fn pde_ffi_dispatcher_primary_impl(
             rust_vec_len,
             data_len,
         ),
-        30 => wire__crate__api__config_api__get_user_id_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__config_api__get_uid_impl(port, ptr, rust_vec_len, data_len),
         31 => wire__crate__api__config_api__get_username_impl(port, ptr, rust_vec_len, data_len),
         32 => wire__crate__api__app_api__init_app_impl(port, ptr, rust_vec_len, data_len),
         33 => wire__crate__api__app_api__login_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__app_api__login_and_wait_for_socket_impl(
+        34 => wire__crate__api__app_api__logout_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__socket_api__pack_client_msg_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__client__resolve_app_api_base_url_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        35 => wire__crate__api__app_api__logout_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__socket_api__pack_client_msg_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__client__resolve_app_api_base_url_impl(
+        37 => wire__crate__api__app_api__search_user_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__config_api__set_app_api_base_url_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        38 => wire__crate__api__app_api__search_user_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__config_api__set_app_api_base_url_impl(
-            port,
-            ptr,
-            rust_vec_len,
-            data_len,
-        ),
-        40 => wire__crate__api__config_api__set_app_version_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__config_api__set_avatar_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__config_api__set_email_impl(port, ptr, rust_vec_len, data_len),
-        43 => {
+        39 => wire__crate__api__config_api__set_app_version_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__config_api__set_avatar_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__config_api__set_email_impl(port, ptr, rust_vec_len, data_len),
+        42 => {
             wire__crate__api__config_api__set_last_alive_at_impl(port, ptr, rust_vec_len, data_len)
         }
-        44 => {
+        43 => {
             wire__crate__api__config_api__set_last_login_at_impl(port, ptr, rust_vec_len, data_len)
         }
-        45 => wire__crate__api__config_api__set_login_name_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__config_api__set_phone_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__config_api__set_socket_reconnect_attempts_impl(
+        44 => wire__crate__api__config_api__set_login_name_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__config_api__set_phone_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__config_api__set_socket_reconnect_attempts_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        48 => wire__crate__api__config_api__set_socket_reconnect_limit_impl(
+        47 => wire__crate__api__config_api__set_socket_reconnect_limit_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        49 => wire__crate__api__config_api__set_socket_reconnect_message_impl(
+        48 => wire__crate__api__config_api__set_socket_reconnect_message_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        50 => wire__crate__api__config_api__set_token_impl(port, ptr, rust_vec_len, data_len),
-        51 => wire__crate__api__config_api__set_token_expire_at_impl(
+        49 => wire__crate__api__config_api__set_token_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__config_api__set_token_expire_at_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        52 => wire__crate__api__config_api__set_user_id_impl(port, ptr, rust_vec_len, data_len),
-        53 => wire__crate__api__config_api__set_username_impl(port, ptr, rust_vec_len, data_len),
-        54 => wire__crate__api__app_api__test_http_login_impl(port, ptr, rust_vec_len, data_len),
-        55 => {
+        51 => wire__crate__api__config_api__set_uid_impl(port, ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__config_api__set_username_impl(port, ptr, rust_vec_len, data_len),
+        53 => {
             wire__crate__api__socket_api__unpack_server_msg_impl(port, ptr, rust_vec_len, data_len)
         }
-        56 => wire__crate__api__app_api__update_profile_impl(port, ptr, rust_vec_len, data_len),
-        57 => wire__crate__api__app_api__validate_session_impl(port, ptr, rust_vec_len, data_len),
-        58 => {
+        54 => wire__crate__api__app_api__update_profile_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__api__app_api__validate_session_impl(port, ptr, rust_vec_len, data_len),
+        56 => {
             wire__crate__api__app_api__verify_register_code_impl(port, ptr, rust_vec_len, data_len)
         }
         _ => unreachable!(),

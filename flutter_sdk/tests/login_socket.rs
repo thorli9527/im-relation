@@ -31,8 +31,7 @@ fn login_and_wait_for_socket_resets_reconnect_and_receives_heartbeat() -> Result
         device_id: "test-device".into(),
     };
 
-    let login_result = app_api::login_and_wait_for_socket(login_req, Some(5))
-        .map_err(|err: String| anyhow!(err))?;
+    let login_result = app_api::login(login_req, Some(5)).map_err(|err: String| anyhow!(err))?;
     // assert_eq!(login_result.socket_addr, "127.0.0.1:12345");
 
     assert_eq!(

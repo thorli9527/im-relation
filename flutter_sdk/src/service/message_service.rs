@@ -78,6 +78,17 @@ impl MessageService {
             send_count: row.get::<_, i64>("send_count")? as i32,
         })
     }
+
+    pub fn find_by_id(&self, id: i64) -> Result<Option<MessageEntity>, String> {
+        let conditions = vec![QueryCondition::new(
+            "id",
+            QueryType::Equal,
+            vec![Value::Integer(id)],
+        )];
+        self.repo
+            .query_one(&conditions, Self::map_row)
+            .map_err(|err| err.to_string())
+    }
 }
 
 impl MessageService {

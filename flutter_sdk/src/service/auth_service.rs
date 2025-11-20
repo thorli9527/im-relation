@@ -6,14 +6,14 @@ use std::{
 use log::warn;
 
 use crate::{
-    api::app_api::{self, LoginRequest, LoginResult, SessionValidateRequest},
+    api::app_api::{LoginRequest, LoginResult},
     api::config_api,
     generated::{message as msgpb, socket::DeviceType as SocketDeviceType},
     job::message_job,
     service::socket_client::{SocketClient, SocketConfig},
 };
 
-pub fn handle_login(payload: &LoginRequest, result: &LoginResult) -> Result<(), String> {
+pub fn handle_login(payload: &LoginRequest, result: &LoginResult) -> Result<i64, String> {
     // let validation = app_api::validate_session(SessionValidateRequest {
     //     session_token: result.token.clone(),
     // })?;
@@ -23,7 +23,7 @@ pub fn handle_login(payload: &LoginRequest, result: &LoginResult) -> Result<(), 
 
     config_api::set_login_name(payload.target.clone())?;
     config_api::set_token(result.token.clone())?;
-    config_api::set_user_id(result.uid.clone())?;
+    config_api::set_uid(result.uid)?;
     let now = current_secs();
     config_api::set_last_login_at(now)?;
     config_api::set_last_alive_at(now)?;
@@ -31,7 +31,7 @@ pub fn handle_login(payload: &LoginRequest, result: &LoginResult) -> Result<(), 
         SocketDeviceType::from_i32(payload.device_type).unwrap_or(SocketDeviceType::Unknown);
     let socket_config = SocketConfig {
         socket_addr: result.socket_addr.clone(),
-        user_id: result.uid.clone(),
+        user_id: result.uid,
         device_type,
         device_id: payload.device_id.clone(),
         token: result.token.clone(),
@@ -39,18 +39,20 @@ pub fn handle_login(payload: &LoginRequest, result: &LoginResult) -> Result<(), 
     };
     SocketClient::get().connect(socket_config)?;
 
-    let auth_payload = build_auth_content(result.uid.clone());
-    if let Err(err) = message_job::enqueue_outbound(auth_payload, 0) {
-        warn!("auth message enqueue failed: {}", err);
+    let auth_payload = build_auth_content(result.uid);
+    match message_job::enqueue_outbound(auth_payload, 0) {
+        Ok(message_id) => Ok(message_id),
+        Err(err) => {
+            warn!("auth message enqueue failed: {}", err);
+            Err(err)
+        }
     }
-
-    Ok(())
 }
 
 pub fn logout() -> Result<(), String> {
     SocketClient::get().disconnect()?;
     config_api::set_token(String::new())?;
-    config_api::set_user_id(0)?;
+    config_api::set_uid(0)?;
     Ok(())
 }
 

@@ -5,6 +5,10 @@
 .DS_Store
 .idea/
 .vscode/
+/build/
+/.dart_tool/
+/target/
+
 
 # Local env and logs
 .env
