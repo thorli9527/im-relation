@@ -54,11 +54,14 @@ pub struct SocketClient {
 }
 
 impl SocketClient {
+    /// Returns the global SocketClient singleton.
+    /// Initialization happens via `init()` during startup.
     pub fn get() -> &'static SocketClient {
         INSTANCE.get().expect("SocketClient not initialized")
     }
 
     pub fn init() -> Result<(), String> {
+        // Prepare waiters list and connection flag before any connects.
         SUCCESS_WAITERS.get_or_init(|| Mutex::new(Vec::new()));
         CONNECTION_SUCCESS.get_or_init(|| AtomicBool::new(false));
         INSTANCE
@@ -70,6 +73,7 @@ impl SocketClient {
 
     pub fn connect(&self, config: SocketConfig) -> Result<(), String> {
         let mut guard = self.inner.lock().map_err(|_| "socket lock poisoned")?;
+        // Clean up previous loop if already connected.
         if let Some(control) = guard.take() {
             let _ = control.tx.send(SocketCommand::Shutdown);
             let _ = control.handle.join();
@@ -94,6 +98,7 @@ impl SocketClient {
     }
 
     pub fn subscribe_connection_success(&self) -> Receiver<()> {
+        // Return a one-shot receiver that resolves when a connection succeeds.
         let flag = CONNECTION_SUCCESS
             .get()
             .expect("connection flag initialized");
@@ -107,6 +112,7 @@ impl SocketClient {
     }
 
     pub fn disconnect(&self) -> Result<(), String> {
+        // Gracefully stop the background thread and drop channels.
         let mut guard = self.inner.lock().map_err(|_| "socket lock poisoned")?;
         if let Some(control) = guard.take() {
             let _ = control.tx.send(SocketCommand::Shutdown);
@@ -121,6 +127,7 @@ impl SocketClient {
     }
 
     pub fn send_content(&self, content: msgpb::Content) -> Result<(), String> {
+        // Forward outbound protobuf content into the dedicated channel.
         if test_mode_enabled() {
             notify_connection_success();
             return Ok(());
@@ -146,6 +153,7 @@ async fn run_socket_loop(
     mut rx: UnboundedReceiver<SocketCommand>,
     mut content_rx: UnboundedReceiver<msgpb::Content>,
 ) {
+    // Loop that tries to maintain an active socket connection, obeying reconnect limits.
     let limit = config_api::ensure_socket_reconnect_limit()
         .unwrap_or(config_api::DEFAULT_SOCKET_RECONNECT_LIMIT);
     if test_mode_enabled() {
@@ -160,10 +168,12 @@ async fn run_socket_loop(
     let mut exhausted = attempts == 0;
 
     loop {
+        // Sleep between attempts when limit exhausted.
         if exhausted {
             tokio::time::sleep(TokioDuration::from_secs(60)).await;
         }
 
+        // Each attempt runs until shutdown/disconnection; maintain reconnect metadata.
         match run_connection_attempt(&config, &mut rx, &mut content_rx).await {
             ConnectionOutcome::Shutdown => break,
             ConnectionOutcome::Disconnected {
@@ -207,6 +217,8 @@ enum ConnectionOutcome {
     },
 }
 
+/// 执行一次连接尝试：发起 TCP，鉴权，启动心跳/读写循环。
+/// 有命令或数据会通过 `rx`/`content_rx` 传入，任何错误将返回断开状态。
 async fn run_connection_attempt(
     config: &SocketConfig,
     rx: &mut UnboundedReceiver<SocketCommand>,
