@@ -31,7 +31,7 @@ pub fn handle_login(payload: &LoginRequest, result: &LoginResult) -> Result<i64,
         SocketDeviceType::from_i32(payload.device_type).unwrap_or(SocketDeviceType::Unknown);
     let socket_config = SocketConfig {
         socket_addr: result.socket_addr.clone(),
-        user_id: result.uid,
+        uid: result.uid,
         device_type,
         device_id: payload.device_id.clone(),
         token: result.token.clone(),

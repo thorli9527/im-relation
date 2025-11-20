@@ -13,7 +13,7 @@ use tokio::time::sleep;
 
 use crate::service::types::{
     infer_msg_kind, ClientMsg, DeviceId, DeviceType, MessageId, MsgKind, SendOpts, ServerMsg,
-    SessionId, UserId,
+    SessionId, UID,
 };
 use serde_json::json;
 use time::OffsetDateTime;
@@ -28,21 +28,21 @@ use common::infra::grpc::message::{self as msgpb, typing::Target as TypingTarget
 #[derive(Clone)]
 pub struct SessionManager {
     /// user_id -> (session_id -> SessionHandle) 的层级缓存
-    sessions: Arc<DashMap<UserId, AHashMap<SessionId, SessionHandle>>>,
+    sessions: Arc<DashMap<UID, AHashMap<SessionId, SessionHandle>>>,
     /// ACK 跟踪分片集合
     acks: AckShards,
     /// 会话登录策略配置
     policy: SessionPolicy,
     /// 用于断线重连补发的消息缓存
-    backlog: Arc<DashMap<UserId, VecDeque<ServerMsg>>>,
+    backlog: Arc<DashMap<UID, VecDeque<ServerMsg>>>,
     /// 最近接收的客户端消息ID，用于去重（每用户最多保留50个）
-    recent_client_ids: Arc<DashMap<UserId, VecDeque<MessageId>>>,
+    recent_client_ids: Arc<DashMap<UID, VecDeque<MessageId>>>,
     /// session_token -> (user_id, session_id)
-    token_index: Arc<DashMap<String, (UserId, SessionId)>>,
+    token_index: Arc<DashMap<String, (UID, SessionId)>>,
     /// session_id -> session_token
     session_tokens: Arc<DashMap<SessionId, String>>,
     /// 会话维度的正在输入状态缓存
-    typing: Arc<DashMap<SceneKey, DashMap<UserId, TypingEntry>>>,
+    typing: Arc<DashMap<SceneKey, DashMap<UID, TypingEntry>>>,
 }
 
 /// 进程内全局单例，初始于 `init`。
@@ -51,13 +51,13 @@ static INSTANCE: OnceCell<SessionManager> = OnceCell::new();
 /// Typing 背景场景，用于区分点对点与群聊广播范围。
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum SceneKey {
-    Direct { a: UserId, b: UserId },
+    Direct { a: UID, b: UID },
     Group { group_id: i64 },
 }
 
 impl SceneKey {
     /// 构造点对点会话 key，内部保证 `(a,b)` 顺序一致以便复用缓存。
-    pub fn direct_from(a: UserId, b: UserId) -> Self {
+    pub fn direct_from(a: UID, b: UID) -> Self {
         if a <= b {
             SceneKey::Direct { a, b }
         } else {
@@ -82,12 +82,12 @@ struct TypingEntry {
     /// 当前窗口内的请求次数
     window_hits: u32,
     /// Typing 通知需要推送到的用户列表
-    recipients: Arc<Vec<UserId>>,
+    recipients: Arc<Vec<UID>>,
 }
 
 impl TypingEntry {
     /// 初始化新的 Typing 状态缓存，默认状态为 `TypingNone`。
-    fn new(now_ms: i64, recipients: Arc<Vec<UserId>>) -> Self {
+    fn new(now_ms: i64, recipients: Arc<Vec<UID>>) -> Self {
         Self {
             state: TypingState::TypingNone,
             session_id: None,
@@ -186,7 +186,7 @@ impl SessionManager {
     }
 
     /// 记录客户端消息ID；若已存在则返回 true（表示重复，不需处理）
-    pub fn seen_or_track_client_id(&self, user_id: &UserId, id: MessageId) -> bool {
+    pub fn seen_or_track_client_id(&self, user_id: &UID, id: MessageId) -> bool {
         let mut entry = self.recent_client_ids.entry(*user_id).or_default();
         let dq = entry.value_mut();
         if dq.contains(&id) {
@@ -203,7 +203,7 @@ impl SessionManager {
     /// 注册一个新连接。根据策略剔除冲突会话，返回该连接的发送句柄与接收端。
     pub fn register(
         &self,
-        user_id: UserId,
+        user_id: UID,
         device_type: DeviceType,
         device_id: DeviceId,
         session_token: String,
@@ -276,7 +276,7 @@ impl SessionManager {
     }
 
     /// 注销连接
-    pub fn unregister(&self, user_id: &UserId, session_id: &str) {
+    pub fn unregister(&self, user_id: &UID, session_id: &str) {
         if let Some(mut m) = self.sessions.get_mut(user_id) {
             if let Some(handle) = m.remove(session_id) {
                 self.remove_token_mapping(session_id, Some(&handle.session_token));
@@ -325,7 +325,7 @@ impl SessionManager {
     }
 
     /// 合并并去重 Typing 广播的接收者列表，保证包含触发者自身。
-    fn sanitize_recipients(&self, actor: UserId, recipients: &[UserId]) -> Arc<Vec<UserId>> {
+    fn sanitize_recipients(&self, actor: UID, recipients: &[UID]) -> Arc<Vec<UID>> {
         let mut dedup = recipients.to_vec();
         if !dedup.iter().any(|uid| *uid == actor) {
             dedup.push(actor);
@@ -339,11 +339,11 @@ impl SessionManager {
     fn update_typing_internal(
         &self,
         scene: SceneKey,
-        actor: UserId,
+        actor: UID,
         session_id: Option<&str>,
         state: TypingState,
         at_ms: i64,
-        recipients: &[UserId],
+        recipients: &[UID],
     ) {
         let now_ms = current_millis();
         let recipients = self.sanitize_recipients(actor, recipients);
@@ -378,7 +378,7 @@ impl SessionManager {
             .entry(scene.clone())
             .or_insert_with(DashMap::new);
 
-        let mut emit_targets: Option<Arc<Vec<UserId>>> = None;
+        let mut emit_targets: Option<Arc<Vec<UID>>> = None;
         {
             let mut entry = scene_map
                 .entry(actor)
@@ -410,10 +410,10 @@ impl SessionManager {
     fn broadcast_typing(
         &self,
         scene: &SceneKey,
-        actor: UserId,
+        actor: UID,
         state: TypingState,
         at_ms: i64,
-        recipients: &[UserId],
+        recipients: &[UID],
     ) {
         if recipients.is_empty() {
             return;
@@ -478,9 +478,9 @@ impl SessionManager {
             .collect();
 
         for scene in scenes {
-            let mut expired: Vec<(UserId, Arc<Vec<UserId>>)> = Vec::new();
+            let mut expired: Vec<(UID, Arc<Vec<UID>>)> = Vec::new();
             if let Some(scene_map) = self.typing.get_mut(&scene) {
-                let users: Vec<UserId> = scene_map.iter().map(|entry| *entry.key()).collect();
+                let users: Vec<UID> = scene_map.iter().map(|entry| *entry.key()).collect();
                 for uid in users {
                     if let Some(entry) = scene_map.get(&uid) {
                         if entry.expires_at_ms <= now_ms {
@@ -518,9 +518,9 @@ impl SessionManager {
             .map(|entry| entry.key().clone())
             .collect();
         for scene in scenes {
-            let mut affected: Vec<(UserId, Arc<Vec<UserId>>)> = Vec::new();
+            let mut affected: Vec<(UID, Arc<Vec<UID>>)> = Vec::new();
             if let Some(scene_map) = self.typing.get_mut(&scene) {
-                let users: Vec<UserId> = scene_map
+                let users: Vec<UID> = scene_map
                     .iter()
                     .filter_map(|entry| {
                         entry
@@ -553,7 +553,7 @@ impl SessionManager {
     }
 
     /// 向用户的所有在线会话扇出一条消息（可选 ACK 跟踪）
-    pub fn send_to_user(&self, user_id: UserId, msg: ServerMsg, opts: SendOpts) -> usize {
+    pub fn send_to_user(&self, user_id: UID, msg: ServerMsg, opts: SendOpts) -> usize {
         if opts.require_ack {
             self.acks.track_if_new(&msg, &opts, user_id);
         }
@@ -586,7 +586,7 @@ impl SessionManager {
     }
 
     /// 处理来自客户端的上行消息（包含 ACK）
-    pub fn on_client_msg(&self, user_id: UserId, msg: ClientMsg) {
+    pub fn on_client_msg(&self, user_id: UID, msg: ClientMsg) {
         if let Some(id) = msg.ack {
             METRICS.ack_inbound.fetch_add(1, Ordering::Relaxed);
             if id == 0 {
@@ -613,8 +613,8 @@ impl SessionManager {
     /// 更新点对点会话的 Typing 状态。
     pub fn update_direct_typing(
         &self,
-        actor: UserId,
-        peer: UserId,
+        actor: UID,
+        peer: UID,
         session_id: Option<&str>,
         state: TypingState,
         at_ms: i64,
@@ -634,11 +634,11 @@ impl SessionManager {
     pub fn update_group_typing(
         &self,
         group_id: i64,
-        actor: UserId,
+        actor: UID,
         session_id: Option<&str>,
         state: TypingState,
         at_ms: i64,
-        notify_user_ids: &[UserId],
+        notify_user_ids: &[UID],
     ) {
         self.update_typing_internal(
             SceneKey::Group { group_id },
@@ -653,7 +653,7 @@ impl SessionManager {
     /// 仅向指定会话重发比 last_ack_id 更新的最近消息（断线重连快速补发）
     pub fn resend_since(
         &self,
-        user_id: &UserId,
+        user_id: &UID,
         last_ack_id: MessageId,
         handle: &SessionHandle,
     ) -> usize {
@@ -694,7 +694,7 @@ mod tests {
 
     fn register_session(
         manager: &SessionManager,
-        user: UserId,
+        user: UID,
         device: DeviceType,
         device_id: DeviceId,
         token: &str,

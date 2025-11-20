@@ -4,7 +4,7 @@ use sqlx::{MySql, Pool, QueryBuilder, Row};
 /// 群会话快照记录。
 #[derive(Debug, Clone)]
 pub struct GroupConversationSnapshot {
-    pub user_id: i64,
+    pub uid: i64,
     pub group_id: i64,
     pub last_msg_id: i64,
     pub last_sender_id: i64,
@@ -22,7 +22,7 @@ pub async fn upsert_group_conversation_snapshot(
     sqlx::query(
         r#"
         INSERT INTO conversation_snapshot
-            (user_id, group_id, last_msg_id,
+            (uid, group_id, last_msg_id,
              last_sender_id, last_timestamp, unread_count,
              created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -34,7 +34,7 @@ pub async fn upsert_group_conversation_snapshot(
             updated_at = VALUES(updated_at)
         "#,
     )
-    .bind(snapshot.user_id)
+    .bind(snapshot.uid)
     .bind(snapshot.group_id)
     .bind(snapshot.last_msg_id)
     .bind(snapshot.last_sender_id)
@@ -50,16 +50,16 @@ pub async fn upsert_group_conversation_snapshot(
 /// 删除群会话快照。
 pub async fn delete_group_conversation_snapshot(
     pool: &Pool<MySql>,
-    user_id: i64,
+    uid: i64,
     group_id: i64,
 ) -> Result<u64> {
     let res = sqlx::query(
         r#"
         DELETE FROM conversation_snapshot
-        WHERE user_id = ? AND group_id = ?
+        WHERE uid = ? AND group_id = ?
         "#,
     )
-    .bind(user_id)
+    .bind(uid)
     .bind(group_id)
     .execute(pool)
     .await?;
@@ -69,7 +69,7 @@ pub async fn delete_group_conversation_snapshot(
 /// 按用户分页列出群会话快照。
 pub async fn list_group_conversation_snapshots(
     pool: &Pool<MySql>,
-    user_id: i64,
+    uid: i64,
     before_updated_at: Option<i64>,
     before_group_id: Option<i64>,
     limit: usize,
@@ -79,7 +79,7 @@ pub async fn list_group_conversation_snapshots(
     let mut qb = QueryBuilder::new(
         r#"
         SELECT
-            user_id,
+            uid,
             group_id,
             last_msg_id,
             last_sender_id,
@@ -88,11 +88,11 @@ pub async fn list_group_conversation_snapshots(
             created_at,
             updated_at
         FROM conversation_snapshot
-        WHERE user_id = 
+        WHERE uid = 
         "#,
     );
 
-    qb.push_bind(user_id);
+    qb.push_bind(uid);
 
     if let Some(ts) = before_updated_at {
         qb.push(" AND (updated_at < ");
@@ -116,7 +116,7 @@ pub async fn list_group_conversation_snapshots(
     Ok(rows
         .into_iter()
         .map(|row| GroupConversationSnapshot {
-            user_id: row.get("user_id"),
+            uid: row.get("uid"),
             group_id: row.get("group_id"),
             last_msg_id: row.get("last_msg_id"),
             last_sender_id: row.get("last_sender_id"),

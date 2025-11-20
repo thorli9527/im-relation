@@ -64,7 +64,7 @@ message FriendDelete {
 // 更新好友备注
 message FriendUpdateRemark {
   // 用户ID
-  int64 user_id = 1;
+  int64 uid = 1;
   // 好友用户ID
   int64 friend_user_id = 2;
   // 新备注
@@ -78,16 +78,16 @@ message IdentityKey { string curve = 1; bytes pub_key = 2; }
 message SignedPreKey { uint32 key_id = 1; bytes pub_key = 2; bytes signature = 3; }
 message OneTimePreKey { uint32 key_id = 1; bytes pub_key = 2; }
 message UploadDeviceKeysRequest {
-  int64 user_id = 1;
+  int64 uid = 1;
   string device_id = 2;
   IdentityKey identity_key = 3;
   SignedPreKey signed_pre_key = 4;
   repeated OneTimePreKey one_time_pre_keys = 5;
 }
 message UploadDeviceKeysResponse { bool success = 1; }
-message FetchDeviceKeysRequest { int64 user_id = 1; }
+message FetchDeviceKeysRequest { int64 uid = 1; }
 message DeviceKeyBundle {
-  int64 user_id = 1;
+  int64 uid = 1;
   string device_id = 2;
   IdentityKey identity_key = 3;
   SignedPreKey signed_pre_key = 4;
@@ -98,7 +98,7 @@ message FetchDeviceKeysResponse { repeated DeviceKeyBundle bundles = 1; }
 // 根据用户 ID 聚合拉取好友消息历史
 message ListUserFriendMessagesRequest {
   // 当前用户 ID
-  int64 user_id = 1;
+  int64 uid = 1;
   // 起始时间（毫秒，闭区间）；传 0 表示不限制
   int64 since_timestamp = 2;
   // 返回的最大消息数，缺省 200

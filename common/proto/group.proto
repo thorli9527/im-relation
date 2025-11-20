@@ -89,7 +89,7 @@ message RemoveReq {
   // 群组ID
   int64 group_id = 1;
   // 要移除的用户ID
-  int64 user_id = 2;
+  int64 uid = 2;
 }
 message RemoveResp {
   // 是否实际删除成功（false 表示成员不存在）
@@ -101,7 +101,7 @@ message ChangeRoleReq {
   // 群组ID
   int64 group_id = 1;
   // 用户ID
-  int64 user_id = 2;
+  int64 uid = 2;
   // 新角色（0/1/2）
   GroupRoleType role = 3;
 }
@@ -112,7 +112,7 @@ message ChangeAliasReq {
   // 群组ID
   int64 group_id = 1;
   // 用户ID
-  int64 user_id = 2;
+  int64 uid = 2;
   // 新别名（为空或不传表示清空别名）
   optional string alias = 3;
 }
@@ -167,7 +167,7 @@ message CountResp {
 // 获取用户所在的所有群组
 message UserGroupsReq {
   // 用户ID
-  int64 user_id = 1;
+  int64 uid = 1;
 }
 message UserGroupsResp {
   // 群组ID列表

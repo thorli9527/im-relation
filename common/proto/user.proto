@@ -33,7 +33,7 @@ service OnlineService {
 }
 
 message SetOnlineRequest {
-  int64 user_id = 1;
+  int64 uid = 1;
   bool online = 2;
 }
 message SetOnlineResponse {
@@ -41,14 +41,14 @@ message SetOnlineResponse {
 }
 
 message CheckOnlineRequest {
-  int64 user_id = 1;
+  int64 uid = 1;
 }
 message CheckOnlineResponse {
   bool online = 1;
 }
 
 message CheckOnlineBatchRequest {
-  repeated int64 user_ids = 1;
+  repeated int64 uids = 1;
 }
 message CheckOnlineBatchResponse {
   // 索引与输入 user_ids 对齐
@@ -73,7 +73,7 @@ enum SessionTokenStatus {
 }
 
 message UpsertSessionTokenRequest {
-  int64 user_id = 1;
+  int64 uid = 1;
   DeviceType device_type = 2;
   string device_id = 3;
   // 可选：客户端上报的登录 IP/UA，便于审计
@@ -95,14 +95,14 @@ message ValidateSessionTokenRequest {
 
 message ValidateSessionTokenResponse {
   SessionTokenStatus status = 1;
-  int64 user_id = 2;
+  int64 uid = 2;
   DeviceType device_type = 3;
   string device_id = 4;
   uint64 expires_at = 5;
 }
 
 message TokenDeviceRef {
-  int64 user_id = 1;
+  int64 uid = 1;
   DeviceType device_type = 2;
   string device_id = 3;
 }

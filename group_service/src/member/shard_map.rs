@@ -10,7 +10,7 @@ use smallvec::SmallVec;
 
 use crate::member::list_wrapper::MemberListWrapper;
 use common::infra::grpc::grpc_group::group_service::{GroupRoleType, MemberRef};
-use common::{GroupId, MemberListError, UserId};
+use common::{GroupId, MemberListError, UID};
 
 /// 单个分片：gid -> 成员包装器
 #[derive(Debug)]
@@ -37,7 +37,7 @@ pub struct ShardMap {
     shard_mask: usize,
     per_group_shard: usize,
 
-    user_to_groups: DashMap<UserId, SmallVec<[GroupId; 8]>, RandomState>,
+    user_to_groups: DashMap<UID, SmallVec<[GroupId; 8]>, RandomState>,
 
     page_cache: Cache<(GroupId, usize, usize, u64), Arc<[MemberRef]>>,
 
@@ -152,14 +152,14 @@ impl ShardMap {
 
     /// 维护反向索引（添加）
     #[inline]
-    fn index_add(&self, uid: UserId, gid: GroupId) {
+    fn index_add(&self, uid: UID, gid: GroupId) {
         let mut entry = self.user_to_groups.entry(uid).or_insert_with(SmallVec::new);
         Self::push_group_unique(&mut entry, gid);
     }
 
     /// 维护反向索引（删除）
     #[inline]
-    fn index_remove(&self, uid: UserId, gid: GroupId) {
+    fn index_remove(&self, uid: UID, gid: GroupId) {
         if let Some(mut v) = self.user_to_groups.get_mut(&uid) {
             if let Some(pos) = v.iter().position(|&g| g == gid) {
                 v.remove(pos);
@@ -204,7 +204,7 @@ impl ShardMap {
         Ok(())
     }
 
-    pub fn remove(&self, gid: GroupId, uid: UserId) -> Result<bool, MemberListError> {
+    pub fn remove(&self, gid: GroupId, uid: UID) -> Result<bool, MemberListError> {
         let shard = &self.shards[self.shard_idx(gid)];
         if let Some(wrapper) = shard.inner.get(&gid) {
             let removed = wrapper.remove(uid)?;
@@ -221,7 +221,7 @@ impl ShardMap {
     pub fn change_role(
         &self,
         gid: GroupId,
-        uid: UserId,
+        uid: UID,
         role: GroupRoleType,
     ) -> Result<(), MemberListError> {
         let shard = &self.shards[self.shard_idx(gid)];
@@ -236,7 +236,7 @@ impl ShardMap {
     pub fn change_alias(
         &self,
         gid: GroupId,
-        uid: UserId,
+        uid: UID,
         alias: Option<String>,
     ) -> Result<(), MemberListError> {
         let shard = &self.shards[self.shard_idx(gid)];
@@ -301,7 +301,7 @@ impl ShardMap {
     }
 
     /// 某用户的所有群组
-    pub fn user_group_list(&self, uid: UserId) -> Vec<GroupId> {
+    pub fn user_group_list(&self, uid: UID) -> Vec<GroupId> {
         self.user_to_groups
             .get(&uid)
             .map(|v| v.iter().copied().collect())

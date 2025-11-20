@@ -6,12 +6,12 @@ pub mod support;
 use thiserror::Error;
 pub type RedisPool = deadpool_redis::Pool;
 
-pub type UserId = i64;
+pub type UID = i64;
 pub type GroupId = i64;
 #[derive(Debug, Error)]
 pub enum RelationError {
     #[error("invalid user id")]
-    InvalidUserId,
+    InvalidUID,
     #[error("retry")]
     Retry,
     #[error("internal: {0}")]
@@ -26,7 +26,7 @@ pub enum MemberListError {
     // ===== 参数类 =====
     /// 无效的用户 ID（负数、零等非法值）
     #[error("invalid user id")]
-    InvalidUserId,
+    InvalidUID,
 
     /// 无效的群组 ID
     #[error("invalid group id")]
@@ -121,7 +121,7 @@ impl From<MemberListError> for tonic::Status {
     fn from(err: MemberListError) -> Self {
         use MemberListError::*;
         match err {
-            InvalidUserId | InvalidGroupId | InvalidArgument(_) => {
+            InvalidUID | InvalidGroupId | InvalidArgument(_) => {
                 tonic::Status::invalid_argument(err.to_string())
             }
             NotFound | GroupNotFound => tonic::Status::not_found(err.to_string()),

@@ -4,14 +4,14 @@ use smallvec::SmallVec;
 use std::collections::HashMap;
 
 use crate::db::elias_fano::EliasFano;
-use common::UserId;
+use common::UID;
 
 pub type FriendId = u64;
 
 #[derive(thiserror::Error, Debug)]
 pub enum RelationError {
     #[error("invalid user id")]
-    InvalidUserId,
+    InvalidUID,
     #[error("retry")]
     Retry,
     #[error("internal: {0}")]
@@ -91,7 +91,7 @@ impl FriendListEf {
     /// 设置/更新别名；传 None 表示清除别名
     pub fn set_alias<S: Into<String>>(
         &self,
-        other: UserId,
+        other: UID,
         alias: Option<S>,
     ) -> Result<(), RelationError> {
         let u = other as FriendId;
@@ -112,7 +112,7 @@ impl FriendListEf {
     }
 
     /// 获取别名（ΔDel -> ΔAdd -> Base），返回克隆的 String 给上层使用
-    pub fn get_alias(&self, other: UserId) -> Result<Option<String>, RelationError> {
+    pub fn get_alias(&self, other: UID) -> Result<Option<String>, RelationError> {
         let u = other as FriendId;
 
         // 这里尽量减少锁分段；小集合 + 哈希查找都很快
@@ -131,7 +131,7 @@ impl FriendListEf {
     // ====================== 关系 API ======================
 
     /// 是否为好友（增量优先）
-    pub fn contains(&self, other: UserId) -> Result<bool, RelationError> {
+    pub fn contains(&self, other: UID) -> Result<bool, RelationError> {
         let u = other as FriendId;
 
         // ΔDel 命中则直接否
@@ -178,7 +178,7 @@ impl FriendListEf {
     }
 
     /// 新增好友（写 ΔAdd；若之前被删除则移除删除标记；幂等）
-    pub fn add(&self, other: UserId) -> Result<bool, RelationError> {
+    pub fn add(&self, other: UID) -> Result<bool, RelationError> {
         let u = other as FriendId;
 
         // 先从 ΔDel 抵消
@@ -199,7 +199,7 @@ impl FriendListEf {
     /// 新增好友并可附带别名（仅在“确实新增”时写入别名，不影响已存在关系）
     pub fn add_with_alias<S: Into<String>>(
         &self,
-        other: UserId,
+        other: UID,
         alias: Option<S>,
     ) -> Result<bool, RelationError> {
         let added = self.add(other)?;
@@ -214,7 +214,7 @@ impl FriendListEf {
 
     /// 删除好友（写 ΔDel；若尚在 ΔAdd 中则直接抵消；幂等）
     /// 同步清理别名的增量标记；Base 中的别名将于 compact 时被剪除
-    pub fn remove(&self, other: UserId) -> Result<bool, RelationError> {
+    pub fn remove(&self, other: UID) -> Result<bool, RelationError> {
         let u = other as FriendId;
 
         // 若还在 ΔAdd，直接抵消（不进入 ΔDel）

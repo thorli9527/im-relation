@@ -4,7 +4,7 @@
 pub struct AuthMsg {
     /// 用户唯一 ID（由服务端体系分配）
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     /// 设备类型（枚举）
     #[prost(enumeration = "DeviceType", tag = "2")]
     pub device_type: i32,

@@ -41,22 +41,22 @@ impl MySqlStore {
     }
 
     /// —— 新增：Keyset/游标分页（大表友好）——
-    /// 返回：(当前页成员, next_cursor)，next_cursor 为本页最后一个 user_id
+    /// 返回：(当前页成员, next_cursor)，next_cursor 为本页最后一个 uid
     pub async fn seek_members(
         &self,
         gid: GroupId,
-        after_user_id: Option<i64>,
+        after_uid: Option<i64>,
         limit: usize,
     ) -> Result<(Vec<MemberRef>, Option<i64>)> {
         let limit = (limit.max(1)) as i64;
 
-        let rows = if let Some(after) = after_user_id {
+        let rows = if let Some(after) = after_uid {
             sqlx::query(
                 r#"
-                SELECT user_id, alias, role
+                SELECT uid, alias, role
                 FROM group_member
-                WHERE group_id = ? AND user_id > ?
-                ORDER BY user_id ASC
+                WHERE group_id = ? AND uid > ?
+                ORDER BY uid ASC
                 LIMIT ?
                 "#,
             )
@@ -69,10 +69,10 @@ impl MySqlStore {
         } else {
             sqlx::query(
                 r#"
-                SELECT user_id, alias, role
+                SELECT uid, alias, role
                 FROM group_member
                 WHERE group_id = ?
-                ORDER BY user_id ASC
+                ORDER BY uid ASC
                 LIMIT ?
                 "#,
             )
@@ -87,7 +87,7 @@ impl MySqlStore {
         let mut next_cursor: Option<i64> = None;
 
         for r in rows {
-            let uid_u64: u64 = r.try_get("user_id")?;
+            let uid_u64: u64 = r.try_get("uid")?;
             let alias: Option<String> = r.try_get("alias")?;
             let role_i64: i64 = r.try_get("role")?;
             let role = i32::try_from(role_i64).context("seek_members: role overflow")?;
@@ -111,17 +111,17 @@ impl MySqlStore {
     {
         let mut rows = sqlx::query(
             r#"
-            SELECT user_id, alias, role
+            SELECT uid, alias, role
             FROM group_member
             WHERE group_id = ?
-            ORDER BY user_id ASC
+            ORDER BY uid ASC
             "#,
         )
         .bind(gid as u64)
         .fetch(self.pool());
 
         while let Some(r) = rows.try_next().await? {
-            let uid: u64 = r.try_get("user_id")?;
+            let uid: u64 = r.try_get("uid")?;
             let alias: Option<String> = r.try_get("alias")?;
             let role_i64: i64 = r.try_get("role")?;
             let role = i32::try_from(role_i64)?;
@@ -137,7 +137,7 @@ impl MySqlStore {
 
 #[async_trait]
 impl GroupStorage for MySqlStore {
-    /// 读取某群的**全部成员**，按 user_id 升序返回（含 alias）
+    /// 读取某群的**全部成员**，按 uid 升序返回（含 alias）
     async fn load_group(&self, gid: GroupId) -> Result<Option<Vec<MemberRef>>> {
         let mut after: Option<i64> = None;
         let mut out: Vec<MemberRef> = Vec::new();
@@ -167,7 +167,7 @@ impl GroupStorage for MySqlStore {
     }
 
     /// 仅对差异做写入：
-    /// - 新增：内存有、DB 无 -> INSERT (group_id, user_id, alias, role)
+    /// - 新增：内存有、DB 无 -> INSERT (group_id, uid, alias, role)
     /// - 删除：DB 有、内存无 -> DELETE
     /// - 变更：交集且 alias/role 任一不同 -> UPDATE alias=?, role=?
     ///
@@ -178,7 +178,7 @@ impl GroupStorage for MySqlStore {
         // --- 1) 读取 DB 当前视图 ---
         let db_rows = sqlx::query(
             r#"
-            SELECT user_id, alias, role
+            SELECT uid, alias, role
             FROM group_member
             WHERE group_id = ?
             "#,
@@ -196,7 +196,7 @@ impl GroupStorage for MySqlStore {
         // DB -> HashMap<uid, (alias, role)>
         let mut db_map: HashMap<i64, (Option<String>, i32)> = HashMap::with_capacity(db_rows.len());
         for r in db_rows {
-            let uid_u64: u64 = r.try_get("user_id")?;
+            let uid_u64: u64 = r.try_get("uid")?;
             let alias_db: Option<String> = r.try_get("alias")?;
             let role_i64: i64 = r.try_get("role")?;
             let role_i32 = i32::try_from(role_i64).with_context(|| {
@@ -243,8 +243,7 @@ impl GroupStorage for MySqlStore {
             if chunk.is_empty() {
                 continue;
             }
-            let mut sql =
-                String::from("DELETE FROM group_member WHERE group_id=? AND user_id IN (");
+            let mut sql = String::from("DELETE FROM group_member WHERE group_id=? AND uid IN (");
             sql.push_str(&vec!["?"; chunk.len()].join(","));
             sql.push(')');
 
@@ -263,7 +262,7 @@ impl GroupStorage for MySqlStore {
                 continue;
             }
             let mut sql =
-                String::from("INSERT INTO group_member (group_id, user_id, alias, role) VALUES ");
+                String::from("INSERT INTO group_member (group_id, uid, alias, role) VALUES ");
             sql.push_str(&vec!["(?,?,?,?)"; chunk.len()].join(","));
 
             let mut q = sqlx::query(&sql);
@@ -289,7 +288,7 @@ impl GroupStorage for MySqlStore {
                     r#"
                     UPDATE group_member
                     SET alias = ?, role = ?
-                    WHERE group_id = ? AND user_id = ?
+                    WHERE group_id = ? AND uid = ?
                     "#,
                 )
                 .bind(alias_opt.as_ref()) // Option<&String>
@@ -300,7 +299,7 @@ impl GroupStorage for MySqlStore {
                 .await
                 .with_context(|| {
                     format!(
-                        "save_group(diff): update (alias/role) failed, group_id={}, user_id={}",
+                        "save_group(diff): update (alias/role) failed, group_id={}, uid={}",
                         gid, uid
                     )
                 })?;
@@ -356,7 +355,7 @@ impl GroupStorage for MySqlStore {
             r#"
             SELECT group_id
             FROM group_member
-            WHERE user_id = ?
+            WHERE uid = ?
             ORDER BY group_id ASC
             "#,
         )

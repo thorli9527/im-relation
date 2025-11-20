@@ -178,7 +178,7 @@ message JoinGroupReq {
   // 目标群 ID
   int64 group_id = 1;
   // 申请人 UID（=调用者）
-  int64 user_id = 2;
+  int64 uid = 2;
   // 申请附言（可空，0~256 字）
   string extra = 3;
   // 申请来源（如 qrcode/search/share_link…）
@@ -200,7 +200,7 @@ message LeaveGroupReq {
   // 目标群 ID
   int64 group_id = 1;
   // 退群用户 UID（=调用者）
-  int64 user_id = 2;
+  int64 uid = 2;
   // 退群原因（可空；用于审计/画像）
   string reason = 3;
 }
@@ -331,7 +331,7 @@ message CountMembersResp {
 
 message UserGroupsReq {
   // 用户 UID
-  int64 user_id = 1;
+  int64 uid = 1;
 }
 
 // 用户群列表返回
@@ -419,7 +419,7 @@ service GroupMsgService {
 
 // 群聊会话快照定义。
 message GroupConversationSnapshot {
-  int64 user_id = 1;
+  int64 uid = 1;
   int64 group_id = 2;
   int64 last_msg_id = 3;
   int64 last_sender_id = 5;
@@ -430,7 +430,7 @@ message GroupConversationSnapshot {
 }
 
 message ListGroupConversationsRequest {
-  int64 user_id = 1;
+  int64 uid = 1;
   // 默认 20
   uint32 limit = 2;
   int64 before_updated_at = 3;
@@ -447,6 +447,6 @@ message UpsertGroupConversationSnapshotRequest {
 }
 
 message DeleteGroupConversationSnapshotRequest {
-  int64 user_id = 1;
+  int64 uid = 1;
   int64 group_id = 2;
 }

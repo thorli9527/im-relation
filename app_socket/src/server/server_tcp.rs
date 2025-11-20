@@ -38,7 +38,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tonic::Request;
 
 use crate::service::session::{SessionHandle, SessionManager};
-use crate::service::types::{ClientMsg, DeviceType, SendOpts, ServerMsg, UserId};
+use crate::service::types::{ClientMsg, DeviceType, SendOpts, ServerMsg, UID};
 
 const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(180);
 
@@ -117,14 +117,14 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
         Ok(None) => {
             warn!(
                 "{} auth failed: uid={} device={} ",
-                peer, auth.user_id, auth.device_id
+                peer, auth.uid, auth.device_id
             );
             return Ok(());
         }
         Err(e) => {
             warn!(
                 "{} auth validate error: uid={} device={} err={:?}",
-                peer, auth.user_id, auth.device_id, e
+                peer, auth.uid, auth.device_id, e
             );
             return Ok(());
         }
@@ -139,7 +139,7 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
         );
     }
     let (handle, mut rx) = sm.register(
-        auth.user_id as UserId,
+        auth.uid as UID,
         device_type.clone(),
         auth.device_id.clone(),
         auth.token.clone(),
@@ -369,7 +369,7 @@ async fn forward_group_message(domain: msgpb::DomainMessage) -> anyhow::Result<(
     Ok(())
 }
 
-fn spawn_friend_forward(user_id: UserId, payload: msgpb::Content, ref_message_id: Option<u64>) {
+fn spawn_friend_forward(user_id: UID, payload: msgpb::Content, ref_message_id: Option<u64>) {
     let domain = build_domain_message(&payload);
     tokio::spawn(async move {
         if let Err(err) = forward_friend_message(domain).await {
@@ -380,7 +380,7 @@ fn spawn_friend_forward(user_id: UserId, payload: msgpb::Content, ref_message_id
     });
 }
 
-fn spawn_group_forward(user_id: UserId, payload: msgpb::Content, ref_message_id: Option<u64>) {
+fn spawn_group_forward(user_id: UID, payload: msgpb::Content, ref_message_id: Option<u64>) {
     let domain = build_domain_message(&payload);
     tokio::spawn(async move {
         if let Err(err) = forward_group_message(domain).await {
@@ -392,7 +392,7 @@ fn spawn_group_forward(user_id: UserId, payload: msgpb::Content, ref_message_id:
 }
 
 fn spawn_profile_event(
-    user_id: UserId,
+    user_id: UID,
     profile: msgpb::ProfileEventContent,
     ref_message_id: Option<u64>,
 ) {
@@ -406,7 +406,7 @@ fn spawn_profile_event(
 }
 
 fn spawn_system_business(
-    user_id: UserId,
+    user_id: UID,
     business: Option<msgpb::SystemBusinessContent>,
     ref_message_id: Option<u64>,
 ) {
@@ -434,7 +434,7 @@ fn find_profile_event(payload: &msgpb::Content) -> Option<msgpb::ProfileEventCon
 }
 
 async fn handle_profile_event(
-    user_id: UserId,
+    user_id: UID,
     profile: msgpb::ProfileEventContent,
 ) -> anyhow::Result<()> {
     let addr = resolve_hot_online_addr().await?;
@@ -488,7 +488,7 @@ async fn handle_profile_event(
     Ok(())
 }
 
-fn build_profile_user_patch(user_id: UserId) -> UserEntity {
+fn build_profile_user_patch(user_id: UID) -> UserEntity {
     UserEntity {
         id: user_id,
         password: String::new(),
@@ -509,7 +509,7 @@ fn build_profile_user_patch(user_id: UserId) -> UserEntity {
 }
 
 async fn handle_system_business(
-    user_id: UserId,
+    user_id: UID,
     business: msgpb::SystemBusinessContent,
 ) -> anyhow::Result<()> {
     info!(
@@ -519,7 +519,7 @@ async fn handle_system_business(
     Ok(())
 }
 
-fn send_client_ack(user_id: UserId, ref_message_id: Option<u64>) {
+fn send_client_ack(user_id: UID, ref_message_id: Option<u64>) {
     let ts_ms = current_time_millis();
     let mut payload = msgpb::Content::default();
     payload.ack = Some(msgpb::AckContent {
@@ -599,7 +599,7 @@ pub(super) async fn validate_auth(auth: &PbAuthMsg) -> anyhow::Result<Option<i64
     if resp.status != SessionTokenStatus::StsActive as i32 {
         return Ok(None);
     }
-    if resp.user_id != auth.user_id {
+    if resp.uid != auth.uid {
         return Ok(None);
     }
     if resp.device_type != auth.device_type {
@@ -617,7 +617,7 @@ pub(super) async fn validate_auth(auth: &PbAuthMsg) -> anyhow::Result<Option<i64
             .unwrap_or_default()
             .as_millis() as i64;
         if (now - auth.ts_ms).abs() > 5 * 60 * 1000 {
-            log::warn!("auth timestamp drift detected: uid={}", auth.user_id);
+            log::warn!("auth timestamp drift detected: uid={}", auth.uid);
         }
     }
 

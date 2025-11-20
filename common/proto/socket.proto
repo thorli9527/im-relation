@@ -189,7 +189,7 @@ enum MsgKind {
 // 客户端握手请求：连接建立后首帧
 message AuthMsg {
   // 用户唯一 ID（由服务端体系分配）
-  int64 user_id = 1;
+  int64 uid = 1;
   // 设备类型（枚举）
   DeviceType device_type = 2;
   // 设备标识（业务自定义，如设备号、推送 token 等）

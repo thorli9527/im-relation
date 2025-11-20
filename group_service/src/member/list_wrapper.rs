@@ -3,7 +3,7 @@ use roaring::RoaringTreemap as RB64;
 use std::collections::HashMap;
 
 use common::infra::grpc::grpc_group::group_service::{GroupRoleType, MemberRef};
-use common::{MemberListError, UserId};
+use common::{MemberListError, UID};
 
 #[derive(Debug, Default)]
 pub struct MemberListWrapper {
@@ -24,9 +24,9 @@ impl MemberListWrapper {
     }
 
     #[inline]
-    fn to_u64(id: UserId) -> Result<u64, MemberListError> {
+    fn to_u64(id: UID) -> Result<u64, MemberListError> {
         if id <= 0 {
-            return Err(MemberListError::InvalidUserId);
+            return Err(MemberListError::InvalidUID);
         }
         Ok(id as u64)
     }
@@ -130,8 +130,8 @@ impl MemberListWrapper {
     }
 
     /// 删除成员（包含角色与别名清理）；保护“最后一个 Owner”
-    pub fn remove(&self, user_id: UserId) -> Result<bool, MemberListError> {
-        let uid = Self::to_u64(user_id)?;
+    pub fn remove(&self, uid: UID) -> Result<bool, MemberListError> {
+        let uid = Self::to_u64(uid)?;
 
         // 先读 owners 判断“最后一个群主”约束
         {
@@ -159,8 +159,8 @@ impl MemberListWrapper {
 
     /// 修改成员角色（若成员不存在，会将其加入 members 集）；
     /// 保护“最后一个 Owner”不被降级。
-    pub fn change_role(&self, user_id: UserId, role: GroupRoleType) -> Result<(), MemberListError> {
-        let uid = Self::to_u64(user_id)?;
+    pub fn change_role(&self, uid: UID, role: GroupRoleType) -> Result<(), MemberListError> {
+        let uid = Self::to_u64(uid)?;
 
         // 如果是从 Owner 降级，需要检查是否为最后一个 Owner
         if !matches!(role, GroupRoleType::Owner) {
@@ -184,10 +184,10 @@ impl MemberListWrapper {
     /// 修改/清空别名（None 或 空字符串 => 清空）；仅允许群内成员
     pub fn change_alias<S: AsRef<str>>(
         &self,
-        user_id: UserId,
+        uid: UID,
         alias: Option<S>,
     ) -> Result<(), MemberListError> {
-        let uid = Self::to_u64(user_id)?;
+        let uid = Self::to_u64(uid)?;
         if !self.members.read().contains(uid) {
             return Err(MemberListError::NotFound);
         }
@@ -205,23 +205,23 @@ impl MemberListWrapper {
 
     /// 获取某成员别名
     #[inline]
-    pub fn get_alias(&self, user_id: UserId) -> Result<Option<String>, MemberListError> {
-        let uid = Self::to_u64(user_id)?;
+    pub fn get_alias(&self, uid: UID) -> Result<Option<String>, MemberListError> {
+        let uid = Self::to_u64(uid)?;
         Ok(self.aliases.read().get(&uid).cloned())
     }
 
     /// 获取某成员角色（无则返回 Member）
     #[inline]
-    pub fn get_role(&self, user_id: UserId) -> Result<GroupRoleType, MemberListError> {
-        let uid = Self::to_u64(user_id)?;
+    pub fn get_role(&self, uid: UID) -> Result<GroupRoleType, MemberListError> {
+        let uid = Self::to_u64(uid)?;
         let o = self.owners.read();
         let a = self.admins.read();
         Ok(Self::role_of(&o, &a, uid))
     }
 
     #[inline]
-    pub fn is_owner(&self, user_id: UserId) -> Result<bool, MemberListError> {
-        let uid = Self::to_u64(user_id)?;
+    pub fn is_owner(&self, uid: UID) -> Result<bool, MemberListError> {
+        let uid = Self::to_u64(uid)?;
         Ok(self.owners.read().contains(uid))
     }
 
@@ -319,8 +319,8 @@ impl MemberListWrapper {
     }
 
     #[inline]
-    pub fn contains(&self, user_id: UserId) -> Result<bool, MemberListError> {
-        let uid = Self::to_u64(user_id)?;
+    pub fn contains(&self, uid: UID) -> Result<bool, MemberListError> {
+        let uid = Self::to_u64(uid)?;
         Ok(self.members.read().contains(uid))
     }
 

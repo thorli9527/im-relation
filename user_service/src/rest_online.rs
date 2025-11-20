@@ -9,7 +9,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 
 use crate::online_store::OnlineStore;
-use common::UserId;
+use common::UID;
 
 /// 全局共享状态
 #[derive(Clone)]
@@ -32,7 +32,7 @@ pub struct SetOnlineBody {
 /// 批量查询请求体
 #[derive(Debug, Deserialize)]
 pub struct BatchCheckReq {
-    pub user_ids: Vec<i64>,
+    pub uids: Vec<i64>,
 }
 
 /// 批量查询响应体（顺序与请求一致）
@@ -49,7 +49,7 @@ pub struct BatchSetReq {
 
 #[derive(Debug, Deserialize)]
 pub struct BatchSetItem {
-    pub user_id: i64,
+    pub uid: i64,
     pub online: bool,
 }
 
@@ -77,44 +77,41 @@ pub async fn healthz() -> impl IntoResponse {
 
 /// 设置某用户在线/离线（幂等）
 pub async fn set_online(
-    Path(user_id): Path<i64>,
+    Path(uid): Path<i64>,
     State(state): State<AppState>,
     Json(body): Json<SetOnlineBody>,
 ) -> impl IntoResponse {
-    let uid: UserId = user_id as UserId;
+    let uid: UID = uid as UID;
     state.store.set_online(uid, body.online);
     Json(OkResp { ok: true })
 }
 
 /// 将用户置为离线（DELETE 语义）
-pub async fn set_offline(
-    Path(user_id): Path<i64>,
-    State(state): State<AppState>,
-) -> impl IntoResponse {
-    let uid: UserId = user_id as UserId;
+pub async fn set_offline(Path(uid): Path<i64>, State(state): State<AppState>) -> impl IntoResponse {
+    let uid: UID = uid as UID;
     state.store.set_online(uid, false);
     Json(OkResp { ok: true })
 }
 
 /// 单查是否在线
 pub async fn check_online(
-    Path(user_id): Path<i64>,
+    Path(uid): Path<i64>,
     State(state): State<AppState>,
 ) -> impl IntoResponse {
-    let uid: UserId = user_id as UserId;
+    let uid: UID = uid as UID;
     let online = state.store.contains(uid);
     Json(serde_json::json!({ "online": online }))
 }
 
-/// 批量查询是否在线（返回顺序与请求 user_ids 对齐）
+/// 批量查询是否在线（返回顺序与请求 uids 对齐）
 pub async fn check_online_batch(
     State(state): State<AppState>,
     Json(body): Json<BatchCheckReq>,
 ) -> impl IntoResponse {
     let results: Vec<bool> = body
-        .user_ids
+        .uids
         .iter()
-        .map(|&u| state.store.contains(u as UserId))
+        .map(|&u| state.store.contains(u as UID))
         .collect();
 
     Json(BatchCheckResp { results })
@@ -129,7 +126,7 @@ pub async fn set_online_batch(
     let mut removed: u64 = 0;
 
     for it in &body.items {
-        let uid = it.user_id as UserId;
+        let uid = it.uid as UID;
         let cur = state.store.contains(uid);
         if it.online && !cur {
             added += 1;
@@ -138,11 +135,9 @@ pub async fn set_online_batch(
         }
     }
 
-    state.store.set_online_many(
-        body.items
-            .iter()
-            .map(|it| (it.user_id as UserId, it.online)),
-    );
+    state
+        .store
+        .set_online_many(body.items.iter().map(|it| (it.uid as UID, it.online)));
 
     Json(BatchSetResp {
         ok: true,
@@ -167,7 +162,7 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/healthz", get(healthz))
         .route(
-            "/online/{user_id}",
+            "/online/{uid}",
             get(check_online).post(set_online).delete(set_offline),
         )
         .route("/online/batch/check", post(check_online_batch))

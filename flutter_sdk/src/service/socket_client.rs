@@ -6,7 +6,7 @@ use std::{
         Mutex,
     },
     thread,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use crate::{
@@ -15,6 +15,7 @@ use crate::{
     generated::socket::{
         AuthMsg, ClientMsg, DeviceType as SocketDeviceType, ServerMsg as SocketServerMsg,
     },
+    job::message_job,
     service::message_service::MessageService,
 };
 use bytes::{Bytes, BytesMut};
@@ -32,7 +33,7 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct SocketConfig {
     pub socket_addr: String,
-    pub user_id: i64,
+    pub uid: i64,
     pub device_type: SocketDeviceType,
     pub device_id: String,
     pub token: String,
@@ -61,9 +62,10 @@ impl SocketClient {
     }
 
     pub fn init() -> Result<(), String> {
-        // Prepare waiters list and connection flag before any connects.
+        // Prepare waiters list, connection flag, and resender thread.
         SUCCESS_WAITERS.get_or_init(|| Mutex::new(Vec::new()));
         CONNECTION_SUCCESS.get_or_init(|| AtomicBool::new(false));
+        start_resend_thread();
         INSTANCE
             .set(SocketClient {
                 inner: Mutex::new(None),
@@ -147,6 +149,9 @@ impl SocketClient {
 static INSTANCE: OnceCell<SocketClient> = OnceCell::new();
 static SUCCESS_WAITERS: OnceCell<Mutex<Vec<Sender<()>>>> = OnceCell::new();
 static CONNECTION_SUCCESS: OnceCell<AtomicBool> = OnceCell::new();
+static MESSAGE_RESENDER: OnceCell<thread::JoinHandle<()>> = OnceCell::new();
+
+const RESEND_INTERVAL_SECS: u64 = 5;
 
 async fn run_socket_loop(
     config: SocketConfig,
@@ -329,7 +334,7 @@ async fn send_auth(
     config: &SocketConfig,
 ) -> Result<(), String> {
     let auth = AuthMsg {
-        user_id: config.user_id,
+        uid: config.uid,
         device_type: config.device_type as i32,
         device_id: config.device_id.clone(),
         token: config.token.clone(),
@@ -418,6 +423,20 @@ fn test_mode_enabled() -> bool {
     env::var("FLUTTER_SDK_SOCKET_CLIENT_TEST_MODE")
         .map(|value| value == "1")
         .unwrap_or(false)
+}
+
+fn start_resend_thread() {
+    MESSAGE_RESENDER.get_or_init(|| {
+        thread::Builder::new()
+            .name("message-resender".into())
+            .spawn(|| loop {
+                if let Err(err) = message_job::resend_pending() {
+                    warn!("message_resender error: {}", err);
+                }
+                thread::sleep(Duration::from_secs(RESEND_INTERVAL_SECS));
+            })
+            .expect("failed to spawn message resender")
+    });
 }
 
 impl fmt::Debug for SocketClient {

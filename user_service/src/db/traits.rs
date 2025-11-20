@@ -38,7 +38,7 @@ pub trait DirectoryReadRepo: Clone + Send + Sync + 'static {
 
 #[derive(Clone, Debug)]
 pub struct SessionTokenUpsert {
-    pub user_id: i64,
+    pub uid: i64,
     pub device_type: DeviceType,
     pub device_id: String,
     pub login_ip: Option<Vec<u8>>,
@@ -47,7 +47,7 @@ pub struct SessionTokenUpsert {
 
 #[derive(Clone, Debug)]
 pub struct SessionTokenRecord {
-    pub user_id: i64,
+    pub uid: i64,
     pub device_type: DeviceType,
     pub device_id: String,
     pub session_token: String,
@@ -76,7 +76,7 @@ pub trait SessionTokenRepo: Clone + Send + Sync + 'static {
 
     async fn revoke_session_token_by_device(
         &self,
-        user_id: i64,
+        uid: i64,
         device_type: DeviceType,
         device_id: &str,
     ) -> Result<Option<String>>;

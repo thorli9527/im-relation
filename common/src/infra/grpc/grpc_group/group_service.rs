@@ -44,7 +44,7 @@ pub struct RemoveReq {
     pub group_id: i64,
     /// 要移除的用户ID
     #[prost(int64, tag = "2")]
-    pub user_id: i64,
+    pub uid: i64,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct RemoveResp {
@@ -60,7 +60,7 @@ pub struct ChangeRoleReq {
     pub group_id: i64,
     /// 用户ID
     #[prost(int64, tag = "2")]
-    pub user_id: i64,
+    pub uid: i64,
     /// 新角色（0/1/2）
     #[prost(enumeration = "GroupRoleType", tag = "3")]
     pub role: i32,
@@ -75,7 +75,7 @@ pub struct ChangeAliasReq {
     pub group_id: i64,
     /// 用户ID
     #[prost(int64, tag = "2")]
-    pub user_id: i64,
+    pub uid: i64,
     /// 新别名（为空或不传表示清空别名）
     #[prost(string, optional, tag = "3")]
     pub alias: ::core::option::Option<::prost::alloc::string::String>,
@@ -143,7 +143,7 @@ pub struct CountResp {
 pub struct UserGroupsReq {
     /// 用户ID
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UserGroupsResp {

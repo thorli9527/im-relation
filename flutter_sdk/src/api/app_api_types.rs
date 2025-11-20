@@ -64,7 +64,7 @@ pub struct SessionValidateRequest {
 #[serde(rename_all = "camelCase")]
 pub struct SessionValidationResult {
     pub ok: bool,
-    pub user_id: i64,
+    pub uid: i64,
     pub expires_at: u64,
     pub token: String,
 }
@@ -120,7 +120,7 @@ pub struct UpdateProfileRequest {
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct UserProfile {
-    pub user_id: i64,
+    pub uid: i64,
     pub username: String,
     pub avatar: String,
     pub email: Option<String>,

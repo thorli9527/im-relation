@@ -64,7 +64,7 @@ pub struct FriendDelete {
 pub struct FriendUpdateRemark {
     /// 用户ID
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     /// 好友用户ID
     #[prost(int64, tag = "2")]
     pub friend_user_id: i64,
@@ -102,7 +102,7 @@ pub struct OneTimePreKey {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UploadDeviceKeysRequest {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     #[prost(string, tag = "2")]
     pub device_id: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "3")]
@@ -120,12 +120,12 @@ pub struct UploadDeviceKeysResponse {
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct FetchDeviceKeysRequest {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DeviceKeyBundle {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     #[prost(string, tag = "2")]
     pub device_id: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "3")]
@@ -145,7 +145,7 @@ pub struct FetchDeviceKeysResponse {
 pub struct ListUserFriendMessagesRequest {
     /// 当前用户 ID
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     /// 起始时间（毫秒，闭区间）；传 0 表示不限制
     #[prost(int64, tag = "2")]
     pub since_timestamp: i64,

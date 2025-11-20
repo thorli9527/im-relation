@@ -47,8 +47,8 @@ where
         request: Request<SetOnlineRequest>,
     ) -> Result<Response<SetOnlineResponse>, Status> {
         let req = request.into_inner();
-        // 将 req.user_id 转为你的 UserId（通常是 i64）
-        self.store.set_online(req.user_id as _, req.online);
+        // 将 req.uid 转为你的 UID（通常是 i64）
+        self.store.set_online(req.uid as _, req.online);
         Ok(Response::new(SetOnlineResponse { ok: true }))
     }
 
@@ -57,7 +57,7 @@ where
         request: Request<CheckOnlineRequest>,
     ) -> Result<Response<CheckOnlineResponse>, Status> {
         let req = request.into_inner();
-        let online = self.store.contains(req.user_id as _);
+        let online = self.store.contains(req.uid as _);
         Ok(Response::new(CheckOnlineResponse { online }))
     }
 
@@ -68,7 +68,7 @@ where
         let req = request.into_inner();
         let results = self
             .store
-            .contains_many_ordered(req.user_ids.iter().cloned().map(|u| u as _));
+            .contains_many_ordered(req.uids.iter().cloned().map(|u| u as _));
         Ok(Response::new(CheckOnlineBatchResponse { results }))
     }
 
@@ -92,7 +92,7 @@ where
         let req = request.into_inner();
         let device_type = PbDeviceType::try_from(req.device_type).unwrap_or(PbDeviceType::Unknown);
         let payload = SessionTokenUpsert {
-            user_id: req.user_id,
+            uid: req.uid,
             device_type,
             device_id: req.device_id,
             login_ip: req.login_ip.map(|s| s.into_bytes()),
@@ -134,7 +134,7 @@ where
             } as i32;
             return Ok(Response::new(ValidateSessionTokenResponse {
                 status,
-                user_id: rec.user_id,
+                uid: rec.uid,
                 device_type: rec.device_type as i32,
                 device_id: rec.device_id,
                 expires_at: expires_at_ms,
@@ -143,7 +143,7 @@ where
 
         Ok(Response::new(ValidateSessionTokenResponse {
             status: SessionTokenStatus::StsRevoked as i32,
-            user_id: 0,
+            uid: 0,
             device_type: PbDeviceType::Unknown as i32,
             device_id: String::new(),
             expires_at: 0,
@@ -164,7 +164,7 @@ where
             Some(revoke_session_token_request::Target::Device(device)) => self
                 .session_repo
                 .revoke_session_token_by_device(
-                    device.user_id,
+                    device.uid,
                     PbDeviceType::try_from(device.device_type).unwrap_or(PbDeviceType::Unknown),
                     &device.device_id,
                 )

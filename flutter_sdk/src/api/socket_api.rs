@@ -6,7 +6,8 @@ use prost::Message;
 use serde_json::{json, Value as JsonValue};
 
 use crate::{
-    domain::proto_adapter::content_to_json, generated::message as msgpb,
+    domain::proto_adapter::{content_to_json, json_to_content},
+    generated::message as msgpb,
     generated::socket as socket_proto,
 };
 
@@ -22,14 +23,7 @@ fn encode<M: Message>(message: M) -> Result<Vec<u8>, String> {
 /// Restore `msgpb::Content` from JSON metadata that contains a `raw` base64 string.
 /// The JSON format is produced by `proto_adapter::content_to_json`.
 fn content_from_json(value: &JsonValue) -> Result<msgpb::Content, String> {
-    let raw = value
-        .get("raw")
-        .and_then(|v| v.as_str())
-        .ok_or("content.raw is required")?;
-    let bytes = STANDARD
-        .decode(raw)
-        .map_err(|err| format!("decode content.raw: {err}"))?;
-    msgpb::Content::decode(bytes.as_slice()).map_err(|err| err.to_string())
+    json_to_content(value)
 }
 
 /// Serialize a `ServerMsg` into a lightweight JSON object for Dart.

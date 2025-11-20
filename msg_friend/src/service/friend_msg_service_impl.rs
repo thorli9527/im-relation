@@ -40,7 +40,7 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
 
         let rows = list_conversation_messages(
             self.pool(),
-            req.user_id,
+            req.uid,
             req.friend_id,
             None,
             req.before_message_id.map(|id| id as i64),
@@ -91,7 +91,7 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
         let friends_resp = friend_client
             .clone()
             .get_friends_detailed(GetFriendsDetailedReq {
-                user_id: req.user_id,
+                uid: req.uid,
                 apply_source: false,
                 alias: false,
                 avatar: false,
@@ -109,7 +109,7 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
         for entry in friends_resp.friends {
             let rows = list_conversation_messages(
                 self.pool(),
-                req.user_id,
+                req.uid,
                 entry.friend_id,
                 since,
                 None,
@@ -415,7 +415,7 @@ impl Services {
                     Some(alias_value.clone())
                 };
                 let req = UpdateFriendAliasReq {
-                    user_id: event.operator_id,
+                    uid: event.operator_id,
                     friend_id: event.friend_id,
                     alias: alias_opt.clone(),
                 };
@@ -432,7 +432,7 @@ impl Services {
             msg_message::FriendEventType::FeRemarkUpdated => {
                 let remark_opt = event.remark.clone().filter(|s| !s.is_empty());
                 let req = UpdateFriendRemarkReq {
-                    user_id: event.operator_id,
+                    uid: event.operator_id,
                     friend_id: event.friend_id,
                     remark: remark_opt.clone(),
                 };
@@ -455,7 +455,7 @@ impl Services {
                     Some(reason_value)
                 };
                 let req = UpdateFriendBlacklistReq {
-                    user_id: event.operator_id,
+                    uid: event.operator_id,
                     friend_id: event.friend_id,
                     blocked,
                     reason: reason_opt.clone(),

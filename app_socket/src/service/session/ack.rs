@@ -9,7 +9,7 @@ use tokio::time::Instant;
 use tokio_stream::StreamExt;
 use tokio_util::time::DelayQueue;
 
-use crate::service::types::{AckCallback, MessageId, SendOpts, ServerMsg, UserId};
+use crate::service::types::{AckCallback, MessageId, SendOpts, ServerMsg, UID};
 
 use super::manager::SessionManager;
 use super::metrics::METRICS;
@@ -27,7 +27,7 @@ pub(super) struct PendingAck {
     /// 发送选项（包含过期、最大重试次数等，克隆自上游调用方）
     pub(super) opts: SendOpts,
     /// 目标用户 ID，便于从管理器重发
-    pub(super) target_user: UserId,
+    pub(super) target_user: UID,
     /// 客户端确认回调（例如提交 Kafka offset）
     pub(super) on_ack: Option<AckCallback>,
     /// 达到最大重试或超时后的回调
@@ -146,7 +146,7 @@ impl AckShards {
     }
 
     /// 当消息第一次发送且需要 ACK 时记录分片状态，后续若失败将由后台任务判断是否重试。
-    pub(super) fn track_if_new(&self, msg: &ServerMsg, opts: &SendOpts, target_user: UserId) {
+    pub(super) fn track_if_new(&self, msg: &ServerMsg, opts: &SendOpts, target_user: UID) {
         let id = msg.id;
         let entry = PendingAck {
             msg: msg.clone(),

@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use tonic::{Request, Response, Status};
 
 use common::support::grpc::internal_error;
-use common::UserId;
+use common::UID;
 
 use crate::hot_cold::HotColdFriendFacade;
 use common::infra::grpc::grpc_friend::friend_service::friend_service_server::FriendService;
@@ -20,13 +20,13 @@ pub struct FriendServiceImpl<R: FriendRepo> {
 }
 
 impl<R: FriendRepo> FriendServiceImpl<R> {
-    /// i64 → UserId（u64 别名），带负数校验
+    /// i64 → UID（u64 别名），带负数校验
     #[inline]
-    fn cast_uid(x: i64, field: &'static str) -> Result<UserId, Status> {
+    fn cast_uid(x: i64, field: &'static str) -> Result<UID, Status> {
         if x < 0 {
             return Err(Status::invalid_argument(format!("{field} must be >= 0")));
         }
-        Ok(x as UserId)
+        Ok(x as UID)
     }
 
     #[inline]
@@ -56,7 +56,7 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         request: Request<AddFriendReq>,
     ) -> Result<Response<AddFriendResp>, Status> {
         let req = request.into_inner();
-        let uid = Self::cast_uid(req.user_id, "user_id")?;
+        let uid = Self::cast_uid(req.uid, "uid")?;
         let fid = Self::cast_uid(req.friend_id, "friend_id")?;
         // 备注字段兼容旧别名逻辑：若 alias_for_user 未提供，则使用 remark
         let remark = req.remark.as_deref();
@@ -95,7 +95,7 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         request: Request<RemoveFriendReq>,
     ) -> Result<Response<RemoveFriendResp>, Status> {
         let req = request.into_inner();
-        let uid = Self::cast_uid(req.user_id, "user_id")?;
+        let uid = Self::cast_uid(req.uid, "uid")?;
         let fid = Self::cast_uid(req.friend_id, "friend_id")?;
 
         // 同理：根据是否存在决定 removed 布尔
@@ -119,7 +119,7 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         request: Request<IsFriendReq>,
     ) -> Result<Response<IsFriendResp>, Status> {
         let req = request.into_inner();
-        let uid = Self::cast_uid(req.user_id, "user_id")?;
+        let uid = Self::cast_uid(req.uid, "uid")?;
         let fid = Self::cast_uid(req.friend_id, "friend_id")?;
 
         // 若想更高效，可给 facade 增加 is_friend 直连底库；此处保持兼容
@@ -138,9 +138,9 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         request: Request<GetFriendsDetailedReq>,
     ) -> Result<Response<GetFriendsDetailedResp>, Status> {
         let req = request.into_inner();
-        let uid = Self::cast_uid(req.user_id, "user_id")?;
+        let uid = Self::cast_uid(req.uid, "uid")?;
 
-        let mut cursor: Option<UserId> = None;
+        let mut cursor: Option<UID> = None;
         let mut friends = Vec::new();
         loop {
             let (batch, next) = self
@@ -170,12 +170,12 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         request: Request<GetFriendsPageDetailedReq>,
     ) -> Result<Response<GetFriendsPageDetailedResp>, Status> {
         let req = request.into_inner();
-        let uid = Self::cast_uid(req.user_id, "user_id")?;
+        let uid = Self::cast_uid(req.uid, "uid")?;
         let page = req.page.max(1) as usize;
         let page_size = req.page_size.clamp(1, 5_000) as u32;
 
         let mut current_page = 1usize;
-        let mut cursor: Option<UserId> = None;
+        let mut cursor: Option<UID> = None;
         loop {
             let (batch, next) = self
                 .facade
@@ -207,7 +207,7 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         request: Request<UpdateFriendAliasReq>,
     ) -> Result<Response<UpdateFriendAliasResp>, Status> {
         let req = request.into_inner();
-        let uid = Self::cast_uid(req.user_id, "user_id")?;
+        let uid = Self::cast_uid(req.uid, "uid")?;
         let fid = Self::cast_uid(req.friend_id, "friend_id")?;
         let alias = req
             .alias
@@ -228,7 +228,7 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         request: Request<UpdateFriendRemarkReq>,
     ) -> Result<Response<UpdateFriendRemarkResp>, Status> {
         let req = request.into_inner();
-        let uid = Self::cast_uid(req.user_id, "user_id")?;
+        let uid = Self::cast_uid(req.uid, "uid")?;
         let fid = Self::cast_uid(req.friend_id, "friend_id")?;
         let remark = req
             .remark
@@ -249,7 +249,7 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         request: Request<UpdateFriendBlacklistReq>,
     ) -> Result<Response<UpdateFriendBlacklistResp>, Status> {
         let req = request.into_inner();
-        let uid = Self::cast_uid(req.user_id, "user_id")?;
+        let uid = Self::cast_uid(req.uid, "uid")?;
         let fid = Self::cast_uid(req.friend_id, "friend_id")?;
 
         let updated = self
@@ -266,7 +266,7 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         request: Request<ClearFriendsReq>,
     ) -> Result<Response<ClearFriendsResp>, Status> {
         let req = request.into_inner();
-        let uid = Self::cast_uid(req.user_id, "user_id")?;
+        let uid = Self::cast_uid(req.uid, "uid")?;
 
         // 统一通过 facade 的删除用户逻辑（清持久层并失效热存）
         self.facade
@@ -280,8 +280,8 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
 
 /// 写入补偿任务（失败不再上抛错误）
 async fn enqueue_friend_add_job(
-    a: UserId,
-    b: UserId,
+    a: UID,
+    b: UID,
     alias_for_a: Option<&str>,
     alias_for_b: Option<&str>,
     error_msg: &str,
@@ -292,7 +292,7 @@ async fn enqueue_friend_add_job(
         msg.truncate(500);
     }
     sqlx::query(
-        r#"INSERT INTO friend_add_jobs (user_id, friend_id, alias_for_user, alias_for_friend, error_msg, status)
+        r#"INSERT INTO friend_add_jobs (uid, friend_id, alias_for_user, alias_for_friend, error_msg, status)
            VALUES (?, ?, ?, ?, ?, 0)"#,
     )
         .bind(a as i64)

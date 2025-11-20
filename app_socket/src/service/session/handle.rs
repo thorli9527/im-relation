@@ -1,7 +1,7 @@
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TrySendError;
 
-use crate::service::types::{DeviceId, DeviceType, ServerMsg, SessionId, UserId};
+use crate::service::types::{DeviceId, DeviceType, ServerMsg, SessionId, UID};
 
 use super::metrics::METRICS;
 
@@ -9,7 +9,7 @@ use super::metrics::METRICS;
 #[derive(Clone)]
 pub struct SessionHandle {
     /// 归属用户 ID
-    pub user_id: UserId,
+    pub user_id: UID,
     /// 客户端类型（移动端/网页等）
     pub device_type: DeviceType,
     /// 客户端设备 ID

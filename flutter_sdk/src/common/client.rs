@@ -1,13 +1,19 @@
-use crate::api::{config_api, types::ApiResponse};
+use crate::api::config_api;
 use log::{error, info};
 use once_cell::sync::OnceCell;
 use reqwest::blocking::{Client as HttpClient, Request, Response};
-use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::to_string;
 use std::{env, sync::RwLock, time::Duration};
 
 static APP_API_HTTP_CLIENT: OnceCell<RwLock<AppApiHttpClient>> = OnceCell::new();
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ApiResponse<T> {
+    pub code: i32,
+    pub message: String,
+    pub data: Option<T>,
+}
 
 pub fn with_app_api_client<T>(
     op: impl FnOnce(&AppApiHttpClient) -> Result<T, String>,

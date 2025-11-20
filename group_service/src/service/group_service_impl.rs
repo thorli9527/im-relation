@@ -58,7 +58,7 @@ impl<S: GroupStorage> GroupServiceImpl<S> {
             MemberListError::PermissionDenied(msg) => Status::permission_denied(msg),
             MemberListError::PreconditionFailed(msg) => Status::failed_precondition(msg),
             MemberListError::InvalidArgument(msg) => Status::invalid_argument(msg),
-            MemberListError::InvalidUserId | MemberListError::InvalidGroupId => {
+            MemberListError::InvalidUID | MemberListError::InvalidGroupId => {
                 Status::invalid_argument(e.to_string())
             }
             MemberListError::TooManyMembers => Status::resource_exhausted(e.to_string()),
@@ -310,7 +310,7 @@ where
         let r = req.into_inner();
         let removed = self
             .facade
-            .remove(r.group_id, r.user_id)
+            .remove(r.group_id, r.uid)
             .await
             .map_err(Self::map_hot_err)?;
         Ok(Response::new(RemoveResp { removed }))
@@ -325,7 +325,7 @@ where
             return Err(Status::invalid_argument("invalid role"));
         };
         self.facade
-            .change_role(r.group_id, r.user_id, role)
+            .change_role(r.group_id, r.uid, role)
             .await
             .map_err(Self::map_hot_err)?;
         Ok(Response::new(ChangeRoleResp {}))
@@ -337,7 +337,7 @@ where
     ) -> Result<Response<ChangeAliasResp>, Status> {
         let r = req.into_inner();
         self.facade
-            .change_alias(r.group_id, r.user_id, r.alias)
+            .change_alias(r.group_id, r.uid, r.alias)
             .await
             .map_err(Self::map_hot_err)?;
         Ok(Response::new(ChangeAliasResp {}))
@@ -383,7 +383,7 @@ where
         req: Request<UserGroupsReq>,
     ) -> Result<Response<UserGroupsResp>, Status> {
         let r = req.into_inner();
-        let gids = self.facade.user_groups(r.user_id).await;
+        let gids = self.facade.user_groups(r.uid).await;
         Ok(Response::new(UserGroupsResp { group_ids: gids }))
     }
 

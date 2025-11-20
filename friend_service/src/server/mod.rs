@@ -5,7 +5,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Context, Result};
 use axum::{routing::get, Json, Router};
 use common::config::{get_db, AppConfig};
-use common::UserId;
+use common::UID;
 use log::warn;
 use tokio::signal;
 use tokio_util::sync::CancellationToken;
@@ -38,7 +38,7 @@ pub async fn start() -> Result<()> {
         .parse()
         .with_context(|| format!("invalid http host:port: {}", http_addr_str))?;
 
-    let avg_key_bytes = std::mem::size_of::<UserId>();
+    let avg_key_bytes = std::mem::size_of::<UID>();
     let tuning = cfg.hot_friend_cfg();
     let avg_value_bytes = tuning.avg_value_bytes.unwrap_or(256);
     let shards = tuning.shards.unwrap_or(32);

@@ -7,13 +7,13 @@ package friend_service;
 // ==== 基础引用 ====
 
 message FriendRef {
-  int64 user_id = 1;
+  int64 uid = 1;
 }
 
 // ==== 关系操作 ====
 
 message AddFriendReq {
-  int64 user_id  = 1;
+  int64 uid  = 1;
   int64 friend_id = 2;
   // 申请人给好友写的备注（默认与名字一致，可用于联系人列表展示）
   optional string remark = 3;
@@ -31,7 +31,7 @@ message AddFriendResp {
 }
 
 message RemoveFriendReq {
-  int64 user_id  = 1;
+  int64 uid  = 1;
   int64 friend_id = 2;
 }
 
@@ -40,7 +40,7 @@ message RemoveFriendResp {
 }
 
 message IsFriendReq {
-  int64 user_id  = 1;
+  int64 uid  = 1;
   int64 friend_id = 2;
 }
 
@@ -71,7 +71,7 @@ message FriendEntry {
 }
 
 message GetFriendsDetailedReq {
-  int64 user_id = 1;
+  int64 uid = 1;
   // 是否需要返回好友申请来源信息
   bool apply_source = 2;
   // 是否需要返回好友别名/备注
@@ -85,7 +85,7 @@ message GetFriendsDetailedResp {
 }
 
 message GetFriendsPageDetailedReq {
-  int64 user_id = 1;
+  int64 uid = 1;
   uint64 page = 2;
   uint64 page_size = 3;
 }
@@ -97,7 +97,7 @@ message GetFriendsPageDetailedResp {
 // ==== 单独更新/设置别名 ====
 
 message UpdateFriendAliasReq {
-  int64 user_id = 1;
+  int64 uid = 1;
   int64 friend_id = 2;
   // 将别名更新为此值；传空字符串可视为清除别名
   optional string alias = 3;
@@ -108,7 +108,7 @@ message UpdateFriendAliasResp {
 }
 
 message UpdateFriendRemarkReq {
-  int64 user_id = 1;
+  int64 uid = 1;
   int64 friend_id = 2;
   optional string remark = 3;
 }
@@ -118,7 +118,7 @@ message UpdateFriendRemarkResp {
 }
 
 message UpdateFriendBlacklistReq {
-  int64 user_id = 1;
+  int64 uid = 1;
   int64 friend_id = 2;
   bool blocked = 3;
   optional string reason = 4;
@@ -129,7 +129,7 @@ message UpdateFriendBlacklistResp {
 }
 
 message ClearFriendsReq {
-  int64 user_id = 1;
+  int64 uid = 1;
 }
 
 message ClearFriendsResp {

@@ -113,8 +113,8 @@ impl GroupMsgService for GroupMsgServiceImpl {
         request: Request<msgpb::ListGroupConversationsRequest>,
     ) -> Result<Response<msgpb::ListGroupConversationsResponse>, Status> {
         let req = request.into_inner();
-        if req.user_id == 0 {
-            return Err(Status::invalid_argument("user_id required"));
+        if req.uid == 0 {
+            return Err(Status::invalid_argument("uid required"));
         }
 
         let requested = if req.limit == 0 { 20 } else { req.limit };
@@ -133,7 +133,7 @@ impl GroupMsgService for GroupMsgServiceImpl {
 
         let rows = list_group_conversation_snapshots(
             self.inner.pool(),
-            req.user_id,
+            req.uid,
             before_updated_at,
             before_group_id,
             fetch_limit,
@@ -148,7 +148,7 @@ impl GroupMsgService for GroupMsgServiceImpl {
                 break;
             }
             snapshots.push(msgpb::GroupConversationSnapshot {
-                user_id: row.user_id,
+                uid: row.uid,
                 group_id: row.group_id,
                 last_msg_id: row.last_msg_id,
                 last_sender_id: row.last_sender_id,
@@ -202,8 +202,8 @@ impl GroupMsgService for GroupMsgServiceImpl {
             .snapshot
             .ok_or_else(|| Status::invalid_argument("snapshot required"))?;
 
-        if snapshot.user_id == 0 || snapshot.group_id == 0 {
-            return Err(Status::invalid_argument("user_id and group_id required"));
+        if snapshot.uid == 0 || snapshot.group_id == 0 {
+            return Err(Status::invalid_argument("uid and group_id required"));
         }
 
         let now = Self::now_ms();
@@ -219,7 +219,7 @@ impl GroupMsgService for GroupMsgServiceImpl {
         };
 
         let record = GroupConversationSnapshot {
-            user_id: snapshot.user_id,
+            uid: snapshot.uid,
             group_id: snapshot.group_id,
             last_msg_id: snapshot.last_msg_id,
             last_sender_id: snapshot.last_sender_id,
@@ -236,17 +236,17 @@ impl GroupMsgService for GroupMsgServiceImpl {
         Ok(Response::new(()))
     }
 
-    /// 删除指定 user_id/group_id 的快照（用户退出或手动清理时调用）。
+    /// 删除指定 uid/group_id 的快照（用户退出或手动清理时调用）。
     async fn delete_group_conversation_snapshot(
         &self,
         request: Request<msgpb::DeleteGroupConversationSnapshotRequest>,
     ) -> Result<Response<()>, Status> {
         let req = request.into_inner();
-        if req.user_id == 0 || req.group_id == 0 {
-            return Err(Status::invalid_argument("user_id and group_id required"));
+        if req.uid == 0 || req.group_id == 0 {
+            return Err(Status::invalid_argument("uid and group_id required"));
         }
 
-        delete_group_conversation_snapshot(self.inner.pool(), req.user_id, req.group_id)
+        delete_group_conversation_snapshot(self.inner.pool(), req.uid, req.group_id)
             .await
             .map_err(|e| Status::internal(format!("delete_group_conversation_snapshot: {e}")))?;
 
@@ -574,7 +574,7 @@ impl GroupMsgServiceImpl {
             .map_err(|e| Status::internal(format!("insert_group_message: {e}")))?;
 
         let snapshot = GroupConversationSnapshot {
-            user_id: domain.sender_id,
+            uid: domain.sender_id,
             group_id: domain.receiver_id,
             last_msg_id: record.msg_id,
             last_sender_id: record.sender_id,
@@ -659,9 +659,9 @@ impl GroupMsgServiceImpl {
         &self,
         client: &mut HgGroupClient,
         group_id: i64,
-        user_id: i64,
+        uid: i64,
     ) -> Result<Option<hotpb::GroupRoleType>, Status> {
-        if user_id == 0 {
+        if uid == 0 {
             return Ok(None);
         }
         let resp = client
@@ -669,7 +669,7 @@ impl GroupMsgServiceImpl {
             .await?
             .into_inner();
         for member in resp.members {
-            if member.id == user_id {
+            if member.id == uid {
                 return Ok(hotpb::GroupRoleType::from_i32(member.role));
             }
         }

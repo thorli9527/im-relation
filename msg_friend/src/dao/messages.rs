@@ -53,7 +53,7 @@ pub async fn insert_encrypted_message(
 /// 按好友会话查询历史消息，按照时间倒序返回。
 pub async fn list_conversation_messages(
     pool: &Pool<MySql>,
-    user_id: i64,
+    uid: i64,
     friend_id: i64,
     since_timestamp: Option<i64>,
     before_msg_id: Option<i64>,
@@ -83,13 +83,13 @@ pub async fn list_conversation_messages(
         "#,
     );
 
-    qb.push_bind(user_id);
+    qb.push_bind(uid);
     qb.push(" AND receiver_id = ");
     qb.push_bind(friend_id);
     qb.push(") OR (sender_id = ");
     qb.push_bind(friend_id);
     qb.push(" AND receiver_id = ");
-    qb.push_bind(user_id);
+    qb.push_bind(uid);
     qb.push(")");
 
     if let Some(ts) = since_timestamp {
@@ -183,14 +183,14 @@ pub async fn copy_message_as_forward(
     pool: &Pool<MySql>,
     src_msg_id: i64,
     new_msg_id: i64,
-    from_user_id: i64,
-    to_user_id: i64,
+    from_uid: i64,
+    to_uid: i64,
     created_at: i64,
 ) -> Result<()> {
     if let Some(mut rec) = get_message_by_id(pool, src_msg_id).await? {
         rec.msg_id = new_msg_id;
-        rec.sender_id = from_user_id;
-        rec.receiver_id = to_user_id;
+        rec.sender_id = from_uid;
+        rec.receiver_id = to_uid;
         rec.created_at = created_at;
         rec.scheme = rec.scheme.clone();
         rec.key_id = rec.key_id.clone();

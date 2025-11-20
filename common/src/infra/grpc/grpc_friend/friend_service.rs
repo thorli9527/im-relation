@@ -2,12 +2,12 @@
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct FriendRef {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AddFriendReq {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     #[prost(int64, tag = "2")]
     pub friend_id: i64,
     /// 申请人给好友写的备注（默认与名字一致，可用于联系人列表展示）
@@ -32,7 +32,7 @@ pub struct AddFriendResp {
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct RemoveFriendReq {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     #[prost(int64, tag = "2")]
     pub friend_id: i64,
 }
@@ -44,7 +44,7 @@ pub struct RemoveFriendResp {
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct IsFriendReq {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     #[prost(int64, tag = "2")]
     pub friend_id: i64,
 }
@@ -80,7 +80,7 @@ pub struct FriendEntry {
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GetFriendsDetailedReq {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     /// 是否需要返回好友申请来源信息
     #[prost(bool, tag = "2")]
     pub apply_source: bool,
@@ -99,7 +99,7 @@ pub struct GetFriendsDetailedResp {
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GetFriendsPageDetailedReq {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     #[prost(uint64, tag = "2")]
     pub page: u64,
     #[prost(uint64, tag = "3")]
@@ -113,7 +113,7 @@ pub struct GetFriendsPageDetailedResp {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UpdateFriendAliasReq {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     #[prost(int64, tag = "2")]
     pub friend_id: i64,
     /// 将别名更新为此值；传空字符串可视为清除别名
@@ -128,7 +128,7 @@ pub struct UpdateFriendAliasResp {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UpdateFriendRemarkReq {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     #[prost(int64, tag = "2")]
     pub friend_id: i64,
     #[prost(string, optional, tag = "3")]
@@ -142,7 +142,7 @@ pub struct UpdateFriendRemarkResp {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UpdateFriendBlacklistReq {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     #[prost(int64, tag = "2")]
     pub friend_id: i64,
     #[prost(bool, tag = "3")]
@@ -158,7 +158,7 @@ pub struct UpdateFriendBlacklistResp {
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct ClearFriendsReq {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct ClearFriendsResp {}

@@ -126,3 +126,14 @@ fn system_business_to_json(sys: &msgpb::SystemBusinessContent) -> JsonValue {
 fn encode_raw<T: Message>(message: &T) -> String {
     STANDARD.encode(message.encode_to_vec())
 }
+
+pub(crate) fn json_to_content(value: &JsonValue) -> Result<msgpb::Content, String> {
+    let raw = value
+        .get("raw")
+        .and_then(|v| v.as_str())
+        .ok_or("content.raw is required")?;
+    let bytes = STANDARD
+        .decode(raw)
+        .map_err(|err| format!("decode content.raw: {err}"))?;
+    msgpb::Content::decode(bytes.as_slice()).map_err(|err| err.to_string())
+}

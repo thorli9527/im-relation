@@ -3,7 +3,7 @@
 //! 基于 HotShardStore 的好友列表热/冷门面（对齐新 FriendRepo）。
 //!
 //! 特性：
-//! - 多分片热存（DashMap + moka 热键，值为 Vec<UserId>）。
+//! - 多分片热存（DashMap + moka 热键，值为 Vec<UID>）。
 //! - 读放热：命中即重置 TTI。
 //! - 写穿：add/remove/overwrite/delete 直接调用 FriendRepo，成功后回写热存。
 //! - 驱逐策略：尽力将分片中的用户完整列表 upsert 到 DB（幂等）。
@@ -13,12 +13,12 @@
 //! - crate::hot_shard_store::{HotShardStore, PersistFn}
 //! - crate::autotune::{AutoTuneConfig, CacheAutoTune, auto_tune_cache}
 //! - crate::store::mysql::FriendRepo
-//! - common::UserId
+//! - common::UID
 
 use std::sync::{Arc, RwLock};
 
 use anyhow::{Context, Result};
-use common::UserId;
+use common::UID;
 use tokio::runtime::Handle;
 
 use crate::autotune::{auto_tune_cache, AutoTuneConfig, CacheAutoTune};
@@ -26,7 +26,7 @@ use crate::hot_shard_store::{HotShardStore, PersistFn};
 use crate::store::mysql::{FriendEntry, FriendRepo};
 
 #[inline]
-fn shard_index(uid: UserId, shards: usize) -> usize {
+fn shard_index(uid: UID, shards: usize) -> usize {
     (uid as usize) % shards
 }
 
@@ -40,7 +40,7 @@ pub struct HotColdFriendFacade<R: FriendRepo> {
     storage: Arc<R>,
     rt: Handle,
     plan: RwLock<CacheAutoTune>,
-    stores: RwLock<Vec<Arc<HotShardStore<UserId, Vec<UserId>>>>>,
+    stores: RwLock<Vec<Arc<HotShardStore<UID, Vec<UID>>>>>,
 }
 
 impl<R: FriendRepo> HotColdFriendFacade<R> {
@@ -56,7 +56,7 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
     }
 
     /// 读取好友列表（命中内存则读放热；未命中则分页冷加载并回写）。
-    pub async fn get_friends(&self, uid: UserId) -> Result<Vec<UserId>> {
+    pub async fn get_friends(&self, uid: UID) -> Result<Vec<UID>> {
         if let Some(v) = self.store(uid).get(&uid) {
             return Ok(v);
         }
@@ -66,7 +66,7 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
     }
 
     /// 覆盖写（整个列表替换：clear_all + upsert_bulk）。
-    pub async fn overwrite_friends(&self, uid: UserId, mut friends: Vec<UserId>) -> Result<()> {
+    pub async fn overwrite_friends(&self, uid: UID, mut friends: Vec<UID>) -> Result<()> {
         friends.sort_unstable();
         friends.dedup();
 
@@ -78,7 +78,7 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
 
         // 2) 批量 UPSERT
         if !friends.is_empty() {
-            let payload: Vec<(UserId, Option<&str>)> =
+            let payload: Vec<(UID, Option<&str>)> =
                 friends.iter().copied().map(|f| (f, None)).collect();
 
             self.storage
@@ -93,7 +93,7 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
     }
 
     /// 添加好友（若已存在则忽略别名变化，这里 alias=None）。
-    pub async fn add_friend(&self, uid: UserId, fid: UserId) -> Result<()> {
+    pub async fn add_friend(&self, uid: UID, fid: UID) -> Result<()> {
         let _outcome = self
             .storage
             .add_friend(uid, fid, None)
@@ -119,8 +119,8 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
     /// 双向添加好友（带别名，原子性由底层存储保证）。
     pub async fn add_friend_both(
         &self,
-        a: UserId,
-        b: UserId,
+        a: UID,
+        b: UID,
         alias_for_a: Option<&str>,
         alias_for_b: Option<&str>,
     ) -> Result<()> {
@@ -148,7 +148,7 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
     }
 
     /// 移除好友（不存在则忽略）。
-    pub async fn remove_friend(&self, uid: UserId, fid: UserId) -> Result<()> {
+    pub async fn remove_friend(&self, uid: UID, fid: UID) -> Result<()> {
         let removed = self
             .storage
             .remove_friend(uid, fid)
@@ -174,7 +174,7 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
     }
 
     /// 删除用户：清空其全部好友关系，并从热存移除。
-    pub async fn delete_user(&self, uid: UserId) -> Result<()> {
+    pub async fn delete_user(&self, uid: UID) -> Result<()> {
         self.storage
             .clear_all(uid)
             .await
@@ -184,7 +184,7 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
     }
 
     /// 将用户标热（如果当前在热存）。
-    pub fn warm_user(&self, uid: UserId) {
+    pub fn warm_user(&self, uid: UID) {
         let st = self.store(uid);
         if let Some(v) = st.get(&uid) {
             st.insert(uid, v);
@@ -192,7 +192,7 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
     }
 
     /// 失效用户：从热存移除（不触发驱逐回调）。
-    pub fn invalidate_user(&self, uid: UserId) {
+    pub fn invalidate_user(&self, uid: UID) {
         let st = self.store(uid);
         let _ = st.remove(&uid);
     }
@@ -290,10 +290,10 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
     /// 拉全量“带别名”的好友列表（底库游标分页聚合）
     pub async fn get_friends_detailed(
         &self,
-        uid: UserId,
+        uid: UID,
     ) -> anyhow::Result<Vec<crate::store::mysql::FriendEntry>> {
         let mut out = Vec::new();
-        let mut cursor: Option<UserId> = None;
+        let mut cursor: Option<UID> = None;
         loop {
             let (batch, next) = self.storage.page_friends(uid, cursor, 2048).await?;
             if batch.is_empty() {
@@ -311,8 +311,8 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
     /// 更新好友别名（None = 清除）；不影响热存（热存仅存 id）
     pub async fn update_friend_alias(
         &self,
-        uid: UserId,
-        fid: UserId,
+        uid: UID,
+        fid: UID,
         alias: Option<&str>,
     ) -> anyhow::Result<bool> {
         self.storage.set_alias(uid, fid, alias).await
@@ -321,8 +321,8 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
     /// 更新好友 remark
     pub async fn update_friend_remark(
         &self,
-        uid: UserId,
-        fid: UserId,
+        uid: UID,
+        fid: UID,
         remark: Option<&str>,
     ) -> anyhow::Result<bool> {
         self.storage.set_remark(uid, fid, remark).await
@@ -331,8 +331,8 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
     /// 拉黑/解黑好友
     pub async fn update_friend_blacklist(
         &self,
-        uid: UserId,
-        fid: UserId,
+        uid: UID,
+        fid: UID,
         blocked: bool,
     ) -> anyhow::Result<bool> {
         self.storage.set_blacklist(uid, fid, blocked).await
@@ -341,19 +341,19 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
     /// 读取分页好友详情（含别名等信息），按 friend_id 升序游标翻页。
     pub async fn page_friends_detailed(
         &self,
-        uid: UserId,
-        cursor: Option<UserId>,
+        uid: UID,
+        cursor: Option<UID>,
         limit: u32,
-    ) -> anyhow::Result<(Vec<FriendEntry>, Option<UserId>)> {
+    ) -> anyhow::Result<(Vec<FriendEntry>, Option<UID>)> {
         self.storage.page_friends(uid, cursor, limit).await
     }
 
     // ====== 内部工具 ======
 
     /// 冷加载（分页拉全量，仅取 id）
-    async fn load_all_from_repo(&self, uid: UserId) -> Result<Vec<UserId>> {
+    async fn load_all_from_repo(&self, uid: UID) -> Result<Vec<UID>> {
         let mut out = Vec::new();
-        let mut cursor: Option<UserId> = None;
+        let mut cursor: Option<UID> = None;
         loop {
             let (items, next) = self
                 .storage
@@ -378,8 +378,8 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
         storage: &Arc<T>,
         plan: &CacheAutoTune,
         rt: &Handle,
-    ) -> Vec<Arc<HotShardStore<UserId, Vec<UserId>>>> {
-        let persist: PersistFn<UserId, Vec<UserId>> = Arc::new({
+    ) -> Vec<Arc<HotShardStore<UID, Vec<UID>>>> {
+        let persist: PersistFn<UID, Vec<UID>> = Arc::new({
             let storage = Arc::clone(storage);
             move |uid, friends| {
                 let storage = Arc::clone(&storage);
@@ -389,7 +389,7 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
                         // 空列表等价于 clear_all
                         let _ = storage.clear_all(uid).await;
                     } else {
-                        let payload: Vec<(UserId, Option<&str>)> =
+                        let payload: Vec<(UID, Option<&str>)> =
                             friends.iter().copied().map(|f| (f, None)).collect();
                         let _ = storage.upsert_bulk(uid, &payload).await;
                     }
@@ -412,7 +412,7 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
 
     /// 按 uid 获取所在分片引用。
     #[inline]
-    fn store(&self, uid: UserId) -> Arc<HotShardStore<UserId, Vec<UserId>>> {
+    fn store(&self, uid: UID) -> Arc<HotShardStore<UID, Vec<UID>>> {
         let stores = self.stores.read().expect("stores RwLock poisoned");
         let i = shard_index(uid, stores.len());
         stores[i].clone()

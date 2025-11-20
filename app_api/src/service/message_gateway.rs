@@ -122,16 +122,16 @@ pub async fn list_friend_conversations(
 }
 
 pub async fn list_group_conversations(
-    user_id: i64,
+    uid: i64,
     limit: u32,
     before_updated_at: Option<i64>,
     before_group_id: Option<i64>,
 ) -> Result<ConversationPage<GroupConversationSnapshot>> {
-    let addr = resolve_addr(NodeType::MesGroup, user_id).await?;
+    let addr = resolve_addr(NodeType::MesGroup, uid).await?;
     let mut client = connect_group_msg(&addr).await?;
 
     let request = ListGroupConversationsRequest {
-        user_id,
+        uid,
         limit,
         before_updated_at: before_updated_at.unwrap_or_default(),
         before_group_id: before_group_id.unwrap_or_default(),

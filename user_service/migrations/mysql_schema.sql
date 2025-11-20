@@ -70,7 +70,7 @@ PARTITION BY KEY(name) PARTITIONS 64;
 -- 设备 session token：单表存储，记录每台设备的会话令牌及其过期时间（15 天）
 CREATE TABLE IF NOT EXISTS user_session (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '自增主键',
-    user_id BIGINT NOT NULL COMMENT '用户ID',
+    uid BIGINT NOT NULL COMMENT '用户ID',
     device_type TINYINT NOT NULL COMMENT '设备类型',
     device_id VARCHAR(128) NOT NULL COMMENT '设备唯一标识',
     session_token VARBINARY(96) NOT NULL COMMENT '当前 session token（随机32字节）',
@@ -82,8 +82,8 @@ CREATE TABLE IF NOT EXISTS user_session (
     login_ip VARBINARY(32) NULL COMMENT '登录IP（可选）',
     login_user_agent VARCHAR(256) NULL COMMENT '登录UserAgent（可选）',
     PRIMARY KEY (id),
-    UNIQUE KEY uk_uid_device (user_id, device_type, device_id),
+    UNIQUE KEY uk_uid_device (uid, device_type, device_id),
     UNIQUE KEY uk_token (session_token),
-    KEY idx_uid_status (user_id, status),
+    KEY idx_uid_status (uid, status),
     KEY idx_expires_at (expires_at)
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC;

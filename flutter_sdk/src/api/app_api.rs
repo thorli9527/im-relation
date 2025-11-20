@@ -9,12 +9,13 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::api::{client, config_api};
+use crate::api::{config_api};
 use crate::service::{
     auth_service, config_service::ConfigService, message_service::MessageService,
     socket_client::SocketClient,
 };
 use crate::{common::db, domain, service};
+use crate::common::client;
 
 include!("app_api_types.rs");
 

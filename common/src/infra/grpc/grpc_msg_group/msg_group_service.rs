@@ -114,7 +114,7 @@ pub struct JoinGroupReq {
     pub group_id: i64,
     /// 申请人 UID（=调用者）
     #[prost(int64, tag = "2")]
-    pub user_id: i64,
+    pub uid: i64,
     /// 申请附言（可空，0~256 字）
     #[prost(string, tag = "3")]
     pub extra: ::prost::alloc::string::String,
@@ -141,7 +141,7 @@ pub struct LeaveGroupReq {
     pub group_id: i64,
     /// 退群用户 UID（=调用者）
     #[prost(int64, tag = "2")]
-    pub user_id: i64,
+    pub uid: i64,
     /// 退群原因（可空；用于审计/画像）
     #[prost(string, tag = "3")]
     pub reason: ::prost::alloc::string::String,
@@ -267,7 +267,7 @@ pub struct CountMembersResp {
 pub struct UserGroupsReq {
     /// 用户 UID
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UserGroupsResp {
@@ -345,7 +345,7 @@ pub struct GroupMemberChangeNotice {
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GroupConversationSnapshot {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     #[prost(int64, tag = "2")]
     pub group_id: i64,
     #[prost(int64, tag = "3")]
@@ -364,7 +364,7 @@ pub struct GroupConversationSnapshot {
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct ListGroupConversationsRequest {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     /// 默认 20
     #[prost(uint32, tag = "2")]
     pub limit: u32,
@@ -388,7 +388,7 @@ pub struct UpsertGroupConversationSnapshotRequest {
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct DeleteGroupConversationSnapshotRequest {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     #[prost(int64, tag = "2")]
     pub group_id: i64,
 }

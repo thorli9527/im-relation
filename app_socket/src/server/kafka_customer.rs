@@ -21,7 +21,7 @@ use rdkafka::topic_partition_list::TopicPartitionList;
 use rdkafka::Offset;
 
 use crate::service::dispatcher::ShardedDispatcher;
-use crate::service::types::{SendOpts, ServerMsg, UserId};
+use crate::service::types::{SendOpts, ServerMsg, UID};
 use common::infra::grpc::message::{self as msg_message, DomainMessage};
 use common::infra::kafka::start_consumer;
 use common::infra::kafka::topic_info::{TopicInfo, MSG_SEND_FRIEND_TOPIC, MSG_SEND_GROUP_TOPIC};
@@ -181,7 +181,7 @@ pub async fn start_socket_pipeline() -> anyhow::Result<()> {
                     opts.drop_hook = Some(drop_cb);
                 }
 
-                let enqueue_ok = dispatcher.enqueue(domain.receiver_id as UserId, msg, opts);
+                let enqueue_ok = dispatcher.enqueue(domain.receiver_id as UID, msg, opts);
                 if enqueue_ok {
                     // 返回值决定是否立即提交 offset。需要 ACK 的交由回调提交。
                     Ok(!require_ack)

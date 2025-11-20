@@ -2,7 +2,7 @@
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct SetOnlineRequest {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     #[prost(bool, tag = "2")]
     pub online: bool,
 }
@@ -14,7 +14,7 @@ pub struct SetOnlineResponse {
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CheckOnlineRequest {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CheckOnlineResponse {
@@ -24,7 +24,7 @@ pub struct CheckOnlineResponse {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckOnlineBatchRequest {
     #[prost(int64, repeated, tag = "1")]
-    pub user_ids: ::prost::alloc::vec::Vec<i64>,
+    pub uids: ::prost::alloc::vec::Vec<i64>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckOnlineBatchResponse {
@@ -48,7 +48,7 @@ pub struct GetStatsResponse {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UpsertSessionTokenRequest {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     #[prost(enumeration = "DeviceType", tag = "2")]
     pub device_type: i32,
     #[prost(string, tag = "3")]
@@ -80,7 +80,7 @@ pub struct ValidateSessionTokenResponse {
     #[prost(enumeration = "SessionTokenStatus", tag = "1")]
     pub status: i32,
     #[prost(int64, tag = "2")]
-    pub user_id: i64,
+    pub uid: i64,
     #[prost(enumeration = "DeviceType", tag = "3")]
     pub device_type: i32,
     #[prost(string, tag = "4")]
@@ -91,7 +91,7 @@ pub struct ValidateSessionTokenResponse {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TokenDeviceRef {
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     #[prost(enumeration = "DeviceType", tag = "2")]
     pub device_type: i32,
     #[prost(string, tag = "3")]

@@ -273,10 +273,9 @@ async fn get_friend_list(Json(params): Json<FriendListQuery>) -> HandlerResult<F
         .await
         .map_err(map_session_error)?;
 
-    let entries =
-        friend_gateway::get_friends_page_detailed(active_session.user_id, page, page_size)
-            .await
-            .map_err(map_internal_error)?;
+    let entries = friend_gateway::get_friends_page_detailed(active_session.uid, page, page_size)
+        .await
+        .map_err(map_internal_error)?;
 
     if entries.is_empty() {
         return success(FriendListResult {
@@ -497,7 +496,7 @@ async fn get_group_member_detail(
         role: member.role,
     };
 
-    let is_friend = friend_gateway::is_friend(active.user_id, member.id)
+    let is_friend = friend_gateway::is_friend(active.uid, member.id)
         .await
         .map_err(map_internal_error)?;
 
@@ -527,7 +526,7 @@ pub struct SearchUserResult {
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct UserProfileResult {
-    user_id: i64,
+    uid: i64,
     username: String,
     avatar: String,
     email: Option<String>,
@@ -563,7 +562,7 @@ async fn search_user(Json(query): Json<SearchUserQuery>) -> HandlerResult<Search
         SearchUserType::Uid => {
             let id = trimmed
                 .parse::<i64>()
-                .map_err(|_| AppError::Validation("query must be numeric for user_id".into()))?;
+                .map_err(|_| AppError::Validation("query must be numeric for uid".into()))?;
             match user_client.find_user_by_id(GetUserReq { id }).await {
                 Ok(resp) => Some(resp.into_inner()),
                 Err(status) if status.code() == Code::NotFound => None,
@@ -611,7 +610,7 @@ fn user_entity_to_profile(entity: UserEntity) -> UserProfileResult {
         .map(|s| s.to_string());
     let region = entity.profile_fields.get("region").map(|s| s.to_string());
     UserProfileResult {
-        user_id: entity.id,
+        uid: entity.id,
         username: entity.name,
         avatar: entity.avatar,
         email: entity.email,
@@ -696,7 +695,7 @@ async fn get_recent_conversations(
         };
 
     let friend_page = message_gateway::list_friend_conversations(
-        active.user_id,
+        active.uid,
         fetch_limit,
         before_updated_at,
         friend_before_id,
@@ -705,7 +704,7 @@ async fn get_recent_conversations(
     .map_err(map_internal_error)?;
 
     let group_page = message_gateway::list_group_conversations(
-        active.user_id,
+        active.uid,
         fetch_limit,
         before_updated_at,
         group_before_id,
@@ -766,7 +765,7 @@ async fn get_recent_conversations(
     })
 }
 
-pub(crate) async fn resolve_socket_addr(user_id: i64) -> Result<String, AppError> {
+pub(crate) async fn resolve_socket_addr(uid: i64) -> Result<String, AppError> {
     let cfg = AppConfig::get();
     let nodes = cfg.app_socket_configs();
 
@@ -777,7 +776,7 @@ pub(crate) async fn resolve_socket_addr(user_id: i64) -> Result<String, AppError
     if count <= 0 {
         return Err(AppError::Internal("socket node list empty".into()));
     }
-    let index = hash_index(&user_id, count) as usize;
+    let index = hash_index(&uid, count) as usize;
     if let Some(node) = nodes.get(index) {
         if let Some(addr) = node.pub_addr() {
             return Ok(addr);

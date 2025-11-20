@@ -7,7 +7,7 @@ use sqlx::{MySql, Pool, Row};
 /// 设备密钥记录。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeviceKeysRow {
-    pub user_id: i64,
+    pub uid: i64,
     pub device_id: String,
     pub identity_curve: String,
     pub identity_pub: Vec<u8>,
@@ -23,10 +23,10 @@ pub struct DeviceKeysRow {
 pub async fn upsert_device_keys(pool: &Pool<MySql>, row: &DeviceKeysRow) -> Result<u64> {
     let r = sqlx::query(
         r#"REPLACE INTO device_keys
-        (user_id, device_id, identity_curve, identity_pub, signed_pre_id, signed_pre_pub, signed_pre_sig, one_time_pre_keys, updated_at)
+        (uid, device_id, identity_curve, identity_pub, signed_pre_id, signed_pre_pub, signed_pre_sig, one_time_pre_keys, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
     )
-    .bind(row.user_id)
+    .bind(row.uid)
     .bind(&row.device_id)
     .bind(&row.identity_curve)
     .bind(&row.identity_pub)
@@ -41,15 +41,15 @@ pub async fn upsert_device_keys(pool: &Pool<MySql>, row: &DeviceKeysRow) -> Resu
 }
 
 /// 获取指定用户的全部设备密钥。
-pub async fn fetch_device_bundles(pool: &Pool<MySql>, user_id: i64) -> Result<Vec<DeviceKeysRow>> {
-    let rows = sqlx::query(r#"SELECT user_id, device_id, identity_curve, identity_pub, signed_pre_id, signed_pre_pub, signed_pre_sig, one_time_pre_keys, updated_at FROM device_keys WHERE user_id = ?"#)
-        .bind(user_id)
+pub async fn fetch_device_bundles(pool: &Pool<MySql>, uid: i64) -> Result<Vec<DeviceKeysRow>> {
+    let rows = sqlx::query(r#"SELECT uid, device_id, identity_curve, identity_pub, signed_pre_id, signed_pre_pub, signed_pre_sig, one_time_pre_keys, updated_at FROM device_keys WHERE uid = ?"#)
+        .bind(uid)
         .fetch_all(pool)
         .await?;
     let mut out = Vec::with_capacity(rows.len());
     for r in rows {
         out.push(DeviceKeysRow {
-            user_id: r.get("user_id"),
+            uid: r.get("uid"),
             device_id: r.get("device_id"),
             identity_curve: r.get("identity_curve"),
             identity_pub: r.get("identity_pub"),

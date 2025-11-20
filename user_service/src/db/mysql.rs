@@ -377,7 +377,7 @@ impl SessionTokenRepo for SessionRepoSqlx {
         payload: SessionTokenUpsert,
     ) -> Result<SessionTokenUpsertResult> {
         let SessionTokenUpsert {
-            user_id,
+            uid,
             device_type,
             device_id,
             login_ip,
@@ -389,11 +389,11 @@ impl SessionTokenRepo for SessionRepoSqlx {
             r#"
                 SELECT session_token
                 FROM user_session
-                WHERE user_id = ? AND device_type = ? AND device_id = ?
+                WHERE uid = ? AND device_type = ? AND device_id = ?
                 FOR UPDATE
             "#,
         )
-        .bind(user_id)
+        .bind(uid)
         .bind(device_type as i32)
         .bind(&device_id)
         .fetch_optional(&mut *tx)
@@ -412,7 +412,7 @@ impl SessionTokenRepo for SessionRepoSqlx {
         sqlx::query(
             r#"
                 INSERT INTO user_session
-                    (user_id, device_type, device_id, session_token, status,
+                    (uid, device_type, device_id, session_token, status,
                      issued_at, expires_at, last_seen_at, login_ip, login_user_agent)
                 VALUES
                     (?, ?, ?, ?, 1, NOW(3), ?, NOW(3), ?, ?)
@@ -426,7 +426,7 @@ impl SessionTokenRepo for SessionRepoSqlx {
                     login_user_agent = VALUES(login_user_agent)
             "#,
         )
-        .bind(user_id)
+        .bind(uid)
         .bind(device_type as i32)
         .bind(&device_id)
         .bind(new_token.as_bytes())
@@ -448,7 +448,7 @@ impl SessionTokenRepo for SessionRepoSqlx {
     async fn validate_session_token(&self, token: &str) -> Result<Option<SessionTokenRecord>> {
         let row = sqlx::query(
             r#"
-                SELECT user_id, device_type, device_id, status, expires_at, last_seen_at
+                SELECT uid, device_type, device_id, status, expires_at, last_seen_at
                 FROM user_session
                 WHERE session_token = ?
             "#,
@@ -461,7 +461,7 @@ impl SessionTokenRepo for SessionRepoSqlx {
             return Ok(None);
         };
 
-        let user_id: i64 = row.try_get("user_id")?;
+        let uid: i64 = row.try_get("uid")?;
         let device_type_val: i32 = row.try_get("device_type")?;
         let device_id: String = row.try_get("device_id")?;
         let mut status: i32 = row.try_get("status")?;
@@ -481,7 +481,7 @@ impl SessionTokenRepo for SessionRepoSqlx {
         }
 
         Ok(Some(SessionTokenRecord {
-            user_id,
+            uid,
             device_type: map_device_type(device_type_val),
             device_id,
             session_token: token.to_string(),
@@ -511,7 +511,7 @@ impl SessionTokenRepo for SessionRepoSqlx {
 
     async fn revoke_session_token_by_device(
         &self,
-        user_id: i64,
+        uid: i64,
         device_type: DeviceType,
         device_id: &str,
     ) -> Result<Option<String>> {
@@ -519,10 +519,10 @@ impl SessionTokenRepo for SessionRepoSqlx {
             r#"
                 SELECT session_token
                 FROM user_session
-                WHERE user_id = ? AND device_type = ? AND device_id = ?
+                WHERE uid = ? AND device_type = ? AND device_id = ?
             "#,
         )
-        .bind(user_id)
+        .bind(uid)
         .bind(device_type as i32)
         .bind(device_id)
         .fetch_optional(&self.pool)
@@ -536,10 +536,10 @@ impl SessionTokenRepo for SessionRepoSqlx {
             r#"
                 UPDATE user_session
                 SET status = 2, expires_at = NOW(3), last_seen_at = NOW(3)
-                WHERE user_id = ? AND device_type = ? AND device_id = ?
+                WHERE uid = ? AND device_type = ? AND device_id = ?
             "#,
         )
-        .bind(user_id)
+        .bind(uid)
         .bind(device_type as i32)
         .bind(device_id)
         .execute(&self.pool)

@@ -9,7 +9,7 @@
 //
 // 注意：不返回 Guard；提供 with_shard_map 闭包访问，或返回快照（Vec<u64>）的接口。
 
-use common::UserId;
+use common::UID;
 use parking_lot::{RwLock, RwLockUpgradableReadGuard};
 use roaring::RoaringTreemap as RB64;
 use std::sync::{
@@ -55,7 +55,7 @@ impl OnlineStore {
     }
 
     #[inline]
-    fn shard_idx_of(&self, uid: UserId) -> usize {
+    fn shard_idx_of(&self, uid: UID) -> usize {
         let u = uid as u64 as usize;
         if self.is_pow2 {
             u & self.mask
@@ -65,7 +65,7 @@ impl OnlineStore {
     }
 
     /// 设置在线状态（写快路径：仅在状态改变时升级为写锁）
-    pub fn set_online(&self, uid: UserId, online: bool) {
+    pub fn set_online(&self, uid: UID, online: bool) {
         let idx = self.shard_idx_of(uid);
         let shard = &self.shards[idx];
         let u = uid as u64;
@@ -89,20 +89,20 @@ impl OnlineStore {
     }
 
     #[inline]
-    pub fn insert(&self, uid: UserId) {
+    pub fn insert(&self, uid: UID) {
         self.set_online(uid, true);
     }
     #[inline]
-    pub fn remove(&self, uid: UserId) {
+    pub fn remove(&self, uid: UID) {
         self.set_online(uid, false);
     }
 
     /// 批量设置在线状态：每分片一次写锁
     pub fn set_online_many<I>(&self, items: I)
     where
-        I: IntoIterator<Item = (UserId, bool)>,
+        I: IntoIterator<Item = (UID, bool)>,
     {
-        let mut buckets: Vec<Vec<(UserId, bool)>> =
+        let mut buckets: Vec<Vec<(UID, bool)>> =
             (0..self.shards.len()).map(|_| Vec::new()).collect();
 
         for (uid, on) in items {
@@ -137,7 +137,7 @@ impl OnlineStore {
     #[inline]
     pub fn insert_many<I>(&self, ids: I)
     where
-        I: IntoIterator<Item = UserId>,
+        I: IntoIterator<Item = UID>,
     {
         self.set_online_many(ids.into_iter().map(|u| (u, true)));
     }
@@ -145,13 +145,13 @@ impl OnlineStore {
     #[inline]
     pub fn remove_many<I>(&self, ids: I)
     where
-        I: IntoIterator<Item = UserId>,
+        I: IntoIterator<Item = UID>,
     {
         self.set_online_many(ids.into_iter().map(|u| (u, false)));
     }
 
     /// 单查（短读锁）
-    pub fn contains(&self, uid: UserId) -> bool {
+    pub fn contains(&self, uid: UID) -> bool {
         let s = &self.shards[self.shard_idx_of(uid)];
         s.map.read().contains(uid as u64)
     }
@@ -159,14 +159,14 @@ impl OnlineStore {
     /// 批量查（保持输入顺序）：按分片分桶，一次分片一次读锁
     pub fn contains_many_ordered<I>(&self, ids: I) -> Vec<bool>
     where
-        I: IntoIterator<Item = UserId>,
+        I: IntoIterator<Item = UID>,
     {
-        let mut idx_vec: Vec<UserId> = Vec::new();
+        let mut idx_vec: Vec<UID> = Vec::new();
         for id in ids {
             idx_vec.push(id);
         }
         let n = idx_vec.len();
-        let mut buckets: Vec<Vec<(usize, UserId)>> =
+        let mut buckets: Vec<Vec<(usize, UID)>> =
             (0..self.shards.len()).map(|_| Vec::new()).collect();
 
         for (pos, uid) in idx_vec.iter().copied().enumerate() {

@@ -208,8 +208,8 @@ class FriendRequestDecisionPayload {
 /// 好友申请信息
 class FriendRequestPayload {
   final BigInt requestId;
-  final PlatformInt64 fromUserId;
-  final PlatformInt64 toUserId;
+  final PlatformInt64 fromUID;
+  final PlatformInt64 toUID;
   final String reason;
   final int source;
   final PlatformInt64 createdAt;
@@ -220,8 +220,8 @@ class FriendRequestPayload {
 
   const FriendRequestPayload({
     required this.requestId,
-    required this.fromUserId,
-    required this.toUserId,
+    required this.fromUID,
+    required this.toUID,
     required this.reason,
     required this.source,
     required this.createdAt,
@@ -232,8 +232,8 @@ class FriendRequestPayload {
   @override
   int get hashCode =>
       requestId.hashCode ^
-      fromUserId.hashCode ^
-      toUserId.hashCode ^
+      fromUID.hashCode ^
+      toUID.hashCode ^
       reason.hashCode ^
       source.hashCode ^
       createdAt.hashCode ^
@@ -246,8 +246,8 @@ class FriendRequestPayload {
       other is FriendRequestPayload &&
           runtimeType == other.runtimeType &&
           requestId == other.requestId &&
-          fromUserId == other.fromUserId &&
-          toUserId == other.toUserId &&
+          fromUID == other.fromUID &&
+          toUID == other.toUID &&
           reason == other.reason &&
           source == other.source &&
           createdAt == other.createdAt &&

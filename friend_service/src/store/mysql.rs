@@ -2,7 +2,7 @@
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use common::config::{get_db, MySqlPool};
-use common::UserId;
+use common::UID;
 use sqlx::{mysql::MySqlRow, MySql, QueryBuilder, Row};
 use std::sync::Arc;
 
@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct FriendEntry {
-    pub friend_id: UserId,
+    pub friend_id: UID,
     pub alias: Option<String>,
     pub remark: Option<String>,
     pub blacklisted: bool,
@@ -27,34 +27,29 @@ pub enum AddOutcome {
 
 #[async_trait]
 pub trait FriendRepo: Send + Sync + 'static {
-    async fn add_friend(
-        &self,
-        user: UserId,
-        friend: UserId,
-        alias: Option<&str>,
-    ) -> Result<AddOutcome>;
+    async fn add_friend(&self, user: UID, friend: UID, alias: Option<&str>) -> Result<AddOutcome>;
     /// 原子地为双方建立好友关系，并刷新两侧计数（以实时 COUNT(*) 为准）。
     async fn add_friend_both(
         &self,
-        a: UserId,
-        b: UserId,
+        a: UID,
+        b: UID,
         alias_for_a: Option<&str>,
         alias_for_b: Option<&str>,
     ) -> Result<()>;
-    async fn remove_friend(&self, user: UserId, friend: UserId) -> Result<bool>;
-    async fn set_alias(&self, user: UserId, friend: UserId, alias: Option<&str>) -> Result<bool>;
-    async fn set_remark(&self, user: UserId, friend: UserId, remark: Option<&str>) -> Result<bool>;
-    async fn set_blacklist(&self, user: UserId, friend: UserId, blocked: bool) -> Result<bool>;
-    async fn is_friend(&self, user: UserId, friend: UserId) -> Result<bool>;
+    async fn remove_friend(&self, user: UID, friend: UID) -> Result<bool>;
+    async fn set_alias(&self, user: UID, friend: UID, alias: Option<&str>) -> Result<bool>;
+    async fn set_remark(&self, user: UID, friend: UID, remark: Option<&str>) -> Result<bool>;
+    async fn set_blacklist(&self, user: UID, friend: UID, blocked: bool) -> Result<bool>;
+    async fn is_friend(&self, user: UID, friend: UID) -> Result<bool>;
     async fn page_friends(
         &self,
-        user: UserId,
-        cursor: Option<UserId>,
+        user: UID,
+        cursor: Option<UID>,
         limit: u32,
-    ) -> Result<(Vec<FriendEntry>, Option<UserId>)>;
-    async fn upsert_bulk(&self, user: UserId, items: &[(UserId, Option<&str>)]) -> Result<()>;
-    async fn clear_all(&self, user: UserId) -> Result<()>;
-    async fn count(&self, user: UserId) -> Result<u64>;
+    ) -> Result<(Vec<FriendEntry>, Option<UID>)>;
+    async fn upsert_bulk(&self, user: UID, items: &[(UID, Option<&str>)]) -> Result<()>;
+    async fn clear_all(&self, user: UID) -> Result<()>;
+    async fn count(&self, user: UID) -> Result<u64>;
 }
 
 // =============== MySQL 实现（对齐 friend_edge / user_friends_meta） ===============
@@ -93,15 +88,10 @@ impl FriendStorage {
 
 #[async_trait]
 impl FriendRepo for FriendStorage {
-    async fn add_friend(
-        &self,
-        user: UserId,
-        friend: UserId,
-        alias: Option<&str>,
-    ) -> Result<AddOutcome> {
+    async fn add_friend(&self, user: UID, friend: UID, alias: Option<&str>) -> Result<AddOutcome> {
         let insert_res = sqlx::query(
             r#"
-        INSERT INTO friend_edge (user_id, friend_id, alias, remark)
+        INSERT INTO friend_edge (uid, friend_id, alias, remark)
         VALUES (?, ?, ?, ?)
         "#,
         )
@@ -117,7 +107,7 @@ impl FriendRepo for FriendStorage {
                 // 计数 +1（失败不阻塞主流程）
                 let _ = sqlx::query(
                     r#"
-                INSERT INTO user_friends_meta (user_id, friend_count)
+                INSERT INTO user_friends_meta (uid, friend_count)
                 VALUES (?, 1)
                 ON DUPLICATE KEY UPDATE
                   friend_count = friend_count + 1,
@@ -141,7 +131,7 @@ impl FriendRepo for FriendStorage {
 
                 // 已存在：读取现有 alias 并比较
                 let db_alias: Option<String> = sqlx::query_scalar(
-                    r#"SELECT alias FROM friend_edge WHERE user_id=? AND friend_id=? "#,
+                    r#"SELECT alias FROM friend_edge WHERE uid=? AND friend_id=? "#,
                 )
                 .bind(user as u64)
                 .bind(friend as u64)
@@ -161,7 +151,7 @@ impl FriendRepo for FriendStorage {
                         r#"
                     UPDATE friend_edge
                     SET alias = ?, remark = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE user_id=? AND friend_id=?
+                    WHERE uid=? AND friend_id=?
                     "#,
                     )
                     .bind(alias)
@@ -184,8 +174,8 @@ impl FriendRepo for FriendStorage {
 
     async fn add_friend_both(
         &self,
-        a: UserId,
-        b: UserId,
+        a: UID,
+        b: UID,
         alias_for_a: Option<&str>,
         alias_for_b: Option<&str>,
     ) -> Result<()> {
@@ -198,7 +188,7 @@ impl FriendRepo for FriendStorage {
         // 双向 UPSERT（幂等），别名按传入值覆盖
         sqlx::query(
             r#"
-            INSERT INTO friend_edge (user_id, friend_id, alias, remark)
+            INSERT INTO friend_edge (uid, friend_id, alias, remark)
             VALUES (?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE alias=VALUES(alias), remark=VALUES(remark), updated_at=CURRENT_TIMESTAMP
             "#,
@@ -213,7 +203,7 @@ impl FriendRepo for FriendStorage {
 
         sqlx::query(
             r#"
-            INSERT INTO friend_edge (user_id, friend_id, alias, remark)
+            INSERT INTO friend_edge (uid, friend_id, alias, remark)
             VALUES (?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE alias=VALUES(alias), remark=VALUES(remark), updated_at=CURRENT_TIMESTAMP
             "#,
@@ -227,14 +217,14 @@ impl FriendRepo for FriendStorage {
         .with_context(|| "add_friend_both: upsert B->A failed")?;
 
         // 计数以真实行数为准
-        let cnt_a: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM friend_edge WHERE user_id=?")
+        let cnt_a: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM friend_edge WHERE uid=?")
             .bind(a as u64)
             .fetch_one(&mut *tx)
             .await
             .with_context(|| "add_friend_both: count A failed")?;
         sqlx::query(
             r#"
-            INSERT INTO user_friends_meta (user_id, friend_count)
+            INSERT INTO user_friends_meta (uid, friend_count)
             VALUES (?, ?)
             ON DUPLICATE KEY UPDATE friend_count=VALUES(friend_count), updated_at=CURRENT_TIMESTAMP
             "#,
@@ -245,14 +235,14 @@ impl FriendRepo for FriendStorage {
         .await
         .with_context(|| "add_friend_both: upsert meta A failed")?;
 
-        let cnt_b: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM friend_edge WHERE user_id=?")
+        let cnt_b: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM friend_edge WHERE uid=?")
             .bind(b as u64)
             .fetch_one(&mut *tx)
             .await
             .with_context(|| "add_friend_both: count B failed")?;
         sqlx::query(
             r#"
-            INSERT INTO user_friends_meta (user_id, friend_count)
+            INSERT INTO user_friends_meta (uid, friend_count)
             VALUES (?, ?)
             ON DUPLICATE KEY UPDATE friend_count=VALUES(friend_count), updated_at=CURRENT_TIMESTAMP
             "#,
@@ -267,14 +257,14 @@ impl FriendRepo for FriendStorage {
         Ok(())
     }
 
-    async fn remove_friend(&self, user: UserId, friend: UserId) -> Result<bool> {
+    async fn remove_friend(&self, user: UID, friend: UID) -> Result<bool> {
         let mut tx = self
             .db()
             .begin()
             .await
             .with_context(|| "remove_friend: begin tx")?;
 
-        let res = sqlx::query(r#"DELETE FROM friend_edge WHERE user_id=? AND friend_id=? "#)
+        let res = sqlx::query(r#"DELETE FROM friend_edge WHERE uid=? AND friend_id=? "#)
             .bind(user as u64)
             .bind(friend as u64)
             .execute(&mut *tx)
@@ -284,7 +274,7 @@ impl FriendRepo for FriendStorage {
         if res.rows_affected() == 1 {
             let _ = sqlx::query(
                 r#"
-                INSERT INTO user_friends_meta (user_id, friend_count)
+                INSERT INTO user_friends_meta (uid, friend_count)
                 VALUES (?, 0)
                 ON DUPLICATE KEY UPDATE
                   friend_count = GREATEST(friend_count - 1, 0),
@@ -302,14 +292,14 @@ impl FriendRepo for FriendStorage {
         Ok(false)
     }
 
-    async fn set_alias(&self, user: UserId, friend: UserId, alias: Option<&str>) -> Result<bool> {
+    async fn set_alias(&self, user: UID, friend: UID, alias: Option<&str>) -> Result<bool> {
         // 仅在值真的变化时更新
         let changed = if let Some(a) = alias {
             let res = sqlx::query(
                 r#"
                 UPDATE friend_edge
                 SET alias=?, remark=?, updated_at=CURRENT_TIMESTAMP
-                WHERE user_id=? AND friend_id=?
+                WHERE uid=? AND friend_id=?
                   AND (alias IS NULL OR alias <> ? OR remark IS NULL OR remark <> ?)
                 "#,
             )
@@ -328,7 +318,7 @@ impl FriendRepo for FriendStorage {
                 r#"
                 UPDATE friend_edge
                 SET alias=NULL, remark=NULL, updated_at=CURRENT_TIMESTAMP
-                WHERE user_id=? AND friend_id=? AND (alias IS NOT NULL OR remark IS NOT NULL)
+                WHERE uid=? AND friend_id=? AND (alias IS NOT NULL OR remark IS NOT NULL)
                 "#,
             )
             .bind(user as u64)
@@ -341,12 +331,12 @@ impl FriendRepo for FriendStorage {
         Ok(changed)
     }
 
-    async fn set_remark(&self, user: UserId, friend: UserId, remark: Option<&str>) -> Result<bool> {
+    async fn set_remark(&self, user: UID, friend: UID, remark: Option<&str>) -> Result<bool> {
         let rows = sqlx::query(
             r#"
             UPDATE friend_edge
             SET remark=?, updated_at=CURRENT_TIMESTAMP
-            WHERE user_id=? AND friend_id=?
+            WHERE uid=? AND friend_id=?
             "#,
         )
         .bind(remark)
@@ -359,12 +349,12 @@ impl FriendRepo for FriendStorage {
         Ok(rows > 0)
     }
 
-    async fn set_blacklist(&self, user: UserId, friend: UserId, blocked: bool) -> Result<bool> {
+    async fn set_blacklist(&self, user: UID, friend: UID, blocked: bool) -> Result<bool> {
         let rows = sqlx::query(
             r#"
             UPDATE friend_edge
             SET blacklisted=?, updated_at=CURRENT_TIMESTAMP
-            WHERE user_id=? AND friend_id=?
+            WHERE uid=? AND friend_id=?
             "#,
         )
         .bind(blocked as i32)
@@ -377,24 +367,23 @@ impl FriendRepo for FriendStorage {
         Ok(rows > 0)
     }
 
-    async fn is_friend(&self, user: UserId, friend: UserId) -> Result<bool> {
-        let exists: Option<i64> = sqlx::query_scalar(
-            r#"SELECT 1 FROM friend_edge WHERE user_id=? AND friend_id=? LIMIT 1"#,
-        )
-        .bind(user as u64)
-        .bind(friend as u64)
-        .fetch_optional(self.db())
-        .await
-        .with_context(|| "is_friend: select failed")?;
+    async fn is_friend(&self, user: UID, friend: UID) -> Result<bool> {
+        let exists: Option<i64> =
+            sqlx::query_scalar(r#"SELECT 1 FROM friend_edge WHERE uid=? AND friend_id=? LIMIT 1"#)
+                .bind(user as u64)
+                .bind(friend as u64)
+                .fetch_optional(self.db())
+                .await
+                .with_context(|| "is_friend: select failed")?;
         Ok(exists.is_some())
     }
 
     async fn page_friends(
         &self,
-        user: UserId,
-        cursor: Option<UserId>,
+        user: UID,
+        cursor: Option<UID>,
         limit: u32,
-    ) -> Result<(Vec<FriendEntry>, Option<UserId>)> {
+    ) -> Result<(Vec<FriendEntry>, Option<UID>)> {
         let lim = limit.clamp(1, 5000) as i64;
 
         let rows: Vec<MySqlRow> = if let Some(cur) = cursor {
@@ -403,7 +392,7 @@ impl FriendRepo for FriendStorage {
                 SELECT friend_id, alias, remark, blacklisted,
                        UNIX_TIMESTAMP(created_at), UNIX_TIMESTAMP(updated_at)
                 FROM friend_edge
-                WHERE user_id=? AND friend_id > ?
+                WHERE uid=? AND friend_id > ?
                 ORDER BY friend_id ASC
                 LIMIT ?
                 "#,
@@ -419,7 +408,7 @@ impl FriendRepo for FriendStorage {
                 SELECT friend_id, alias, remark, blacklisted,
                        UNIX_TIMESTAMP(created_at), UNIX_TIMESTAMP(updated_at)
                 FROM friend_edge
-                WHERE user_id=?
+                WHERE uid=?
                 ORDER BY friend_id ASC
                 LIMIT ?
                 "#,
@@ -432,7 +421,7 @@ impl FriendRepo for FriendStorage {
         .with_context(|| "page_friends: query failed")?;
 
         let mut items = Vec::with_capacity(rows.len());
-        let mut next: Option<UserId> = None;
+        let mut next: Option<UID> = None;
 
         for r in rows.into_iter() {
             let fid: u64 = r.try_get(0)?;
@@ -441,9 +430,9 @@ impl FriendRepo for FriendStorage {
             let blacklisted: i32 = r.try_get(3)?;
             let created_at: i64 = r.try_get(4)?;
             let updated_at: i64 = r.try_get(5)?;
-            next = Some(fid as UserId);
+            next = Some(fid as UID);
             items.push(FriendEntry {
-                friend_id: fid as UserId,
+                friend_id: fid as UID,
                 alias,
                 remark,
                 blacklisted: blacklisted != 0,
@@ -460,7 +449,7 @@ impl FriendRepo for FriendStorage {
         Ok((items, next_cursor))
     }
 
-    async fn upsert_bulk(&self, user: UserId, items: &[(UserId, Option<&str>)]) -> Result<()> {
+    async fn upsert_bulk(&self, user: UID, items: &[(UID, Option<&str>)]) -> Result<()> {
         if items.is_empty() {
             return Ok(());
         }
@@ -473,7 +462,7 @@ impl FriendRepo for FriendStorage {
 
         for chunk in items.chunks(self.chunk) {
             let mut qb: QueryBuilder<MySql> =
-                QueryBuilder::new("INSERT INTO friend_edge (user_id, friend_id, alias, remark) ");
+                QueryBuilder::new("INSERT INTO friend_edge (uid, friend_id, alias, remark) ");
             qb.push_values(chunk, |mut b, (fid, alias)| {
                 b.push_bind(user as u64)
                     .push_bind(*fid as u64)
@@ -491,7 +480,7 @@ impl FriendRepo for FriendStorage {
         }
 
         // 刷新计数（以 DB 真实计数为准）
-        let cnt: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM friend_edge WHERE user_id=? "#)
+        let cnt: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM friend_edge WHERE uid=? "#)
             .bind(user as u64)
             .fetch_one(&mut *tx)
             .await
@@ -499,7 +488,7 @@ impl FriendRepo for FriendStorage {
 
         sqlx::query(
             r#"
-            INSERT INTO user_friends_meta (user_id, friend_count)
+            INSERT INTO user_friends_meta (uid, friend_count)
             VALUES (?, ?)
             ON DUPLICATE KEY UPDATE friend_count=VALUES(friend_count), updated_at=CURRENT_TIMESTAMP
             "#,
@@ -514,20 +503,20 @@ impl FriendRepo for FriendStorage {
         Ok(())
     }
 
-    async fn clear_all(&self, user: UserId) -> Result<()> {
+    async fn clear_all(&self, user: UID) -> Result<()> {
         let mut tx = self
             .db()
             .begin()
             .await
             .with_context(|| "clear_all: begin tx")?;
 
-        sqlx::query(r#"DELETE FROM friend_edge WHERE user_id=? "#)
+        sqlx::query(r#"DELETE FROM friend_edge WHERE uid=? "#)
             .bind(user as u64)
             .execute(&mut *tx)
             .await
             .with_context(|| "clear_all: delete edge failed")?;
 
-        sqlx::query(r#"DELETE FROM user_friends_meta WHERE user_id=? "#)
+        sqlx::query(r#"DELETE FROM user_friends_meta WHERE uid=? "#)
             .bind(user as u64)
             .execute(&mut *tx)
             .await
@@ -537,9 +526,9 @@ impl FriendRepo for FriendStorage {
         Ok(())
     }
 
-    async fn count(&self, user: UserId) -> Result<u64> {
+    async fn count(&self, user: UID) -> Result<u64> {
         let c: Option<i64> =
-            sqlx::query_scalar(r#"SELECT friend_count FROM user_friends_meta WHERE user_id=? "#)
+            sqlx::query_scalar(r#"SELECT friend_count FROM user_friends_meta WHERE uid=? "#)
                 .bind(user as u64)
                 .fetch_optional(self.db())
                 .await

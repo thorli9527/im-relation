@@ -19,7 +19,7 @@ use tokio::{runtime::Handle, time::sleep};
 use crate::member::shard_map::ShardMap;
 use crate::store::GroupStorage;
 use common::infra::grpc::grpc_group::group_service::{GroupRoleType, MemberRef};
-use common::{GroupId, MemberListError, UserId};
+use common::{GroupId, MemberListError, UID};
 
 /// 运行参数
 #[derive(Clone, Debug)]
@@ -242,7 +242,7 @@ impl<S: GroupStorage> HotColdFacade<S> {
     pub async fn remove(
         &self,
         gid: GroupId,
-        uid: UserId,
+        uid: UID,
     ) -> std::result::Result<bool, MemberListError> {
         let _ = self
             .ensure_hot(gid)
@@ -258,7 +258,7 @@ impl<S: GroupStorage> HotColdFacade<S> {
     pub async fn change_role(
         &self,
         gid: GroupId,
-        uid: UserId,
+        uid: UID,
         role: GroupRoleType,
     ) -> std::result::Result<(), MemberListError> {
         let _ = self
@@ -274,7 +274,7 @@ impl<S: GroupStorage> HotColdFacade<S> {
     pub async fn change_alias(
         &self,
         gid: GroupId,
-        uid: UserId,
+        uid: UID,
         alias: Option<String>,
     ) -> std::result::Result<(), MemberListError> {
         let _ = self
@@ -329,7 +329,7 @@ impl<S: GroupStorage> HotColdFacade<S> {
     }
 
     /// 用户加入的群列表（优先内存，miss 冷读）
-    pub async fn user_groups(&self, uid: UserId) -> Vec<i64> {
+    pub async fn user_groups(&self, uid: UID) -> Vec<i64> {
         let v = self.map.user_group_list(uid);
         if v.is_empty() {
             match self.storage.load_user_groups(uid).await {

@@ -1507,7 +1507,7 @@ pub struct MsgRead {
     #[prost(int64, tag = "1")]
     pub msg_id: i64,
     #[prost(int64, tag = "2")]
-    pub user_id: i64,
+    pub uid: i64,
     /// 单聊：对方ID；群聊：群ID
     #[prost(int64, tag = "3")]
     pub chat_id: i64,
@@ -1556,7 +1556,7 @@ pub struct MsgReaction {
     #[prost(int64, tag = "1")]
     pub msg_id: i64,
     #[prost(int64, tag = "2")]
-    pub user_id: i64,
+    pub uid: i64,
     #[prost(enumeration = "ReactionAction", tag = "3")]
     pub action: i32,
     #[prost(string, tag = "4")]
@@ -1593,7 +1593,7 @@ pub mod typing {
 pub struct QueryFriendMessagesRequest {
     /// 当前用户 ID
     #[prost(int64, tag = "1")]
-    pub user_id: i64,
+    pub uid: i64,
     /// 好友 ID
     #[prost(int64, tag = "2")]
     pub friend_id: i64,

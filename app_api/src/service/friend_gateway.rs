@@ -30,7 +30,7 @@ fn normalize_endpoint(addr: &str) -> String {
     }
 }
 
-async fn resolve_friend_addr(user_id: i64) -> Result<String> {
+async fn resolve_friend_addr(uid: i64) -> Result<String> {
     let node_util = NodeUtil::get();
     let mut nodes = node_util.get_list(NodeType::FriendNode as i32);
 
@@ -48,7 +48,7 @@ async fn resolve_friend_addr(user_id: i64) -> Result<String> {
         return Err(anyhow!("friend node list empty"));
     }
 
-    let index = hash_index(&user_id, count) as usize;
+    let index = hash_index(&uid, count) as usize;
     nodes
         .into_iter()
         .nth(index)
@@ -65,16 +65,16 @@ async fn connect_friend_service(addr: &str) -> Result<FriendServiceClient<Channe
 }
 
 pub async fn get_friends_page_detailed(
-    user_id: i64,
+    uid: i64,
     page: u32,
     page_size: u32,
 ) -> Result<Vec<FriendEntry>> {
-    let addr = resolve_friend_addr(user_id).await?;
+    let addr = resolve_friend_addr(uid).await?;
     let mut client = connect_friend_service(&addr).await?;
 
     let response = client
         .get_friends_page_detailed(GetFriendsPageDetailedReq {
-            user_id,
+            uid,
             page: page as u64,
             page_size: page_size as u64,
         })
@@ -85,11 +85,11 @@ pub async fn get_friends_page_detailed(
     Ok(response.friends)
 }
 
-pub async fn is_friend(user_id: i64, friend_id: i64) -> Result<bool> {
-    let addr = resolve_friend_addr(user_id).await?;
+pub async fn is_friend(uid: i64, friend_id: i64) -> Result<bool> {
+    let addr = resolve_friend_addr(uid).await?;
     let mut client = connect_friend_service(&addr).await?;
     let resp = client
-        .is_friend(IsFriendReq { user_id, friend_id })
+        .is_friend(IsFriendReq { uid, friend_id })
         .await
         .map_err(|status| anyhow!("friend service is_friend failed: {status}"))?
         .into_inner();

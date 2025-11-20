@@ -1,7 +1,7 @@
 //! 分片队列与分发调度
 //!
 //! 设计目标：
-//! - 依据 `UserId` 做一致分片，确保同一用户的消息顺序性与降低跨分片竞争；
+//! - 依据 `UID` 做一致分片，确保同一用户的消息顺序性与降低跨分片竞争；
 //! - 每分片采用有界 `mpsc::channel` 承载背压；队列满时丢弃并打点日志；
 //! - 分片工作循环从队列取出消息，直接调用 `SessionManager::send_to_user` 进行扇出。
 
@@ -12,13 +12,13 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::mpsc;
 
 use crate::service::session::SessionManager;
-use crate::service::types::{SendOpts, ServerMsg, UserId};
+use crate::service::types::{SendOpts, ServerMsg, UID};
 use common::support::util::common_utils::hash_index;
 
 #[derive(Clone)]
 /// 内部分发单元：包含目标用户、下行消息与发送选项
 struct DispatchItem {
-    user_id: UserId,
+    uid: UID,
     msg: ServerMsg,
     opts: SendOpts,
 }
@@ -44,11 +44,11 @@ impl ShardedDispatcher {
         }
     }
 
-    /// 入队到一致性分片（依据 user_id 哈希），队列满返回 false
-    pub fn enqueue(&self, user_id: UserId, msg: ServerMsg, opts: SendOpts) -> bool {
-        let sid = hash_index(&user_id, self.shards.len() as i32) as usize;
+    /// 入队到一致性分片（依据 uid 哈希），队列满返回 false
+    pub fn enqueue(&self, uid: UID, msg: ServerMsg, opts: SendOpts) -> bool {
+        let sid = hash_index(&uid, self.shards.len() as i32) as usize;
         self.shards[sid]
-            .try_send(DispatchItem { user_id, msg, opts })
+            .try_send(DispatchItem { uid, msg, opts })
             .is_ok()
     }
 }
@@ -59,7 +59,7 @@ async fn run_shard(shard_id: usize, mut rx: mpsc::Receiver<DispatchItem>) {
     let mut dropped = 0usize;
     while let Some(item) = rx.recv().await {
         // 直接调用 SessionManager 扇出消息；返回值代表成功推送到多少会话。
-        let sent = sm.send_to_user(item.user_id, item.msg, item.opts);
+        let sent = sm.send_to_user(item.uid, item.msg, item.opts);
         if sent == 0 {
             dropped += 1;
             if dropped % 100 == 0 {

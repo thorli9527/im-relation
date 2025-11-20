@@ -98,6 +98,7 @@ impl MessageService {
             "scene",
             "sender_type",
             "sender_id",
+            "is_session_message",
             "content",
             "extra",
             "created_at",
@@ -154,5 +155,33 @@ impl MessageService {
         )
         .map(|_| ())
         .map_err(|err| err.to_string())
+    }
+
+    pub fn mark_send_failed(&self, message_id: i64) -> Result<(), String> {
+        let conn = db::connection()?;
+        conn.execute(
+            "UPDATE message SET sending_status = 0 WHERE id = ?1",
+            params![message_id],
+        )
+        .map(|_| ())
+        .map_err(|err| err.to_string())
+    }
+
+    pub fn list_pending_messages(&self, max_attempts: i32) -> Result<Vec<MessageEntity>, String> {
+        let table_def = message_table_def();
+        let sql = format!(
+            "SELECT * FROM {} WHERE ack_status = 0 AND send_count < ? AND sending_status = 0 ORDER BY created_at ASC",
+            table_def.name
+        );
+        let conn = db::connection()?;
+        let mut stmt = conn.prepare(&sql).map_err(|err| err.to_string())?;
+        let mut rows = stmt
+            .query(params![max_attempts])
+            .map_err(|err| err.to_string())?;
+        let mut result = Vec::new();
+        while let Some(row) = rows.next().map_err(|err| err.to_string())? {
+            result.push(Self::map_row(row).map_err(|err| err.to_string())?);
+        }
+        Ok(result)
     }
 }

@@ -50,7 +50,7 @@ PARTITION BY KEY(`owner_id`) PARTITIONS 16;
 
 -- msg_friend: 设备密钥（最小托管实现）
 CREATE TABLE IF NOT EXISTS `device_keys` (
-  `user_id`        BIGINT       NOT NULL COMMENT '用户ID',
+  `uid`        BIGINT       NOT NULL COMMENT '用户ID',
   `device_id`      VARCHAR(128) NOT NULL COMMENT '设备ID',
   `identity_curve` VARCHAR(32)  NOT NULL COMMENT '身份密钥曲线/算法',
   `identity_pub`   BLOB         NOT NULL COMMENT '身份公钥',
@@ -59,20 +59,20 @@ CREATE TABLE IF NOT EXISTS `device_keys` (
   `signed_pre_sig` BLOB         NOT NULL COMMENT '签名预密钥签名',
   `one_time_pre_keys` LONGBLOB  NULL COMMENT '一次性预共享密钥集合(序列化 JSON/CBOR)',
   `updated_at`     BIGINT       NOT NULL COMMENT '更新时间(毫秒)',
-  PRIMARY KEY (`user_id`, `device_id`)
+  PRIMARY KEY (`uid`, `device_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 好友申请表（用于处理申请的持久化与决策）
 CREATE TABLE IF NOT EXISTS `friend_requests` (
   `id`            BIGINT       NOT NULL PRIMARY KEY COMMENT '好友申请ID',
-  `from_user_id`  BIGINT       NOT NULL COMMENT '申请方用户ID',
-  `to_user_id`    BIGINT       NOT NULL COMMENT '被申请方用户ID',
+  `from_uid`  BIGINT       NOT NULL COMMENT '申请方用户ID',
+  `to_uid`    BIGINT       NOT NULL COMMENT '被申请方用户ID',
   `reason`        VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '申请理由',
   `source`        INT          NOT NULL DEFAULT 0 COMMENT '申请来源(枚举)',
   `created_at`    BIGINT       NOT NULL COMMENT '申请时间(毫秒)',
   `decided_at`    BIGINT       NULL COMMENT '处理时间(毫秒，可空)',
   `accepted`      TINYINT(1)   NULL COMMENT '是否接受(可空)',
   `remark`        VARCHAR(1024) NULL COMMENT '备注(可空)',
-  KEY `idx_friend_req_from` (`from_user_id`),
-  KEY `idx_friend_req_to`   (`to_user_id`)
+  KEY `idx_friend_req_from` (`from_uid`),
+  KEY `idx_friend_req_to`   (`to_uid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

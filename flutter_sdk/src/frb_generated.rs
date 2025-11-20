@@ -1233,7 +1233,7 @@ fn wire__crate__api__client__resolve_app_api_base_url_impl(
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::client::resolve_app_api_base_url()?;
+                    let output_ok = crate::common::client::resolve_app_api_base_url()?;
                     Ok(output_ok)
                 })())
             }
@@ -2655,12 +2655,12 @@ impl SseDecode for crate::api::app_api::SessionValidationResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_ok = <bool>::sse_decode(deserializer);
-        let mut var_userId = <i64>::sse_decode(deserializer);
+        let mut var_uid = <i64>::sse_decode(deserializer);
         let mut var_expiresAt = <u64>::sse_decode(deserializer);
         let mut var_token = <String>::sse_decode(deserializer);
         return crate::api::app_api::SessionValidationResult {
             ok: var_ok,
-            user_id: var_userId,
+            uid: var_uid,
             expires_at: var_expiresAt,
             token: var_token,
         };
@@ -2710,7 +2710,7 @@ impl SseDecode for crate::api::app_api::UpdateProfileRequest {
 impl SseDecode for crate::api::app_api::UserProfile {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_userId = <i64>::sse_decode(deserializer);
+        let mut var_uid = <i64>::sse_decode(deserializer);
         let mut var_username = <String>::sse_decode(deserializer);
         let mut var_avatar = <String>::sse_decode(deserializer);
         let mut var_email = <Option<String>>::sse_decode(deserializer);
@@ -2719,7 +2719,7 @@ impl SseDecode for crate::api::app_api::UserProfile {
         let mut var_region = <Option<String>>::sse_decode(deserializer);
         let mut var_addFriendPolicy = <i32>::sse_decode(deserializer);
         return crate::api::app_api::UserProfile {
-            user_id: var_userId,
+            uid: var_uid,
             username: var_username,
             avatar: var_avatar,
             email: var_email,
@@ -3652,7 +3652,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::app_api::SessionValidationRes
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
             self.ok.into_into_dart().into_dart(),
-            self.user_id.into_into_dart().into_dart(),
+            self.uid.into_into_dart().into_dart(),
             self.expires_at.into_into_dart().into_dart(),
             self.token.into_into_dart().into_dart(),
         ]
@@ -3696,7 +3696,7 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::app_api::UpdateProfileRequest
 impl flutter_rust_bridge::IntoDart for crate::api::app_api::UserProfile {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
-            self.user_id.into_into_dart().into_dart(),
+            self.uid.into_into_dart().into_dart(),
             self.username.into_into_dart().into_dart(),
             self.avatar.into_into_dart().into_dart(),
             self.email.into_into_dart().into_dart(),
@@ -4264,7 +4264,7 @@ impl SseEncode for crate::api::app_api::SessionValidationResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <bool>::sse_encode(self.ok, serializer);
-        <i64>::sse_encode(self.user_id, serializer);
+        <i64>::sse_encode(self.uid, serializer);
         <u64>::sse_encode(self.expires_at, serializer);
         <String>::sse_encode(self.token, serializer);
     }
@@ -4308,7 +4308,7 @@ impl SseEncode for crate::api::app_api::UpdateProfileRequest {
 impl SseEncode for crate::api::app_api::UserProfile {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <i64>::sse_encode(self.user_id, serializer);
+        <i64>::sse_encode(self.uid, serializer);
         <String>::sse_encode(self.username, serializer);
         <String>::sse_encode(self.avatar, serializer);
         <Option<String>>::sse_encode(self.email, serializer);

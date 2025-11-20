@@ -9,7 +9,7 @@ use common::infra::grpc::grpc_user::online_service::{
 };
 use common::infra::redis::redis_pool::RedisPoolTools;
 use common::support::util::common_utils::{build_md5_with_key, build_uuid};
-use common::UserId;
+use common::UID;
 use deadpool_redis::redis::AsyncCommands;
 use log::error;
 use once_cell::sync::OnceCell;
@@ -224,7 +224,7 @@ pub mod auth_models {
 
 #[derive(Debug, Clone, Copy)]
 pub struct ActiveSession {
-    pub user_id: i64,
+    pub uid: i64,
     pub device_type: DeviceType,
 }
 
@@ -251,7 +251,7 @@ pub async fn ensure_active_session(session_token: &str) -> Result<ActiveSession>
         DeviceType::try_from(response.device_type).map_err(|_| anyhow!("invalid device type"))?;
 
     Ok(ActiveSession {
-        user_id: response.user_id,
+        uid: response.uid,
         device_type,
     })
 }
@@ -300,7 +300,7 @@ pub trait UserServiceAuthOpt: Send + Sync {
         device_id: &str,
     ) -> anyhow::Result<(SessionTokenInfo, UserEntity)>;
 
-    async fn logout(&self, user_id: UserId, device_type: &DeviceType) -> anyhow::Result<()>;
+    async fn logout(&self, uid: UID, device_type: &DeviceType) -> anyhow::Result<()>;
 
     async fn build_register_code(
         &self,
@@ -431,15 +431,15 @@ impl UserService {
 
     async fn validate_session_token(session_token: &str) -> anyhow::Result<(i64, DeviceType)> {
         let active = ensure_active_session(session_token).await?;
-        Ok((active.user_id, active.device_type))
+        Ok((active.uid, active.device_type))
     }
 
     async fn get_user_by_id(
         client: &mut UserRpcServiceClient<tonic::transport::Channel>,
-        user_id: i64,
+        uid: i64,
     ) -> anyhow::Result<UserEntity> {
         let resp = client
-            .find_user_by_id(GetUserReq { id: user_id })
+            .find_user_by_id(GetUserReq { id: uid })
             .await?
             .into_inner();
         Ok(resp)
@@ -494,7 +494,7 @@ impl UserServiceAuthOpt for UserService {
         let mut online_client = user_gateway::get_online_client().await?;
         let token_resp = online_client
             .upsert_session_token(UpsertSessionTokenRequest {
-                user_id: entity.id,
+                uid: entity.id,
                 device_type: *device_type as i32,
                 device_id: device_id.to_string(),
                 login_ip: None,
@@ -534,7 +534,7 @@ impl UserServiceAuthOpt for UserService {
         Ok((info, entity))
     }
 
-    async fn logout(&self, _uid: UserId, _device_type: &DeviceType) -> anyhow::Result<()> {
+    async fn logout(&self, _uid: UID, _device_type: &DeviceType) -> anyhow::Result<()> {
         Ok(())
     }
 
@@ -652,7 +652,7 @@ impl UserServiceAuthOpt for UserService {
             .and_then(|cfg| cfg.md5_key.clone())
             .ok_or_else(|| anyhow!("md5_key missing"))?;
 
-        let (user_id, _) = UserService::validate_session_token(session_token).await?;
+        let (uid, _) = UserService::validate_session_token(session_token).await?;
         let mut client = user_gateway::get_user_rpc_client().await?;
         let key = AppConfig::get()
             .sys
@@ -668,7 +668,7 @@ impl UserServiceAuthOpt for UserService {
 
         let resp = client
             .change_password(ChangePasswordReq {
-                id: user_id,
+                id: uid,
                 old_password: Some(hashed_old),
                 new_password: hashed_new,
                 verify_token: Some(session_token.to_string()),
@@ -690,10 +690,10 @@ impl UserServiceAuthOpt for UserService {
         new_phone: &str,
         new_phone_code: &str,
     ) -> anyhow::Result<String> {
-        let (user_id, _) = UserService::validate_session_token(session_token).await?;
+        let (uid, _) = UserService::validate_session_token(session_token).await?;
 
         let mut client = user_gateway::get_user_rpc_client().await?;
-        let current = UserService::get_user_by_id(&mut client, user_id).await?;
+        let current = UserService::get_user_by_id(&mut client, uid).await?;
 
         if let Some(old_phone) = current.phone.as_deref() {
             let code = old_phone_code.ok_or_else(|| anyhow!("old.phone.code.required"))?;
@@ -706,7 +706,7 @@ impl UserServiceAuthOpt for UserService {
 
         let updated = client
             .change_phone(ChangePhoneReq {
-                id: user_id,
+                id: uid,
                 new_phone: Some(new_phone.to_string()),
                 verify_token: Some(new_phone_code.to_string()),
             })
@@ -724,10 +724,10 @@ impl UserServiceAuthOpt for UserService {
         new_email: &str,
         new_email_code: &str,
     ) -> anyhow::Result<String> {
-        let (user_id, _) = UserService::validate_session_token(session_token).await?;
+        let (uid, _) = UserService::validate_session_token(session_token).await?;
 
         let mut client = user_gateway::get_user_rpc_client().await?;
-        let current = UserService::get_user_by_id(&mut client, user_id).await?;
+        let current = UserService::get_user_by_id(&mut client, uid).await?;
 
         if let Some(old_email) = current.email.as_deref() {
             let code = old_email_code.ok_or_else(|| anyhow!("old.email.code.required"))?;
@@ -740,7 +740,7 @@ impl UserServiceAuthOpt for UserService {
 
         let updated = client
             .change_email(ChangeEmailReq {
-                id: user_id,
+                id: uid,
                 new_email: Some(new_email.to_string()),
                 verify_token: Some(new_email_code.to_string()),
             })
@@ -761,10 +761,10 @@ impl UserServiceAuthOpt for UserService {
             return Ok(());
         }
 
-        let (user_id, _) = UserService::validate_session_token(session_token).await?;
+        let (uid, _) = UserService::validate_session_token(session_token).await?;
 
         let mut client = user_gateway::get_user_rpc_client().await?;
-        let mut entity = UserService::get_user_by_id(&mut client, user_id).await?;
+        let mut entity = UserService::get_user_by_id(&mut client, uid).await?;
 
         let mut paths: Vec<String> = Vec::new();
 
@@ -810,19 +810,19 @@ impl UserServiceAuthOpt for UserService {
             anyhow!(message)
         })?;
 
-        let (user_id, _) = UserService::validate_session_token(session_token).await?;
+        let (uid, _) = UserService::validate_session_token(session_token).await?;
 
         let mut client = user_gateway::get_user_rpc_client().await?;
         if let Some(existing) =
             UserService::fetch_user_by_reg_type(&mut client, UserRegType::LoginName, normalized)
                 .await?
         {
-            if existing.id != user_id {
+            if existing.id != uid {
                 return Err(anyhow!("username.exists"));
             }
         }
 
-        let mut entity = UserService::get_user_by_id(&mut client, user_id).await?;
+        let mut entity = UserService::get_user_by_id(&mut client, uid).await?;
         if entity.name == normalized {
             return Ok(());
         }

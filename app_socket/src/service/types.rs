@@ -1,7 +1,7 @@
 //! 基础类型与消息模型
 //!
 //! 约定与说明：
-//! - 用户标识统一使用 `common::UserId`（i64）。
+//! - 用户标识统一使用 `common::UID`（i64）。
 //! - Socket/TCP 层使用“长度前缀 + Protobuf”帧格式（详见 `tcp.rs`）。
 //! - ServerMsg.id 用于客户端 ACK 对齐；需要可靠送达时结合 `SendOpts` 进行重试与超时控制。
 
@@ -13,12 +13,12 @@ use common::infra::grpc::message as msg_message;
 use common::infra::grpc::message as msgpb;
 use prost::Message;
 
-// 使用 common 中的 UserId 类型
+// 使用 common 中的 UID 类型
 /// 业务种类（与 TCP/Kafka 边界一致的枚举）
 // Ensure the `common` crate is included in Cargo.toml and accessible in your project.
 // If `common` is a local module, use `mod common;` at the crate root or adjust the path accordingly.
 pub use common::infra::grpc::grpc_socket::socket::MsgKind;
-pub use common::UserId;
+pub use common::UID;
 /// 设备唯一标识（例如设备序列号、推送 token 等）
 pub type DeviceId = String;
 /// 设备类型（mobile/web/pc/unknown），用于多端登录策略

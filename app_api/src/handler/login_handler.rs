@@ -36,7 +36,7 @@ pub struct LoginResult {
     email: Option<String>,
     phone: Option<String>,
     name: String,
-    user_id: i64,
+    uid: i64,
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
@@ -48,7 +48,7 @@ pub struct SessionTokenPayload {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct SessionValidationResult {
     ok: bool,
-    user_id: i64,
+    uid: i64,
     expires_at: u64,
     token: String,
 }
@@ -94,16 +94,16 @@ async fn login(Json(payload): Json<LoginPayload>) -> HandlerResult<LoginResult> 
 
     let socket_addr = resolve_socket_addr(user.id).await.unwrap_or_default();
 
-        success(LoginResult {
-            token: session.token,
-            expires_at: session.expires_at,
-            socket_addr,
-            avatar: user.avatar.clone(),
-            email: user.email.clone(),
-            phone: user.phone.clone(),
-            name: user.name.clone(),
-            user_id: user.id,
-        })
+    success(LoginResult {
+        token: session.token,
+        expires_at: session.expires_at,
+        socket_addr,
+        avatar: user.avatar.clone(),
+        email: user.email.clone(),
+        phone: user.phone.clone(),
+        name: user.name.clone(),
+        uid: user.id,
+    })
 }
 
 #[utoipa::path(
@@ -140,7 +140,7 @@ async fn validate_session(
     if status != SessionTokenStatus::StsActive {
         return success(SessionValidationResult {
             ok: false,
-            user_id: 0,
+            uid: 0,
             expires_at: 0,
             token: String::new(),
         });
@@ -154,7 +154,7 @@ async fn validate_session(
 
     let upsert = online_client
         .upsert_session_token(OnlineUpsertSessionTokenRequest {
-            user_id: resp.user_id,
+            uid: resp.uid,
             device_type: device_type as i32,
             device_id: resp.device_id.clone(),
             login_ip: None,
@@ -166,7 +166,7 @@ async fn validate_session(
 
     success(SessionValidationResult {
         ok: true,
-        user_id: resp.user_id,
+        uid: resp.uid,
         expires_at: upsert.expires_at,
         token: upsert.session_token,
     })
