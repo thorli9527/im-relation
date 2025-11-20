@@ -1,0 +1,10 @@
+/Users/thorli/workspace/im-cloud/im-relation/flutter_sdk/target/debug/deps/futures_channel-3c8fb6d1bc2fc105.d: /Users/thorli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.29/src/lib.rs /Users/thorli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.29/src/lock.rs /Users/thorli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.29/src/mpsc/mod.rs /Users/thorli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.29/src/mpsc/queue.rs /Users/thorli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.29/src/mpsc/sink_impl.rs /Users/thorli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.29/src/oneshot.rs
+
+/Users/thorli/workspace/im-cloud/im-relation/flutter_sdk/target/debug/deps/libfutures_channel-3c8fb6d1bc2fc105.rmeta: /Users/thorli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.29/src/lib.rs /Users/thorli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.29/src/lock.rs /Users/thorli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.29/src/mpsc/mod.rs /Users/thorli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.29/src/mpsc/queue.rs /Users/thorli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.29/src/mpsc/sink_impl.rs /Users/thorli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.29/src/oneshot.rs
+
+/Users/thorli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.29/src/lib.rs:
+/Users/thorli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.29/src/lock.rs:
+/Users/thorli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.29/src/mpsc/mod.rs:
+/Users/thorli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.29/src/mpsc/queue.rs:
+/Users/thorli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.29/src/mpsc/sink_impl.rs:
+/Users/thorli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.29/src/oneshot.rs:
