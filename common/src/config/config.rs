@@ -311,12 +311,14 @@ impl AppConfig {
             init_db(&database_config.url.clone()).await;
         }
 
-        if instance.sys.is_some() {
-            let log_lovel = instance.clone().sys.unwrap().log_leve;
-            if log_lovel.is_some() {
-                init_log(&log_lovel.clone().unwrap()).expect("init log error");
-            }
-        }
+        // 初始化日志：优先 sys.log_leve，其次环境变量 RUST_LOG，最后默认 info。
+        let log_level = instance
+            .sys
+            .as_ref()
+            .and_then(|sys| sys.log_leve.clone())
+            .or_else(|| std::env::var("RUST_LOG").ok())
+            .unwrap_or_else(|| "info".to_string());
+        init_log(&log_level).expect("init log error");
         INSTANCE
             .set(Arc::new(instance.clone()))
             .expect("INSTANCE already initialized");
@@ -452,8 +454,10 @@ impl AppConfig {
 pub fn init_log(log_lovel: &str) -> Result<(), AppError> {
     let mut builder = env_logger::Builder::new();
     builder.target(env_logger::Target::Stdout);
-    let filter = builder.filter(None, LevelFilter::from_str(log_lovel).unwrap());
-    filter.init();
+    builder.format_timestamp_millis();
+    let level = LevelFilter::from_str(log_lovel).unwrap_or(LevelFilter::Info);
+    builder.filter(None, level);
+    let _ = builder.try_init();
     Ok(())
 }
 

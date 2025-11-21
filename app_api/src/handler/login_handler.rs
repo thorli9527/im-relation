@@ -53,6 +53,18 @@ pub struct SessionValidationResult {
     token: String,
 }
 
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LogoutPayload {
+    session_token: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct LogoutResult {
+    ok: bool,
+    revoked_token: Option<String>,
+}
+
 #[utoipa::path(
     post,
     path = "/login",
@@ -172,8 +184,35 @@ async fn validate_session(
     })
 }
 
+#[utoipa::path(
+    post,
+    path = "/logout",
+    request_body = LogoutPayload,
+    responses(
+        (status = 200, description = "登出并吊销 session token", body = ApiResponse<LogoutResult>)
+    ),
+    tag = "app_api"
+)]
+async fn logout(Json(payload): Json<LogoutPayload>) -> HandlerResult<LogoutResult> {
+    if payload.session_token.trim().is_empty() {
+        return Err(AppError::Validation("session_token is required".into()));
+    }
+
+    let service = UserService::get();
+    let revoked = service
+        .revoke_session_token(&payload.session_token, Some("client logout"))
+        .await
+        .map_err(map_internal_error)?;
+
+    success(LogoutResult {
+        ok: true,
+        revoked_token: revoked,
+    })
+}
+
 pub fn router() -> Router {
     Router::new()
         .route("/login", post(login))
         .route("/session/validate", post(validate_session))
+        .route("/logout", post(logout))
 }

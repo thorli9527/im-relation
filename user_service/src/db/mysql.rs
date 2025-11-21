@@ -492,7 +492,7 @@ impl SessionTokenRepo for SessionRepoSqlx {
     }
 
     async fn revoke_session_token_by_token(&self, token: &str) -> Result<Option<String>> {
-        let affected = sqlx::query(
+        let update_res = sqlx::query(
             r#"
                 UPDATE user_session
                 SET status = 2, expires_at = NOW(3), last_seen_at = NOW(3)
@@ -503,10 +503,19 @@ impl SessionTokenRepo for SessionRepoSqlx {
         .execute(&self.pool)
         .await?;
 
-        if affected.rows_affected() == 0 {
-            return Ok(None);
+        if update_res.rows_affected() > 0 {
+            return Ok(Some(token.to_string()));
         }
-        Ok(Some(token.to_string()))
+
+        // 若已是 revoked/expired，MySQL 可能返回 affected=0；检测是否存在记录，存在则视为已吊销。
+        let exists = sqlx::query_scalar::<_, i64>(
+            r#"SELECT 1 FROM user_session WHERE session_token = ? LIMIT 1"#,
+        )
+        .bind(token.as_bytes())
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(exists.map(|_| token.to_string()))
     }
 
     async fn revoke_session_token_by_device(

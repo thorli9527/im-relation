@@ -69,33 +69,27 @@ where
     fn call(&mut self, request: Request<B>) -> Self::Future {
         let path = request.uri().path().to_owned();
         let request_debug = format!("{request:?}");
-        info!(
-            "{}",
-            LogPayload::new("grpc_recv", path.clone(), &request_debug, None)
-        );
+        info!("{}", LogPayload::info("grpc_recv", path.clone(), &request_debug));
 
         let fut = self.inner.call(request);
         Box::pin(async move {
             match fut.await {
                 Ok(resp) => {
-                    info!(
-                        "{}",
-                        LogPayload::new("grpc_send", path.clone(), &request_debug, None)
-                    );
+                    info!("{}", LogPayload::info("grpc_send", path.clone(), &request_debug));
                     Ok(resp)
                 }
                 Err(err) => {
                     let backtrace = Backtrace::capture();
                     error!(
                         "{}",
-                        LogPayload::new(
+                        LogPayload::error(
                             "grpc_error",
                             path.clone(),
                             &request_debug,
-                            Some(LogError {
+                            LogError {
                                 err: format!("{err:?}"),
                                 backtrace: format!("{backtrace:?}"),
-                            })
+                            }
                         )
                     );
                     Err(err)
@@ -116,15 +110,29 @@ struct LogPayload<'a> {
 }
 
 impl<'a> LogPayload<'a> {
-    fn new(event: &'static str, path: String, request: &'a str, error: Option<LogError>) -> String {
+    fn new(
+        level: &'static str,
+        event: &'static str,
+        path: String,
+        request: &'a str,
+        error: Option<LogError>,
+    ) -> String {
         json!(LogPayload {
-            level: "info",
+            level,
             event,
             path,
             request,
             error,
         })
         .to_string()
+    }
+
+    fn info(event: &'static str, path: String, request: &'a str) -> String {
+        Self::new("info", event, path, request, None)
+    }
+
+    fn error(event: &'static str, path: String, request: &'a str, error: LogError) -> String {
+        Self::new("error", event, path, request, Some(error))
     }
 }
 

@@ -7,6 +7,7 @@ pub mod message_service;
 pub mod socket_client;
 
 pub fn init() {
+    crate::common::init_logging();
     if let Err(err) = config_service::ConfigService::init() {
         eprintln!("ConfigService init failed: {err}");
     }

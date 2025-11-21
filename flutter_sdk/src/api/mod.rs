@@ -1,6 +1,7 @@
 pub mod app_api;
 pub mod chat_api;
 pub mod config_api;
+pub mod errors;
 pub mod frb_types;
 pub mod socket_api;
 

@@ -71,6 +71,19 @@ pub struct SessionValidationResult {
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
+pub struct LogoutRequest {
+    pub session_token: String,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct LogoutResult {
+    pub ok: bool,
+    pub revoked_token: Option<String>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct ChangePasswordRequest {
     pub session_token: String,
     pub old_password: String,

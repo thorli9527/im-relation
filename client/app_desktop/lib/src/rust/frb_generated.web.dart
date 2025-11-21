@@ -8,7 +8,6 @@
 
 import 'api/app_api.dart';
 import 'api/chat_api.dart';
-import 'api/client.dart';
 import 'api/config_api.dart';
 import 'api/frb_types.dart';
 import 'api/socket_api.dart';

@@ -1,3 +1,0 @@
-cargo:rerun-if-changed=src/generated
-cargo:rerun-if-changed=../common/proto/message.proto
-cargo:rerun-if-changed=../common/proto/socket.proto

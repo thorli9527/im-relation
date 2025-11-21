@@ -699,20 +699,20 @@ class SessionValidateRequest {
 
 class SessionValidationResult {
   final bool ok;
-  final PlatformInt64 userId;
+  final PlatformInt64 uid;
   final BigInt expiresAt;
   final String token;
 
   const SessionValidationResult({
     required this.ok,
-    required this.userId,
+    required this.uid,
     required this.expiresAt,
     required this.token,
   });
 
   @override
   int get hashCode =>
-      ok.hashCode ^ userId.hashCode ^ expiresAt.hashCode ^ token.hashCode;
+      ok.hashCode ^ uid.hashCode ^ expiresAt.hashCode ^ token.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -720,7 +720,7 @@ class SessionValidationResult {
       other is SessionValidationResult &&
           runtimeType == other.runtimeType &&
           ok == other.ok &&
-          userId == other.userId &&
+          uid == other.uid &&
           expiresAt == other.expiresAt &&
           token == other.token;
 }
@@ -750,7 +750,7 @@ class UpdateProfileRequest {
 }
 
 class UserProfile {
-  final PlatformInt64 userId;
+  final PlatformInt64 uid;
   final String username;
   final String avatar;
   final String? email;
@@ -760,7 +760,7 @@ class UserProfile {
   final int addFriendPolicy;
 
   const UserProfile({
-    required this.userId,
+    required this.uid,
     required this.username,
     required this.avatar,
     this.email,
@@ -772,7 +772,7 @@ class UserProfile {
 
   @override
   int get hashCode =>
-      userId.hashCode ^
+      uid.hashCode ^
       username.hashCode ^
       avatar.hashCode ^
       email.hashCode ^
@@ -786,7 +786,7 @@ class UserProfile {
       identical(this, other) ||
       other is UserProfile &&
           runtimeType == other.runtimeType &&
-          userId == other.userId &&
+          uid == other.uid &&
           username == other.username &&
           avatar == other.avatar &&
           email == other.email &&

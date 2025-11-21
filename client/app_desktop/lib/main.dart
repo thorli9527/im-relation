@@ -238,16 +238,13 @@
 // }
 //
 
-import 'package:app_desktop/src/rust/api/simple.dart';
 import 'package:app_desktop/src/rust/frb_generated.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 Future<void> main() async {
   await RustLib.init(
-    initConfig: const RustLibInitConfig(
-      grpcAddr: 'http://127.0.0.1:50051',
-      deviceId: 'dev-sample',
-    ),
+    externalLibrary: ExternalLibrary.process(iKnowHowToUseIt: true),
   );
   runApp(const MyApp());
 }
@@ -260,10 +257,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(title: const Text('flutter_rust_bridge quickstart')),
-        body: Center(
-          child: Text(
-            'Action: Call Rust `greet("Tom")`\nResult: `${greet(name: "Tom")}`',
-          ),
+        body: const Center(
+          child: Text('Rust bridge initialized.'),
         ),
       ),
     );

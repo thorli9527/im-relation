@@ -7,8 +7,11 @@
 .vscode/
 /build/
 /.dart_tool/
-
-
+build
+*.sqlite
+debug
+target
+*.iml
 # Local env and logs
 .env
 *.log

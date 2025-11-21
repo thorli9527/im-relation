@@ -4,9 +4,11 @@ use common::config::AppConfig;
 use common::infra::grpc::grpc_user::online_service::user_rpc_service_client::UserRpcServiceClient;
 use common::infra::grpc::grpc_user::online_service::{
     AddFriendPolicy, AuthType, ChangeEmailReq, ChangePasswordReq, ChangePhoneReq, DeviceType,
-    FindByContentReq, Gender, GetUserReq, RegisterUserReq, SessionTokenStatus, UpdateUserReq,
-    UpsertSessionTokenRequest, UserEntity, UserType, ValidateSessionTokenRequest,
+    FindByContentReq, Gender, GetUserReq, RegisterUserReq, RevokeSessionTokenRequest,
+    SessionTokenStatus, UpdateUserReq, UpsertSessionTokenRequest, UserEntity, UserType,
+    ValidateSessionTokenRequest,
 };
+use common::infra::grpc::grpc_user::online_service::revoke_session_token_request::Target as RevokeTarget;
 use common::infra::redis::redis_pool::RedisPoolTools;
 use common::support::util::common_utils::{build_md5_with_key, build_uuid};
 use common::UID;
@@ -254,6 +256,35 @@ pub async fn ensure_active_session(session_token: &str) -> Result<ActiveSession>
         uid: response.uid,
         device_type,
     })
+}
+
+impl UserService {
+    /// 吊销指定 session token（调用 online_service.RevokeSessionToken）。
+    pub async fn revoke_session_token(
+        &self,
+        session_token: &str,
+        reason: Option<&str>,
+    ) -> anyhow::Result<Option<String>> {
+        let token = session_token.trim();
+        if token.is_empty() {
+            return Err(anyhow!("session_token is required"));
+        }
+        let mut client = user_gateway::get_online_client().await?;
+        let resp = client
+            .revoke_session_token(RevokeSessionTokenRequest {
+                target: Some(RevokeTarget::SessionToken(token.to_string())),
+                reason: reason.map(|s| s.to_string()),
+            })
+            .await
+            .map_err(|err| anyhow!("revoke session token: {err}"))?
+            .into_inner();
+
+        if resp.ok {
+            Ok(resp.revoked_token.filter(|s| !s.is_empty()))
+        } else {
+            Err(anyhow!("revoke session token failed"))
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
