@@ -1,7 +1,8 @@
 use flutter_rust_bridge::frb;
 use crate::api::app_api_types::*;
 use crate::api::utils::{get_request, post_request};
-use crate::api::user_api_types::{GroupMembersQueryParams, SessionTokenQuery};
+use crate::api::user_api_types::{GroupMembersQueryParams, SessionTokenQuery, UserInfoResult};
+use crate::service::user_service::UserService;
 
 // 用户资料与列表相关接口，保留在 user_api。
 #[frb]
@@ -38,6 +39,24 @@ pub fn get_recent_conversations(
 pub fn random_nickname(gender: Option<String>) -> Result<String, String> {
     let query = RandomNicknameQuery { gender };
     get_request("/nickname/random", &query)
+}
+
+#[frb]
+pub fn get_user_info() -> Result<UserInfoResult, String> {
+    let user = UserService::get()
+        .latest_user()?
+        .ok_or_else(|| "no cached user".to_string())?;
+    Ok(UserInfoResult {
+        uid: user.uid,
+        name: user.name,
+        avatar: user.avatar,
+        alias: user.alias,
+        gender: user.gender,
+        country: user.country,
+        language: user.language,
+        email: user.email,
+        phone: user.phone,
+    })
 }
 
 #[frb]

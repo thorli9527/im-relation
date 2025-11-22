@@ -4,7 +4,7 @@ use flutter_rust_bridge::frb;
 use reqwest::Url;
 use uuid::Uuid;
 
-use crate::api::{app_api, errors::ApiError};
+use crate::api::errors::ApiError;
 use crate::api::utils::reload_http_client;
 use crate::service::config_service::ConfigService;
 
@@ -24,6 +24,7 @@ const PHONE_KEY: &str = "session_phone";
 const AVATAR_KEY: &str = "session_avatar";
 const LAST_LOGIN_AT_KEY: &str = "session_last_login_at";
 const LAST_ALIVE_AT_KEY: &str = "session_last_alive_at";
+
 
 fn map_config_err(err: String) -> String {
     ApiError::system(err).into_string()
