@@ -98,9 +98,6 @@ impl GroupMsgService for GroupMsgServiceImpl {
 
             let content = Content::decode(rec.content.as_slice())
                 .map_err(|e| Status::internal(format!("decode message failed: {e}")))?;
-            // if content.msg_kind == 0 {
-            //     content.msg_kind = rec.msg_kind;
-            // }
             messages.push(content);
         }
 

@@ -1633,6 +1633,39 @@ pub struct QueryMessagesResponse {
     #[prost(bool, tag = "2")]
     pub has_more: bool,
 }
+/// 设备类型：用于多端登录策略控制
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum DeviceType {
+    Unknown = 0,
+    Mobile = 1,
+    Web = 3,
+    Pc = 4,
+}
+impl DeviceType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unknown => "UNKNOWN",
+            Self::Mobile => "MOBILE",
+            Self::Web => "WEB",
+            Self::Pc => "PC",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "UNKNOWN" => Some(Self::Unknown),
+            "MOBILE" => Some(Self::Mobile),
+            "WEB" => Some(Self::Web),
+            "PC" => Some(Self::Pc),
+            _ => None,
+        }
+    }
+}
 /// ======================================
 /// 😄 Emoji 类型定义（标准 + 自定义）
 /// ======================================
@@ -1944,6 +1977,8 @@ pub enum SystemBusinessType {
     SystemBusinessPolicy = 4,
     /// 账户在其它设备/地点上线，被动下线通知
     SystemBusinessPassiveLogout = 5,
+    /// 鉴权结果通知（socket 连接成功或失败）
+    SystemBusinessAuthResult = 6,
 }
 impl SystemBusinessType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1958,6 +1993,7 @@ impl SystemBusinessType {
             Self::SystemBusinessUpgrade => "SYSTEM_BUSINESS_UPGRADE",
             Self::SystemBusinessPolicy => "SYSTEM_BUSINESS_POLICY",
             Self::SystemBusinessPassiveLogout => "SYSTEM_BUSINESS_PASSIVE_LOGOUT",
+            Self::SystemBusinessAuthResult => "SYSTEM_BUSINESS_AUTH_RESULT",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1969,6 +2005,7 @@ impl SystemBusinessType {
             "SYSTEM_BUSINESS_UPGRADE" => Some(Self::SystemBusinessUpgrade),
             "SYSTEM_BUSINESS_POLICY" => Some(Self::SystemBusinessPolicy),
             "SYSTEM_BUSINESS_PASSIVE_LOGOUT" => Some(Self::SystemBusinessPassiveLogout),
+            "SYSTEM_BUSINESS_AUTH_RESULT" => Some(Self::SystemBusinessAuthResult),
             _ => None,
         }
     }

@@ -1,7 +1,7 @@
 //!
 //! 线路与协议：
 //! - 传输：`tokio` TCP + `LengthDelimitedCodec`（长度前缀帧）；
-//! - 编解码：业务载荷为 Protobuf，首帧握手使用 `AuthMsg`；
+//! - 编解码：业务载荷为 Protobuf，首帧握手使用 `ClientMsg.auth` 携带 `AuthMsg`；
 //! - 上行：客户端发送 `ClientMsg`，服务端解析并上报给 `SessionManager`；
 //! - 下行：`SessionManager` 经分发后投递 `ServerMsg`，本模块编码为 Protobuf 后写回；
 //! - 鉴权：调用 hot_online_service 校验 session_token，确保设备唯一并遵守 15 天 TTL。
@@ -30,10 +30,7 @@ use common::infra::grpc::grpc_user::online_service::{
 use common::infra::grpc::message as msgpb;
 use common::support::node::NodeType;
 use prost_types::FieldMask;
-use socket_proto::{
-    AuthMsg as PbAuthMsg, ClientMsg as PbClientMsg, DeviceType as PbDeviceType,
-    ServerMsg as PbServerMsg,
-};
+use socket_proto::{AuthMsg as PbAuthMsg, ClientMsg as PbClientMsg, ServerMsg as PbServerMsg};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tonic::Request;
 
@@ -41,17 +38,6 @@ use crate::service::session::{SessionHandle, SessionManager};
 use crate::service::types::{ClientMsg, DeviceType, SendOpts, ServerMsg, UID};
 
 const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(180);
-
-impl From<PbDeviceType> for DeviceType {
-    fn from(v: PbDeviceType) -> Self {
-        match v {
-            PbDeviceType::Mobile => DeviceType::Mobile,
-            PbDeviceType::Web => DeviceType::Web,
-            PbDeviceType::Pc => DeviceType::Pc,
-            _ => DeviceType::Unknown,
-        }
-    }
-}
 
 /// 启动 TCP 服务监听（端口从配置文件 socket.server.host/port 读取）
 ///
@@ -104,13 +90,17 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
     // 使用 LengthDelimitedCodec 将 TCP 字节流封装为“长度前缀帧”。
     let mut framed = Framed::new(stream, LengthDelimitedCodec::new());
 
-    // 1) 握手：首帧必须是 AuthMsg（Protobuf 长度前缀）
+    // 1) 握手：首帧必须是 ClientMsg，携带 auth（payload 可为空或业务 Content）
     let Some(first) = framed.next().await else {
         // 对端主动断开或未发送任何内容，直接结束即可。
         return Ok(());
     };
     let first = first?;
-    let auth = PbAuthMsg::decode(first.freeze())?;
+    let shell = PbClientMsg::decode(first.freeze())?;
+    let auth = shell
+        .auth
+        .as_ref()
+        .ok_or_else(|| anyhow!("first frame missing auth payload"))?;
     // 基本鉴权：token 校验（与 Redis 中的 user -> token 绑定一致）；可选 signature 验证
     let token_expiry_ms = match validate_auth(&auth).await {
         Ok(Some(exp)) => exp,
@@ -130,7 +120,7 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
         }
     };
     let device_type: DeviceType =
-        (PbDeviceType::try_from(auth.device_type).unwrap_or(PbDeviceType::Unknown)).into();
+        msgpb::DeviceType::try_from(auth.device_type).unwrap_or(msgpb::DeviceType::Unknown);
     // 能力协商占位：记录加密能力（不影响现有流程）
     if auth.supports_encryption {
         info!(
@@ -442,7 +432,7 @@ async fn handle_profile_event(
         .await
         .context("connect to user rpc failed")?;
 
-    let event_type = msgpb::profile_event_content::ProfileEventType::from_i32(profile.event_type)
+    let event_type = msgpb::profile_event_content::ProfileEventType::try_from(profile.event_type)
         .unwrap_or(msgpb::profile_event_content::ProfileEventType::EventUnknown);
     let new_value = profile.new_value;
 
@@ -549,12 +539,12 @@ fn send_connection_success(handle: &SessionHandle) {
     let mut metadata = HashMap::new();
     metadata.insert("session_id".to_string(), handle.session_id.clone());
     payload.system_business = Some(msgpb::SystemBusinessContent {
-        business_type: msgpb::SystemBusinessType::SystemBusinessUpgrade as i32,
-        title: "连接成功".to_string(),
-        detail: "Socket 连接鉴权完成".to_string(),
+        business_type: msgpb::SystemBusinessType::SystemBusinessAuthResult as i32,
+        title: "auth_ok".to_string(),
+        detail: "auth_ok".to_string(),
         metadata,
-        summary: Some("连接成功".to_string()),
-        body: Some("欢迎回来！".to_string()),
+        summary: Some("auth_success".to_string()),
+        body: Some("auth_ok".to_string()),
         display_area: msgpb::system_business_content::DisplayArea::DisplayPopup as i32,
         action_url: None,
         valid_from: None,

@@ -11,44 +11,12 @@ use std::time::Duration;
 
 use common::infra::grpc::message as msg_message;
 use common::infra::grpc::message as msgpb;
-use prost::Message;
 
 // 使用 common 中的 UID 类型
-/// 业务种类（与 TCP/Kafka 边界一致的枚举）
-// Ensure the `common` crate is included in Cargo.toml and accessible in your project.
-// If `common` is a local module, use `mod common;` at the crate root or adjust the path accordingly.
-pub use common::infra::grpc::grpc_socket::socket::MsgKind;
 pub use common::UID;
 /// 设备唯一标识（例如设备序列号、推送 token 等）
 pub type DeviceId = String;
-/// 设备类型（mobile/web/pc/unknown），用于多端登录策略
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum DeviceType {
-    Mobile,
-    Web,
-    Pc,
-    Unknown,
-}
-
-impl Default for DeviceType {
-    fn default() -> Self {
-        DeviceType::Unknown
-    }
-}
-
-impl DeviceType {
-    pub fn from_str(s: &str) -> Self {
-        match s.to_ascii_lowercase().as_str() {
-            // 兼容历史：ios/android 归并为 mobile
-            "ios" => DeviceType::Mobile,
-            "android" => DeviceType::Mobile,
-            "mobile" => DeviceType::Mobile,
-            "web" => DeviceType::Web,
-            "pc" => DeviceType::Pc,
-            _ => DeviceType::Unknown,
-        }
-    }
-}
+pub type DeviceType = msgpb::DeviceType;
 /// 会话唯一标识（格式：`user:device:uuid`）
 pub type SessionId = String;
 /// 消息唯一 ID
@@ -138,57 +106,4 @@ impl Default for SendOpts {
             drop_hook: None,
         }
     }
-}
-
-pub fn infer_msg_kind(payload: &[u8]) -> MsgKind {
-    if payload.is_empty() {
-        return MsgKind::MkHeartbeat;
-    }
-
-    if let Ok(content) = msgpb::Content::decode(payload) {
-        if content.heartbeat.unwrap_or(false) {
-            return MsgKind::MkHeartbeat;
-        }
-        if let Ok(scene) = msgpb::ChatScene::try_from(content.scene) {
-            return match scene {
-                msgpb::ChatScene::Single => MsgKind::MkFriend,
-                msgpb::ChatScene::Group => MsgKind::MkGroup,
-                _ => MsgKind::MkUnknown,
-            };
-        }
-    }
-
-    if msgpb::FriendBusinessContent::decode(payload).is_ok() {
-        return MsgKind::MkFriendRequest;
-    }
-
-    if msgpb::GroupBusinessContent::decode(payload).is_ok() {
-        return MsgKind::MkGroupJoinRequest;
-    }
-
-    if let Ok(typing) = msgpb::Typing::decode(payload) {
-        return match typing.target {
-            Some(msgpb::typing::Target::GroupId(_)) => MsgKind::MkGroupTyping,
-            Some(msgpb::typing::Target::ToUserId(_)) => MsgKind::MkFriendTyping,
-            None => MsgKind::MkUnknown,
-        };
-    }
-
-    if msgpb::MsgRead::decode(payload).is_ok() {
-        return MsgKind::MkFriendMsgRead;
-    }
-    if msgpb::MsgDeliveredAck::decode(payload).is_ok() {
-        return MsgKind::MkFriendMsgDeliveredAck;
-    }
-    if msgpb::MsgReadAck::decode(payload).is_ok() {
-        return MsgKind::MkFriendMsgReadAck;
-    }
-    if msgpb::MsgRecall::decode(payload).is_ok() {
-        return MsgKind::MkFriendMsgRecall;
-    }
-    if msgpb::MsgForward::decode(payload).is_ok() {
-        return MsgKind::MkFriendMsgForward;
-    }
-
-    MsgKind::MkUnknown
 }

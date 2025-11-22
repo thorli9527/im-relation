@@ -10,7 +10,6 @@ pub struct EncryptedMessageRecord {
     pub msg_id: i64,
     pub sender_id: i64,
     pub receiver_id: i64,
-    pub msg_kind: i32,
     pub created_at: i64,
     pub scheme: String,
     pub key_id: String,
@@ -29,14 +28,13 @@ pub async fn insert_encrypted_message(
     // 使用单表分区（由数据库层通过分区键进行路由），应用侧始终写入同一逻辑表。
     sqlx::query(
         r#"INSERT INTO message_info
-            (msg_id, sender_id, receiver_id, msg_kind, created_at,
+            (msg_id, sender_id, receiver_id, created_at,
              scheme, key_id, nonce, msg_no, aad, ciphertext, content)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
     )
     .bind(rec.msg_id)
     .bind(rec.sender_id)
     .bind(rec.receiver_id)
-    .bind(rec.msg_kind)
     .bind(rec.created_at)
     .bind(&rec.scheme)
     .bind(&rec.key_id)
@@ -68,7 +66,6 @@ pub async fn list_conversation_messages(
             msg_id,
             sender_id,
             receiver_id,
-            msg_kind,
             created_at,
             scheme,
             key_id,
@@ -116,7 +113,6 @@ pub async fn list_conversation_messages(
             msg_id: row.get("msg_id"),
             sender_id: row.get("sender_id"),
             receiver_id: row.get("receiver_id"),
-            msg_kind: row.get("msg_kind"),
             created_at: row.get("created_at"),
             scheme: row.get("scheme"),
             key_id: row.get("key_id"),
@@ -135,7 +131,7 @@ pub async fn get_message_by_id(
     msg_id: i64,
 ) -> Result<Option<EncryptedMessageRecord>> {
     let row = sqlx::query(
-        r#"SELECT msg_id, sender_id, receiver_id, msg_kind, created_at,
+        r#"SELECT msg_id, sender_id, receiver_id, created_at,
                    scheme, key_id, nonce, msg_no, aad, ciphertext, content
             FROM message_info WHERE msg_id = ?"#,
     )
@@ -146,7 +142,6 @@ pub async fn get_message_by_id(
         msg_id: r.get("msg_id"),
         sender_id: r.get("sender_id"),
         receiver_id: r.get("receiver_id"),
-        msg_kind: r.get("msg_kind"),
         created_at: r.get("created_at"),
         scheme: r.get("scheme"),
         key_id: r.get("key_id"),

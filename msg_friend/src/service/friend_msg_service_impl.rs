@@ -238,7 +238,6 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
         let record = FriendConversationSnapshot {
             owner_id: snap.owner_id,
             peer_id: snap.peer_id,
-            last_msg_kind: 0,
             conversation_id,
             last_msg_id: snap.last_msg_id,
             last_sender_id: snap.last_sender_id,
@@ -329,7 +328,6 @@ impl Services {
             msg_id,
             sender_id: domain.sender_id,
             receiver_id: domain.receiver_id,
-            msg_kind: domain.category,
             created_at: now,
             scheme: String::new(),
             key_id: String::new(),
@@ -349,7 +347,6 @@ impl Services {
             peer_id: domain.receiver_id,
             conversation_id: make_conversation_id(domain.sender_id, domain.receiver_id),
             last_msg_id: record.msg_id,
-            last_msg_kind: record.msg_kind,
             last_sender_id: record.sender_id,
             last_receiver_id: record.receiver_id,
             last_timestamp: record.created_at,

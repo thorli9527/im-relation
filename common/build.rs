@@ -29,7 +29,6 @@ fn generate_message() -> Result<(), Box<dyn Error>> {
 
     let mut config = prost_build::Config::new();
     config.out_dir(out_dir);
-    config.extern_path(".socket", "crate::infra::grpc::grpc_socket::socket");
     config.compile_protos(&["proto/message.proto"], &["proto"])?;
 
     println!("cargo:rerun-if-changed=proto/message.proto");
@@ -42,6 +41,7 @@ fn generate_socket() -> Result<(), Box<dyn Error>> {
 
     let mut config = prost_build::Config::new();
     config.out_dir(out_dir);
+    config.extern_path(".message", "crate::infra::grpc::message");
     config.compile_protos(&["proto/socket.proto"], &["proto"])?;
 
     println!("cargo:rerun-if-changed=proto/socket.proto");
@@ -61,7 +61,6 @@ fn generate_grpc_with_serde(
     builder = builder.out_dir(out_dir);
     if extern_message {
         builder = builder.extern_path(".message", "crate::infra::grpc::message");
-        builder = builder.extern_path(".socket", "crate::infra::grpc::grpc_socket::socket");
     }
 
     builder.compile_protos(protos, &["proto"])?;

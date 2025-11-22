@@ -61,6 +61,7 @@ pub fn pack_client_msg(
     let content = content_from_json(&payload)?;
     let pb = socket_proto::ClientMsg {
         ack,
+        auth: None,
         payload: encode(content)?,
         client_id,
     };

@@ -534,7 +534,7 @@ impl UserServiceAuthOpt for UserService {
             .await?
             .into_inner();
 
-        let info = SessionTokenInfo {
+        let info: SessionTokenInfo = SessionTokenInfo {
             token: token_resp.session_token,
             expires_at: token_resp.expires_at,
         };

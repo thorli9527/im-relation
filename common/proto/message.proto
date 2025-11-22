@@ -1,9 +1,14 @@
 syntax = "proto3";
 import "google/protobuf/empty.proto";
-import "socket.proto";
 package message;
 
-
+// 设备类型：用于多端登录策略控制
+enum DeviceType {
+  UNKNOWN = 0;
+  MOBILE = 1;
+  WEB = 3;
+  PC = 4;
+}
 
 // ======================================
 // 😄 Emoji 类型定义（标准 + 自定义）
@@ -602,6 +607,8 @@ enum SystemBusinessType {
   SYSTEM_BUSINESS_POLICY = 4;
   // 账户在其它设备/地点上线，被动下线通知
   SYSTEM_BUSINESS_PASSIVE_LOGOUT = 5;
+  // 鉴权结果通知（socket 连接成功或失败）
+  SYSTEM_BUSINESS_AUTH_RESULT = 6;
 }
 
 // ===============================
@@ -922,6 +929,8 @@ message Content {
   // 系统业务通知：可承载系统事件/任务执行结果
   SystemBusinessContent system_business = 25;
 }
+
+
 
 // 消息所属大类：好友、群、系统或未知。
 enum MsgCategory {

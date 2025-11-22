@@ -12,8 +12,7 @@ use tokio::sync::mpsc;
 use tokio::time::sleep;
 
 use crate::service::types::{
-    infer_msg_kind, ClientMsg, DeviceId, DeviceType, MessageId, MsgKind, SendOpts, ServerMsg,
-    SessionId, UID,
+    ClientMsg, DeviceId, DeviceType, MessageId, SendOpts, ServerMsg, SessionId, UID,
 };
 use serde_json::json;
 use time::OffsetDateTime;
@@ -599,15 +598,22 @@ impl SessionManager {
             self.acks.ack(id);
             return;
         }
-        let kind = infer_msg_kind(&msg.raw_payload);
-        if matches!(kind, MsgKind::MkHeartbeat) {
-            // 心跳已在连接层处理，这里无需进一步分发。
-            return;
+        if let Ok(content) = msgpb::Content::decode(msg.raw_payload.as_slice()) {
+            if content.heartbeat.unwrap_or(false) {
+                return;
+            }
+            warn!(
+                "SessionManager: unhandled client msg scene={:?} from user={} message_id={:?}",
+                msgpb::ChatScene::try_from(content.scene).ok(),
+                user_id,
+                content.message_id
+            );
+        } else {
+            warn!(
+                "SessionManager: failed to decode client msg payload from user={}",
+                user_id
+            );
         }
-        warn!(
-            "SessionManager: unhandled client msg kind={:?} from user={}",
-            kind, user_id
-        );
     }
 
     /// 更新点对点会话的 Typing 状态。
@@ -725,13 +731,15 @@ mod tests {
             .await
             .expect("a1 timeout")
             .expect("a1 none");
-        assert_eq!(infer_msg_kind(&msg_a1.raw_payload), MsgKind::MkFriendTyping);
+        let typing_a1 = msgpb::Typing::decode(msg_a1.raw_payload.as_slice()).unwrap();
+        assert_eq!(typing_a1.state, TypingState::TypingText as i32);
 
         let msg_a2 = timeout(Duration::from_millis(200), rx_a2.recv())
             .await
             .expect("a2 timeout")
             .expect("a2 none");
-        assert_eq!(infer_msg_kind(&msg_a2.raw_payload), MsgKind::MkFriendTyping);
+        let typing_a2 = msgpb::Typing::decode(msg_a2.raw_payload.as_slice()).unwrap();
+        assert_eq!(typing_a2.state, TypingState::TypingText as i32);
 
         let msg_b = timeout(Duration::from_millis(200), rx_b.recv())
             .await
@@ -767,10 +775,8 @@ mod tests {
             .await
             .expect("actor timeout")
             .expect("actor none");
-        assert_eq!(
-            infer_msg_kind(&msg_actor.raw_payload),
-            MsgKind::MkGroupTyping
-        );
+        let typing_actor = msgpb::Typing::decode(msg_actor.raw_payload.as_slice()).unwrap();
+        assert_eq!(typing_actor.state, TypingState::TypingVoice as i32);
 
         let msg_m1 = timeout(Duration::from_millis(200), rx_m1.recv())
             .await

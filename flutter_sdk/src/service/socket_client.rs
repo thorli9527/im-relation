@@ -11,10 +11,8 @@ use std::{
 
 use crate::{
     api::config_api,
-    generated::message as msgpb,
-    generated::socket::{
-        AuthMsg, ClientMsg, DeviceType as SocketDeviceType, ServerMsg as SocketServerMsg,
-    },
+    generated::message::{self as msgpb, DeviceType as SocketDeviceType},
+    generated::socket::{AuthMsg, ClientMsg, ServerMsg as SocketServerMsg},
     job::message_job,
     service::message_service::MessageService,
 };
@@ -249,7 +247,7 @@ async fn run_connection_attempt(
     }
 
     let mut heartbeat = tokio::time::interval(TokioDuration::from_secs(config.heartbeat_secs));
-    let mut connected_success = false;
+    let mut authed = false;
 
     loop {
         tokio::select! {
@@ -259,23 +257,27 @@ async fn run_connection_attempt(
                 }
             }
             _ = heartbeat.tick() => {
-                if connected_success {
+                if authed {
                     if let Err(err) = send_heartbeat(&mut framed).await {
                         warn!("heartbeat failed: {}", err);
                         return ConnectionOutcome::Disconnected {
                             message: Some(format!("心跳失败：{err}")),
-                            had_success: connected_success,
+                            had_success: authed,
                         };
                     }
                 }
             }
             outbound = content_rx.recv() => {
                 if let Some(content) = outbound {
+                    if !authed {
+                        warn!("socket send blocked: auth not completed");
+                        continue;
+                    }
                     if let Err(err) = send_outbound_content(&mut framed, content).await {
                         warn!("socket write failed: {}", err);
                         return ConnectionOutcome::Disconnected {
                             message: Some(format!("写入失败：{err}")),
-                            had_success: connected_success,
+                            had_success: authed,
                         };
                     }
                 }
@@ -292,8 +294,8 @@ async fn run_connection_attempt(
                                     }
                                 }
                                 if let Some(sys) = content.system_business {
-                                    if is_connection_success(&sys) && !connected_success {
-                                        connected_success = true;
+                                    if is_connection_success(&sys) && !authed {
+                                        authed = true;
                                         let limit = config_api::ensure_socket_reconnect_limit()
                                             .unwrap_or(config_api::DEFAULT_SOCKET_RECONNECT_LIMIT);
                                         let _ =
@@ -312,14 +314,14 @@ async fn run_connection_attempt(
                         warn!("socket read failed: {}", err);
                         return ConnectionOutcome::Disconnected {
                             message: Some(format!("读取失败：{err}")),
-                            had_success: connected_success,
+                            had_success: authed,
                         };
                     }
                     None => {
                         info!("socket stream ended");
                         return ConnectionOutcome::Disconnected {
                             message: Some("连接已关闭".into()),
-                            had_success: connected_success,
+                            had_success: authed,
                         };
                     }
                 }
@@ -346,7 +348,13 @@ async fn send_auth(
         supports_encryption: false,
         encryption_schemes: Vec::new(),
     };
-    send_message(framed, auth).await
+    let client_msg = ClientMsg {
+        ack: None,
+        auth: Some(auth),
+        payload: Vec::new(),
+        client_id: None,
+    };
+    send_message(framed, client_msg).await
 }
 
 async fn send_heartbeat(
@@ -357,6 +365,7 @@ async fn send_heartbeat(
     let payload_bytes = encode_message(content)?;
     let client_msg = ClientMsg {
         ack: None,
+        auth: None,
         payload: payload_bytes.to_vec(),
         client_id: None,
     };
@@ -370,6 +379,7 @@ async fn send_outbound_content(
     let payload = encode_message(content)?;
     let client_msg = ClientMsg {
         ack: None,
+        auth: None,
         payload: payload.to_vec(),
         client_id: None,
     };
@@ -415,8 +425,8 @@ fn notify_connection_success() {
 }
 
 fn is_connection_success(content: &msgpb::SystemBusinessContent) -> bool {
-    content.business_type == msgpb::SystemBusinessType::SystemBusinessUpgrade as i32
-        && content.title == "连接成功"
+    content.business_type == msgpb::SystemBusinessType::SystemBusinessAuthResult as i32
+        && content.title == "auth_ok"
 }
 
 fn test_mode_enabled() -> bool {

@@ -9,7 +9,6 @@ pub struct FriendConversationSnapshot {
     pub peer_id: i64,
     pub conversation_id: i64,
     pub last_msg_id: i64,
-    pub last_msg_kind: i32,
     pub last_sender_id: i64,
     pub last_receiver_id: i64,
     pub last_timestamp: i64,
@@ -26,14 +25,13 @@ pub async fn upsert_friend_conversation_snapshot(
     sqlx::query(
         r#"
         INSERT INTO conversation_snapshot
-            (owner_id, peer_id, conversation_id, last_msg_id, last_msg_kind,
+            (owner_id, peer_id, conversation_id, last_msg_id,
              last_sender_id, last_receiver_id, last_timestamp, unread_count,
              created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
             peer_id = VALUES(peer_id),
             last_msg_id = VALUES(last_msg_id),
-            last_msg_kind = VALUES(last_msg_kind),
             last_sender_id = VALUES(last_sender_id),
             last_receiver_id = VALUES(last_receiver_id),
             last_timestamp = VALUES(last_timestamp),
@@ -92,7 +90,6 @@ pub async fn list_friend_conversation_snapshots(
             peer_id,
             conversation_id,
             last_msg_id,
-            last_msg_kind,
             last_sender_id,
             last_receiver_id,
             last_timestamp,
@@ -132,7 +129,6 @@ pub async fn list_friend_conversation_snapshots(
             peer_id: row.get("peer_id"),
             conversation_id: row.get("conversation_id"),
             last_msg_id: row.get("last_msg_id"),
-            last_msg_kind: row.get("last_msg_kind"),
             last_sender_id: row.get("last_sender_id"),
             last_receiver_id: row.get("last_receiver_id"),
             last_timestamp: row.get("last_timestamp"),

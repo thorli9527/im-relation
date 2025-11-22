@@ -16,3 +16,4 @@ target
 .env
 *.log
 /tmp/
+.idea

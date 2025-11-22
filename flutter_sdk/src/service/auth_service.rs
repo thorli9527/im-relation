@@ -8,7 +8,7 @@ use log::warn;
 use crate::{
     api::app_api::{LoginRequest, LoginResult},
     api::config_api,
-    generated::{message as msgpb, socket::DeviceType as SocketDeviceType},
+    generated::message::{self as msgpb, DeviceType as SocketDeviceType},
     job::message_job,
     service::socket_client::{SocketClient, SocketConfig},
 };
