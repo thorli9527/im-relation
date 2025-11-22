@@ -1,17 +1,14 @@
-/# Build artifacts
-/target/
-
 # OS & Editor files
 .DS_Store
-.idea/
+.idea
 .vscode/
-/build/
 /.dart_tool/
 build
 *.sqlite
 debug
 target
 *.iml
+logs
 # Local env and logs
 .env
 *.log
