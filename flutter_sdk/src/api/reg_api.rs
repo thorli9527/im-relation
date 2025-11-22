@@ -1,7 +1,8 @@
 use flutter_rust_bridge::frb;
 
-use crate::api::app_api_types::*;
-use crate::api::user_api::post_request;
+use crate::api::app_api_types::OperationStatus;
+use crate::api::reg_api_types::{BuildRegisterCodeRequest, BuildRegisterCodeResponse, VerifyRegisterCodeRequest};
+use crate::api::utils::post_request;
 
 #[frb]
 /// 拉取注册验证码（邮箱/手机号）。

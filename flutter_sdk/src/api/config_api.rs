@@ -5,6 +5,7 @@ use reqwest::Url;
 use uuid::Uuid;
 
 use crate::api::{app_api, errors::ApiError};
+use crate::api::utils::reload_http_client;
 use crate::service::config_service::ConfigService;
 
 pub const DEFAULT_APP_API_BASE_URL: &str = "http://127.0.0.1:8004";
@@ -100,7 +101,7 @@ pub fn get_app_api_base_url() -> Result<String, String> {
 pub fn set_app_api_base_url(base_url: String) -> Result<(), String> {
     let normalized = normalize_app_api_base_url(&base_url)?;
     set_value(APP_API_BASE_URL_KEY, &normalized)?;
-    app_api::reload_http_client(normalized)
+    reload_http_client(normalized)
 }
 
 pub(crate) fn get_app_api_base_url_internal() -> Result<String, String> {
@@ -163,13 +164,6 @@ pub fn set_socket_reconnect_attempts(attempts: u32) -> Result<(), String> {
     set_numeric_value(SOCKET_RECONNECT_ATTEMPTS_KEY, attempts)
 }
 
-pub(crate) fn get_or_init_attempts(limit: u32) -> Result<u32, String> {
-    get_or_set_u32(SOCKET_RECONNECT_ATTEMPTS_KEY, limit)
-}
-
-pub(crate) fn ensure_attempts(limit: u32) -> Result<u32, String> {
-    get_or_init_attempts(limit)
-}
 
 #[frb]
 pub fn set_socket_reconnect_message(message: String) -> Result<(), String> {
@@ -181,7 +175,16 @@ pub fn get_socket_reconnect_message() -> Result<Option<String>, String> {
     get_value(SOCKET_RECONNECT_MESSAGE_KEY)
 }
 
-// ===== 登录态兼容存取（保留旧接口，内部用配置表存储）=====
+
+pub(crate) fn get_or_init_attempts(limit: u32) -> Result<u32, String> {
+    get_or_set_u32(SOCKET_RECONNECT_ATTEMPTS_KEY, limit)
+}
+
+pub(crate) fn ensure_attempts(limit: u32) -> Result<u32, String> {
+    get_or_init_attempts(limit)
+}
+
+// ===== 兼容旧登录态存取 =====
 #[frb]
 pub fn get_token() -> Result<Option<String>, String> {
     get_value(TOKEN_KEY)

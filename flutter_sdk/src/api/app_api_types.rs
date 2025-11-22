@@ -1,34 +1,5 @@
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct BuildRegisterCodeRequest {
-    pub password: String,
-    pub target: String,
-    /// 可选语言
-    pub language: Option<String>,
-    /// 可选国家
-    pub country: Option<String>,
-    /// 可选性别
-    pub gender: Option<i32>,
-    /// 可选别名
-    pub alias: Option<String>,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct BuildRegisterCodeResponse {
-    pub reg_id: String,
-    pub uid: i64,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct VerifyRegisterCodeRequest {
-    pub reg_id: String,
-    pub code: String,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
 pub struct OperationStatus {
     pub ok: bool,
 }
@@ -40,32 +11,6 @@ fn is_zero_i32(value: &i32) -> bool {
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct LoginRequest {
-    pub password: String,
-    pub target: String,
-    pub device_type: i32,
-    pub device_id: String,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct LoginResult {
-    pub token: String,
-    pub expires_at: u64,
-    pub socket_addr: String,
-    pub avatar: String,
-    pub email: Option<String>,
-    pub phone: Option<String>,
-    pub name: String,
-    pub uid: i64,
-    pub language: Option<String>,
-    pub country: Option<String>,
-    pub alias: Option<String>,
-    pub gender: i32,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
 pub struct UpdateProfileRequest {
     pub session_token: String,
     pub avatar: Option<String>,
@@ -73,34 +18,6 @@ pub struct UpdateProfileRequest {
     pub country: Option<String>,
     pub language: Option<String>,
     pub alias: Option<String>,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct SessionValidateRequest {
-    pub session_token: String,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct SessionValidationResult {
-    pub ok: bool,
-    pub uid: i64,
-    pub expires_at: u64,
-    pub token: String,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct LogoutRequest {
-    pub session_token: String,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct LogoutResult {
-    pub ok: bool,
-    pub revoked_token: Option<String>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]

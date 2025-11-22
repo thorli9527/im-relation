@@ -1,5 +1,11 @@
 pub mod app_api;
+pub mod login_api;
+pub mod login_api_types;
+pub mod reg_api;
+pub mod reg_api_types;
 pub mod user_api;
+pub mod utils;
+pub mod user_api_types;
 pub mod chat_api;
 pub mod config_api;
 pub mod errors;

@@ -12,29 +12,6 @@ use crate::{
     generated::socket as socket_proto,
 };
 
-/// 将 prost 消息编码为二进制字节，复用 BytesMut 减少分配。
-fn encode<M: Message>(message: M) -> Result<Vec<u8>, String> {
-    let mut buf = BytesMut::with_capacity(message.encoded_len());
-    message
-        .encode(&mut buf)
-        .map_err(|err| ApiError::parse(format!("encode message: {err}")).into_string())?;
-    Ok(buf.to_vec())
-}
-
-/// 从带有 raw base64 字段的 JSON 恢复 msgpb::Content。
-/// JSON 需为 proto_adapter::content_to_json 生成的格式。
-fn content_from_json(value: &JsonValue) -> Result<msgpb::Content, String> {
-    json_to_content(value).map_err(|err| ApiError::parse(err).into_string())
-}
-
-/// 将下行情景 ServerMsg 打包成轻量 JSON，便于 Dart 解析。
-fn server_msg_to_json(msg: socket_proto::ServerMsg) -> JsonValue {
-    json!({
-        "id": msg.id,
-        "payload": STANDARD.encode(msg.payload),
-        "ts_ms": msg.ts_ms,
-    })
-}
 
 /// FRB 导出：把 Content 的 JSON 结构编码为 pb 字节；需传入 proto_adapter 生成的 JSON（包含 raw）。
 #[frb]
@@ -74,4 +51,30 @@ pub fn unpack_server_msg(bytes: Vec<u8>) -> Result<JsonValue, String> {
     let msg = socket_proto::ServerMsg::decode(bytes.as_slice())
         .map_err(|err| ApiError::parse(err.to_string()).into_string())?;
     Ok(server_msg_to_json(msg))
+}
+
+
+
+/// 将 prost 消息编码为二进制字节，复用 BytesMut 减少分配。
+fn encode<M: Message>(message: M) -> Result<Vec<u8>, String> {
+    let mut buf = BytesMut::with_capacity(message.encoded_len());
+    message
+        .encode(&mut buf)
+        .map_err(|err| ApiError::parse(format!("encode message: {err}")).into_string())?;
+    Ok(buf.to_vec())
+}
+
+/// 从带有 raw base64 字段的 JSON 恢复 msgpb::Content。
+/// JSON 需为 proto_adapter::content_to_json 生成的格式。
+fn content_from_json(value: &JsonValue) -> Result<msgpb::Content, String> {
+    json_to_content(value).map_err(|err| ApiError::parse(err).into_string())
+}
+
+/// 将下行情景 ServerMsg 打包成轻量 JSON，便于 Dart 解析。
+fn server_msg_to_json(msg: socket_proto::ServerMsg) -> JsonValue {
+    json!({
+        "id": msg.id,
+        "payload": STANDARD.encode(msg.payload),
+        "ts_ms": msg.ts_ms,
+    })
 }

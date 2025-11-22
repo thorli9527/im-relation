@@ -3,9 +3,9 @@ use std::time::Duration;
 use flutter_rust_bridge::frb;
 use log::{error, info};
 
-use crate::api::app_api_types::*;
 use crate::api::errors::ApiError;
-use crate::api::user_api::post_request;
+use crate::api::login_api_types::*;
+use crate::api::utils::post_request;
 use crate::service::{auth_service, socket_client::SocketClient, user_service::UserService};
 
 #[frb]
