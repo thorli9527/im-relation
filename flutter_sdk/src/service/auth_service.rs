@@ -7,10 +7,10 @@ use log::warn;
 
 use crate::{
     api::app_api::{LoginRequest, LoginResult},
-    api::config_api,
     generated::message::{self as msgpb, DeviceType as SocketDeviceType},
     job::message_job,
     service::socket_client::{SocketClient, SocketConfig},
+    service::user_service::UserService as LocalUserService,
 };
 
 pub fn handle_login(payload: &LoginRequest, result: &LoginResult) -> Result<i64, String> {
@@ -21,14 +21,12 @@ pub fn handle_login(payload: &LoginRequest, result: &LoginResult) -> Result<i64,
     //     return Err("session validation failed".into());
     // }
 
-    config_api::set_login_name(payload.target.clone())?;
-    config_api::set_token(result.token.clone())?;
-    config_api::set_uid(result.uid)?;
-    let now = current_secs();
-    config_api::set_last_login_at(now)?;
-    config_api::set_last_alive_at(now)?;
     let device_type =
         SocketDeviceType::from_i32(payload.device_type).unwrap_or(SocketDeviceType::Unknown);
+
+    // 缓存当前用户资料到本地 user_info 表，便于会话/好友展示。
+    LocalUserService::get().upsert_from_login(result)?;
+
     let socket_config = SocketConfig {
         socket_addr: result.socket_addr.clone(),
         uid: result.uid,
@@ -43,8 +41,6 @@ pub fn handle_login(payload: &LoginRequest, result: &LoginResult) -> Result<i64,
 
 pub fn logout() -> Result<(), String> {
     SocketClient::get().disconnect()?;
-    config_api::set_token(String::new())?;
-    config_api::set_uid(0)?;
     Ok(())
 }
 

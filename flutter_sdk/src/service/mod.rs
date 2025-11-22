@@ -5,6 +5,7 @@ pub mod friend_service;
 pub mod group_service;
 pub mod message_service;
 pub mod socket_client;
+pub mod user_service;
 
 pub fn init() {
     crate::common::init_logging();
@@ -13,6 +14,9 @@ pub fn init() {
     }
     if let Err(err) = friend_service::FriendService::init() {
         eprintln!("FriendService init failed: {err}");
+    }
+    if let Err(err) = user_service::UserService::init() {
+        eprintln!("UserService init failed: {err}");
     }
     if let Err(err) = group_service::GroupService::init() {
         eprintln!("GroupService init failed: {err}");

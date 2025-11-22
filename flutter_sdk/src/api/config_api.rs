@@ -13,6 +13,16 @@ pub const DEFAULT_SOCKET_RECONNECT_LIMIT: u32 = 10;
 pub(crate) const SOCKET_RECONNECT_LIMIT_KEY: &str = "socket_reconnect_limit";
 pub(crate) const SOCKET_RECONNECT_ATTEMPTS_KEY: &str = "socket_reconnect_attempts";
 pub(crate) const SOCKET_RECONNECT_MESSAGE_KEY: &str = "socket_reconnect_message";
+const TOKEN_KEY: &str = "session_token";
+const TOKEN_EXPIRE_AT_KEY: &str = "session_token_expire_at";
+const UID_KEY: &str = "session_uid";
+const USERNAME_KEY: &str = "session_username";
+const LOGIN_NAME_KEY: &str = "session_login_name";
+const EMAIL_KEY: &str = "session_email";
+const PHONE_KEY: &str = "session_phone";
+const AVATAR_KEY: &str = "session_avatar";
+const LAST_LOGIN_AT_KEY: &str = "session_last_login_at";
+const LAST_ALIVE_AT_KEY: &str = "session_last_alive_at";
 
 fn map_config_err(err: String) -> String {
     ApiError::system(err).into_string()
@@ -68,89 +78,6 @@ pub fn get_device_id() -> Result<String, String> {
     get_or_generate_value("device_id", || Uuid::new_v4().to_string())
 }
 
-/// 读取上次登录使用的账号（可为空）。
-#[frb]
-pub fn get_login_name() -> Result<Option<String>, String> {
-    get_value("login_name")
-}
-
-/// 更新登录账号。
-#[frb]
-pub fn set_login_name(login_name: String) -> Result<(), String> {
-    set_value("login_name", &login_name)
-}
-
-/// 获取显示用的用户名。
-#[frb]
-pub fn get_username() -> Result<Option<String>, String> {
-    get_value("username")
-}
-
-/// 设置显示用的用户名。
-#[frb]
-pub fn set_username(username: String) -> Result<(), String> {
-    set_value("username", &username)
-}
-
-/// 获取绑定邮箱。
-#[frb]
-pub fn get_email() -> Result<Option<String>, String> {
-    get_value("profile_email")
-}
-
-/// 设置绑定邮箱。
-#[frb]
-pub fn set_email(email: String) -> Result<(), String> {
-    set_value("profile_email", &email)
-}
-
-/// 获取绑定手机号。
-#[frb]
-pub fn get_phone() -> Result<Option<String>, String> {
-    get_value("profile_phone")
-}
-
-/// 设置绑定手机号。
-#[frb]
-pub fn set_phone(phone: String) -> Result<(), String> {
-    set_value("profile_phone", &phone)
-}
-
-/// 获取头像地址。
-#[frb]
-pub fn get_avatar() -> Result<Option<String>, String> {
-    get_value("profile_avatar")
-}
-
-/// 设置头像地址。
-#[frb]
-pub fn set_avatar(avatar: String) -> Result<(), String> {
-    set_value("profile_avatar", &avatar)
-}
-
-/// 获取登录 token。
-#[frb]
-pub fn get_token() -> Result<Option<String>, String> {
-    get_value("token")
-}
-
-/// 写入登录 token。
-#[frb]
-pub fn set_token(token: String) -> Result<(), String> {
-    set_value("token", &token)
-}
-
-/// 获取 token 失效时间（Unix 秒）。
-#[frb]
-pub fn get_token_expire_at() -> Result<Option<i64>, String> {
-    parse_value("token_expire_at")
-}
-
-/// 设置 token 失效时间（Unix 秒）。
-#[frb]
-pub fn set_token_expire_at(expire_at: i64) -> Result<(), String> {
-    set_numeric_value("token_expire_at", expire_at)
-}
 
 /// 获取应用版本号（用于展示）。
 #[frb]
@@ -162,42 +89,6 @@ pub fn get_app_version() -> Result<Option<String>, String> {
 #[frb]
 pub fn set_app_version(version: String) -> Result<(), String> {
     set_value("app_version", &version)
-}
-
-/// 获取当前登录的 UID。
-#[frb]
-pub fn get_uid() -> Result<Option<i64>, String> {
-    parse_value("uid")
-}
-
-/// 设置当前登录的用户 ID。
-#[frb]
-pub fn set_uid(uid: i64) -> Result<(), String> {
-    set_numeric_value("uid", uid)
-}
-
-/// 获取最后一次成功登录时间（Unix 秒）。
-#[frb]
-pub fn get_last_login_at() -> Result<Option<i64>, String> {
-    parse_value("last_login_at")
-}
-
-/// 设置最后一次成功登录时间（Unix 秒）。
-#[frb]
-pub fn set_last_login_at(timestamp: i64) -> Result<(), String> {
-    set_numeric_value("last_login_at", timestamp)
-}
-
-/// 获取客户端最后一次心跳/存活时间（Unix 秒）。
-#[frb]
-pub fn get_last_alive_at() -> Result<Option<i64>, String> {
-    parse_value("last_alive_at")
-}
-
-/// 更新客户端最后一次心跳/存活时间（Unix 秒）。
-#[frb]
-pub fn set_last_alive_at(timestamp: i64) -> Result<(), String> {
-    set_numeric_value("last_alive_at", timestamp)
 }
 
 #[frb]
@@ -288,4 +179,105 @@ pub fn set_socket_reconnect_message(message: String) -> Result<(), String> {
 #[frb]
 pub fn get_socket_reconnect_message() -> Result<Option<String>, String> {
     get_value(SOCKET_RECONNECT_MESSAGE_KEY)
+}
+
+// ===== 登录态兼容存取（保留旧接口，内部用配置表存储）=====
+#[frb]
+pub fn get_token() -> Result<Option<String>, String> {
+    get_value(TOKEN_KEY)
+}
+
+#[frb]
+pub fn set_token(token: String) -> Result<(), String> {
+    set_value(TOKEN_KEY, token)
+}
+
+#[frb]
+pub fn get_token_expire_at() -> Result<Option<i64>, String> {
+    parse_value(TOKEN_EXPIRE_AT_KEY)
+}
+
+#[frb]
+pub fn set_token_expire_at(expire_at: i64) -> Result<(), String> {
+    set_numeric_value(TOKEN_EXPIRE_AT_KEY, expire_at)
+}
+
+#[frb]
+pub fn get_uid() -> Result<Option<i64>, String> {
+    parse_value(UID_KEY)
+}
+
+#[frb]
+pub fn set_uid(uid: i64) -> Result<(), String> {
+    set_numeric_value(UID_KEY, uid)
+}
+
+#[frb]
+pub fn get_username() -> Result<Option<String>, String> {
+    get_value(USERNAME_KEY)
+}
+
+#[frb]
+pub fn set_username(name: String) -> Result<(), String> {
+    set_value(USERNAME_KEY, name)
+}
+
+#[frb]
+pub fn get_login_name() -> Result<Option<String>, String> {
+    get_value(LOGIN_NAME_KEY)
+}
+
+#[frb]
+pub fn set_login_name(name: String) -> Result<(), String> {
+    set_value(LOGIN_NAME_KEY, name)
+}
+
+#[frb]
+pub fn get_email() -> Result<Option<String>, String> {
+    get_value(EMAIL_KEY)
+}
+
+#[frb]
+pub fn set_email(email: String) -> Result<(), String> {
+    set_value(EMAIL_KEY, email)
+}
+
+#[frb]
+pub fn get_phone() -> Result<Option<String>, String> {
+    get_value(PHONE_KEY)
+}
+
+#[frb]
+pub fn set_phone(phone: String) -> Result<(), String> {
+    set_value(PHONE_KEY, phone)
+}
+
+#[frb]
+pub fn get_avatar() -> Result<Option<String>, String> {
+    get_value(AVATAR_KEY)
+}
+
+#[frb]
+pub fn set_avatar(avatar: String) -> Result<(), String> {
+    set_value(AVATAR_KEY, avatar)
+}
+
+#[frb]
+pub fn get_last_login_at() -> Result<Option<i64>, String> {
+    parse_value(LAST_LOGIN_AT_KEY)
+}
+
+#[frb]
+pub fn set_last_login_at(ts: i64) -> Result<(), String> {
+    set_numeric_value(LAST_LOGIN_AT_KEY, ts)
+}
+
+#[frb]
+pub fn get_last_alive_at() -> Result<Option<i64>, String> {
+    parse_value(LAST_ALIVE_AT_KEY)
+}
+
+#[frb]
+pub fn set_last_alive_at(ts: i64) -> Result<(), String> {
+    set_numeric_value(LAST_ALIVE_AT_KEY, ts)
 }
