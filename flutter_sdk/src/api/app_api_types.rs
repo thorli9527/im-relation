@@ -52,6 +52,21 @@ pub struct LoginResult {
     pub phone: Option<String>,
     pub name: String,
     pub uid: i64,
+    pub language: Option<String>,
+    pub country: Option<String>,
+    pub alias: Option<String>,
+    pub gender: i32,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateProfileRequest {
+    pub session_token: String,
+    pub avatar: Option<String>,
+    pub gender: Option<i32>,
+    pub country: Option<String>,
+    pub language: Option<String>,
+    pub alias: Option<String>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -120,14 +135,6 @@ pub struct ChangeEmailRequest {
 pub struct ChangeEmailResult {
     pub ok: bool,
     pub email: String,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateProfileRequest {
-    pub session_token: String,
-    pub avatar: Option<String>,
-    pub gender: Option<i32>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]

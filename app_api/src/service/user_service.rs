@@ -111,6 +111,14 @@ pub mod auth_models {
         pub reg_type: UserRegType,
         #[validate(custom(function = "validate_target"))]
         pub target: String,
+        #[serde(default)]
+        pub language: Option<String>,
+        #[serde(default)]
+        pub country: Option<String>,
+        #[serde(default)]
+        pub gender: Option<i32>,
+        #[serde(default)]
+        pub alias: Option<String>,
     }
 
     #[derive(Debug, Deserialize, Validate, ToSchema, Clone)]
@@ -164,6 +172,9 @@ pub mod auth_models {
         pub session_token: String,
         pub avatar: Option<String>,
         pub gender: Option<i32>,
+        pub country: Option<String>,
+        pub language: Option<String>,
+        pub alias: Option<String>,
     }
 
     fn validate_target(value: &str) -> Result<(), ValidationError> {
@@ -338,6 +349,10 @@ pub trait UserServiceAuthOpt: Send + Sync {
         password: &str,
         reg_type: &UserRegType,
         target: &str,
+        language: Option<&str>,
+        country: Option<&str>,
+        gender: Option<i32>,
+        alias: Option<&str>,
     ) -> anyhow::Result<String>;
 
     async fn register_verify_code(&self, uuid: &str, code: &str) -> anyhow::Result<()>;
@@ -370,6 +385,9 @@ pub trait UserServiceAuthOpt: Send + Sync {
         session_token: &str,
         gender: Option<i32>,
         avatar: Option<&str>,
+        country: Option<&str>,
+        language: Option<&str>,
+        alias: Option<&str>,
     ) -> anyhow::Result<()>;
 
     async fn update_name(&self, session_token: &str, name: &str) -> anyhow::Result<()>;
@@ -381,6 +399,10 @@ pub struct VerifySession {
     pub reg_type: UserRegType,
     pub contact: Option<String>,
     pub code: Option<String>,
+    pub language: Option<String>,
+    pub country: Option<String>,
+    pub gender: Option<i32>,
+    pub alias: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -574,6 +596,10 @@ impl UserServiceAuthOpt for UserService {
         password: &str,
         reg_type: &UserRegType,
         target: &str,
+        language: Option<&str>,
+        country: Option<&str>,
+        gender: Option<i32>,
+        alias: Option<&str>,
     ) -> anyhow::Result<String> {
         let mut client = user_gateway::get_user_rpc_client().await?;
         let key = &AppConfig::get().sys.clone().unwrap().md5_key.unwrap();
@@ -585,6 +611,10 @@ impl UserServiceAuthOpt for UserService {
             reg_type: reg_type.clone(),
             contact: meta.contact.clone(),
             code: None,
+            language: language.map(|s| s.to_string()),
+            country: country.map(|s| s.to_string()),
+            gender,
+            alias: alias.map(|s| s.to_string()),
         };
         if meta.requires_code {
             verify_session.code = Some("123456".to_string());
@@ -627,10 +657,12 @@ impl UserServiceAuthOpt for UserService {
                         password: verify_session.password_hash.clone(),
                         email: None,
                         phone: Some(phone),
-                        language: None,
+                        language: verify_session.language.clone(),
+                        country: verify_session.country.clone(),
+                        alias: verify_session.alias.clone(),
                         avatar: "".to_string(),
                         allow_add_friend: AddFriendPolicy::Anyone as i32,
-                        gender: 0,
+                        gender: verify_session.gender.unwrap_or(0),
                         user_type: UserType::Normal as i32,
                         profile_fields: Default::default(),
                     })
@@ -651,10 +683,12 @@ impl UserServiceAuthOpt for UserService {
                         password: verify_session.password_hash.clone(),
                         email: Some(email),
                         phone: None,
-                        language: None,
+                        language: verify_session.language.clone(),
+                        country: verify_session.country.clone(),
+                        alias: verify_session.alias.clone(),
                         avatar: "".to_string(),
                         allow_add_friend: AddFriendPolicy::Anyone as i32,
-                        gender: 0,
+                        gender: verify_session.gender.unwrap_or(0),
                         user_type: UserType::Normal as i32,
                         profile_fields: Default::default(),
                     })
@@ -787,8 +821,11 @@ impl UserServiceAuthOpt for UserService {
         session_token: &str,
         gender: Option<i32>,
         avatar: Option<&str>,
+        country: Option<&str>,
+        language: Option<&str>,
+        alias: Option<&str>,
     ) -> anyhow::Result<()> {
-        if gender.is_none() && avatar.is_none() {
+        if gender.is_none() && avatar.is_none() && country.is_none() && language.is_none() && alias.is_none() {
             return Ok(());
         }
 
@@ -808,6 +845,21 @@ impl UserServiceAuthOpt for UserService {
             let gender_enum = Gender::try_from(g).map_err(|_| anyhow!("gender.invalid"))?;
             entity.gender = gender_enum as i32;
             paths.push("gender".to_string());
+        }
+
+        if let Some(c) = country {
+            entity.country = Some(c.to_string());
+            paths.push("country".to_string());
+        }
+
+        if let Some(l) = language {
+            entity.language = Some(l.to_string());
+            paths.push("language".to_string());
+        }
+
+        if let Some(al) = alias {
+            entity.alias = Some(al.to_string());
+            paths.push("alias".to_string());
         }
 
         if paths.is_empty() {

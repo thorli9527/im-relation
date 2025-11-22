@@ -48,6 +48,9 @@ fn row_to_entity(r: &MySqlRow) -> Result<UserEntity> {
     let name: String = r.try_get("name").context("missing 'name'")?;
 
     let language: Option<String> = r.try_get("language").ok();
+    let country: Option<String> = r.try_get("country").ok();
+    let alias: Option<String> = r.try_get("alias").ok();
+    let country: Option<String> = r.try_get("country").ok();
     let avatar: String = r.try_get("avatar").context("missing 'avatar'")?;
 
     // TINYINT/SMALLINT 兼容为 i32
@@ -108,7 +111,9 @@ fn row_to_entity(r: &MySqlRow) -> Result<UserEntity> {
         name,
         email,
         phone,
+        country,
         language,
+        alias,
         avatar,
         allow_add_friend,
         gender,
@@ -127,6 +132,8 @@ const SELECT_ENTITY_PROJECTION: &str = r#"
     password,
     name,
     language,
+    country,
+    alias,
     avatar,
     allow_add_friend,
     gender,

@@ -2420,6 +2420,10 @@ impl SseDecode for crate::api::app_api::LoginResult {
         let mut var_phone = <Option<String>>::sse_decode(deserializer);
         let mut var_name = <String>::sse_decode(deserializer);
         let mut var_uid = <i64>::sse_decode(deserializer);
+        let mut var_language = <Option<String>>::sse_decode(deserializer);
+        let mut var_country = <Option<String>>::sse_decode(deserializer);
+        let mut var_alias = <Option<String>>::sse_decode(deserializer);
+        let mut var_gender = <i32>::sse_decode(deserializer);
         return crate::api::app_api::LoginResult {
             token: var_token,
             expires_at: var_expiresAt,
@@ -2429,6 +2433,10 @@ impl SseDecode for crate::api::app_api::LoginResult {
             phone: var_phone,
             name: var_name,
             uid: var_uid,
+            language: var_language,
+            country: var_country,
+            alias: var_alias,
+            gender: var_gender,
         };
     }
 }
@@ -2667,10 +2675,16 @@ impl SseDecode for crate::api::app_api::UpdateProfileRequest {
         let mut var_sessionToken = <String>::sse_decode(deserializer);
         let mut var_avatar = <Option<String>>::sse_decode(deserializer);
         let mut var_gender = <Option<i32>>::sse_decode(deserializer);
+        let mut var_country = <Option<String>>::sse_decode(deserializer);
+        let mut var_language = <Option<String>>::sse_decode(deserializer);
+        let mut var_alias = <Option<String>>::sse_decode(deserializer);
         return crate::api::app_api::UpdateProfileRequest {
             session_token: var_sessionToken,
             avatar: var_avatar,
             gender: var_gender,
+            country: var_country,
+            language: var_language,
+            alias: var_alias,
         };
     }
 }
@@ -3427,6 +3441,10 @@ impl flutter_rust_bridge::IntoDart for crate::api::app_api::LoginResult {
             self.phone.into_into_dart().into_dart(),
             self.name.into_into_dart().into_dart(),
             self.uid.into_into_dart().into_dart(),
+            self.language.into_into_dart().into_dart(),
+            self.country.into_into_dart().into_dart(),
+            self.alias.into_into_dart().into_dart(),
+            self.gender.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -3639,6 +3657,9 @@ impl flutter_rust_bridge::IntoDart for crate::api::app_api::UpdateProfileRequest
             self.session_token.into_into_dart().into_dart(),
             self.avatar.into_into_dart().into_dart(),
             self.gender.into_into_dart().into_dart(),
+            self.country.into_into_dart().into_dart(),
+            self.language.into_into_dart().into_dart(),
+            self.alias.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4077,6 +4098,10 @@ impl SseEncode for crate::api::app_api::LoginResult {
         <Option<String>>::sse_encode(self.phone, serializer);
         <String>::sse_encode(self.name, serializer);
         <i64>::sse_encode(self.uid, serializer);
+        <Option<String>>::sse_encode(self.language, serializer);
+        <Option<String>>::sse_encode(self.country, serializer);
+        <Option<String>>::sse_encode(self.alias, serializer);
+        <i32>::sse_encode(self.gender, serializer);
     }
 }
 
@@ -4264,6 +4289,9 @@ impl SseEncode for crate::api::app_api::UpdateProfileRequest {
         <String>::sse_encode(self.session_token, serializer);
         <Option<String>>::sse_encode(self.avatar, serializer);
         <Option<i32>>::sse_encode(self.gender, serializer);
+        <Option<String>>::sse_encode(self.country, serializer);
+        <Option<String>>::sse_encode(self.language, serializer);
+        <Option<String>>::sse_encode(self.alias, serializer);
     }
 }
 

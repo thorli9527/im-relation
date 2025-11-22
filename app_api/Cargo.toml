@@ -35,3 +35,4 @@ regex.workspace = true
 rand = "0.8.5"
 tower-http.workspace = true
 handlers = "0.10.0"
+fake = "4.4.0"

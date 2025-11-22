@@ -17,6 +17,14 @@ use crate::service::{
 pub struct BuildRegisterCodePayload {
     password: String,
     target: String,
+    #[serde(default)]
+    language: Option<String>,
+    #[serde(default)]
+    country: Option<String>,
+    #[serde(default)]
+    gender: Option<i32>,
+    #[serde(default)]
+    alias: Option<String>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -71,12 +79,24 @@ async fn build_register_code(
         password: payload.password,
         reg_type,
         target: payload.target.clone(),
+        language: payload.language.clone(),
+        country: payload.country.clone(),
+        gender: payload.gender,
+        alias: payload.alias.clone(),
     };
     dto.validate()?;
 
     let user_service = UserService::get();
     let reg_id = user_service
-        .build_register_code(&dto.password, &dto.reg_type, &dto.target)
+        .build_register_code(
+            &dto.password,
+            &dto.reg_type,
+            &dto.target,
+            dto.language.as_deref(),
+            dto.country.as_deref(),
+            dto.gender,
+            dto.alias.as_deref(),
+        )
         .await
         .map_err(map_internal_error)?;
     success(BuildRegisterCodeResult { reg_id, uid: 0 })

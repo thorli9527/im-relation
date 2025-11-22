@@ -162,6 +162,14 @@ pub struct LoginRespMsg {
     pub nickname: ::prost::alloc::string::String,
     #[prost(string, tag = "8")]
     pub avatar: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "9")]
+    pub language: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "10")]
+    pub country: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "11")]
+    pub alias: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(enumeration = "Gender", optional, tag = "12")]
+    pub gender: ::core::option::Option<i32>,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct LogoutReqMsg {
@@ -241,6 +249,10 @@ pub struct UserEntity {
     pub phone: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag = "6")]
     pub language: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "16")]
+    pub country: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "17")]
+    pub alias: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, tag = "7")]
     pub avatar: ::prost::alloc::string::String,
     #[prost(enumeration = "AddFriendPolicy", tag = "8")]
@@ -278,6 +290,10 @@ pub struct RegisterUserReq {
     pub phone: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag = "6")]
     pub language: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "12")]
+    pub country: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "13")]
+    pub alias: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, tag = "7")]
     pub avatar: ::prost::alloc::string::String,
     #[prost(enumeration = "AddFriendPolicy", tag = "8")]

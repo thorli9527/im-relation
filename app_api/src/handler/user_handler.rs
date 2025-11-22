@@ -64,6 +64,7 @@ pub fn router() -> Router {
         .route("/email/change", post(change_email))
         .route("/profile/update", post(update_profile))
         .route("/profile/name", post(update_name))
+        .route("/nickname/generate", post(generate_nickname))
         .route("/friends", post(get_friend_list))
         .route("/groups/{group_id}/members", post(get_group_members))
         .route(
@@ -77,6 +78,90 @@ pub fn router() -> Router {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct VerifyRegisterResult {
     ok: bool,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerateNicknamePayload {
+    /// male / female / any
+    gender: Option<String>,
+    /// 数量，默认 10，最大 100
+    count: Option<u32>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct GenerateNicknameResult {
+    names: Vec<String>,
+}
+
+#[derive(Copy, Clone, Debug)]
+enum FakeGender {
+    Male,
+    Female,
+}
+
+fn pick_gender(g: &Option<String>) -> Option<FakeGender> {
+    match g.as_deref().map(|s| s.to_ascii_lowercase()) {
+        Some(ref v) if v == "male" || v == "m" => Some(FakeGender::Male),
+        Some(ref v) if v == "female" || v == "f" => Some(FakeGender::Female),
+        _ => None,
+    }
+}
+
+fn gen_name(gender: Option<FakeGender>) -> String {
+    use rand::seq::SliceRandom;
+    use rand::thread_rng;
+
+    // 简单的英文名库
+    const MALE_FIRST: &[&str] = &[
+        "James","John","Robert","Michael","William","David","Richard","Joseph","Thomas","Charles",
+        "Christopher","Daniel","Matthew","Anthony","Mark","Donald","Steven","Paul","Andrew","Joshua",
+    ];
+    const FEMALE_FIRST: &[&str] = &[
+        "Mary","Patricia","Jennifer","Linda","Elizabeth","Barbara","Susan","Jessica","Sarah","Karen",
+        "Lisa","Nancy","Betty","Margaret","Sandra","Ashley","Kimberly","Emily","Donna","Michelle",
+    ];
+    const LAST: &[&str] = &[
+        "Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Rodriguez","Martinez",
+        "Hernandez","Lopez","Gonzalez","Wilson","Anderson","Thomas","Taylor","Moore","Jackson","Martin",
+    ];
+
+    let mut rng = thread_rng();
+    let first_pool: &[&str] = match gender {
+        Some(FakeGender::Male) => MALE_FIRST,
+        Some(FakeGender::Female) => FEMALE_FIRST,
+        None => {
+            if rand::random::<bool>() {
+                MALE_FIRST
+            } else {
+                FEMALE_FIRST
+            }
+        }
+    };
+    let first = first_pool.choose(&mut rng).unwrap_or(&"Alex");
+    let last = LAST.choose(&mut rng).unwrap_or(&"Lee");
+    format!("{} {}", first, last)
+}
+
+#[utoipa::path(
+    post,
+    path = "/nickname/generate",
+    request_body = GenerateNicknamePayload,
+    responses(
+        (status = 200, description = "生成英文昵称", body = ApiResponse<GenerateNicknameResult>)
+    ),
+    tag = "app_api"
+)]
+async fn generate_nickname(
+    Json(payload): Json<GenerateNicknamePayload>,
+) -> HandlerResult<GenerateNicknameResult> {
+    let count = payload.count.unwrap_or(10).clamp(1, 100) as usize;
+    let gender = pick_gender(&payload.gender);
+    let mut names = Vec::with_capacity(count);
+    for _ in 0..count {
+        names.push(gen_name(gender));
+    }
+    success(GenerateNicknameResult { names })
 }
 
 #[utoipa::path(
@@ -186,6 +271,9 @@ async fn update_profile(
             &payload.session_token,
             payload.gender,
             payload.avatar.as_deref(),
+            payload.country.as_deref(),
+            payload.language.as_deref(),
+            payload.alias.as_deref(),
         )
         .await
         .map_err(map_internal_error)?;
