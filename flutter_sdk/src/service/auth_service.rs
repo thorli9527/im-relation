@@ -1,14 +1,8 @@
-use std::{
-    collections::HashMap,
-    time::{SystemTime, UNIX_EPOCH},
-};
-
-use log::warn;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::{
     api::app_api::{LoginRequest, LoginResult},
-    generated::message::{self as msgpb, DeviceType as SocketDeviceType},
-    job::message_job,
+    generated::message::{DeviceType as SocketDeviceType},
     service::socket_client::{SocketClient, SocketConfig},
     service::user_service::UserService as LocalUserService,
 };
@@ -48,12 +42,5 @@ fn current_secs() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|dur| dur.as_secs() as i64)
-        .unwrap_or_default()
-}
-
-fn current_millis() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|dur| dur.as_millis() as i64)
         .unwrap_or_default()
 }

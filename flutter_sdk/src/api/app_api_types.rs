@@ -4,10 +4,6 @@ pub struct OperationStatus {
     pub ok: bool,
 }
 
-fn is_zero_i32(value: &i32) -> bool {
-    *value == 0
-}
-
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]

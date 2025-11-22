@@ -1,6 +1,4 @@
 use log::warn;
-use prost::Message;
-
 use crate::{
     domain::{
         proto_adapter::{content_to_json, json_to_content},

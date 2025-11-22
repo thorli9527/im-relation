@@ -10,7 +10,6 @@ pub use crate::api::reg_api_types::{
     VerifyRegisterCodeRequest,
 };
 pub use crate::api::login_api_types::*;
-pub use crate::api::login_api_types::*;
 
 #[frb(init)]
 /// 初始化应用：启动数据库、领域服务，并准备必要的配置（设备 ID、接口地址、重连限制）。
