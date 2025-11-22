@@ -67,7 +67,7 @@ fn wire__crate__api__app_api__build_register_code_impl(
                     data_len_,
                 )
             };
-            let mut deserializer =
+        let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_payload =
                 <crate::api::app_api::BuildRegisterCodeRequest>::sse_decode(&mut deserializer);
@@ -1943,15 +1943,19 @@ impl SseDecode for bool {
 impl SseDecode for crate::api::app_api::BuildRegisterCodeRequest {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_name = <String>::sse_decode(deserializer);
         let mut var_password = <String>::sse_decode(deserializer);
-        let mut var_regType = <i32>::sse_decode(deserializer);
         let mut var_target = <String>::sse_decode(deserializer);
+        let mut var_language = <Option<String>>::sse_decode(deserializer);
+        let mut var_country = <Option<String>>::sse_decode(deserializer);
+        let mut var_gender = <Option<i32>>::sse_decode(deserializer);
+        let mut var_alias = <Option<String>>::sse_decode(deserializer);
         return crate::api::app_api::BuildRegisterCodeRequest {
-            name: var_name,
             password: var_password,
-            reg_type: var_regType,
             target: var_target,
+            language: var_language,
+            country: var_country,
+            gender: var_gender,
+            alias: var_alias,
         };
     }
 }
@@ -2930,10 +2934,12 @@ impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<MessageEntity>> for MessageEnt
 impl flutter_rust_bridge::IntoDart for crate::api::app_api::BuildRegisterCodeRequest {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
-            self.name.into_into_dart().into_dart(),
             self.password.into_into_dart().into_dart(),
-            self.reg_type.into_into_dart().into_dart(),
             self.target.into_into_dart().into_dart(),
+            self.language.into_into_dart().into_dart(),
+            self.country.into_into_dart().into_dart(),
+            self.gender.into_into_dart().into_dart(),
+            self.alias.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -3777,10 +3783,12 @@ impl SseEncode for bool {
 impl SseEncode for crate::api::app_api::BuildRegisterCodeRequest {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <String>::sse_encode(self.name, serializer);
         <String>::sse_encode(self.password, serializer);
-        <i32>::sse_encode(self.reg_type, serializer);
         <String>::sse_encode(self.target, serializer);
+        <Option<String>>::sse_encode(self.language, serializer);
+        <Option<String>>::sse_encode(self.country, serializer);
+        <Option<i32>>::sse_encode(self.gender, serializer);
+        <Option<String>>::sse_encode(self.alias, serializer);
     }
 }
 

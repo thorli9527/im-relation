@@ -7,7 +7,6 @@ use flutter_rust_bridge::frb;
 use log::{error, info};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use tokio::time::sleep;
 use crate::api::config_api;
 use crate::api::errors::ApiError;
 use crate::service::{
@@ -174,6 +173,13 @@ pub fn get_recent_conversations(
     query: RecentConversationsQuery,
 ) -> Result<RecentConversationsResult, String> {
     get_request("/conversations/recent", &query)
+}
+
+#[frb]
+/// 向 app_api 获取随机英文昵称（单词），可选性别参数 male/female。
+pub fn fetch_random_nickname(gender: Option<String>) -> Result<String, String> {
+    let query = RandomNicknameQuery { gender };
+    get_request("/nickname/random", &query)
 }
 
 /// 调用登录接口并写入本地登录状态。

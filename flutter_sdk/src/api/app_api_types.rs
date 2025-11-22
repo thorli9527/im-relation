@@ -1,10 +1,16 @@
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildRegisterCodeRequest {
-    pub name: String,
     pub password: String,
-    pub reg_type: i32,
     pub target: String,
+    /// 可选语言
+    pub language: Option<String>,
+    /// 可选国家
+    pub country: Option<String>,
+    /// 可选性别
+    pub gender: Option<i32>,
+    /// 可选别名
+    pub alias: Option<String>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -95,6 +101,13 @@ pub struct LogoutRequest {
 pub struct LogoutResult {
     pub ok: bool,
     pub revoked_token: Option<String>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct RandomNicknameQuery {
+    /// gender 可选：male/female，其他值随机
+    pub gender: Option<String>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
