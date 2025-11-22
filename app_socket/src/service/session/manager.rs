@@ -304,6 +304,7 @@ impl SessionManager {
         .to_string();
         let msg = ServerMsg {
             id: now_ms,
+            auth: None,
             payload: msgpb::Content::default(),
             raw_payload: payload.into_bytes(),
             ts_ms: now_ms,
@@ -444,6 +445,7 @@ impl SessionManager {
 
         let msg = ServerMsg {
             id: current_millis(),
+            auth: None,
             payload: msgpb::Content::default(),
             ts_ms: at_ms,
             raw_payload: buf,

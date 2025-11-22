@@ -607,8 +607,6 @@ enum SystemBusinessType {
   SYSTEM_BUSINESS_POLICY = 4;
   // 账户在其它设备/地点上线，被动下线通知
   SYSTEM_BUSINESS_PASSIVE_LOGOUT = 5;
-  // 鉴权结果通知（socket 连接成功或失败）
-  SYSTEM_BUSINESS_AUTH_RESULT = 6;
 }
 
 // ===============================

@@ -165,6 +165,7 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
             // 将内部结构转换为 Protobuf，再交由 LengthDelimitedCodec 写入 TCP。
             let pb = PbServerMsg {
                 id: msg.id,
+                auth: msg.auth.clone(),
                 payload: msg.raw_payload.clone(),
                 ts_ms: msg.ts_ms,
             };
@@ -522,6 +523,7 @@ fn send_client_ack(user_id: UID, ref_message_id: Option<u64>) {
     let raw_payload = payload.encode_to_vec();
     let msg = ServerMsg {
         id: ts_ms,
+        auth: None,
         payload,
         raw_payload,
         ts_ms,
@@ -535,28 +537,26 @@ fn send_client_ack(user_id: UID, ref_message_id: Option<u64>) {
 
 fn send_connection_success(handle: &SessionHandle) {
     let ts_ms = current_time_millis();
-    let mut payload = msgpb::Content::default();
-    let mut metadata = HashMap::new();
-    metadata.insert("session_id".to_string(), handle.session_id.clone());
-    payload.system_business = Some(msgpb::SystemBusinessContent {
-        business_type: msgpb::SystemBusinessType::SystemBusinessAuthResult as i32,
-        title: "auth_ok".to_string(),
-        detail: "auth_ok".to_string(),
-        metadata,
-        summary: Some("auth_success".to_string()),
-        body: Some("auth_ok".to_string()),
-        display_area: msgpb::system_business_content::DisplayArea::DisplayPopup as i32,
-        action_url: None,
-        valid_from: None,
-        valid_to: None,
-    });
+    let auth = PbAuthMsg {
+        uid: handle.user_id,
+        device_type: handle.device_type as i32,
+        device_id: handle.device_id.clone(),
+        token: handle.session_token.clone(),
+        ts_ms,
+        nonce: Vec::new(),
+        signature: Vec::new(),
+        resume: false,
+        last_ack_id: 0,
+        supports_encryption: false,
+        encryption_schemes: Vec::new(),
+    };
 
-    let raw_payload = payload.encode_to_vec();
     let msg = ServerMsg {
         id: ts_ms,
-        payload,
-        raw_payload,
+        payload: msgpb::Content::default(),
+        raw_payload: Vec::new(),
         ts_ms,
+        auth: Some(auth),
     };
     let _ = handle.send(msg);
 }

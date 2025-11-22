@@ -58,6 +58,9 @@ pub struct ServerMsg {
     /// 消息唯一 ID（用于客户端 ACK 对齐）
     #[prost(int64, tag = "1")]
     pub id: i64,
+    /// 鉴权结果（鉴权成功时返回，替代系统业务通知）
+    #[prost(message, optional, tag = "2")]
+    pub auth: ::core::option::Option<AuthMsg>,
     /// 二进制负载（建议为具体业务的 Protobuf，例如 message.Content）
     #[prost(bytes = "vec", tag = "3")]
     pub payload: ::prost::alloc::vec::Vec<u8>,

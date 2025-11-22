@@ -62,7 +62,7 @@ impl SocketClient {
     pub fn init() -> Result<(), String> {
         // Prepare waiters list, connection flag, and resender thread.
         SUCCESS_WAITERS.get_or_init(|| Mutex::new(Vec::new()));
-        CONNECTION_SUCCESS.get_or_init(|| AtomicBool::new(false));
+        AUTH_SUCCESS.get_or_init(|| AtomicBool::new(false));
         start_resend_thread();
         INSTANCE
             .set(SocketClient {
@@ -98,10 +98,8 @@ impl SocketClient {
     }
 
     pub fn subscribe_connection_success(&self) -> Receiver<()> {
-        // Return a one-shot receiver that resolves when a connection succeeds.
-        let flag = CONNECTION_SUCCESS
-            .get()
-            .expect("connection flag initialized");
+        // Return a one-shot receiver that resolves when auth succeeds.
+        let flag = AUTH_SUCCESS.get().expect("auth flag initialized");
         let (tx, rx) = mpsc::channel();
         if flag.load(Ordering::SeqCst) {
             let _ = tx.send(());
@@ -146,7 +144,7 @@ impl SocketClient {
 
 static INSTANCE: OnceCell<SocketClient> = OnceCell::new();
 static SUCCESS_WAITERS: OnceCell<Mutex<Vec<Sender<()>>>> = OnceCell::new();
-static CONNECTION_SUCCESS: OnceCell<AtomicBool> = OnceCell::new();
+static AUTH_SUCCESS: OnceCell<AtomicBool> = OnceCell::new();
 static MESSAGE_RESENDER: OnceCell<thread::JoinHandle<()>> = OnceCell::new();
 
 const RESEND_INTERVAL_SECS: u64 = 5;
@@ -287,23 +285,36 @@ async fn run_connection_attempt(
                     Some(Ok(bytes)) => {
                         let read_len = bytes.len();
                         if let Ok(pb) = SocketServerMsg::decode(bytes.freeze()) {
-                            if let Ok(content) = msgpb::Content::decode(pb.payload.as_slice()) {
-                                if let Some(ack) = &content.ack {
-                                    if let Some(ref_id) = ack.ref_message_id {
-                                        let _ = MessageService::get().mark_ack(ref_id as i64);
-                                    }
+                            if let Some(auth) = pb.auth.as_ref() {
+                                info!(
+                                    "socket recv auth_ok uid={} device={} id={}",
+                                    auth.uid, auth.device_id, pb.id
+                                );
+                                if !authed {
+                                    authed = true;
+                                    let limit = config_api::ensure_socket_reconnect_limit()
+                                        .unwrap_or(config_api::DEFAULT_SOCKET_RECONNECT_LIMIT);
+                                    let _ = config_api::set_socket_reconnect_attempts(limit);
+                                    let _ = config_api::set_socket_reconnect_message(
+                                        "socket 连接成功".into(),
+                                    );
+                                    notify_connection_success();
                                 }
-                                if let Some(sys) = content.system_business {
-                                    if is_connection_success(&sys) && !authed {
-                                        authed = true;
-                                        let limit = config_api::ensure_socket_reconnect_limit()
-                                            .unwrap_or(config_api::DEFAULT_SOCKET_RECONNECT_LIMIT);
-                                        let _ =
-                                            config_api::set_socket_reconnect_attempts(limit);
-                                        let _ = config_api::set_socket_reconnect_message(
-                                            "socket 连接成功".into(),
-                                        );
-                                        notify_connection_success();
+                            }
+                            if !pb.payload.is_empty() {
+                                if let Ok(content) = msgpb::Content::decode(pb.payload.as_slice()) {
+                                    info!(
+                                        "socket recv id={} ts_ms={} scene={} contents={} heartbeat={:?}",
+                                        pb.id,
+                                        pb.ts_ms,
+                                        content.scene,
+                                        content.contents.len(),
+                                        content.heartbeat
+                                    );
+                                    if let Some(ack) = &content.ack {
+                                        if let Some(ref_id) = ack.ref_message_id {
+                                            let _ = MessageService::get().mark_ack(ref_id as i64);
+                                        }
                                     }
                                 }
                             }
@@ -413,7 +424,7 @@ fn current_millis() -> i64 {
 }
 
 fn notify_connection_success() {
-    if let Some(flag) = CONNECTION_SUCCESS.get() {
+    if let Some(flag) = AUTH_SUCCESS.get() {
         flag.store(true, Ordering::SeqCst);
     }
     if let Some(waiters) = SUCCESS_WAITERS.get() {
@@ -422,11 +433,6 @@ fn notify_connection_success() {
             let _ = tx.send(());
         }
     }
-}
-
-fn is_connection_success(content: &msgpb::SystemBusinessContent) -> bool {
-    content.business_type == msgpb::SystemBusinessType::SystemBusinessAuthResult as i32
-        && content.title == "auth_ok"
 }
 
 fn test_mode_enabled() -> bool {

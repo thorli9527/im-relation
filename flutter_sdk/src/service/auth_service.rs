@@ -38,15 +38,7 @@ pub fn handle_login(payload: &LoginRequest, result: &LoginResult) -> Result<i64,
         heartbeat_secs: 60,
     };
     SocketClient::get().connect(socket_config)?;
-
-    let auth_payload = build_auth_content(result.uid);
-    match message_job::enqueue_outbound(auth_payload, 0) {
-        Ok(message_id) => Ok(message_id),
-        Err(err) => {
-            warn!("auth message enqueue failed: {}", err);
-            Err(err)
-        }
-    }
+    Ok(0)
 }
 
 pub fn logout() -> Result<(), String> {
@@ -68,27 +60,4 @@ fn current_millis() -> i64 {
         .duration_since(UNIX_EPOCH)
         .map(|dur| dur.as_millis() as i64)
         .unwrap_or_default()
-}
-
-fn build_auth_content(user_id: i64) -> msgpb::Content {
-    let mut content = msgpb::Content::default();
-    content.scene = msgpb::ChatScene::Profile as i32;
-    content.sender_id = user_id;
-    content.receiver_id = user_id;
-    content.timestamp = current_millis();
-    let mut metadata = HashMap::new();
-    metadata.insert("phase".to_string(), "auth".to_string());
-    content.system_business = Some(msgpb::SystemBusinessContent {
-        business_type: msgpb::SystemBusinessType::SystemBusinessUpgrade as i32,
-        title: "client-auth".to_string(),
-        detail: "client socket auth".to_string(),
-        metadata,
-        summary: Some("auth".to_string()),
-        body: None,
-        display_area: msgpb::system_business_content::DisplayArea::DisplayPopup as i32,
-        action_url: None,
-        valid_from: None,
-        valid_to: None,
-    });
-    content
 }

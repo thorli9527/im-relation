@@ -7,7 +7,7 @@ use flutter_rust_bridge::frb;
 use log::{error, info};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-
+use tokio::time::sleep;
 use crate::api::config_api;
 use crate::api::errors::ApiError;
 use crate::service::{
@@ -66,7 +66,7 @@ pub fn verify_register_code(payload: VerifyRegisterCodeRequest) -> Result<Operat
 #[frb]
 /// 登录并等待 socket 连接及鉴权完成，超时可配置。
 pub fn login(payload: LoginRequest, timeout_secs: Option<u64>) -> Result<LoginResult, String> {
-    let (result, auth_message_id) = perform_login(&payload).map_err(|err| {
+    let (result, _) = perform_login(&payload).map_err(|err| {
         error!("login_and_wait_for_socket: login failed: {}", err);
         err
     })?;
@@ -75,9 +75,7 @@ pub fn login(payload: LoginRequest, timeout_secs: Option<u64>) -> Result<LoginRe
     receiver
         .recv_timeout(duration)
         .map_err(|_| ApiError::timeout("socket connection timeout").into_string())?;
-    info!("socket 连接成功，正在等待鉴权...");
-    wait_for_auth_ack(auth_message_id, Duration::from_secs(30))?;
-    info!("基础鉴权已完成");
+    info!("socket 鉴权已完成");
     Ok(result)
 }
 

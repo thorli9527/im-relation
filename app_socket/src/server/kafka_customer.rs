@@ -99,6 +99,7 @@ pub async fn start_socket_pipeline() -> anyhow::Result<()> {
                 };
                 let msg = ServerMsg {
                     id,
+                    auth: None,
                     payload: content,
                     raw_payload: raw.clone(),
                     ts_ms,

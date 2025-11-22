@@ -45,6 +45,8 @@ message ClientMsg {
 message ServerMsg {
   // 消息唯一 ID（用于客户端 ACK 对齐）
   int64 id = 1;
+  // 鉴权结果（鉴权成功时返回，替代系统业务通知）
+  optional AuthMsg auth = 2;
   // 二进制负载（建议为具体业务的 Protobuf，例如 message.Content）
   bytes payload = 3;
   // 业务时间戳（毫秒）

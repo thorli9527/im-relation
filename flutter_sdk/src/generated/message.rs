@@ -1977,8 +1977,6 @@ pub enum SystemBusinessType {
     SystemBusinessPolicy = 4,
     /// 账户在其它设备/地点上线，被动下线通知
     SystemBusinessPassiveLogout = 5,
-    /// 鉴权结果通知（socket 连接成功或失败）
-    SystemBusinessAuthResult = 6,
 }
 impl SystemBusinessType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1993,7 +1991,6 @@ impl SystemBusinessType {
             Self::SystemBusinessUpgrade => "SYSTEM_BUSINESS_UPGRADE",
             Self::SystemBusinessPolicy => "SYSTEM_BUSINESS_POLICY",
             Self::SystemBusinessPassiveLogout => "SYSTEM_BUSINESS_PASSIVE_LOGOUT",
-            Self::SystemBusinessAuthResult => "SYSTEM_BUSINESS_AUTH_RESULT",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2005,7 +2002,6 @@ impl SystemBusinessType {
             "SYSTEM_BUSINESS_UPGRADE" => Some(Self::SystemBusinessUpgrade),
             "SYSTEM_BUSINESS_POLICY" => Some(Self::SystemBusinessPolicy),
             "SYSTEM_BUSINESS_PASSIVE_LOGOUT" => Some(Self::SystemBusinessPassiveLogout),
-            "SYSTEM_BUSINESS_AUTH_RESULT" => Some(Self::SystemBusinessAuthResult),
             _ => None,
         }
     }

@@ -9,6 +9,7 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
+use common::infra::grpc::grpc_socket::socket::AuthMsg as PbAuthMsg;
 use common::infra::grpc::message as msg_message;
 use common::infra::grpc::message as msgpb;
 
@@ -29,6 +30,8 @@ pub type MessageId = i64;
 pub struct ServerMsg {
     /// 消息唯一 ID（用于客户端 ACK 对齐）
     pub id: MessageId,
+    /// 可选的鉴权结果（用于首帧回传）
+    pub auth: Option<PbAuthMsg>,
     /// 解码后的结构化内容（由 `message.Content` 表示）
     pub payload: msg_message::Content,
     /// 原始 protobuf 负载（发送给客户端）
