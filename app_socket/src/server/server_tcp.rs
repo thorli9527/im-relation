@@ -497,7 +497,6 @@ fn build_profile_user_patch(user_id: UID) -> UserEntity {
         create_time: 0,
         update_time: 0,
         version: 0,
-        profile_version: 0,
     }
 }
 

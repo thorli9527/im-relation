@@ -41,6 +41,7 @@ pub struct LoginResult {
     country: Option<String>,
     alias: Option<String>,
     gender: i32,
+    version: i32,
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
@@ -123,6 +124,7 @@ async fn login(Json(payload): Json<LoginPayload>) -> HandlerResult<LoginResult> 
         country: user.country.clone(),
         alias: user.alias.clone(),
         gender: user.gender,
+        version: user.version,
     })
 }
 

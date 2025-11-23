@@ -163,8 +163,9 @@ message LoginRespMsg {
   string avatar = 8;
   optional string language = 9;
   optional string country = 10;
-   optional string alias = 11;
-   optional Gender gender = 12;
+  optional string alias = 11;
+  optional Gender gender = 12;
+  int32 version = 13;
 }
 
 message LogoutReqMsg {
@@ -247,7 +248,6 @@ message UserEntity {
   int64 create_time = 12;
   int64 update_time = 13;
   int32 version = 14;
-  int64 profile_version = 15;
   reserved 100 to 119;
 }
 

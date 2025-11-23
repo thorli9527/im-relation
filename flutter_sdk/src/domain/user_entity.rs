@@ -23,12 +23,12 @@ pub struct UserInfoEntity {
     pub alias: Option<String>,
     pub session_token: Option<String>,
     pub expires_at: i64,
+    pub version: i64,
     pub gender: i32,
     pub country: Option<String>,
     pub language: Option<String>,
     pub email: Option<String>,
     pub phone: Option<String>,
-    pub profile_version: i64,
     pub updated_at: i64,
 }
 
@@ -42,12 +42,12 @@ impl UserInfoEntity {
             alias: None,
             session_token: None,
             expires_at: 0,
+            version: 0,
             gender: 0,
             country: None,
             language: None,
             email: None,
             phone: None,
-            profile_version: 0,
             updated_at: 0,
         }
     }
@@ -74,6 +74,7 @@ impl TableEntity for UserInfoEntity {
             "expires_at",
             Value::Integer(self.expires_at),
         ));
+        cols.push(ColumnValue::new("version", Value::Integer(self.version)));
         cols.push(ColumnValue::new("gender", Value::Integer(self.gender as i64)));
         cols.push(ColumnValue::new(
             "country",
@@ -90,10 +91,6 @@ impl TableEntity for UserInfoEntity {
         cols.push(ColumnValue::new(
             "phone",
             Value::Text(self.phone.clone().unwrap_or_default()),
-        ));
-        cols.push(ColumnValue::new(
-            "profile_version",
-            Value::Integer(self.profile_version),
         ));
         cols.push(ColumnValue::new(
             "updated_at",
@@ -155,6 +152,12 @@ pub static USER_TABLE_DEF: Lazy<TableDef> = Lazy::new(|| {
                 comment = "token 过期时间戳"
             ),
             column_def!(
+                "version",
+                ColumnType::Integer,
+                constraints = "NOT NULL DEFAULT 0",
+                comment = "资料版本"
+            ),
+            column_def!(
                 "gender",
                 ColumnType::Integer,
                 constraints = "NOT NULL DEFAULT 0",
@@ -183,12 +186,6 @@ pub static USER_TABLE_DEF: Lazy<TableDef> = Lazy::new(|| {
                 ColumnType::Text,
                 constraints = "NOT NULL DEFAULT ''",
                 comment = "手机号"
-            ),
-            column_def!(
-                "profile_version",
-                ColumnType::Integer,
-                constraints = "NOT NULL DEFAULT 0",
-                comment = "资料版本"
             ),
             column_def!(
                 "updated_at",

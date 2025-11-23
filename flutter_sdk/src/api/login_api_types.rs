@@ -22,6 +22,7 @@ pub struct LoginResult {
     pub country: Option<String>,
     pub alias: Option<String>,
     pub gender: i32,
+    pub version: i32,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]

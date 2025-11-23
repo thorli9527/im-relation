@@ -54,12 +54,12 @@ impl UserService {
             alias: login.alias.clone(),
             session_token: Some(login.token.clone()),
             expires_at: login.expires_at as i64,
+            version: login.version as i64,
             gender: login.gender,
             country: login.country.clone(),
             language: login.language.clone(),
             email: login.email.clone(),
             phone: login.phone.clone(),
-            profile_version: 0,
             updated_at: now,
         };
         self.upsert(entity)
@@ -119,15 +119,15 @@ impl UserService {
             alias: normalize_optional(alias),
             session_token: normalize_optional(session_token),
             expires_at,
+            version: row.get("version")?,
             gender: row.get("gender")?,
             country: normalize_optional(country),
             language: normalize_optional(language),
             email: normalize_optional(email),
             phone: normalize_optional(phone),
-            profile_version: row.get("profile_version")?,
-            updated_at: row.get("updated_at")?,
-        })
-    }
+        updated_at: row.get("updated_at")?,
+    })
+}
 }
 
 fn normalize_optional(value: String) -> Option<String> {

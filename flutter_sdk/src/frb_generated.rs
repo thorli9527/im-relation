@@ -2428,6 +2428,7 @@ impl SseDecode for crate::api::app_api::LoginResult {
         let mut var_country = <Option<String>>::sse_decode(deserializer);
         let mut var_alias = <Option<String>>::sse_decode(deserializer);
         let mut var_gender = <i32>::sse_decode(deserializer);
+        let mut var_version = <i32>::sse_decode(deserializer);
         return crate::api::app_api::LoginResult {
             token: var_token,
             expires_at: var_expiresAt,
@@ -2441,6 +2442,7 @@ impl SseDecode for crate::api::app_api::LoginResult {
             country: var_country,
             alias: var_alias,
             gender: var_gender,
+            version: var_version,
         };
     }
 }
@@ -3451,6 +3453,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::app_api::LoginResult {
             self.country.into_into_dart().into_dart(),
             self.alias.into_into_dart().into_dart(),
             self.gender.into_into_dart().into_dart(),
+            self.version.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4110,6 +4113,7 @@ impl SseEncode for crate::api::app_api::LoginResult {
         <Option<String>>::sse_encode(self.country, serializer);
         <Option<String>>::sse_encode(self.alias, serializer);
         <i32>::sse_encode(self.gender, serializer);
+        <i32>::sse_encode(self.version, serializer);
     }
 }
 

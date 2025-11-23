@@ -397,12 +397,12 @@ where
               id, name, password, language, country, alias, avatar,
               allow_add_friend, gender, user_type,
               email_norm, phone_norm,
-              created_at, updated_at, version, profile_version
+              created_at, updated_at, version
             ) VALUES (
               ?, ?, ?, ?, ?, ?, ?,
               ?, ?, ?,
               ?, ?,
-              NOW(3), NOW(3), 0, 0
+              NOW(3), NOW(3), 0
             )
         "#,
         )
@@ -537,7 +537,7 @@ where
             .await
             .map_err(|e| Status::internal(format!("user_info begin: {e}")))?;
         sqlx::query(
-            "UPDATE user_info SET phone_norm=?, updated_at=NOW(3), version=version+1, profile_version=profile_version+1 WHERE id=?",
+            "UPDATE user_info SET phone_norm=?, updated_at=NOW(3), version=version+1 WHERE id=?",
         )
         .bind(new_phone_norm.as_ref().map(|b| b.as_ref()))
         .bind(r.id)
@@ -614,7 +614,7 @@ where
             .await
             .map_err(|e| Status::internal(format!("user_info begin: {e}")))?;
         sqlx::query(
-            "UPDATE user_info SET email_norm=?, updated_at=NOW(3), version=version+1, profile_version=profile_version+1 WHERE id=?",
+            "UPDATE user_info SET email_norm=?, updated_at=NOW(3), version=version+1 WHERE id=?",
         )
         .bind(new_email_norm.as_ref().map(|b| b.as_ref()))
         .bind(r.id)
@@ -778,7 +778,7 @@ where
         }
 
         qb.push(
-            ", updated_at=NOW(3), version=version+1, profile_version=profile_version+1 WHERE id=",
+            ", updated_at=NOW(3), version=version+1 WHERE id=",
         )
         .push_bind(patch.id);
         qb.build()

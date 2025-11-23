@@ -170,6 +170,8 @@ pub struct LoginRespMsg {
     pub alias: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(enumeration = "Gender", optional, tag = "12")]
     pub gender: ::core::option::Option<i32>,
+    #[prost(int32, tag = "13")]
+    pub version: i32,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct LogoutReqMsg {
@@ -272,8 +274,6 @@ pub struct UserEntity {
     pub update_time: i64,
     #[prost(int32, tag = "14")]
     pub version: i32,
-    #[prost(int64, tag = "15")]
-    pub profile_version: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FindUserDto {
