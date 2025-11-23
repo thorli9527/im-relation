@@ -77,7 +77,7 @@ pub struct LogoutResult {
     responses(
         (status = 200, description = "登录返回会话信息", body = ApiResponse<LoginResult>)
     ),
-    tag = "app_api"
+    tag = "app_api/login"
 )]
 async fn login(Json(payload): Json<LoginPayload>) -> HandlerResult<LoginResult> {
     let login_type = auth_models::detect_login_type(&payload.target)
@@ -135,7 +135,7 @@ async fn login(Json(payload): Json<LoginPayload>) -> HandlerResult<LoginResult> 
     responses(
         (status = 200, description = "验证 session token", body = ApiResponse<SessionValidationResult>)
     ),
-    tag = "app_api"
+    tag = "app_api/login"
 )]
 async fn validate_session(
     Json(payload): Json<SessionTokenPayload>,
@@ -201,7 +201,7 @@ async fn validate_session(
     responses(
         (status = 200, description = "登出并吊销 session token", body = ApiResponse<LogoutResult>)
     ),
-    tag = "app_api"
+    tag = "app_api/login"
 )]
 async fn logout(Json(payload): Json<LogoutPayload>) -> HandlerResult<LogoutResult> {
     if payload.session_token.trim().is_empty() {

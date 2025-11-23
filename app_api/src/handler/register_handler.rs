@@ -52,7 +52,7 @@ pub struct VerifyRegisterResult {
     responses(
         (status = 200, description = "生成注册码", body = ApiResponse<BuildRegisterCodeResult>)
     ),
-    tag = "app_api"
+    tag = "app_api/register"
 )]
 async fn build_register_code(
     Json(payload): Json<BuildRegisterCodePayload>,
@@ -109,7 +109,7 @@ async fn build_register_code(
     responses(
         (status = 200, description = "验证注册码", body = ApiResponse<VerifyRegisterResult>)
     ),
-    tag = "app_api"
+    tag = "app_api/register"
 )]
 async fn verify_register_code(
     Json(payload): Json<VerifyRegisterPayload>,

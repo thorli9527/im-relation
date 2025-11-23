@@ -1,5 +1,5 @@
 use axum::extract::Query;
-use axum::{routing::get, Router};
+use axum::{routing::get, routing::post, Router};
 use common::core::errors::AppError;
 use common::core::result::{result, ApiResponse};
 use fake::{faker::name::raw::FirstName, locales::EN, Fake};
@@ -8,7 +8,7 @@ use serde::Deserialize;
 pub fn router() -> Router {
     Router::new()
         .route("/status", get(status))
-        .route("/nickname", get(random_nickname))
+        .route("/nickname/random", post(random_nickname))
 }
 
 #[utoipa::path(
@@ -17,7 +17,7 @@ pub fn router() -> Router {
     responses(
         (status = 200, description = "服务状态", body = ApiResponse<String>)
     ),
-    tag = "app_api"
+    tag = "app_api/common"
 )]
 async fn status() -> Result<ApiResponse<String>, AppError> {
     Ok(result())
@@ -25,25 +25,18 @@ async fn status() -> Result<ApiResponse<String>, AppError> {
 
 /// 随机生成英文昵称（单词），gender 支持 "male"/"female"，其他值走随机。
 pub fn random_english_nickname(gender: Option<&str>) -> String {
-    let gender = gender.map(|g| g.to_ascii_lowercase());
-
-    let first: String = FirstName(EN).fake();
-
-    match gender.as_deref() {
-        Some("male") | Some("m") => format!("Mr{}", first),
-        Some("female") | Some("f") => format!("Ms{}", first),
-        _ => first,
-    }
+    let _gender = gender.map(|g| g.to_ascii_lowercase());
+    FirstName(EN).fake()
 }
 
-#[derive(Debug, Deserialize)]
-struct RandomNicknameQuery {
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct RandomNicknameQuery {
     /// gender 可选：male/female，其他值随机
     gender: Option<String>,
 }
 
 #[utoipa::path(
-    get,
+    post,
     path = "/nickname/random",
     params(
         ("gender" = Option<String>, Query, description = "male/female，缺省则随机")
@@ -51,7 +44,7 @@ struct RandomNicknameQuery {
     responses(
         (status = 200, description = "随机英文昵称", body = ApiResponse<String>)
     ),
-    tag = "app_api"
+    tag = "app_api/common"
 )]
 async fn random_nickname(
     Query(q): Query<RandomNicknameQuery>,

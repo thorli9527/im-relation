@@ -2,6 +2,7 @@ pub mod common_handler;
 pub mod login_handler;
 pub mod register_handler;
 pub mod user_handler;
+pub mod user_handler_types;
 pub mod utils;
 
 use axum::Router;

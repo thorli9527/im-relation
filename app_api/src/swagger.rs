@@ -9,6 +9,7 @@ use utoipa::OpenApi;
         register_handler::verify_register_code,
         login_handler::login,
         login_handler::validate_session,
+        login_handler::logout,
         user_handler::change_password,
         user_handler::change_phone,
         user_handler::change_email,
@@ -19,7 +20,8 @@ use utoipa::OpenApi;
         user_handler::search_user,
         user_handler::get_recent_conversations,
         user_handler::update_name,
-        common_handler::status
+        common_handler::status,
+        common_handler::random_nickname
     ),
     components(
         schemas(
@@ -52,7 +54,8 @@ use utoipa::OpenApi;
             auth_models::ChangePasswordRequestDto,
             auth_models::ChangePhoneRequestDto,
             auth_models::ChangeEmailRequestDto,
-            auth_models::UpdateProfileRequestDto
+            auth_models::UpdateProfileRequestDto,
+            common_handler::RandomNicknameQuery
         )
     ),
     tags(

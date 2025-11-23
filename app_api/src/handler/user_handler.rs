@@ -4,12 +4,11 @@ use common::core::errors::AppError;
 use common::core::result::ApiResponse;
 use common::infra::grpc::grpc_user::online_service::{FindByContentReq, GetUserReq, UserEntity};
 use common::support::util::common_utils::hash_index;
-use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use tonic::Code;
-use utoipa::ToSchema;
 use validator::Validate;
 
+pub use crate::handler::user_handler_types::*;
 use crate::handler::utils::{map_internal_error, map_session_error, success, HandlerResult};
 use crate::service::{
     auth_models::{
@@ -64,7 +63,6 @@ pub fn router() -> Router {
         .route("/email/change", post(change_email))
         .route("/profile/update", post(update_profile))
         .route("/profile/name", post(update_name))
-        .route("/nickname/generate", post(generate_nickname))
         .route("/friends", post(get_friend_list))
         .route("/groups/{group_id}/members", post(get_group_members))
         .route(
@@ -75,149 +73,6 @@ pub fn router() -> Router {
         .route("/conversations/recent", post(get_recent_conversations))
 }
 
-#[derive(Debug, Serialize, ToSchema)]
-pub struct VerifyRegisterResult {
-    ok: bool,
-}
-
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct GenerateNicknamePayload {
-    /// male / female / any
-    gender: Option<String>,
-    /// 数量，默认 10，最大 100
-    count: Option<u32>,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct GenerateNicknameResult {
-    names: Vec<String>,
-}
-
-#[derive(Copy, Clone, Debug)]
-enum FakeGender {
-    Male,
-    Female,
-}
-
-fn pick_gender(g: &Option<String>) -> Option<FakeGender> {
-    match g.as_deref().map(|s| s.to_ascii_lowercase()) {
-        Some(ref v) if v == "male" || v == "m" => Some(FakeGender::Male),
-        Some(ref v) if v == "female" || v == "f" => Some(FakeGender::Female),
-        _ => None,
-    }
-}
-
-fn gen_name(gender: Option<FakeGender>) -> String {
-    use rand::seq::SliceRandom;
-    use rand::thread_rng;
-
-    // 简单的英文名库
-    const MALE_FIRST: &[&str] = &[
-        "James",
-        "John",
-        "Robert",
-        "Michael",
-        "William",
-        "David",
-        "Richard",
-        "Joseph",
-        "Thomas",
-        "Charles",
-        "Christopher",
-        "Daniel",
-        "Matthew",
-        "Anthony",
-        "Mark",
-        "Donald",
-        "Steven",
-        "Paul",
-        "Andrew",
-        "Joshua",
-    ];
-    const FEMALE_FIRST: &[&str] = &[
-        "Mary",
-        "Patricia",
-        "Jennifer",
-        "Linda",
-        "Elizabeth",
-        "Barbara",
-        "Susan",
-        "Jessica",
-        "Sarah",
-        "Karen",
-        "Lisa",
-        "Nancy",
-        "Betty",
-        "Margaret",
-        "Sandra",
-        "Ashley",
-        "Kimberly",
-        "Emily",
-        "Donna",
-        "Michelle",
-    ];
-    const LAST: &[&str] = &[
-        "Smith",
-        "Johnson",
-        "Williams",
-        "Brown",
-        "Jones",
-        "Garcia",
-        "Miller",
-        "Davis",
-        "Rodriguez",
-        "Martinez",
-        "Hernandez",
-        "Lopez",
-        "Gonzalez",
-        "Wilson",
-        "Anderson",
-        "Thomas",
-        "Taylor",
-        "Moore",
-        "Jackson",
-        "Martin",
-    ];
-
-    let mut rng = thread_rng();
-    let first_pool: &[&str] = match gender {
-        Some(FakeGender::Male) => MALE_FIRST,
-        Some(FakeGender::Female) => FEMALE_FIRST,
-        None => {
-            if rand::random::<bool>() {
-                MALE_FIRST
-            } else {
-                FEMALE_FIRST
-            }
-        }
-    };
-    let first = first_pool.choose(&mut rng).unwrap_or(&"Alex");
-    let last = LAST.choose(&mut rng).unwrap_or(&"Lee");
-    format!("{} {}", first, last)
-}
-
-#[utoipa::path(
-    post,
-    path = "/nickname/generate",
-    request_body = GenerateNicknamePayload,
-    responses(
-        (status = 200, description = "生成英文昵称", body = ApiResponse<GenerateNicknameResult>)
-    ),
-    tag = "app_api"
-)]
-async fn generate_nickname(
-    Json(payload): Json<GenerateNicknamePayload>,
-) -> HandlerResult<GenerateNicknameResult> {
-    let count = payload.count.unwrap_or(10).clamp(1, 100) as usize;
-    let gender = pick_gender(&payload.gender);
-    let mut names = Vec::with_capacity(count);
-    for _ in 0..count {
-        names.push(gen_name(gender));
-    }
-    success(GenerateNicknameResult { names })
-}
-
 #[utoipa::path(
     post,
     path = "/password/change",
@@ -225,7 +80,7 @@ async fn generate_nickname(
     responses(
         (status = 200, description = "修改密码", body = ApiResponse<VerifyRegisterResult>)
     ),
-    tag = "app_api"
+    tag = "app_api/user"
 )]
 async fn change_password(
     Json(payload): Json<ChangePasswordRequestDto>,
@@ -243,12 +98,6 @@ async fn change_password(
     success(VerifyRegisterResult { ok: true })
 }
 
-#[derive(Debug, Serialize, ToSchema)]
-pub struct ChangePhoneResult {
-    ok: bool,
-    phone: String,
-}
-
 #[utoipa::path(
     post,
     path = "/phone/change",
@@ -256,7 +105,7 @@ pub struct ChangePhoneResult {
     responses(
         (status = 200, description = "更新手机号", body = ApiResponse<ChangePhoneResult>)
     ),
-    tag = "app_api"
+    tag = "app_api/user"
 )]
 async fn change_phone(
     Json(payload): Json<ChangePhoneRequestDto>,
@@ -275,12 +124,6 @@ async fn change_phone(
     success(ChangePhoneResult { ok: true, phone })
 }
 
-#[derive(Debug, Serialize, ToSchema)]
-pub struct ChangeEmailResult {
-    ok: bool,
-    email: String,
-}
-
 #[utoipa::path(
     post,
     path = "/email/change",
@@ -288,7 +131,7 @@ pub struct ChangeEmailResult {
     responses(
         (status = 200, description = "更新邮箱", body = ApiResponse<ChangeEmailResult>)
     ),
-    tag = "app_api"
+    tag = "app_api/user"
 )]
 async fn change_email(
     Json(payload): Json<ChangeEmailRequestDto>,
@@ -314,7 +157,7 @@ async fn change_email(
     responses(
         (status = 200, description = "更新用户资料", body = ApiResponse<VerifyRegisterResult>)
     ),
-    tag = "app_api"
+    tag = "app_api/user"
 )]
 async fn update_profile(
     Json(payload): Json<UpdateProfileRequestDto>,
@@ -335,18 +178,6 @@ async fn update_profile(
     success(VerifyRegisterResult { ok: true })
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateNameRequest {
-    session_token: String,
-    name: String,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct UpdateNameResult {
-    ok: bool,
-}
-
 #[utoipa::path(
     post,
     path = "/profile/name",
@@ -354,7 +185,7 @@ pub struct UpdateNameResult {
     responses(
         (status = 200, description = "修改用户名", body = ApiResponse<UpdateNameResult>)
     ),
-    tag = "app_api"
+    tag = "app_api/user"
 )]
 async fn update_name(Json(payload): Json<UpdateNameRequest>) -> HandlerResult<UpdateNameResult> {
     if payload.session_token.trim().is_empty() {
@@ -371,30 +202,6 @@ async fn update_name(Json(payload): Json<UpdateNameRequest>) -> HandlerResult<Up
     success(UpdateNameResult { ok: true })
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct FriendListQuery {
-    session_token: String,
-    page: Option<u32>,
-    page_size: Option<u32>,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct FriendListResult {
-    friends: Vec<FriendSummaryResult>,
-    page: u32,
-    page_size: u32,
-    has_more: bool,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct FriendSummaryResult {
-    friend_id: i64,
-    nickname: String,
-    avatar: String,
-    remark: Option<String>,
-}
-
 #[utoipa::path(
     post,
     path = "/friends",
@@ -402,7 +209,7 @@ pub struct FriendSummaryResult {
     responses(
         (status = 200, description = "好友列表", body = ApiResponse<FriendListResult>)
     ),
-    tag = "app_api"
+    tag = "app_api/user"
 )]
 async fn get_friend_list(Json(params): Json<FriendListQuery>) -> HandlerResult<FriendListResult> {
     let page = params.page.unwrap_or(1).max(1);
@@ -467,36 +274,6 @@ async fn get_friend_list(Json(params): Json<FriendListQuery>) -> HandlerResult<F
     })
 }
 
-#[derive(Debug, Deserialize)]
-struct GroupPath {
-    group_id: i64,
-}
-
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct GroupMembersQuery {
-    session_token: String,
-    page: Option<u32>,
-    page_size: Option<u32>,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct GroupMembersResult {
-    members: Vec<GroupMemberResult>,
-    page: u32,
-    page_size: u32,
-    has_more: bool,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct GroupMemberResult {
-    group_id: i64,
-    member_id: i64,
-    nickname: String,
-    avatar: String,
-    role: i32,
-}
-
 #[utoipa::path(
     post,
     path = "/groups/{group_id}/members",
@@ -507,7 +284,7 @@ pub struct GroupMemberResult {
     responses(
         (status = 200, description = "群成员列表", body = ApiResponse<GroupMembersResult>)
     ),
-    tag = "app_api"
+    tag = "app_api/user"
 )]
 async fn get_group_members(
     Path(path): Path<GroupPath>,
@@ -566,18 +343,6 @@ async fn get_group_members(
     })
 }
 
-#[derive(Debug, Deserialize)]
-struct GroupMemberPath {
-    group_id: i64,
-    member_id: i64,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct GroupMemberDetailResult {
-    member: Option<GroupMemberResult>,
-    is_friend: bool,
-}
-
 #[utoipa::path(
     post,
     path = "/groups/{group_id}/members/{member_id}",
@@ -589,7 +354,7 @@ pub struct GroupMemberDetailResult {
     responses(
         (status = 200, description = "群成员详情", body = ApiResponse<GroupMemberDetailResult>)
     ),
-    tag = "app_api"
+    tag = "app_api/user"
 )]
 async fn get_group_member_detail(
     Path(path): Path<GroupMemberPath>,
@@ -645,36 +410,6 @@ async fn get_group_member_detail(
     })
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct SessionQuery {
-    session_token: String,
-}
-
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct SearchUserQuery {
-    search_type: i32,
-    query: String,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct SearchUserResult {
-    user: Option<UserProfileResult>,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct UserProfileResult {
-    uid: i64,
-    username: String,
-    avatar: String,
-    email: Option<String>,
-    phone: Option<String>,
-    signature: Option<String>,
-    region: Option<String>,
-    add_friend_policy: i32,
-}
-
 #[utoipa::path(
     post,
     path = "/users/search",
@@ -682,7 +417,7 @@ pub struct UserProfileResult {
     responses(
         (status = 200, description = "查找用户", body = ApiResponse<SearchUserResult>)
     ),
-    tag = "app_api"
+    tag = "app_api/user"
 )]
 async fn search_user(Json(query): Json<SearchUserQuery>) -> HandlerResult<SearchUserResult> {
     let trimmed = query.query.trim();
@@ -760,34 +495,6 @@ fn user_entity_to_profile(entity: UserEntity) -> UserProfileResult {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct RecentConversationsQuery {
-    session_token: String,
-    limit: Option<u32>,
-    before_updated_at: Option<i64>,
-    before_scene: Option<i32>,
-    before_conversation_id: Option<i64>,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct RecentConversationsResult {
-    conversations: Vec<RecentConversationResult>,
-    has_more: bool,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct RecentConversationResult {
-    scene: i32,
-    conversation_id: i64,
-    target_id: i64,
-    last_msg_id: i64,
-    last_sender_id: i64,
-    last_timestamp: i64,
-    unread_count: u32,
-    updated_at: i64,
-}
-
 #[utoipa::path(
     post,
     path = "/conversations/recent",
@@ -795,7 +502,7 @@ pub struct RecentConversationResult {
     responses(
         (status = 200, description = "最近会话", body = ApiResponse<RecentConversationsResult>)
     ),
-    tag = "app_api"
+    tag = "app_api/user"
 )]
 async fn get_recent_conversations(
     Json(query): Json<RecentConversationsQuery>,

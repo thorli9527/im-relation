@@ -181,7 +181,7 @@ impl GroupMsgService for GroupMsgServiceImpl {
         };
         let require_ack = req.require_ack.unwrap_or(false);
 
-        let mut tasks = futures::stream::FuturesUnordered::new();
+        let mut tasks = FuturesUnordered::new();
         for gid in req.group_ids {
             if gid == 0 {
                 continue;
@@ -702,7 +702,7 @@ impl GroupMsgServiceImpl {
         let client: &mut HgGroupClient = match client_opt {
             Some(ref mut c) => c,
             None => {
-                let mut new_client = self.hot_client()?;
+                let new_client = self.hot_client()?;
                 *client_opt = Some(new_client);
                 client_opt.as_mut().unwrap()
             }
