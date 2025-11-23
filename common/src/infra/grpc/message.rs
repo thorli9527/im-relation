@@ -214,8 +214,10 @@ pub struct FriendEventContent {
     pub reason: ::prost::alloc::string::String,
     /// 可扩展 metadata
     #[prost(map = "string, string", tag = "8")]
-    pub metadata:
-        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    pub metadata: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
 }
 /// ===============================
 /// 👥 群业务消息
@@ -475,7 +477,17 @@ pub struct AvCallContent {
 }
 /// Nested message and enum types in `AVCallContent`.
 pub mod av_call_content {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum CallAction {
         /// 未知操作
@@ -523,7 +535,17 @@ pub mod av_call_content {
             }
         }
     }
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum CallType {
         /// 音频通话：仅语音通话
@@ -675,8 +697,10 @@ pub struct NotificationContent {
     pub body: ::prost::alloc::string::String,
     /// 元数据：通知的附加信息
     #[prost(map = "string, string", tag = "3")]
-    pub metadata:
-        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    pub metadata: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SystemBusinessContent {
@@ -691,8 +715,10 @@ pub struct SystemBusinessContent {
     pub detail: ::prost::alloc::string::String,
     /// 附加上下文，如关联 ID、发起方等
     #[prost(map = "string, string", tag = "4")]
-    pub metadata:
-        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    pub metadata: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
     /// 短摘要（可用于列表）
     #[prost(string, optional, tag = "5")]
     pub summary: ::core::option::Option<::prost::alloc::string::String>,
@@ -713,7 +739,17 @@ pub struct SystemBusinessContent {
 /// Nested message and enum types in `SystemBusinessContent`.
 pub mod system_business_content {
     /// 显示区域：用于控制客户端在哪些位置展示
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum DisplayArea {
         DisplayUnknown = 0,
@@ -767,12 +803,24 @@ pub struct ProfileEventContent {
     #[prost(string, tag = "2")]
     pub new_value: ::prost::alloc::string::String,
     #[prost(map = "string, string", tag = "3")]
-    pub metadata:
-        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    pub metadata: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
 }
 /// Nested message and enum types in `ProfileEventContent`.
 pub mod profile_event_content {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum ProfileEventType {
         EventUnknown = 0,
@@ -834,8 +882,10 @@ pub struct GroupEventContent {
     pub reason: ::prost::alloc::string::String,
     /// 附加 metadata（灰度开关、来源端、客户端版本等）
     #[prost(map = "string, string", tag = "7")]
-    pub metadata:
-        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    pub metadata: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
     /// 关联的申请/消息/工单等（如审批 request_id、公告消息 id）
     #[prost(uint64, optional, tag = "8")]
     pub ref_id: ::core::option::Option<u64>,
@@ -904,7 +954,17 @@ pub struct GroupMemberChanged {
 }
 /// Nested message and enum types in `GroupMemberChanged`.
 pub mod group_member_changed {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum Action {
         Unspecified = 0,
@@ -956,7 +1016,17 @@ pub struct GroupRoleChanged {
 }
 /// Nested message and enum types in `GroupRoleChanged`.
 pub mod group_role_changed {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum RoleChangeType {
         RoleChangeUnspecified = 0,
@@ -1014,12 +1084,16 @@ pub struct GroupInfoUpdated {
 pub struct GroupPermissionUpdated {
     /// 变更前的权限配置（key/value 表示权限项和值）。
     #[prost(map = "string, string", tag = "1")]
-    pub previous_permissions:
-        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    pub previous_permissions: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
     /// 变更后的权限配置。
     #[prost(map = "string, string", tag = "2")]
-    pub current_permissions:
-        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    pub current_permissions: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GroupMuteChanged {
@@ -1090,7 +1164,17 @@ pub struct GroupJoinLeave {
 /// Nested message and enum types in `GroupJoinLeave`.
 pub mod group_join_leave {
     /// 描述成员进入/退出群的事件类型。
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum MemberEvent {
         /// 默认值，表示未指定具体事件。
@@ -1201,8 +1285,10 @@ pub struct Segment {
     pub seq_in_msg: u64,
     /// 通用扩展字段（以字符串键值对存储 JSON 扁平数据）：段的元数据
     #[prost(map = "string, string", tag = "3")]
-    pub metadata:
-        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    pub metadata: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
 }
 /// ======================================
 /// 📨 顶层消息结构

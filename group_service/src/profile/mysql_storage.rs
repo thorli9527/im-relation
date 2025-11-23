@@ -131,4 +131,35 @@ impl GroupProfileStorage for MySqlGroupProfileStore {
             .await?;
         Ok(())
     }
+
+    async fn find_by_name(&self, name: &str) -> Result<Option<GroupEntity>> {
+        let pool = get_db();
+        let rec = sqlx::query(
+            r#"
+            SELECT id, name, avatar, description, notice, join_permission, owner_id, group_type,
+                   allow_search, enable, create_time, update_time
+              FROM group_info
+             WHERE name = ? AND allow_search = TRUE AND enable = TRUE
+             LIMIT 1
+            "#,
+        )
+        .bind(name)
+        .fetch_optional(&*pool)
+        .await?;
+
+        Ok(rec.map(|r| GroupEntity {
+            id: r.try_get::<u64, _>("id").unwrap_or_default() as i64,
+            name: r.try_get::<String, _>("name").unwrap_or_default(),
+            avatar: r.try_get::<String, _>("avatar").unwrap_or_default(),
+            description: r.try_get::<String, _>("description").unwrap_or_default(),
+            notice: r.try_get::<String, _>("notice").unwrap_or_default(),
+            join_permission: r.try_get::<i32, _>("join_permission").unwrap_or(0),
+            owner_id: r.try_get::<u64, _>("owner_id").unwrap_or_default() as i64,
+            group_type: r.try_get::<i32, _>("group_type").unwrap_or(0),
+            allow_search: r.try_get::<bool, _>("allow_search").unwrap_or(true),
+            enable: r.try_get::<bool, _>("enable").unwrap_or(true),
+            create_time: r.try_get::<u64, _>("create_time").unwrap_or_default(),
+            update_time: r.try_get::<u64, _>("update_time").unwrap_or_default(),
+        }))
+    }
 }

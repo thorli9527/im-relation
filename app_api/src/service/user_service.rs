@@ -9,6 +9,7 @@ use common::infra::grpc::grpc_user::online_service::{
     SessionTokenStatus, UpdateUserReq, UpsertSessionTokenRequest, UserEntity, UserType,
     ValidateSessionTokenRequest,
 };
+use common::infra::grpc::grpc_group::group_service::JoinPermission;
 use common::infra::redis::redis_pool::RedisPoolTools;
 use common::support::util::common_utils::{build_md5_with_key, build_uuid};
 use common::UID;
@@ -20,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::sync::Arc;
 
-use crate::service::{friend_gateway, message_gateway, user_gateway};
+use crate::service::{friend_gateway, group_gateway, message_gateway, user_gateway};
 
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -141,6 +142,88 @@ impl UserService {
         groups.sort_unstable();
         groups.dedup();
         Ok(groups)
+    }
+
+    /// 通过 HTTP 加好友：根据被加方策略决定直接添加或提交申请。
+    pub async fn add_friend_http(
+        &self,
+        session_token: &str,
+        target_uid: i64,
+        reason: Option<&str>,
+        remark: Option<&str>,
+    ) -> anyhow::Result<bool> {
+        let active = ensure_active_session(session_token)
+            .await
+            .map_err(|e| anyhow!(e))?;
+        if target_uid == active.uid {
+            return Err(anyhow!("cannot add yourself as friend"));
+        }
+
+        let mut user_client = user_gateway::get_user_rpc_client().await?;
+        let target = Self::get_user_by_id(&mut user_client, target_uid).await?;
+        match AddFriendPolicy::from_i32(target.allow_add_friend) {
+            Some(AddFriendPolicy::Anyone) => {
+                let _ = friend_gateway::add_friend(active.uid, target_uid, remark, None, None).await?;
+                // 系统消息提示已成为好友
+                let _ = message_gateway::send_friend_system_message(
+                    active.uid,
+                    target_uid,
+                    "我们已经成为好友",
+                )
+                .await;
+                Ok(false)
+            }
+            Some(AddFriendPolicy::RequireVerify) | None | Some(AddFriendPolicy::AddFriendUnspecified) => {
+                let reason = reason.unwrap_or_default();
+                let remark = remark.unwrap_or_default();
+                let nickname = target.nickname.unwrap_or_else(|| target.name.clone());
+                message_gateway::send_friend_request_message(
+                    active.uid,
+                    target_uid,
+                    reason,
+                    remark,
+                    &nickname,
+                )
+                .await?;
+                Ok(true)
+            }
+            Some(AddFriendPolicy::PhoneOnly) => Err(anyhow!("target does not accept friend requests")),
+        }
+    }
+
+    /// 通过 HTTP 加群：根据群 join_permission 决定直接入群或提交申请。
+    pub async fn add_group_http(
+        &self,
+        session_token: &str,
+        group_id: i64,
+        reason: Option<&str>,
+    ) -> anyhow::Result<bool> {
+        let active = ensure_active_session(session_token)
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let group = group_gateway::get_group(group_id).await?;
+        match JoinPermission::from_i32(group.join_permission) {
+            Some(JoinPermission::Anyone) => {
+                group_gateway::add_member(group_id, active.uid).await?;
+                // 群系统消息提示加入
+                let _ = message_gateway::send_group_system_message(
+                    active.uid,
+                    group_id,
+                    "已加入群聊",
+                )
+                .await;
+                Ok(false)
+            }
+            Some(JoinPermission::NeedApproval) | None | Some(JoinPermission::JoinUnspecified) => {
+                let reason = reason.unwrap_or_default();
+                message_gateway::send_group_join_request_message(active.uid, group_id, reason)
+                    .await?;
+                Ok(true)
+            }
+            Some(JoinPermission::InviteOnly) | Some(JoinPermission::Closed) => {
+                Err(anyhow!("group is closed for joining"))
+            }
+        }
     }
 }
 impl UserLoginType {

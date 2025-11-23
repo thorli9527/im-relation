@@ -217,6 +217,11 @@ message IdReq {
   int64 ref_id = 1;
 }
 
+// 按名称查群
+message FindGroupByNameReq {
+  string name = 1;
+}
+
 /**
  * 创建群组请求
  * 用于创建一个新群组，由 creator_uid 发起。
@@ -309,6 +314,8 @@ service GroupService {
   rpc UpdateGroupProfile(UpdateGroupProfileReq) returns (CommonResp);
   // 查询群资料：返回 GroupInfo 快照（含基础配置与成员数量）。
   rpc GetGroup(IdReq) returns (GroupInfo);
+  // 按名称查询群（需后端按策略过滤 allow_search）
+  rpc FindGroupByName(FindGroupByNameReq) returns (GroupInfo);
   // 解散群：仅群主可调用，移除所有成员并关闭群。
   rpc DismissGroup(DismissGroupReq) returns (CommonResp);
   // 添加单个成员：通常由 admin/owner 邀请或业务批量导入触发。

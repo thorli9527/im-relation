@@ -2,6 +2,7 @@ use axum::{extract::Path, routing::post, Json, Router};
 use common::config::AppConfig;
 use common::core::errors::AppError;
 use common::core::result::ApiResponse;
+use common::infra::grpc::grpc_group::group_service::GroupInfo;
 use common::infra::grpc::grpc_user::online_service::{FindByContentReq, GetUserReq, UserEntity};
 use common::support::util::common_utils::hash_index;
 use std::convert::TryFrom;
@@ -64,12 +65,15 @@ pub fn router() -> Router {
         .route("/profile/update", post(update_profile))
         .route("/profile/name", post(update_name))
         .route("/friends", post(get_friend_list))
+        .route("/friends/add", post(add_friend))
         .route("/groups/{group_id}/members", post(get_group_members))
         .route(
             "/groups/{group_id}/members/{member_id}",
             post(get_group_member_detail),
         )
         .route("/users/search", post(search_user))
+        .route("/groups/search", post(search_group))
+        .route("/groups/join", post(add_group))
         .route("/conversations/recent", post(get_recent_conversations))
 }
 
@@ -412,6 +416,91 @@ async fn get_group_member_detail(
 
 #[utoipa::path(
     post,
+    path = "/groups/search",
+    request_body = SearchGroupQuery,
+    responses(
+        (status = 200, description = "搜索群（按 ID/名称）", body = ApiResponse<GroupInfoResult>)
+    ),
+    tag = "app_api/user"
+)]
+async fn search_group(Json(payload): Json<SearchGroupQuery>) -> HandlerResult<GroupInfoResult> {
+    let trimmed = payload.query.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::Validation("query is required".into()));
+    }
+    if payload.search_type != 1 && payload.search_type != 2 {
+        return Err(AppError::Validation("invalid search_type".into()));
+    }
+    let group = match payload.search_type {
+        1 => {
+            let gid: i64 = trimmed
+                .parse()
+                .map_err(|_| AppError::Validation("invalid group_id".into()))?;
+            group_gateway::get_group(gid).await
+        }
+        2 => group_gateway::find_group_by_name(trimmed).await,
+        _ => unreachable!(),
+    }
+    .map_err(map_internal_error)?;
+
+    success(group_info_to_result(group))
+}
+
+#[utoipa::path(
+    post,
+    path = "/friends/add",
+    request_body = AddFriendRequest,
+    responses(
+        (status = 200, description = "加好友（自动或申请）", body = ApiResponse<AddFriendResult>)
+    ),
+    tag = "app_api/user"
+)]
+async fn add_friend(Json(payload): Json<AddFriendRequest>) -> HandlerResult<AddFriendResult> {
+    if payload.session_token.trim().is_empty() {
+        return Err(AppError::Validation("session_token is required".into()));
+    }
+    if payload.target_uid <= 0 {
+        return Err(AppError::Validation("target_uid must be positive".into()));
+    }
+    let svc = UserService::get();
+    let applied = svc
+        .add_friend_http(
+            &payload.session_token,
+            payload.target_uid,
+            payload.reason.as_deref(),
+            payload.remark.as_deref(),
+        )
+        .await
+        .map_err(map_internal_error)?;
+    success(AddFriendResult { ok: true, applied })
+}
+
+#[utoipa::path(
+    post,
+    path = "/groups/join",
+    request_body = AddGroupRequest,
+    responses(
+        (status = 200, description = "加群（自动或申请）", body = ApiResponse<AddGroupResult>)
+    ),
+    tag = "app_api/user"
+)]
+async fn add_group(Json(payload): Json<AddGroupRequest>) -> HandlerResult<AddGroupResult> {
+    if payload.session_token.trim().is_empty() {
+        return Err(AppError::Validation("session_token is required".into()));
+    }
+    if payload.group_id <= 0 {
+        return Err(AppError::Validation("group_id must be positive".into()));
+    }
+    let svc = UserService::get();
+    let applied = svc
+        .add_group_http(&payload.session_token, payload.group_id, payload.reason.as_deref())
+        .await
+        .map_err(map_internal_error)?;
+    success(AddGroupResult { ok: true, applied })
+}
+
+#[utoipa::path(
+    post,
     path = "/users/search",
     request_body = SearchUserQuery,
     responses(
@@ -492,6 +581,24 @@ fn user_entity_to_profile(entity: UserEntity) -> UserProfileResult {
         signature,
         region,
         add_friend_policy: entity.allow_add_friend,
+    }
+}
+
+fn group_info_to_result(info: GroupInfo) -> GroupInfoResult {
+    GroupInfoResult {
+        id: info.id,
+        name: info.name,
+        avatar: info.avatar,
+        description: info.description,
+        notice: info.notice,
+        join_permission: info.join_permission,
+        owner_id: info.owner_id,
+        member_cnt: info.member_cnt,
+        allow_search: info.allow_search,
+        enable: info.enable,
+        group_type: info.group_type,
+        create_time: info.create_time,
+        update_time: info.update_time,
     }
 }
 

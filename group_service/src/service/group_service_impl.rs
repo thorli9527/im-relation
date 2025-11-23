@@ -14,6 +14,7 @@ use common::infra::grpc::grpc_group::group_service::{
     GetAllReq, GetAllResp, GetManagersReq, GetManagersResp, GetPageReq, GetPageResp, GroupInfo,
     GroupRoleType, IdReq, InsertManyReq, InsertManyResp, InsertReq, InsertResp, MemberRef,
     RemoveReq, RemoveResp, UpdateGroupProfileReq, UserGroupsReq, UserGroupsResp,
+    FindGroupByNameReq,
 };
 // 你的冷存储抽象
 
@@ -256,6 +257,39 @@ where
         };
 
         log::info!("get_group ok: gid={}", gid);
+        Ok(Response::new(gi))
+    }
+
+    async fn find_group_by_name(
+        &self,
+        request: Request<FindGroupByNameReq>,
+    ) -> Result<Response<GroupInfo>, Status> {
+        let req = request.into_inner();
+        if req.name.trim().is_empty() {
+            return Err(Status::invalid_argument("name required"));
+        }
+        let entity = self
+            .profile
+            .find_by_name(&req.name)
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?
+            .ok_or_else(|| Status::not_found("group not found"))?;
+        let member_cnt = self.facade.count(entity.id).await as u32;
+        let gi = GroupInfo {
+            id: entity.id,
+            name: entity.name.clone(),
+            avatar: entity.avatar.clone(),
+            description: entity.description.clone(),
+            notice: entity.notice.clone(),
+            join_permission: entity.join_permission,
+            owner_id: entity.owner_id,
+            group_type: entity.group_type,
+            allow_search: entity.allow_search,
+            enable: entity.enable,
+            create_time: entity.create_time,
+            update_time: entity.update_time,
+            member_cnt,
+        };
         Ok(Response::new(gi))
     }
 

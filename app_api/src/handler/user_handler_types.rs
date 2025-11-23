@@ -52,6 +52,60 @@ pub struct FriendListQuery {
     pub page_size: Option<u32>,
 }
 
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchUserQuery {
+    /// 1=uid, 2=username, 3=phone, 4=email
+    pub search_type: i32,
+    /// 查询内容（用户 id/用户名/手机号/邮箱）
+    pub query: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchGroupQuery {
+    /// 1=group_id, 2=group_name
+    pub search_type: i32,
+    pub query: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AddFriendRequest {
+    pub session_token: String,
+    /// 目标用户 id
+    pub target_uid: i64,
+    /// 附言/备注，可选
+    pub reason: Option<String>,
+    /// 对方的备注，可选
+    pub remark: Option<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AddFriendResult {
+    pub ok: bool,
+    /// true 表示提交了申请，false 表示已直接成为好友
+    pub applied: bool,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AddGroupRequest {
+    pub session_token: String,
+    pub group_id: i64,
+    /// 入群申请理由，可选
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AddGroupResult {
+    pub ok: bool,
+    /// true 表示提交了申请，false 表示已直接入群
+    pub applied: bool,
+}
+
 #[derive(Debug, Serialize, ToSchema)]
 pub struct FriendListResult {
     pub friends: Vec<FriendSummaryResult>,
@@ -118,17 +172,28 @@ pub struct SessionQuery {
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct SearchUserQuery {
-    pub search_type: i32,
-    pub query: String,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
 pub struct SearchUserResult {
     pub user: Option<UserProfileResult>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+pub struct GroupInfoResult {
+    pub id: i64,
+    pub name: String,
+    pub avatar: String,
+    pub description: String,
+    pub notice: String,
+    pub join_permission: i32,
+    pub owner_id: i64,
+    pub member_cnt: u32,
+    pub allow_search: bool,
+    pub enable: bool,
+    pub group_type: i32,
+    pub create_time: u64,
+    pub update_time: u64,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct UserProfileResult {
     pub uid: i64,
     pub username: String,

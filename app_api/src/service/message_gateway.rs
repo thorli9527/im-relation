@@ -9,9 +9,13 @@ use common::infra::grpc::grpc_msg_group::msg_group_service::{
     GroupConversationSnapshot, ListGroupConversationsRequest,
 };
 use common::infra::grpc::message::{
-    self as msgpb, message_content::Content as MessageContentKind, MessageContent,
+    self as msgpb, friend_business_content::Action as FriendAction, group_business_content::Action,
+    message_content::Content as MessageContentKind, ChatScene, DeliveryOptions, DomainMessage,
+    FriendBusinessContent, GroupBusinessContent, MessageContent, MsgCategory,
 };
 use common::infra::grpc::GrpcClientManager;
+use common::support::util::common_utils::build_snow_id;
+use common::support::util::date_util::now;
 use common::support::node::{NodeType, NodeUtil};
 use common::support::util::common_utils::hash_index;
 use once_cell::sync::OnceCell;
@@ -203,6 +207,182 @@ pub async fn send_batch_profile_update_to_groups(
         .broadcast_group_profile_updates(req)
         .await
         .map_err(|status| anyhow!("broadcast_group_profile_updates failed: {status}"))?;
+    Ok(())
+}
+
+/// 提交好友申请，落到好友消息域。
+pub async fn send_friend_request_message(
+    from_uid: i64,
+    to_uid: i64,
+    reason: &str,
+    remark: &str,
+    nickname: &str,
+) -> Result<()> {
+    let addr = resolve_addr(NodeType::MsgFriend, from_uid).await?;
+    let mut client = connect_friend_msg(&addr).await?;
+    let req_id = build_snow_id() as u64;
+    let ts = now();
+    let friend_business = FriendBusinessContent {
+        action: Some(FriendAction::Request(msgpb::FriendRequestPayload {
+            request_id: req_id,
+            from_user_id: from_uid,
+            to_user_id: to_uid,
+            reason: reason.to_string(),
+            source: msgpb::FriendRequestSource::FrsUnknown as i32,
+            created_at: ts,
+            remark: remark.to_string(),
+            nickname: nickname.to_string(),
+        })),
+    };
+    let domain = DomainMessage {
+        message_id: Some(req_id),
+        sender_id: from_uid,
+        receiver_id: to_uid,
+        timestamp: ts,
+        ts_ms: ts,
+        delivery: Some(DeliveryOptions {
+            require_ack: false,
+            expire_ms: None,
+            max_retry: None,
+        }),
+        scene: ChatScene::Single as i32,
+        category: MsgCategory::Friend as i32,
+        contents: Vec::new(),
+        friend_business: Some(friend_business),
+        group_business: None,
+    };
+    client
+        .handle_friend_message(domain)
+        .await
+        .map_err(|status| anyhow!("send friend request failed: {status}"))?;
+    Ok(())
+}
+
+/// 提交加群申请，落到群消息域。
+pub async fn send_group_join_request_message(
+    applicant_id: i64,
+    group_id: i64,
+    reason: &str,
+) -> Result<()> {
+    let addr = resolve_addr(NodeType::MesGroup, applicant_id).await?;
+    let mut client = connect_group_msg(&addr).await?;
+    let req_id = build_snow_id() as u64;
+    let ts = now();
+    let group_business = GroupBusinessContent {
+        action: Some(Action::JoinRequest(msgpb::GroupJoinRequestPayload {
+            request_id: req_id,
+            group_id,
+            applicant_id,
+            reason: reason.to_string(),
+            created_at: ts,
+            via_member_ids: Vec::new(),
+        })),
+    };
+    let domain = DomainMessage {
+        message_id: Some(req_id),
+        sender_id: applicant_id,
+        receiver_id: group_id,
+        timestamp: ts,
+        ts_ms: ts,
+        delivery: Some(DeliveryOptions {
+            require_ack: false,
+            expire_ms: None,
+            max_retry: None,
+        }),
+        scene: ChatScene::Group as i32,
+        category: MsgCategory::Group as i32,
+        contents: Vec::new(),
+        friend_business: None,
+        group_business: Some(group_business),
+    };
+    client
+        .handle_group_message(domain)
+        .await
+        .map_err(|status| anyhow!("send group join request failed: {status}"))?;
+    Ok(())
+}
+
+/// 直接成为好友时，写一条系统文本消息。
+pub async fn send_friend_system_message(
+    sender_id: i64,
+    peer_id: i64,
+    text: &str,
+) -> Result<()> {
+    if text.is_empty() {
+        return Ok(());
+    }
+    let addr = resolve_addr(NodeType::MsgFriend, sender_id).await?;
+    let mut client = connect_friend_msg(&addr).await?;
+    let ts = now();
+    let content = MessageContent {
+        content: Some(MessageContentKind::Text(msgpb::TextContent {
+            text: text.to_string(),
+            ..Default::default()
+        })),
+    };
+    let domain = DomainMessage {
+        message_id: Some(build_snow_id() as u64),
+        sender_id,
+        receiver_id: peer_id,
+        timestamp: ts,
+        ts_ms: ts,
+        delivery: Some(DeliveryOptions {
+            require_ack: false,
+            expire_ms: None,
+            max_retry: None,
+        }),
+        scene: ChatScene::Single as i32,
+        category: MsgCategory::Friend as i32,
+        contents: vec![content],
+        friend_business: None,
+        group_business: None,
+    };
+    client
+        .handle_friend_message(domain)
+        .await
+        .map_err(|status| anyhow!("send friend system message failed: {status}"))?;
+    Ok(())
+}
+
+/// 直接入群时，写一条群系统文本消息。
+pub async fn send_group_system_message(
+    operator_id: i64,
+    group_id: i64,
+    text: &str,
+) -> Result<()> {
+    if text.is_empty() {
+        return Ok(());
+    }
+    let addr = resolve_addr(NodeType::MesGroup, operator_id).await?;
+    let mut client = connect_group_msg(&addr).await?;
+    let ts = now();
+    let content = MessageContent {
+        content: Some(MessageContentKind::Text(msgpb::TextContent {
+            text: text.to_string(),
+            ..Default::default()
+        })),
+    };
+    let domain = DomainMessage {
+        message_id: Some(build_snow_id() as u64),
+        sender_id: operator_id,
+        receiver_id: group_id,
+        timestamp: ts,
+        ts_ms: ts,
+        delivery: Some(DeliveryOptions {
+            require_ack: false,
+            expire_ms: None,
+            max_retry: None,
+        }),
+        scene: ChatScene::Group as i32,
+        category: MsgCategory::Group as i32,
+        contents: vec![content],
+        friend_business: None,
+        group_business: None,
+    };
+    client
+        .handle_group_message(domain)
+        .await
+        .map_err(|status| anyhow!("send group system message failed: {status}"))?;
     Ok(())
 }
 

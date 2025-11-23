@@ -96,4 +96,20 @@ impl<S: GroupProfileStorage> GroupProfileCache<S> {
     pub fn touch(&self, gid: i64) {
         let _ = self.cache.get(&gid);
     } // 刷新TTI
+
+    /// 按名称查询；命中后回填缓存。
+    pub async fn find_by_name(&self, name: &str) -> anyhow::Result<Option<Arc<GroupEntity>>> {
+        if name.is_empty() {
+            return Ok(None);
+        }
+        let loaded = self.storage.find_by_name(name).await?;
+        if let Some(e) = loaded {
+            let id = e.id;
+            let arc = Arc::new(e);
+            self.cache.insert(id, arc.clone());
+            Ok(Some(arc))
+        } else {
+            Ok(None)
+        }
+    }
 }

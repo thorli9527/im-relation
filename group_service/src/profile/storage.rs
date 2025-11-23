@@ -19,4 +19,7 @@ pub trait GroupProfileStorage: Send + Sync {
 
     /// 删除
     async fn delete_group_info(&self, gid: i64) -> anyhow::Result<()>;
+
+    /// 按名称查找群（通常用于搜索）
+    async fn find_by_name(&self, name: &str) -> anyhow::Result<Option<GroupEntity>>;
 }

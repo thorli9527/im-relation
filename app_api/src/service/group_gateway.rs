@@ -1,7 +1,8 @@
 use anyhow::{anyhow, Result};
 use common::config::AppConfig;
 use common::infra::grpc::grpc_group::group_service::{
-    group_service_client::GroupServiceClient, GetAllReq, GetPageReq, MemberRef,
+    group_service_client::GroupServiceClient, FindGroupByNameReq, GetAllReq, GetPageReq, GroupInfo,
+    IdReq, InsertReq, MemberRef,
 };
 use common::infra::grpc::GrpcClientManager;
 use common::support::node::{NodeType, NodeUtil};
@@ -103,4 +104,45 @@ pub async fn find_member(group_id: i64, member_id: i64) -> Result<Option<MemberR
         .into_inner();
 
     Ok(resp.members.into_iter().find(|m| m.id == member_id))
+}
+
+pub async fn get_group(group_id: i64) -> Result<GroupInfo> {
+    let addr = resolve_group_addr(group_id).await?;
+    let mut client = connect_group_service(&addr).await?;
+    let resp = client
+        .get_group(IdReq { ref_id: group_id })
+        .await
+        .map_err(|status| anyhow!(status))?
+        .into_inner();
+    Ok(resp)
+}
+
+pub async fn find_group_by_name(_name: &str) -> Result<GroupInfo> {
+    let addr = resolve_group_addr(0).await?; // simple hash not needed; pick first
+    let mut client = connect_group_service(&addr).await?;
+    let resp = client
+        .find_group_by_name(FindGroupByNameReq {
+            name: _name.to_string(),
+        })
+        .await
+        .map_err(|status| anyhow!(status))?
+        .into_inner();
+    Ok(resp)
+}
+
+pub async fn add_member(group_id: i64, uid: i64) -> Result<()> {
+    let addr = resolve_group_addr(group_id).await?;
+    let mut client = connect_group_service(&addr).await?;
+    client
+        .insert(InsertReq {
+            group_id,
+            member: Some(MemberRef {
+                id: uid,
+                nickname: None,
+                role: 3, // Member
+            }),
+        })
+        .await
+        .map_err(|status| anyhow!(status))?;
+    Ok(())
 }
