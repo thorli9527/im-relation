@@ -163,7 +163,7 @@ message LoginRespMsg {
   string avatar = 8;
   optional string language = 9;
   optional string country = 10;
-  optional string alias = 11;
+  optional string nickname = 11;
   optional Gender gender = 12;
   int32 version = 13;
 }
@@ -239,7 +239,7 @@ message UserEntity {
   optional string phone = 5;
   optional string language = 6;
   optional string country = 16;
-  optional string alias = 17;
+  optional string nickname = 17;
   string avatar = 7;
   AddFriendPolicy allow_add_friend = 8;
   Gender gender = 9;
@@ -262,7 +262,7 @@ message RegisterUserReq {
   optional string phone = 5;
   optional string language = 6;
   optional string country = 12;
-  optional string alias = 13;
+  optional string nickname = 13;
   string avatar = 7;
   AddFriendPolicy allow_add_friend = 8;
   Gender gender = 9;

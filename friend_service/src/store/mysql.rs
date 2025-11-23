@@ -11,7 +11,7 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 pub struct FriendEntry {
     pub friend_id: UID,
-    pub alias: Option<String>,
+    pub nickname: Option<String>,
     pub remark: Option<String>,
     pub blacklisted: bool,
     pub created_at: i64, // UNIX_TIMESTAMP 秒
@@ -27,17 +27,17 @@ pub enum AddOutcome {
 
 #[async_trait]
 pub trait FriendRepo: Send + Sync + 'static {
-    async fn add_friend(&self, user: UID, friend: UID, alias: Option<&str>) -> Result<AddOutcome>;
+    async fn add_friend(&self, user: UID, friend: UID, nickname: Option<&str>) -> Result<AddOutcome>;
     /// 原子地为双方建立好友关系，并刷新两侧计数（以实时 COUNT(*) 为准）。
     async fn add_friend_both(
         &self,
         a: UID,
         b: UID,
-        alias_for_a: Option<&str>,
-        alias_for_b: Option<&str>,
+        nickname_for_a: Option<&str>,
+        nickname_for_b: Option<&str>,
     ) -> Result<()>;
     async fn remove_friend(&self, user: UID, friend: UID) -> Result<bool>;
-    async fn set_alias(&self, user: UID, friend: UID, alias: Option<&str>) -> Result<bool>;
+    async fn set_alias(&self, user: UID, friend: UID, nickname: Option<&str>) -> Result<bool>;
     async fn set_remark(&self, user: UID, friend: UID, remark: Option<&str>) -> Result<bool>;
     async fn set_blacklist(&self, user: UID, friend: UID, blocked: bool) -> Result<bool>;
     async fn is_friend(&self, user: UID, friend: UID) -> Result<bool>;
@@ -88,17 +88,17 @@ impl FriendStorage {
 
 #[async_trait]
 impl FriendRepo for FriendStorage {
-    async fn add_friend(&self, user: UID, friend: UID, alias: Option<&str>) -> Result<AddOutcome> {
+    async fn add_friend(&self, user: UID, friend: UID, nickname: Option<&str>) -> Result<AddOutcome> {
         let insert_res = sqlx::query(
             r#"
-        INSERT INTO friend_edge (uid, friend_id, alias, remark)
+        INSERT INTO friend_edge (uid, friend_id, nickname, remark)
         VALUES (?, ?, ?, ?)
         "#,
         )
         .bind(user as u64)
         .bind(friend as u64)
-        .bind(alias)
-        .bind(alias)
+        .bind(nickname)
+        .bind(nickname)
         .execute(self.db())
         .await;
 
@@ -129,18 +129,18 @@ impl FriendRepo for FriendStorage {
                         .with_context(|| "add_friend: insert failed");
                 }
 
-                // 已存在：读取现有 alias 并比较
+                // 已存在：读取现有 nickname 并比较
                 let db_alias: Option<String> = sqlx::query_scalar(
-                    r#"SELECT alias FROM friend_edge WHERE uid=? AND friend_id=? "#,
+                    r#"SELECT nickname FROM friend_edge WHERE uid=? AND friend_id=? "#,
                 )
                 .bind(user as u64)
                 .bind(friend as u64)
                 .fetch_optional(self.db())
                 .await
-                .with_context(|| "add_friend: fetch alias after dup key")?
+                .with_context(|| "add_friend: fetch nickname after dup key")?
                 .flatten();
 
-                let changed = match (db_alias.as_deref(), alias) {
+                let changed = match (db_alias.as_deref(), nickname) {
                     (None, None) => false,
                     (Some(a), Some(b)) => a != b,
                     (Some(_), None) | (None, Some(_)) => true,
@@ -150,17 +150,17 @@ impl FriendRepo for FriendStorage {
                     sqlx::query(
                         r#"
                     UPDATE friend_edge
-                    SET alias = ?, remark = ?, updated_at = CURRENT_TIMESTAMP
+                    SET nickname = ?, remark = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE uid=? AND friend_id=?
                     "#,
                     )
-                    .bind(alias)
-                    .bind(alias)
+                    .bind(nickname)
+                    .bind(nickname)
                     .bind(user as u64)
                     .bind(friend as u64)
                     .execute(self.db())
                     .await
-                    .with_context(|| "add_friend: update alias on dup")?;
+                    .with_context(|| "add_friend: update nickname on dup")?;
 
                     Ok(AddOutcome::Updated)
                 } else {
@@ -176,8 +176,8 @@ impl FriendRepo for FriendStorage {
         &self,
         a: UID,
         b: UID,
-        alias_for_a: Option<&str>,
-        alias_for_b: Option<&str>,
+        nickname_for_a: Option<&str>,
+        nickname_for_b: Option<&str>,
     ) -> Result<()> {
         let mut tx = self
             .db()
@@ -188,30 +188,30 @@ impl FriendRepo for FriendStorage {
         // 双向 UPSERT（幂等），别名按传入值覆盖
         sqlx::query(
             r#"
-            INSERT INTO friend_edge (uid, friend_id, alias, remark)
+            INSERT INTO friend_edge (uid, friend_id, nickname, remark)
             VALUES (?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE alias=VALUES(alias), remark=VALUES(remark), updated_at=CURRENT_TIMESTAMP
+            ON DUPLICATE KEY UPDATE nickname=VALUES(nickname), remark=VALUES(remark), updated_at=CURRENT_TIMESTAMP
             "#,
         )
         .bind(a as u64)
         .bind(b as u64)
-        .bind(alias_for_a)
-        .bind(alias_for_a)
+        .bind(nickname_for_a)
+        .bind(nickname_for_a)
         .execute(&mut *tx)
         .await
         .with_context(|| "add_friend_both: upsert A->B failed")?;
 
         sqlx::query(
             r#"
-            INSERT INTO friend_edge (uid, friend_id, alias, remark)
+            INSERT INTO friend_edge (uid, friend_id, nickname, remark)
             VALUES (?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE alias=VALUES(alias), remark=VALUES(remark), updated_at=CURRENT_TIMESTAMP
+            ON DUPLICATE KEY UPDATE nickname=VALUES(nickname), remark=VALUES(remark), updated_at=CURRENT_TIMESTAMP
             "#,
         )
         .bind(b as u64)
         .bind(a as u64)
-        .bind(alias_for_b)
-        .bind(alias_for_b)
+        .bind(nickname_for_b)
+        .bind(nickname_for_b)
         .execute(&mut *tx)
         .await
         .with_context(|| "add_friend_both: upsert B->A failed")?;
@@ -292,15 +292,15 @@ impl FriendRepo for FriendStorage {
         Ok(false)
     }
 
-    async fn set_alias(&self, user: UID, friend: UID, alias: Option<&str>) -> Result<bool> {
+    async fn set_alias(&self, user: UID, friend: UID, nickname: Option<&str>) -> Result<bool> {
         // 仅在值真的变化时更新
-        let changed = if let Some(a) = alias {
+        let changed = if let Some(a) = nickname {
             let res = sqlx::query(
                 r#"
                 UPDATE friend_edge
-                SET alias=?, remark=?, updated_at=CURRENT_TIMESTAMP
+                SET nickname=?, remark=?, updated_at=CURRENT_TIMESTAMP
                 WHERE uid=? AND friend_id=?
-                  AND (alias IS NULL OR alias <> ? OR remark IS NULL OR remark <> ?)
+                  AND (nickname IS NULL OR nickname <> ? OR remark IS NULL OR remark <> ?)
                 "#,
             )
             .bind(a)
@@ -311,21 +311,21 @@ impl FriendRepo for FriendStorage {
             .bind(a)
             .execute(self.db())
             .await
-            .with_context(|| "set_alias: update alias failed")?;
+            .with_context(|| "set_alias: update nickname failed")?;
             res.rows_affected() > 0
         } else {
             let res = sqlx::query(
                 r#"
                 UPDATE friend_edge
-                SET alias=NULL, remark=NULL, updated_at=CURRENT_TIMESTAMP
-                WHERE uid=? AND friend_id=? AND (alias IS NOT NULL OR remark IS NOT NULL)
+                SET nickname=NULL, remark=NULL, updated_at=CURRENT_TIMESTAMP
+                WHERE uid=? AND friend_id=? AND (nickname IS NOT NULL OR remark IS NOT NULL)
                 "#,
             )
             .bind(user as u64)
             .bind(friend as u64)
             .execute(self.db())
             .await
-            .with_context(|| "set_alias: clear alias failed")?;
+            .with_context(|| "set_alias: clear nickname failed")?;
             res.rows_affected() > 0
         };
         Ok(changed)
@@ -389,7 +389,7 @@ impl FriendRepo for FriendStorage {
         let rows: Vec<MySqlRow> = if let Some(cur) = cursor {
             sqlx::query(
                 r#"
-                SELECT friend_id, alias, remark, blacklisted,
+                SELECT friend_id, nickname, remark, blacklisted,
                        UNIX_TIMESTAMP(created_at), UNIX_TIMESTAMP(updated_at)
                 FROM friend_edge
                 WHERE uid=? AND friend_id > ?
@@ -405,7 +405,7 @@ impl FriendRepo for FriendStorage {
         } else {
             sqlx::query(
                 r#"
-                SELECT friend_id, alias, remark, blacklisted,
+                SELECT friend_id, nickname, remark, blacklisted,
                        UNIX_TIMESTAMP(created_at), UNIX_TIMESTAMP(updated_at)
                 FROM friend_edge
                 WHERE uid=?
@@ -425,7 +425,7 @@ impl FriendRepo for FriendStorage {
 
         for r in rows.into_iter() {
             let fid: u64 = r.try_get(0)?;
-            let alias: Option<String> = r.try_get(1)?;
+            let nickname: Option<String> = r.try_get(1)?;
             let remark: Option<String> = r.try_get(2)?;
             let blacklisted: i32 = r.try_get(3)?;
             let created_at: i64 = r.try_get(4)?;
@@ -433,7 +433,7 @@ impl FriendRepo for FriendStorage {
             next = Some(fid as UID);
             items.push(FriendEntry {
                 friend_id: fid as UID,
-                alias,
+                nickname,
                 remark,
                 blacklisted: blacklisted != 0,
                 created_at,
@@ -462,15 +462,15 @@ impl FriendRepo for FriendStorage {
 
         for chunk in items.chunks(self.chunk) {
             let mut qb: QueryBuilder<MySql> =
-                QueryBuilder::new("INSERT INTO friend_edge (uid, friend_id, alias, remark) ");
-            qb.push_values(chunk, |mut b, (fid, alias)| {
+                QueryBuilder::new("INSERT INTO friend_edge (uid, friend_id, nickname, remark) ");
+            qb.push_values(chunk, |mut b, (fid, nickname)| {
                 b.push_bind(user as u64)
                     .push_bind(*fid as u64)
-                    .push_bind(*alias)
-                    .push_bind(*alias);
+                    .push_bind(*nickname)
+                    .push_bind(*nickname);
             });
             qb.push(
-                " ON DUPLICATE KEY UPDATE alias=VALUES(alias), remark=VALUES(remark), updated_at=CURRENT_TIMESTAMP ",
+                " ON DUPLICATE KEY UPDATE nickname=VALUES(nickname), remark=VALUES(remark), updated_at=CURRENT_TIMESTAMP ",
             );
 
             qb.build()

@@ -2,7 +2,7 @@
 //! ------------------------------------------------------------------
 //! 热/冷一体：成员热层 + 冷存持久化的门面。
 //! - ensure_hot：L1 热标记 + 单飞从冷存加载（仅成员集）
-//! - 写路径：insert/insert_many/remove/change_role/change_alias -> 去抖合并落库
+//! - 写路径：insert/insert_many/remove/change_role/change_nickname -> 去抖合并落库
 //! - 热度逐出：仅在持久化成功后清空内存（失败保留，下次再尝试）
 //!
 //! 依赖：HashShardMap(成员容器)、GroupStorage(冷存接口)、env_logger + log 宏
@@ -270,18 +270,18 @@ impl<S: GroupStorage> HotColdFacade<S> {
         Ok(())
     }
 
-    /// 修改/清空别名
-    pub async fn change_alias(
+    /// 修改/清空昵称
+    pub async fn change_nickname(
         &self,
         gid: GroupId,
         uid: UID,
-        alias: Option<String>,
+        nickname: Option<String>,
     ) -> std::result::Result<(), MemberListError> {
         let _ = self
             .ensure_hot(gid)
             .await
             .map_err(|e| MemberListError::Internal(e.to_string()))?;
-        self.map.change_alias(gid, uid, alias)?;
+        self.map.change_nickname(gid, uid, nickname)?;
         self.persist_async(gid);
         Ok(())
     }

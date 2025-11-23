@@ -53,7 +53,7 @@ impl MySqlStore {
         let rows = if let Some(after) = after_uid {
             sqlx::query(
                 r#"
-                SELECT uid, alias, role
+                SELECT uid, nickname, role
                 FROM group_member
                 WHERE group_id = ? AND uid > ?
                 ORDER BY uid ASC
@@ -69,7 +69,7 @@ impl MySqlStore {
         } else {
             sqlx::query(
                 r#"
-                SELECT uid, alias, role
+                SELECT uid, nickname, role
                 FROM group_member
                 WHERE group_id = ?
                 ORDER BY uid ASC
@@ -88,14 +88,14 @@ impl MySqlStore {
 
         for r in rows {
             let uid_u64: u64 = r.try_get("uid")?;
-            let alias: Option<String> = r.try_get("alias")?;
+            let nickname: Option<String> = r.try_get("nickname")?;
             let role_i64: i64 = r.try_get("role")?;
             let role = i32::try_from(role_i64).context("seek_members: role overflow")?;
 
             let id_i64 = uid_u64 as i64;
             out.push(MemberRef {
                 id: id_i64,
-                alias,
+                nickname,
                 role,
             });
             next_cursor = Some(id_i64); // 本页最后一条
@@ -111,7 +111,7 @@ impl MySqlStore {
     {
         let mut rows = sqlx::query(
             r#"
-            SELECT uid, alias, role
+            SELECT uid, nickname, role
             FROM group_member
             WHERE group_id = ?
             ORDER BY uid ASC
@@ -122,12 +122,12 @@ impl MySqlStore {
 
         while let Some(r) = rows.try_next().await? {
             let uid: u64 = r.try_get("uid")?;
-            let alias: Option<String> = r.try_get("alias")?;
+            let nickname: Option<String> = r.try_get("nickname")?;
             let role_i64: i64 = r.try_get("role")?;
             let role = i32::try_from(role_i64)?;
             handle(MemberRef {
                 id: uid as i64,
-                alias,
+                nickname,
                 role,
             })?;
         }
@@ -137,7 +137,7 @@ impl MySqlStore {
 
 #[async_trait]
 impl GroupStorage for MySqlStore {
-    /// 读取某群的**全部成员**，按 uid 升序返回（含 alias）
+    /// 读取某群的**全部成员**，按 uid 升序返回（含 nickname）
     async fn load_group(&self, gid: GroupId) -> Result<Option<Vec<MemberRef>>> {
         let mut after: Option<i64> = None;
         let mut out: Vec<MemberRef> = Vec::new();
@@ -167,9 +167,9 @@ impl GroupStorage for MySqlStore {
     }
 
     /// 仅对差异做写入：
-    /// - 新增：内存有、DB 无 -> INSERT (group_id, uid, alias, role)
+    /// - 新增：内存有、DB 无 -> INSERT (group_id, uid, nickname, role)
     /// - 删除：DB 有、内存无 -> DELETE
-    /// - 变更：交集且 alias/role 任一不同 -> UPDATE alias=?, role=?
+    /// - 变更：交集且 nickname/role 任一不同 -> UPDATE nickname=?, role=?
     ///
     /// 全过程在同一事务中执行。
     async fn save_group(&self, gid: GroupId, members: &[MemberRef]) -> Result<()> {
@@ -178,7 +178,7 @@ impl GroupStorage for MySqlStore {
         // --- 1) 读取 DB 当前视图 ---
         let db_rows = sqlx::query(
             r#"
-            SELECT uid, alias, role
+            SELECT uid, nickname, role
             FROM group_member
             WHERE group_id = ?
             "#,
@@ -193,11 +193,11 @@ impl GroupStorage for MySqlStore {
             )
         })?;
 
-        // DB -> HashMap<uid, (alias, role)>
+        // DB -> HashMap<uid, (nickname, role)>
         let mut db_map: HashMap<i64, (Option<String>, i32)> = HashMap::with_capacity(db_rows.len());
         for r in db_rows {
             let uid_u64: u64 = r.try_get("uid")?;
-            let alias_db: Option<String> = r.try_get("alias")?;
+            let alias_db: Option<String> = r.try_get("nickname")?;
             let role_i64: i64 = r.try_get("role")?;
             let role_i32 = i32::try_from(role_i64).with_context(|| {
                 format!("save_group(diff): member role overflow, v={}", role_i64)
@@ -205,15 +205,15 @@ impl GroupStorage for MySqlStore {
             db_map.insert(uid_u64 as i64, (alias_db, role_i32));
         }
 
-        // 内存 -> HashMap<uid, (alias, role)>（后写覆盖先写；空串 -> None）
+        // 内存 -> HashMap<uid, (nickname, role)>（后写覆盖先写；空串 -> None）
         let mut mem_map: HashMap<i64, (Option<String>, i32)> =
             HashMap::with_capacity(members.len());
         for m in members {
-            let alias_norm =
-                m.alias
-                    .as_ref()
-                    .and_then(|s| if s.is_empty() { None } else { Some(s.clone()) });
-            mem_map.insert(m.id, (alias_norm, m.role));
+            let nick_norm = m
+                .nickname
+                .as_ref()
+                .and_then(|s| if s.is_empty() { None } else { Some(s.clone()) });
+            mem_map.insert(m.id, (nick_norm, m.role));
         }
 
         // --- 2) 计算差异 ---
@@ -221,12 +221,12 @@ impl GroupStorage for MySqlStore {
         let mut to_del: Vec<i64> = Vec::new();
         let mut to_upd: Vec<(i64, Option<String>, i32)> = Vec::new();
 
-        for (&uid, (m_alias, m_role)) in mem_map.iter() {
+        for (&uid, (m_nick, m_role)) in mem_map.iter() {
             match db_map.get(&uid) {
-                None => to_add.push((uid, m_alias.clone(), *m_role)),
-                Some((d_alias, d_role)) => {
-                    if d_alias != m_alias || d_role != m_role {
-                        to_upd.push((uid, m_alias.clone(), *m_role));
+                None => to_add.push((uid, m_nick.clone(), *m_role)),
+                Some((d_nick, d_role)) => {
+                    if d_nick != m_nick || d_role != m_role {
+                        to_upd.push((uid, m_nick.clone(), *m_role));
                     }
                 }
             }
@@ -262,15 +262,15 @@ impl GroupStorage for MySqlStore {
                 continue;
             }
             let mut sql =
-                String::from("INSERT INTO group_member (group_id, uid, alias, role) VALUES ");
+                String::from("INSERT INTO group_member (group_id, uid, nickname, role) VALUES ");
             sql.push_str(&vec!["(?,?,?,?)"; chunk.len()].join(","));
 
             let mut q = sqlx::query(&sql);
-            for (uid, alias_opt, role) in chunk {
+            for (uid, nick_opt, role) in chunk {
                 q = q
                     .bind(gid as u64)
                     .bind(u64::try_from(*uid).unwrap_or_default())
-                    .bind(alias_opt.as_ref()) // Option<&String> -> NULL/值
+                    .bind(nick_opt.as_ref()) // Option<&String> -> NULL/值
                     .bind(i64::from(*role));
             }
             let _res: MySqlQueryResult = q.execute(&mut *tx).await.with_context(|| {
@@ -278,20 +278,20 @@ impl GroupStorage for MySqlStore {
             })?;
         }
 
-        // 3.3 变更（alias/role）
+        // 3.3 变更（nickname/role）
         for chunk in to_upd.chunks(self.chunk_size) {
             if chunk.is_empty() {
                 continue;
             }
-            for (uid, alias_opt, role) in chunk {
+            for (uid, nick_opt, role) in chunk {
                 sqlx::query(
                     r#"
                     UPDATE group_member
-                    SET alias = ?, role = ?
+                    SET nickname = ?, role = ?
                     WHERE group_id = ? AND uid = ?
                     "#,
                 )
-                .bind(alias_opt.as_ref()) // Option<&String>
+                .bind(nick_opt.as_ref()) // Option<&String>
                 .bind(i64::from(*role))
                 .bind(gid as u64)
                 .bind(u64::try_from(*uid).unwrap_or_default())
@@ -299,7 +299,7 @@ impl GroupStorage for MySqlStore {
                 .await
                 .with_context(|| {
                     format!(
-                        "save_group(diff): update (alias/role) failed, group_id={}, uid={}",
+                        "save_group(diff): update (nickname/role) failed, group_id={}, uid={}",
                         gid, uid
                     )
                 })?;

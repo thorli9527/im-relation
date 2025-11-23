@@ -367,7 +367,7 @@ impl GroupMsgServiceImpl {
                 group_id: payload.group_id,
                 member: Some(HotMemberRef {
                     id: payload.applicant_id,
-                    alias: None,
+                    nickname: None,
                     role: hotpb::GroupRoleType::Member as i32,
                 }),
             };
@@ -430,7 +430,7 @@ impl GroupMsgServiceImpl {
                 .into_iter()
                 .map(|uid| HotMemberRef {
                     id: uid,
-                    alias: None,
+                    nickname: None,
                     role: hotpb::GroupRoleType::Member as i32,
                 })
                 .collect();

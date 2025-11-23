@@ -58,7 +58,7 @@ pub fn get_user_info() -> Result<UserInfoResult, String> {
         uid: user.uid,
         name: user.name,
         avatar: user.avatar,
-        alias: user.alias,
+        nickname: user.nickname,
         gender: user.gender,
         country: user.country,
         language: user.language,

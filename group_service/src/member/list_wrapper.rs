@@ -10,7 +10,7 @@ pub struct MemberListWrapper {
     members: RwLock<RB64>,
     owners: RwLock<RB64>,
     admins: RwLock<RB64>,
-    aliases: RwLock<HashMap<u64, String>>, // 别名（可按需换成分片化结构）
+    nicknames: RwLock<HashMap<u64, String>>, // 群内昵称（可按需换成分片化结构）
 }
 
 impl MemberListWrapper {
@@ -19,7 +19,7 @@ impl MemberListWrapper {
             members: RwLock::new(RB64::new()),
             owners: RwLock::new(RB64::new()),
             admins: RwLock::new(RB64::new()),
-            aliases: RwLock::new(HashMap::new()),
+            nicknames: RwLock::new(HashMap::new()),
         }
     }
 
@@ -77,22 +77,22 @@ impl MemberListWrapper {
         }
     }
 
-    /// 新增成员（含别名、角色）
+    /// 新增成员（含昵称、角色）
     pub fn add(&self, member: MemberRef) -> Result<(), MemberListError> {
         let uid = Self::to_u64(member.id)?;
 
-        // 统一锁顺序：members -> owners -> admins -> aliases
+        // 统一锁顺序：members -> owners -> admins -> nicknames
         let mut m = self.members.write();
         let mut o = self.owners.write();
         let mut a = self.admins.write();
-        let mut al = self.aliases.write();
+        let mut al = self.nicknames.write();
 
         m.insert(uid);
         Self::set_role_bits(&mut o, &mut a, uid, Self::role_from_i32(member.role));
 
-        match member.alias {
-            Some(alias) if !alias.is_empty() => {
-                al.insert(uid, alias);
+        match member.nickname {
+            Some(nick) if !nick.is_empty() => {
+                al.insert(uid, nick);
             }
             _ => {
                 al.remove(&uid);
@@ -107,15 +107,15 @@ impl MemberListWrapper {
         let mut m = self.members.write();
         let mut o = self.owners.write();
         let mut a = self.admins.write();
-        let mut al = self.aliases.write();
+        let mut al = self.nicknames.write();
 
         for member in list {
             let uid = Self::to_u64(member.id)?;
             m.insert(uid);
             Self::set_role_bits(&mut o, &mut a, uid, Self::role_from_i32(member.role));
-            match &member.alias {
-                Some(alias) if !alias.is_empty() => {
-                    al.insert(uid, alias.clone());
+            match &member.nickname {
+                Some(nick) if !nick.is_empty() => {
+                    al.insert(uid, nick.clone());
                 }
                 _ => {
                     al.remove(&uid);
@@ -147,7 +147,7 @@ impl MemberListWrapper {
         if m.remove(uid) {
             let mut o = self.owners.write();
             let mut a = self.admins.write();
-            let mut al = self.aliases.write();
+            let mut al = self.nicknames.write();
             o.remove(uid);
             a.remove(uid);
             al.remove(&uid);
@@ -181,18 +181,18 @@ impl MemberListWrapper {
         Ok(())
     }
 
-    /// 修改/清空别名（None 或 空字符串 => 清空）；仅允许群内成员
-    pub fn change_alias<S: AsRef<str>>(
+    /// 修改/清空昵称（None 或 空字符串 => 清空）；仅允许群内成员
+    pub fn change_nickname<S: AsRef<str>>(
         &self,
         uid: UID,
-        alias: Option<S>,
+        nickname: Option<S>,
     ) -> Result<(), MemberListError> {
         let uid = Self::to_u64(uid)?;
         if !self.members.read().contains(uid) {
             return Err(MemberListError::NotFound);
         }
-        let mut al = self.aliases.write();
-        match alias {
+        let mut al = self.nicknames.write();
+        match nickname {
             Some(s) if !s.as_ref().is_empty() => {
                 al.insert(uid, s.as_ref().to_string());
             }
@@ -203,11 +203,11 @@ impl MemberListWrapper {
         Ok(())
     }
 
-    /// 获取某成员别名
+    /// 获取某成员昵称
     #[inline]
-    pub fn get_alias(&self, uid: UID) -> Result<Option<String>, MemberListError> {
+    pub fn get_nickname(&self, uid: UID) -> Result<Option<String>, MemberListError> {
         let uid = Self::to_u64(uid)?;
-        Ok(self.aliases.read().get(&uid).cloned())
+        Ok(self.nicknames.read().get(&uid).cloned())
     }
 
     /// 获取某成员角色（无则返回 Member）
@@ -235,20 +235,20 @@ impl MemberListWrapper {
         self.members.read().len() as usize
     }
 
-    /// 导出所有成员（包含角色与别名）
+    /// 导出所有成员（包含角色与昵称）
     pub fn get_all(&self) -> Vec<MemberRef> {
         let m = self.members.read();
         let o = self.owners.read();
         let a = self.admins.read();
-        let al = self.aliases.read();
+        let al = self.nicknames.read();
 
         let mut out = Vec::with_capacity(m.len() as usize);
         for uid in m.iter() {
             let role = Self::role_of(&o, &a, uid);
-            let alias = al.get(&uid).cloned();
+            let nick = al.get(&uid).cloned();
             out.push(MemberRef {
                 id: uid as i64,
-                alias, // prost: Option<String>
+                nickname: nick, // prost: Option<String>
                 role: Self::role_to_i32(role),
             });
         }
@@ -259,15 +259,15 @@ impl MemberListWrapper {
     pub fn get_managers(&self) -> Vec<MemberRef> {
         let o = self.owners.read();
         let a = self.admins.read();
-        let al = self.aliases.read();
+        let al = self.nicknames.read();
 
         let mut out = Vec::with_capacity(o.len() as usize + a.len() as usize);
 
         for uid in o.iter() {
-            let alias = al.get(&uid).cloned();
+            let nick = al.get(&uid).cloned();
             out.push(MemberRef {
                 id: uid as i64,
-                alias,
+                nickname: nick,
                 role: GroupRoleType::Owner as i32,
             });
         }
@@ -276,10 +276,10 @@ impl MemberListWrapper {
             if o.contains(uid) {
                 continue;
             }
-            let alias = al.get(&uid).cloned();
+            let nick = al.get(&uid).cloned();
             out.push(MemberRef {
                 id: uid as i64,
-                alias,
+                nickname: nick,
                 role: GroupRoleType::Admin as i32,
             });
         }
@@ -301,17 +301,17 @@ impl MemberListWrapper {
 
         let o = self.owners.read();
         let a = self.admins.read();
-        let al = self.aliases.read();
+        let al = self.nicknames.read();
 
         m.iter()
             .skip(start)
             .take(page_size)
             .map(|uid| {
                 let role = Self::role_of(&o, &a, uid);
-                let alias = al.get(&uid).cloned();
+                let nick = al.get(&uid).cloned();
                 MemberRef {
                     id: uid as i64,
-                    alias,
+                    nickname: nick,
                     role: Self::role_to_i32(role),
                 }
             })
@@ -329,6 +329,6 @@ impl MemberListWrapper {
         self.members.write().clear();
         self.owners.write().clear();
         self.admins.write().clear();
-        self.aliases.write().clear();
+        self.nicknames.write().clear();
     }
 }

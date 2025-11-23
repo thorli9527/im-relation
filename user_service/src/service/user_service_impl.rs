@@ -394,7 +394,7 @@ where
         sqlx::query(
             r#"
             INSERT INTO user_info(
-              id, name, password, language, country, alias, avatar,
+              id, name, password, language, country, nickname, avatar,
               allow_add_friend, gender, user_type,
               email_norm, phone_norm,
               created_at, updated_at, version
@@ -411,7 +411,7 @@ where
         .bind(&r.password) // 直接存储明文密码
         .bind(r.language.as_deref())
         .bind(r.country.as_deref())
-        .bind(r.alias.as_deref())
+        .bind(r.nickname.as_deref())
         .bind(&r.avatar)
         .bind(allow_add_friend)
         .bind(r.gender as i32)

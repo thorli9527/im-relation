@@ -11,8 +11,8 @@ pub struct BuildRegisterCodeRequest {
     pub country: Option<String>,
     /// 可选性别
     pub gender: Option<i32>,
-    /// 可选别名
-    pub alias: Option<String>,
+    /// 可选昵称
+    pub nickname: Option<String>,
 }
 
 #[derive(Serialize)]

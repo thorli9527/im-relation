@@ -19,7 +19,6 @@ pub struct GroupMemberEntity {
     pub group_id: i64,
     pub member_id: i64,
     pub nickname: String,
-    pub alias: Option<String>,
     pub avatar: String,
     pub role: i32,
     pub muted: bool,
@@ -35,7 +34,6 @@ impl GroupMemberEntity {
             group_id,
             member_id,
             nickname: nickname.into(),
-            alias: None,
             avatar: String::new(),
             role: 0,
             muted: false,
@@ -57,10 +55,6 @@ impl TableEntity for GroupMemberEntity {
         cols.push(ColumnValue::new(
             "nickname",
             Value::Text(self.nickname.clone()),
-        ));
-        cols.push(ColumnValue::new(
-            "alias",
-            Value::Text(self.alias.clone().unwrap_or_default()),
         ));
         cols.push(ColumnValue::new("avatar", Value::Text(self.avatar.clone())));
         cols.push(ColumnValue::new("role", Value::Integer(self.role as i64)));
@@ -116,12 +110,6 @@ pub static GROUP_MEMBER_TABLE_DEF: Lazy<TableDef> = Lazy::new(|| {
                 ColumnType::Text,
                 constraints = "NOT NULL DEFAULT ''",
                 comment = "成员昵称"
-            ),
-            column_def!(
-                "alias",
-                ColumnType::Text,
-                constraints = "NOT NULL DEFAULT ''",
-                comment = "群内别名"
             ),
             column_def!(
                 "avatar",

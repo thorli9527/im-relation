@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS user_info (
                     password         VARCHAR(255)  NOT NULL,                      -- 密码字段（明文）
                     language         VARCHAR(16)   NULL,                          -- (6) BCP-47，如 zh-CN
                     country          VARCHAR(32)   NULL,                          -- (16) ISO 国家/地区代码
-                    alias            VARCHAR(64)   NULL,                          -- (17) 昵称/别名
+                    nickname         VARCHAR(64)   NULL,                          -- (17) 昵称
                     avatar           VARCHAR(256)  NOT NULL DEFAULT '',           -- (7)
                     allow_add_friend TINYINT       NOT NULL DEFAULT 0,            -- (8)
                     gender           TINYINT       NOT NULL DEFAULT 0,            -- (9)

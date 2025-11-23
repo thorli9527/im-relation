@@ -15,7 +15,7 @@ use crate::dao::{
 };
 use crate::server::Services;
 use common::infra::grpc::grpc_friend::friend_service::{
-    GetFriendsDetailedReq, UpdateFriendAliasReq, UpdateFriendBlacklistReq, UpdateFriendRemarkReq,
+    GetFriendsDetailedReq, UpdateFriendBlacklistReq, UpdateFriendNicknameReq, UpdateFriendRemarkReq,
 };
 use common::infra::grpc::{grpc_msg_friend::msg_friend_service as msgpb, message as msg_message};
 
@@ -93,7 +93,7 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
             .get_friends_detailed(GetFriendsDetailedReq {
                 uid: req.uid,
                 apply_source: false,
-                alias: false,
+                nickname: false,
                 avatar: false,
             })
             .await
@@ -404,26 +404,26 @@ impl Services {
         let event_type = msg_message::FriendEventType::try_from(event.r#type)
             .unwrap_or(msg_message::FriendEventType::FeUnspecified);
         match event_type {
-            msg_message::FriendEventType::FeAliasUpdated => {
-                let alias_value = event.alias.clone().unwrap_or_default();
-                let alias_opt = if alias_value.is_empty() {
+            msg_message::FriendEventType::FeNicknameUpdated => {
+                let nickname_value = event.nickname.clone().unwrap_or_default();
+                let nickname_opt = if nickname_value.is_empty() {
                     None
                 } else {
-                    Some(alias_value.clone())
+                    Some(nickname_value.clone())
                 };
-                let req = UpdateFriendAliasReq {
+                let req = UpdateFriendNicknameReq {
                     uid: event.operator_id,
                     friend_id: event.friend_id,
-                    alias: alias_opt.clone(),
+                    nickname: nickname_opt.clone(),
                 };
                 friend_client
                     .clone()
-                    .update_friend_alias(Request::new(req))
+                    .update_friend_nickname(Request::new(req))
                     .await
-                    .map_err(|e| Status::internal(format!("update_friend_alias failed: {}", e)))?;
+                    .map_err(|e| Status::internal(format!("update_friend_nickname failed: {}", e)))?;
                 info!(
-                    "friend event: alias updated operator={} friend={} alias={:?}",
-                    event.operator_id, event.friend_id, alias_opt
+                    "friend event: nickname updated operator={} friend={} nickname={:?}",
+                    event.operator_id, event.friend_id, nickname_opt
                 );
             }
             msg_message::FriendEventType::FeRemarkUpdated => {

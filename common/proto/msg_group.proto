@@ -67,13 +67,13 @@ enum GroupType {
 
 // 成员引用（轻量成员视图）
 // - 在成员列表、事件通知、Socket 推送中广泛使用；
-// - alias 可为空；role 必填；
+// - nickname 可为空；role 必填；
 
 message MemberRef {
   // 成员用户唯一 ID（必填）
   int64 id = 1;
-  // 群内别名；缺省或空串表示不设置别名
-  optional string alias = 2;
+  // 群内昵称；缺省或空串表示不设置
+  optional string nickname = 2;
   // 角色（OWNER/ADMIN/MEMBER）
   GroupRoleType role = 3;
 }
@@ -251,8 +251,8 @@ message KickMemberReq {
   string reason = 4;
 }
 
-// 更新群名片/别名
-// - operator 可更新自己或（ADMIN/OWNER）更新他人别名；空串表示清空；
+// 更新群名片/昵称
+// - operator 可更新自己或（ADMIN/OWNER）更新他人昵称；空串表示清空；
 
 message UpdateMemberAliasReq {
   // 目标群 ID
@@ -261,8 +261,8 @@ message UpdateMemberAliasReq {
   int64 operator_id = 2;
   // 目标用户 UID（可=operator_id）
   int64 target_id = 3;
-  // 新别名；空串表示清空；长度建议 0~32 字
-  string alias = 4;
+  // 新昵称；空串表示清空；长度建议 0~32 字
+  string nickname = 4;
 }
 
 // 调整成员角色
@@ -382,15 +382,15 @@ message JoinRequestHandledNotice {
   int64 handled_at = 6;
 }
 
-// 群成员变更通知（入群/退群/踢人/改角色/改别名等）
-// - reason 示例：auto / approval / invite / kick / leave / role_change / alias_change；
+// 群成员变更通知（入群/退群/踢人/改角色/改昵称等）
+// - reason 示例：auto / approval / invite / kick / leave / role_change / nickname_change；
 
 message GroupMemberChangeNotice {
   // 群 ID
   int64 group_id = 1;
   // 操作者 UID（系统自动为 0 或特定保留值）
   int64 operator_id = 2;
-  // 变动成员信息（含 id/alias/role）
+  // 变动成员信息（含 id/nickname/role）
   MemberRef member = 3;
   // 业务原因（字符串，便于前端展示与埋点统计）
   string reason = 4;

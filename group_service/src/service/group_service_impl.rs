@@ -87,7 +87,7 @@ where
         // 1) 热层：Owner + 初始成员（去重）
         let owner = MemberRef {
             id: owner_uid,
-            alias: None,
+            nickname: None,
             role: GroupRoleType::Owner as i32,
         };
         if let Err(e) = self.facade.insert(gid, owner).await {
@@ -102,7 +102,7 @@ where
             if seen.insert(uid) {
                 batch.push(MemberRef {
                     id: uid,
-                    alias: None,
+                    nickname: None,
                     role: GroupRoleType::Member as i32,
                 });
             }
@@ -331,13 +331,13 @@ where
         Ok(Response::new(ChangeRoleResp {}))
     }
 
-    async fn change_alias(
+    async fn change_nickname(
         &self,
         req: Request<ChangeAliasReq>,
     ) -> Result<Response<ChangeAliasResp>, Status> {
         let r = req.into_inner();
         self.facade
-            .change_alias(r.group_id, r.uid, r.alias)
+            .change_nickname(r.group_id, r.uid, r.nickname)
             .await
             .map_err(Self::map_hot_err)?;
         Ok(Response::new(ChangeAliasResp {}))

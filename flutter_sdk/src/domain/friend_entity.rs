@@ -18,7 +18,7 @@ pub struct FriendEntity {
     pub id: Option<i64>,
     pub friend_id: i64,
     pub avatar: String,
-    pub alias: Option<String>,
+    pub nickname: Option<String>,
     pub remark: Option<String>,
     pub created_at: i64,
 }
@@ -29,7 +29,7 @@ impl FriendEntity {
             id: None,
             friend_id,
             avatar: String::new(),
-            alias: None,
+            nickname: None,
             remark: None,
             created_at,
         }
@@ -48,8 +48,8 @@ impl TableEntity for FriendEntity {
         ));
         cols.push(ColumnValue::new("avatar", Value::Text(self.avatar.clone())));
         cols.push(ColumnValue::new(
-            "alias",
-            Value::Text(self.alias.clone().unwrap_or_default()),
+            "nickname",
+            Value::Text(self.nickname.clone().unwrap_or_default()),
         ));
         cols.push(ColumnValue::new(
             "remark",
@@ -91,10 +91,10 @@ pub static FRIEND_TABLE_DEF: Lazy<TableDef> = Lazy::new(|| {
                 comment = "好友头像 URL"
             ),
             column_def!(
-                "alias",
+                "nickname",
                 ColumnType::Text,
                 constraints = "NOT NULL DEFAULT ''",
-                comment = "好友别名"
+                comment = "好友昵称"
             ),
             column_def!(
                 "remark",

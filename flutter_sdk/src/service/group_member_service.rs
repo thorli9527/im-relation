@@ -161,7 +161,6 @@ impl GroupMemberService {
                 group_id,
                 member_id: member.member_id,
                 nickname: member.nickname.clone(),
-                alias: None,
                 avatar: member.avatar.clone(),
                 role: member.role,
                 muted: false,
@@ -223,16 +222,14 @@ impl GroupMemberService {
     }
 
     fn map_row(row: &Row) -> Result<GroupMemberEntity, rusqlite::Error> {
-        let alias: String = row.get("alias")?;
-        Ok(GroupMemberEntity {
-            id: Some(row.get("id")?),
-            group_id: row.get("group_id")?,
-            member_id: row.get("member_id")?,
-            nickname: row.get("nickname")?,
-            alias: if alias.is_empty() { None } else { Some(alias) },
-            avatar: row.get("avatar")?,
-            role: row.get("role")?,
-            muted: row.get::<_, i64>("muted")? != 0,
+            Ok(GroupMemberEntity {
+                id: Some(row.get("id")?),
+                group_id: row.get("group_id")?,
+                member_id: row.get("member_id")?,
+                nickname: row.get("nickname")?,
+                avatar: row.get("avatar")?,
+                role: row.get("role")?,
+                muted: row.get::<_, i64>("muted")? != 0,
             join_time: row.get("join_time")?,
             updated_at: row.get("updated_at")?,
             version: row.get("version")?,

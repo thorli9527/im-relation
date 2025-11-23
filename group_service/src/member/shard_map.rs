@@ -232,16 +232,16 @@ impl ShardMap {
         Ok(())
     }
 
-    /// 修改/清空别名
-    pub fn change_alias(
+    /// 修改/清空昵称
+    pub fn change_nickname(
         &self,
         gid: GroupId,
         uid: UID,
-        alias: Option<String>,
+        nickname: Option<String>,
     ) -> Result<(), MemberListError> {
         let shard = &self.shards[self.shard_idx(gid)];
         if let Some(wrapper) = shard.inner.get(&gid) {
-            wrapper.change_alias(uid, alias)?;
+            wrapper.change_nickname(uid, nickname)?;
             self.bump_ver(gid);
         }
         Ok(())

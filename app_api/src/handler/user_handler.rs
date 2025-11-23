@@ -273,7 +273,7 @@ async fn update_profile(
             payload.avatar.as_deref(),
             payload.country.as_deref(),
             payload.language.as_deref(),
-            payload.alias.as_deref(),
+            payload.nickname.as_deref(),
         )
         .await
         .map_err(map_internal_error)?;
@@ -395,7 +395,6 @@ async fn get_friend_list(Json(params): Json<FriendListQuery>) -> HandlerResult<F
 
         let remark = entry
             .remark
-            .or(entry.alias)
             .and_then(normalize_optional_string);
 
         friends.push(FriendSummaryResult {
@@ -493,7 +492,6 @@ async fn get_group_members(
             .into_inner();
 
         let nickname = member
-            .alias
             .and_then(normalize_optional_string)
             .unwrap_or(user.name.clone());
 
@@ -572,7 +570,7 @@ async fn get_group_member_detail(
         .into_inner();
 
     let nickname = member
-        .alias
+        .nickname
         .and_then(normalize_optional_string)
         .unwrap_or(user.name.clone());
 

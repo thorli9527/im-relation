@@ -20,7 +20,7 @@ pub struct UserInfoEntity {
     pub uid: i64,
     pub name: String,
     pub avatar: String,
-    pub alias: Option<String>,
+    pub nickname: Option<String>,
     pub session_token: Option<String>,
     pub expires_at: i64,
     pub version: i64,
@@ -39,7 +39,7 @@ impl UserInfoEntity {
             uid,
             name: String::new(),
             avatar: String::new(),
-            alias: None,
+            nickname: None,
             session_token: None,
             expires_at: 0,
             version: 0,
@@ -63,8 +63,8 @@ impl TableEntity for UserInfoEntity {
         cols.push(ColumnValue::new("name", Value::Text(self.name.clone())));
         cols.push(ColumnValue::new("avatar", Value::Text(self.avatar.clone())));
         cols.push(ColumnValue::new(
-            "alias",
-            Value::Text(self.alias.clone().unwrap_or_default()),
+            "nickname",
+            Value::Text(self.nickname.clone().unwrap_or_default()),
         ));
         cols.push(ColumnValue::new(
             "session_token",
@@ -134,10 +134,10 @@ pub static USER_TABLE_DEF: Lazy<TableDef> = Lazy::new(|| {
                 comment = "头像 URL"
             ),
             column_def!(
-                "alias",
+                "nickname",
                 ColumnType::Text,
                 constraints = "NOT NULL DEFAULT ''",
-                comment = "别名"
+                comment = "昵称"
             ),
             column_def!(
                 "session_token",

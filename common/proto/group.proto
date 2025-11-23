@@ -58,8 +58,8 @@ enum GroupType {
 message MemberRef {
   // 成员用户ID
   int64 id = 1;
-  // 群内别名（可选，不传或空表示无别名）
-  optional string alias = 2;
+  // 群内昵称（可选，不传或空表示无昵称）
+  optional string nickname = 2;
   // 成员角色（0=Owner, 1=Admin, 2=Member）
   GroupRoleType role = 3;
 }
@@ -70,7 +70,7 @@ message MemberRef {
 message InsertReq {
   // 群组ID
   int64 group_id = 1;
-  // 要添加的成员信息（可携带 alias）
+  // 要添加的成员信息（可携带 nickname）
   MemberRef member = 2;
 }
 message InsertResp {}
@@ -79,7 +79,7 @@ message InsertResp {}
 message InsertManyReq {
   // 群组ID
   int64 group_id = 1;
-  // 成员列表（成员可各自携带 alias）
+  // 成员列表（成员可各自携带 nickname）
   repeated MemberRef members = 2;
 }
 message InsertManyResp {}
@@ -107,14 +107,14 @@ message ChangeRoleReq {
 }
 message ChangeRoleResp {}
 
-// 修改成员别名（新增）
+// 修改成员昵称（新增）
 message ChangeAliasReq {
   // 群组ID
   int64 group_id = 1;
   // 用户ID
   int64 uid = 2;
-  // 新别名（为空或不传表示清空别名）
-  optional string alias = 3;
+  // 新昵称（为空或不传表示清空昵称）
+  optional string nickname = 3;
 }
 message ChangeAliasResp {}
 
@@ -130,7 +130,7 @@ message GetPageReq {
   uint64 page_size = 3;
 }
 message GetPageResp {
-  // 成员列表（包含 alias）
+  // 成员列表（包含 nickname）
   repeated MemberRef members = 1;
 }
 
@@ -140,7 +140,7 @@ message GetAllReq {
   int64 group_id = 1;
 }
 message GetAllResp {
-  // 成员列表（包含 alias）
+  // 成员列表（包含 nickname）
   repeated MemberRef members = 1;
 }
 

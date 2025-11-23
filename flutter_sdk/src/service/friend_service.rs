@@ -74,13 +74,13 @@ impl FriendService {
     }
 
     fn map_row(row: &Row) -> Result<FriendEntity, rusqlite::Error> {
-        let alias: String = row.get("alias")?;
+        let nickname: String = row.get("nickname")?;
         let remark: String = row.get("remark")?;
         Ok(FriendEntity {
             id: Some(row.get("id")?),
             friend_id: row.get("friend_id")?,
             avatar: row.get("avatar")?,
-            alias: normalize_optional(alias),
+            nickname: normalize_optional(nickname),
             remark: normalize_optional(remark),
             created_at: row.get("created_at")?,
         })

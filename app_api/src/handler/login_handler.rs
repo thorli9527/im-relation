@@ -39,7 +39,7 @@ pub struct LoginResult {
     uid: i64,
     language: Option<String>,
     country: Option<String>,
-    alias: Option<String>,
+    nickname: Option<String>,
     gender: i32,
     version: i32,
 }
@@ -122,7 +122,7 @@ async fn login(Json(payload): Json<LoginPayload>) -> HandlerResult<LoginResult> 
         uid: user.id,
         language: user.language.clone(),
         country: user.country.clone(),
-        alias: user.alias.clone(),
+        nickname: user.alias.clone(),
         gender: user.gender,
         version: user.version,
     })

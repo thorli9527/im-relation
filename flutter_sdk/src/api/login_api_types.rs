@@ -20,7 +20,7 @@ pub struct LoginResult {
     pub uid: i64,
     pub language: Option<String>,
     pub country: Option<String>,
-    pub alias: Option<String>,
+    pub nickname: Option<String>,
     pub gender: i32,
     pub version: i32,
 }

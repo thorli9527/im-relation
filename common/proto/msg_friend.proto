@@ -33,8 +33,8 @@ message FriendRequest {
   int64 created_at = 6;
   // 好友别名/备注（可选）
   optional string remark = 7;
-  // 申请人想展示的别名/昵称
-  optional string alias = 8;
+  // 申请人想展示的昵称
+  optional string nickname = 8;
 }
 
 // 处理好友申请（接受/拒绝）
@@ -47,8 +47,8 @@ message FriendRequestDecision {
   optional string remark = 3;
   // 处理时间
   int64 decided_at = 4;
-  // 审批者希望展示的别名
-  optional string alias = 5;
+  // 审批者希望展示的昵称
+  optional string nickname = 5;
 }
 
 // 删除好友

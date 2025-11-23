@@ -207,8 +207,8 @@ message FriendRequestPayload {
   FriendRequestSource source = 5;
   int64 created_at = 6;
   string remark = 7;
-  // 申请人想展示的别名/昵称（可用于邀请卡片）
-  string alias = 8;
+  // 申请人想展示的昵称（可用于邀请卡片）
+  string nickname = 8;
 }
 
 // 好友申请处理（接受/拒绝），加入默认消息字段以便自动下发欢迎/提示
@@ -219,8 +219,8 @@ message FriendRequestDecisionPayload {
   int64 decided_at = 4;
   bool send_default_message = 5;
   string default_message = 6;
-  // 审批人希望展示给申请人的别名/称呼
-  string alias = 7;
+  // 审批人希望展示给申请人的昵称/称呼
+  string nickname = 7;
 }
 
 // ===============================
@@ -229,8 +229,8 @@ message FriendRequestDecisionPayload {
 // 用于同步好友别名/备注变更等典型事件
 enum FriendEventType {
   FE_UNSPECIFIED = 0;
-  // 好友别名更新（operator_id 为发起人）
-  FE_ALIAS_UPDATED = 1;
+  // 好友昵称更新（operator_id 为发起人）
+  FE_NICKNAME_UPDATED = 1;
   // 好友备注更新
   FE_REMARK_UPDATED = 2;
   // 好友被拉黑/解除黑名单
@@ -244,8 +244,8 @@ message FriendEventContent {
   int64 friend_id = 2;
   // 事件类型
   FriendEventType type = 3;
-  // 新别名（可选）
-  optional string alias = 4;
+  // 新昵称（可选）
+  optional string nickname = 4;
   // 新备注（可选）
   optional string remark = 5;
   // 事件发生时间
@@ -295,7 +295,7 @@ message GroupJoinDecisionPayload {
 // ===============================
 message GroupCreationMember {
   int64 member_id = 1;
-  optional string alias = 2;
+  optional string nickname = 2;
   optional int32 role = 3;
 }
 
@@ -694,7 +694,7 @@ message GroupMemberChanged {
   }
   Action action = 1;
   int64 member_id = 2;
-  string member_alias = 3;
+  string member_nickname = 3;
   int64 occurred_at = 4;
   repeated int64 via_member_ids = 5;
   string note = 6;

@@ -51,7 +51,7 @@ impl UserService {
             uid: login.uid,
             name: login.name.clone(),
             avatar: login.avatar.clone(),
-            alias: login.alias.clone(),
+            nickname: login.nickname.clone(),
             session_token: Some(login.token.clone()),
             expires_at: login.expires_at as i64,
             version: login.version as i64,
@@ -104,7 +104,7 @@ impl UserService {
     }
 
     fn map_row(row: &Row) -> Result<UserInfoEntity, rusqlite::Error> {
-        let alias: String = row.get("alias")?;
+        let nickname: String = row.get("nickname")?;
         let session_token: String = row.get("session_token")?;
         let expires_at: i64 = row.get("expires_at")?;
         let country: String = row.get("country")?;
@@ -116,7 +116,7 @@ impl UserService {
             uid: row.get("uid")?,
             name: row.get("name")?,
             avatar: row.get("avatar")?,
-            alias: normalize_optional(alias),
+            nickname: normalize_optional(nickname),
             session_token: normalize_optional(session_token),
             expires_at,
             version: row.get("version")?,

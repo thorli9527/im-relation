@@ -24,7 +24,7 @@ pub struct BuildRegisterCodePayload {
     #[serde(default)]
     gender: Option<i32>,
     #[serde(default)]
-    alias: Option<String>,
+    nickname: Option<String>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -82,7 +82,7 @@ async fn build_register_code(
         language: payload.language.clone(),
         country: payload.country.clone(),
         gender: payload.gender,
-        alias: payload.alias.clone(),
+        nickname: payload.nickname.clone(),
     };
     dto.validate()?;
 
@@ -95,7 +95,7 @@ async fn build_register_code(
             dto.language.as_deref(),
             dto.country.as_deref(),
             dto.gender,
-            dto.alias.as_deref(),
+            dto.nickname.as_deref(),
         )
         .await
         .map_err(map_internal_error)?;

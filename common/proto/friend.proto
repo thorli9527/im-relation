@@ -17,10 +17,10 @@ message AddFriendReq {
   int64 friend_id = 2;
   // 申请人给好友写的备注（默认与名字一致，可用于联系人列表展示）
   optional string remark = 3;
-  // 新增：user_id 对 friend_id 的别名（优先于 alias）
-  optional string alias_for_user = 4;
-  // 新增：friend_id 对 user_id 的别名（即反向别名）
-  optional string alias_for_friend = 5;
+  // 新增：user_id 对 friend_id 的昵称（优先于 nickname）
+  optional string nickname_for_user = 4;
+  // 新增：friend_id 对 user_id 的昵称（即反向昵称）
+  optional string nickname_for_friend = 5;
   // 好友申请来源（默认未知）
   .message.FriendRequestSource source = 6;
 }
@@ -54,12 +54,12 @@ message IsFriendResp {
 
 message FriendEntry {
   int64 friend_id = 1;
-  // 好友别名/备注，未设置则为空字符串；也可结合 presence 判断（见下）。
+  // 好友昵称/备注，未设置则为空字符串；也可结合 presence 判断（见下）。
   //
   // 可选的时间戳/扩展字段，按需启用（预留）
   // int64 created_at = 10;
   // int64 updated_at = 11;
-  optional string alias = 2;
+  optional string nickname = 2;
   // 好友申请来源（例如手机号、二维码、群邀请等）
   optional string apply_source = 3;
   // 好友头像 URL
@@ -74,8 +74,8 @@ message GetFriendsDetailedReq {
   int64 uid = 1;
   // 是否需要返回好友申请来源信息
   bool apply_source = 2;
-  // 是否需要返回好友别名/备注
-  bool alias = 3;
+  // 是否需要返回好友昵称/备注
+  bool nickname = 3;
   // 是否需要返回好友头像
   bool avatar = 4;
 }
@@ -96,14 +96,14 @@ message GetFriendsPageDetailedResp {
 
 // ==== 单独更新/设置别名 ====
 
-message UpdateFriendAliasReq {
+message UpdateFriendNicknameReq {
   int64 uid = 1;
   int64 friend_id = 2;
-  // 将别名更新为此值；传空字符串可视为清除别名
-  optional string alias = 3;
+  // 将昵称更新为此值；传空字符串可视为清除昵称
+  optional string nickname = 3;
 }
 
-message UpdateFriendAliasResp {
+message UpdateFriendNicknameResp {
   bool updated = 1;
 }
 

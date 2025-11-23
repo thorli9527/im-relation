@@ -18,7 +18,7 @@ pub struct UserInfoResult {
     pub uid: i64,
     pub name: String,
     pub avatar: String,
-    pub alias: Option<String>,
+    pub nickname: Option<String>,
     pub gender: i32,
     pub country: Option<String>,
     pub language: Option<String>,

@@ -13,7 +13,7 @@ pub struct UpdateProfileRequest {
     pub gender: Option<i32>,
     pub country: Option<String>,
     pub language: Option<String>,
-    pub alias: Option<String>,
+    pub nickname: Option<String>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
