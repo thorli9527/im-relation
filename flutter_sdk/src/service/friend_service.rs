@@ -45,6 +45,23 @@ impl FriendService {
         )
     }
 
+    pub fn list_all(&self) -> Result<Vec<FriendEntity>, String> {
+        self.repo.query_all(Self::map_row)
+    }
+
+    pub fn list_ids(&self) -> Result<Vec<i64>, String> {
+        let mut conn = db::connection()?;
+        let mut stmt = conn
+            .prepare(&format!("SELECT friend_id FROM {}", friend_table_def().name))
+            .map_err(|err| err.to_string())?;
+        let mut rows = stmt.query([]).map_err(|err| err.to_string())?;
+        let mut ids = Vec::new();
+        while let Some(row) = rows.next().map_err(|err| err.to_string())? {
+            ids.push(row.get("friend_id").map_err(|err| err.to_string())?);
+        }
+        Ok(ids)
+    }
+
     fn ensure_schema(&self) -> Result<(), String> {
         let conn = db::connection()?;
         let ddl = friend_table_def().create_table_sql();

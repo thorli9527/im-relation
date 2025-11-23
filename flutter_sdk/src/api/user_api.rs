@@ -3,6 +3,8 @@ use crate::api::app_api_types::*;
 use crate::api::utils::{get_request, post_request};
 use crate::api::user_api_types::{GroupMembersQueryParams, SessionTokenQuery, UserInfoResult};
 use crate::service::user_service::UserService;
+use crate::service::online_service::OnlineService;
+use crate::service::{friend_service::FriendService, group_member_service::GroupMemberService};
 
 // 用户资料与列表相关接口，保留在 user_api。
 #[frb]
@@ -39,6 +41,12 @@ pub fn get_recent_conversations(
 pub fn random_nickname(gender: Option<String>) -> Result<String, String> {
     let query = RandomNicknameQuery { gender };
     get_request("/nickname/random", &query)
+}
+
+#[frb]
+/// 批量查询在线状态（转发到 app_api -> online_service）。
+pub fn check_online_batch(query: CheckOnlineBatchQuery) -> Result<CheckOnlineBatchResult, String> {
+    post_request("/online/check-batch", &query)
 }
 
 #[frb]
@@ -81,4 +89,58 @@ pub fn get_group_member_detail(
         session_token: query.session_token,
     };
     get_request(&path, &params)
+}
+
+#[frb]
+/// 获取本地好友的在线状态（带短期缓存，网络失败返回 stale=true）。
+pub fn get_online_friends(force_refresh: bool) -> Result<OnlineStatusSnapshot, String> {
+    let user = UserService::get()
+        .latest_user()?
+        .ok_or_else(|| "no cached user".to_string())?;
+    let token = user
+        .session_token
+        .as_ref()
+        .ok_or_else(|| "cached user missing session_token".to_string())?;
+    // 若无好友直接返回空列表。
+    if FriendService::get().list_ids()?.is_empty() {
+        return Ok(OnlineStatusSnapshot {
+            items: Vec::new(),
+            stale: false,
+        });
+    }
+    OnlineService::get().online_friends(token, force_refresh)
+}
+
+#[frb]
+/// 刷新并缓存群成员列表；网络失败会回退缓存并标记 stale。
+pub fn refresh_group_members(
+    query: RefreshGroupMembersQuery,
+) -> Result<GroupMembersSnapshot, String> {
+    if query.session_token.trim().is_empty() {
+        return Err("session_token is required".into());
+    }
+    if query.group_id <= 0 {
+        return Err("group_id must be positive".into());
+    }
+    let (members, from_cache, stale) = GroupMemberService::get().refresh_group_members(
+        &query.session_token,
+        query.group_id,
+        query.force_refresh,
+    )?;
+    Ok(GroupMembersSnapshot {
+        members,
+        from_cache,
+        stale,
+    })
+}
+
+#[frb]
+/// 读取已缓存的群成员分页数据。
+pub fn get_cached_group_members(
+    query: CachedGroupMembersQuery,
+) -> Result<GroupMembersResult, String> {
+    if query.group_id <= 0 {
+        return Err("group_id must be positive".into());
+    }
+    GroupMemberService::get().list_by_group(query)
 }

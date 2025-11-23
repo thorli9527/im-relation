@@ -138,11 +138,65 @@ pub struct GroupMembersQuery {
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
+pub struct CachedGroupMembersQuery {
+    pub group_id: i64,
+    pub page: Option<u32>,
+    pub page_size: Option<u32>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct GroupMembersResult {
     pub members: Vec<GroupMember>,
     pub page: u32,
     pub page_size: u32,
     pub has_more: bool,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct RefreshGroupMembersQuery {
+    pub session_token: String,
+    pub group_id: i64,
+    pub force_refresh: bool,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupMembersSnapshot {
+    pub members: Vec<GroupMember>,
+    /// 是否直接使用了本地缓存
+    pub from_cache: bool,
+    /// 如果网络失败并回退缓存，则为 true
+    pub stale: bool,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct OnlineStatusEntry {
+    pub uid: i64,
+    pub online: bool,
+    pub fetched_at: i64,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct OnlineStatusSnapshot {
+    pub items: Vec<OnlineStatusEntry>,
+    pub stale: bool,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckOnlineBatchQuery {
+    pub session_token: String,
+    pub uids: Vec<i64>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckOnlineBatchResult {
+    pub items: Vec<OnlineStatusEntry>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
