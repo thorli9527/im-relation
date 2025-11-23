@@ -6,7 +6,10 @@ use tonic::{Request, Response, Status};
 
 use chrono::Utc;
 use common::support::util::common_utils::build_snow_id;
-use log::info;
+use futures::{stream::FuturesUnordered, StreamExt};
+use log::{info, warn};
+use std::time::Duration;
+use tokio::time::sleep;
 
 use crate::dao::{
     delete_friend_conversation_snapshot, insert_encrypted_message, list_conversation_messages,
@@ -272,6 +275,87 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
         Ok(Response::new(()))
     }
 
+    async fn broadcast_profile_updates(
+        &self,
+        request: Request<msgpb::BroadcastProfileUpdatesReq>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+        if req.sender_id == 0 {
+            return Err(Status::invalid_argument("sender_id required"));
+        }
+        if req.contents.is_empty() {
+            return Ok(Response::new(()));
+        }
+        let ts_ms = if req.ts_ms > 0 {
+            req.ts_ms
+        } else {
+            Utc::now().timestamp_millis()
+        };
+        let require_ack = req.require_ack.unwrap_or(false);
+
+        let mut tasks = FuturesUnordered::new();
+        for fid in req.friend_ids {
+            if fid == 0 {
+                continue;
+            }
+            let contents = req.contents.clone();
+            let svc = self.clone();
+            tasks.push(async move {
+                let mut attempt: u32 = 0;
+                loop {
+                    attempt += 1;
+                    let domain = msg_message::DomainMessage {
+                        message_id: Some(build_snow_id() as u64),
+                        sender_id: req.sender_id,
+                        receiver_id: fid,
+                        timestamp: ts_ms,
+                        ts_ms,
+                        delivery: Some(msg_message::DeliveryOptions {
+                            require_ack,
+                            expire_ms: None,
+                            max_retry: None,
+                        }),
+                        scene: msg_message::ChatScene::Profile as i32,
+                        category: msg_message::MsgCategory::Friend as i32,
+                        contents: contents.clone(),
+                        friend_business: None,
+                        group_business: None,
+                    };
+
+                    let res = async {
+                        svc.persist_contents(&domain).await?;
+                        svc.process_contents(&domain.contents).await
+                    }
+                    .await;
+
+                    match res {
+                        Ok(_) => return Ok::<(), (i64, u32, Status)>(()),
+                        Err(e) if attempt < 3 => {
+                            warn!(
+                                "broadcast_profile_updates retry {} for friend {}: {}",
+                                attempt, fid, e
+                            );
+                            sleep(Duration::from_millis(50 * attempt as u64)).await;
+                        }
+                        Err(e) => {
+                            return Err((fid, attempt, e));
+                        }
+                    }
+                }
+            });
+        }
+        while let Some(res) = tasks.next().await {
+            if let Err((fid, attempt, e)) = res {
+                warn!(
+                    "broadcast_profile_updates failed for friend {} after {} attempts: {}",
+                    fid, attempt, e
+                );
+            }
+        }
+
+        Ok(Response::new(()))
+    }
+
     async fn handle_friend_message(
         &self,
         request: Request<msg_message::DomainMessage>,
@@ -420,7 +504,9 @@ impl Services {
                     .clone()
                     .update_friend_nickname(Request::new(req))
                     .await
-                    .map_err(|e| Status::internal(format!("update_friend_nickname failed: {}", e)))?;
+                    .map_err(|e| {
+                        Status::internal(format!("update_friend_nickname failed: {}", e))
+                    })?;
                 info!(
                     "friend event: nickname updated operator={} friend={} nickname={:?}",
                     event.operator_id, event.friend_id, nickname_opt

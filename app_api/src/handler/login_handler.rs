@@ -122,7 +122,7 @@ async fn login(Json(payload): Json<LoginPayload>) -> HandlerResult<LoginResult> 
         uid: user.id,
         language: user.language.clone(),
         country: user.country.clone(),
-        nickname: user.alias.clone(),
+        nickname: user.nickname.clone(),
         gender: user.gender,
         version: user.version,
     })

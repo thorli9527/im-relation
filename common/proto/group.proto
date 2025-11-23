@@ -108,7 +108,7 @@ message ChangeRoleReq {
 message ChangeRoleResp {}
 
 // 修改成员昵称（新增）
-message ChangeAliasReq {
+message ChangeNicknameReq {
   // 群组ID
   int64 group_id = 1;
   // 用户ID
@@ -116,7 +116,7 @@ message ChangeAliasReq {
   // 新昵称（为空或不传表示清空昵称）
   optional string nickname = 3;
 }
-message ChangeAliasResp {}
+message ChangeNicknameResp {}
 
 // ---------------------- 成员查询 ----------------------
 
@@ -320,7 +320,7 @@ service GroupService {
   // 修改成员角色：Owner 可调整成员权限（含升降级）。
   rpc ChangeRole(ChangeRoleReq) returns (ChangeRoleResp);
   // 修改成员别名：支持新增或清空群内备注。
-  rpc ChangeAlias(ChangeAliasReq) returns (ChangeAliasResp);
+  rpc ChangeNickname(ChangeNicknameReq) returns (ChangeNicknameResp);
   // 分页获取群成员：按 user_id 升序分页，适用于大群定向展示。
   rpc GetPage(GetPageReq) returns (GetPageResp);
   // 获取群全部成员：返回完整列表，适合后台批量导出（注意大群使用）。

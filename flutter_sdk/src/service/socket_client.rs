@@ -14,7 +14,10 @@ use crate::{
     generated::message::{self as msgpb, DeviceType as SocketDeviceType},
     generated::socket::{AuthMsg, ClientMsg, ServerMsg as SocketServerMsg},
     job::message_job,
-    service::message_service::MessageService,
+    service::{
+        friend_service::FriendService, group_member_service::GroupMemberService,
+        message_service::MessageService, user_service::UserService,
+    },
 };
 use bytes::{Bytes, BytesMut};
 use futures_util::sink::SinkExt;
@@ -316,6 +319,7 @@ async fn run_connection_attempt(
                                             let _ = MessageService::get().mark_ack(ref_id as i64);
                                         }
                                     }
+                                    handle_inbound_content(&content);
                                 }
                             }
                         }
@@ -340,6 +344,51 @@ async fn run_connection_attempt(
         }
     }
     ConnectionOutcome::Shutdown
+}
+
+fn handle_inbound_content(content: &msgpb::Content) {
+    for item in &content.contents {
+        if let Some(msgpb::message_content::Content::ProfileUpdate(event)) = &item.content {
+            if let Err(err) = apply_profile_update_event(content.sender_id, event) {
+                warn!("apply_profile_update_event failed: {}", err);
+            }
+        }
+    }
+}
+
+fn apply_profile_update_event(
+    sender_id: i64,
+    event: &msgpb::ProfileEventContent,
+) -> Result<(), String> {
+    use msgpb::profile_event_content::ProfileEventType;
+
+    let version = parse_meta_i64(&event.metadata, "version");
+    let updated_at = parse_meta_i64(&event.metadata, "updated_at").unwrap_or_else(current_millis);
+
+    let (nickname, avatar) = match event.event_type {
+        v if v == ProfileEventType::EventName as i32 => (Some(event.new_value.clone()), None),
+        v if v == ProfileEventType::EventAvatar as i32 => (None, Some(event.new_value.clone())),
+        _ => (None, None),
+    };
+
+    if nickname.is_none() && avatar.is_none() {
+        return Ok(());
+    }
+
+    UserService::get().apply_profile_update(
+        sender_id,
+        nickname.clone(),
+        avatar.clone(),
+        version,
+        updated_at,
+    )?;
+    FriendService::get().apply_profile_update(sender_id, nickname.clone(), avatar.clone(), updated_at)?;
+    GroupMemberService::get().apply_profile_update(sender_id, nickname, avatar, updated_at, version)?;
+    Ok(())
+}
+
+fn parse_meta_i64(meta: &std::collections::HashMap<String, String>, key: &str) -> Option<i64> {
+    meta.get(key).and_then(|v| v.parse::<i64>().ok())
 }
 
 async fn send_auth(

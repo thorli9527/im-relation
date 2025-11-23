@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use common::config::AppConfig;
+use common::infra::grpc::grpc_user::online_service::revoke_session_token_request::Target as RevokeTarget;
 use common::infra::grpc::grpc_user::online_service::user_rpc_service_client::UserRpcServiceClient;
 use common::infra::grpc::grpc_user::online_service::{
     AddFriendPolicy, AuthType, ChangeEmailReq, ChangePasswordReq, ChangePhoneReq, DeviceType,
@@ -8,7 +9,6 @@ use common::infra::grpc::grpc_user::online_service::{
     SessionTokenStatus, UpdateUserReq, UpsertSessionTokenRequest, UserEntity, UserType,
     ValidateSessionTokenRequest,
 };
-use common::infra::grpc::grpc_user::online_service::revoke_session_token_request::Target as RevokeTarget;
 use common::infra::redis::redis_pool::RedisPoolTools;
 use common::support::util::common_utils::{build_md5_with_key, build_uuid};
 use common::UID;
@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::sync::Arc;
 
-use crate::service::user_gateway;
+use crate::service::{friend_gateway, message_gateway, user_gateway};
 
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -31,6 +31,117 @@ pub enum UserLoginType {
     Email = 2,
     QRCode = 3,
     LoginName = 4,
+}
+
+impl UserService {
+    /// 资料更新后分发 ProfileUpdate 至好友与群。
+    async fn dispatch_profile_update(
+        &self,
+        uid: i64,
+        nickname: Option<&str>,
+        avatar: Option<&str>,
+        version: Option<i64>,
+        updated_at: Option<i64>,
+    ) -> anyhow::Result<()> {
+        let mut contents = Vec::new();
+        if let Some(nick) = nickname {
+            contents.push(message_gateway::build_profile_content(
+                common::infra::grpc::message::profile_event_content::ProfileEventType::EventName,
+                nick.to_string(),
+                version,
+                updated_at,
+            ));
+        }
+        if let Some(av) = avatar {
+            contents.push(message_gateway::build_profile_content(
+                common::infra::grpc::message::profile_event_content::ProfileEventType::EventAvatar,
+                av.to_string(),
+                version,
+                updated_at,
+            ));
+        }
+        if contents.is_empty() {
+            return Ok(());
+        }
+
+        let friend_ids = self.fetch_all_friend_ids(uid).await?;
+        let group_ids = self.fetch_all_group_ids(uid).await?;
+
+        // 并发分发，减少串行 RPC。
+        let ts_ms = updated_at.unwrap_or_else(common::support::util::date_util::now);
+        // 批量推送好友
+        let _ = message_gateway::send_batch_profile_update_to_friends(
+            uid,
+            friend_ids.clone(),
+            contents.clone(),
+            ts_ms,
+            false,
+        )
+        .await;
+        // 批量推送群
+        let _ = message_gateway::send_batch_profile_update_to_groups(
+            uid, group_ids, contents, ts_ms, false,
+        )
+        .await;
+
+        Ok(())
+    }
+
+    async fn fetch_all_friend_ids(&self, uid: i64) -> anyhow::Result<Vec<i64>> {
+        let mut page = 1;
+        let page_size = 200;
+        let mut ids = Vec::new();
+        loop {
+            let friends = friend_gateway::get_friends_page_detailed(uid, page, page_size).await?;
+            if friends.is_empty() {
+                break;
+            }
+            ids.extend(friends.iter().map(|f| f.friend_id as i64));
+            if friends.len() < page_size as usize {
+                break;
+            }
+            page += 1;
+        }
+        ids.sort_unstable();
+        ids.dedup();
+        Ok(ids)
+    }
+
+    async fn fetch_all_group_ids(&self, uid: i64) -> anyhow::Result<Vec<i64>> {
+        let mut groups = Vec::new();
+        let mut before_updated_at: Option<i64> = None;
+        let mut before_group_id: Option<i64> = None;
+        let limit = 200;
+
+        loop {
+            let page = message_gateway::list_group_conversations(
+                uid,
+                limit,
+                before_updated_at,
+                before_group_id,
+            )
+            .await?;
+            if page.snapshots.is_empty() {
+                break;
+            }
+            for snap in &page.snapshots {
+                groups.push(snap.group_id);
+            }
+            if !page.has_more {
+                break;
+            }
+            if let Some(last) = page.snapshots.last() {
+                before_updated_at = Some(last.updated_at);
+                before_group_id = Some(last.group_id);
+            } else {
+                break;
+            }
+        }
+
+        groups.sort_unstable();
+        groups.dedup();
+        Ok(groups)
+    }
 }
 impl UserLoginType {
     pub fn from_i32(value: i32) -> Option<Self> {
@@ -825,7 +936,12 @@ impl UserServiceAuthOpt for UserService {
         language: Option<&str>,
         nickname: Option<&str>,
     ) -> anyhow::Result<()> {
-        if gender.is_none() && avatar.is_none() && country.is_none() && language.is_none() && nickname.is_none() {
+        if gender.is_none()
+            && avatar.is_none()
+            && country.is_none()
+            && language.is_none()
+            && nickname.is_none()
+        {
             return Ok(());
         }
 
@@ -835,10 +951,14 @@ impl UserServiceAuthOpt for UserService {
         let mut entity = UserService::get_user_by_id(&mut client, uid).await?;
 
         let mut paths: Vec<String> = Vec::new();
+        let mut new_avatar: Option<String> = None;
+        let mut new_nickname: Option<String> = None;
 
-        if let Some(new_avatar) = avatar {
-            entity.avatar = new_avatar.to_string();
+        if let Some(incoming_avatar) = avatar {
+            let avatar_owned = incoming_avatar.to_string();
+            entity.avatar = avatar_owned.clone();
             paths.push("avatar".to_string());
+            new_avatar = Some(avatar_owned);
         }
 
         if let Some(g) = gender {
@@ -858,8 +978,10 @@ impl UserServiceAuthOpt for UserService {
         }
 
         if let Some(al) = nickname {
-            entity.nickname = Some(al.to_string());
+            let nickname_owned = al.to_string();
+            entity.nickname = Some(nickname_owned.clone());
             paths.push("nickname".to_string());
+            new_nickname = Some(nickname_owned);
         }
 
         if paths.is_empty() {
@@ -874,6 +996,16 @@ impl UserServiceAuthOpt for UserService {
                 update_mask: Some(mask),
             })
             .await?;
+
+        let updated_at = common::support::util::date_util::now();
+        self.dispatch_profile_update(
+            uid,
+            new_nickname.as_deref(),
+            new_avatar.as_deref(),
+            None,
+            Some(updated_at),
+        )
+        .await?;
 
         Ok(())
     }

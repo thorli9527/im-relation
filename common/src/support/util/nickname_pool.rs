@@ -10,11 +10,11 @@ fn normalize<S: AsRef<str>>(s: S) -> String {
 
 /// 字符串享元池：相同文本只保留一份 Arc<str>
 #[derive(Default)]
-pub struct AliasPool {
+pub struct NicknamePool {
     pool: RwLock<HashMap<String, Arc<str>>>, // key 为规范化后的文本
 }
 
-impl AliasPool {
+impl NicknamePool {
     pub fn new() -> Self {
         Self {
             pool: RwLock::new(HashMap::new()),
@@ -22,8 +22,8 @@ impl AliasPool {
     }
 
     /// 放入并返回共享引用；多次传入相同文本将返回同一 Arc<str>
-    pub fn intern<S: AsRef<str>>(&self, alias: S) -> Arc<str> {
-        let key = normalize(alias);
+    pub fn intern<S: AsRef<str>>(&self, nickname: S) -> Arc<str> {
+        let key = normalize(nickname);
         if let Some(a) = self.pool.read().get(&key) {
             return a.clone();
         }
@@ -35,5 +35,5 @@ impl AliasPool {
 }
 
 /// 全局享元池（线程安全）
-pub static ALIAS_POOL: once_cell::sync::Lazy<AliasPool> =
-    once_cell::sync::Lazy::new(|| AliasPool::new());
+pub static NICKNAME_POOL: once_cell::sync::Lazy<NicknamePool> =
+    once_cell::sync::Lazy::new(|| NicknamePool::new());

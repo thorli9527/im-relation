@@ -1,5 +1,5 @@
 use once_cell::sync::OnceCell;
-use rusqlite::Row;
+use rusqlite::{Row, types::Value};
 
 use crate::{
     common::{
@@ -60,6 +60,46 @@ impl FriendService {
             ids.push(row.get("friend_id").map_err(|err| err.to_string())?);
         }
         Ok(ids)
+    }
+
+    pub fn get_by_friend_id(&self, friend_id: i64) -> Result<Option<FriendEntity>, String> {
+        let conditions = vec![QueryCondition::new(
+            "friend_id",
+            QueryType::Equal,
+            vec![Value::Integer(friend_id)],
+        )];
+        self.repo.query_one(&conditions, Self::map_row)
+    }
+
+    /// socket 推送资料变更时更新本地好友缓存。
+    pub fn apply_profile_update(
+        &self,
+        friend_id: i64,
+        nickname: Option<String>,
+        avatar: Option<String>,
+        updated_at: i64,
+    ) -> Result<(), String> {
+        if nickname.is_none() && avatar.is_none() {
+            return Ok(());
+        }
+        let mut entity = self
+            .get_by_friend_id(friend_id)?
+            .unwrap_or_else(|| FriendEntity::new(friend_id, updated_at));
+        if let Some(nick) = nickname {
+            entity.nickname = Some(nick);
+        }
+        if let Some(av) = avatar {
+            entity.avatar = av;
+        }
+        if entity.created_at == 0 {
+            entity.created_at = updated_at;
+        }
+        if entity.id.is_some() {
+            self.repo.update(entity)?;
+        } else {
+            self.repo.insert(entity)?;
+        }
+        Ok(())
     }
 
     fn ensure_schema(&self) -> Result<(), String> {

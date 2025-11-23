@@ -777,10 +777,8 @@ where
             qb.push("user_type=").push_bind(patch.user_type);
         }
 
-        qb.push(
-            ", updated_at=NOW(3), version=version+1 WHERE id=",
-        )
-        .push_bind(patch.id);
+        qb.push(", updated_at=NOW(3), version=version+1 WHERE id=")
+            .push_bind(patch.id);
         qb.build()
             .execute(db)
             .await

@@ -1,9 +1,9 @@
+use axum::extract::Query;
 use axum::{routing::get, Router};
 use common::core::errors::AppError;
 use common::core::result::{result, ApiResponse};
-use serde::Deserialize;
-use axum::extract::Query;
 use fake::{faker::name::raw::FirstName, locales::EN, Fake};
+use serde::Deserialize;
 
 pub fn router() -> Router {
     Router::new()

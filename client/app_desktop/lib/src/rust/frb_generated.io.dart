@@ -3,11 +3,18 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
-import 'api/app_api.dart';
+import 'api/app_api_types.dart';
 import 'api/chat_api.dart';
 import 'api/config_api.dart';
+import 'api/errors.dart';
 import 'api/frb_types.dart';
+import 'api/login_api.dart';
+import 'api/login_api_types.dart';
+import 'api/reg_api.dart';
+import 'api/reg_api_types.dart';
 import 'api/socket_api.dart';
+import 'api/user_api.dart';
+import 'api/user_api_types.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' as ffi;
@@ -63,10 +70,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String dco_decode_String(dynamic raw);
 
   @protected
+  ApiError dco_decode_api_error(dynamic raw);
+
+  @protected
+  ApiErrorKind dco_decode_api_error_kind(dynamic raw);
+
+  @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
+  ApiError dco_decode_box_autoadd_api_error(dynamic raw);
+
+  @protected
   BuildRegisterCodeRequest dco_decode_box_autoadd_build_register_code_request(
+    dynamic raw,
+  );
+
+  @protected
+  CachedGroupMembersQuery dco_decode_box_autoadd_cached_group_members_query(
     dynamic raw,
   );
 
@@ -80,6 +101,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ChangePhoneRequest dco_decode_box_autoadd_change_phone_request(dynamic raw);
+
+  @protected
+  CheckOnlineBatchQuery dco_decode_box_autoadd_check_online_batch_query(
+    dynamic raw,
+  );
 
   @protected
   FriendListQuery dco_decode_box_autoadd_friend_list_query(dynamic raw);
@@ -110,12 +136,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RefreshGroupMembersQuery dco_decode_box_autoadd_refresh_group_members_query(
+    dynamic raw,
+  );
+
+  @protected
   SearchUserQuery dco_decode_box_autoadd_search_user_query(dynamic raw);
 
   @protected
   SessionValidateRequest dco_decode_box_autoadd_session_validate_request(
     dynamic raw,
   );
+
+  @protected
+  int dco_decode_box_autoadd_u_16(dynamic raw);
 
   @protected
   int dco_decode_box_autoadd_u_32(dynamic raw);
@@ -145,6 +179,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  CachedGroupMembersQuery dco_decode_cached_group_members_query(dynamic raw);
+
+  @protected
   ChangeEmailRequest dco_decode_change_email_request(dynamic raw);
 
   @protected
@@ -158,6 +195,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ChangePhoneResult dco_decode_change_phone_result(dynamic raw);
+
+  @protected
+  CheckOnlineBatchQuery dco_decode_check_online_batch_query(dynamic raw);
+
+  @protected
+  CheckOnlineBatchResult dco_decode_check_online_batch_result(dynamic raw);
 
   @protected
   ConversationEntity dco_decode_conversation_entity(dynamic raw);
@@ -199,6 +242,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   GroupMembersResult dco_decode_group_members_result(dynamic raw);
 
   @protected
+  GroupMembersSnapshot dco_decode_group_members_snapshot(dynamic raw);
+
+  @protected
   GroupPageResult dco_decode_group_page_result(dynamic raw);
 
   @protected
@@ -229,6 +275,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<GroupMember> dco_decode_list_group_member(dynamic raw);
 
   @protected
+  List<OnlineStatusEntry> dco_decode_list_online_status_entry(dynamic raw);
+
+  @protected
+  Int64List dco_decode_list_prim_i_64_strict(dynamic raw);
+
+  @protected
   List<int> dco_decode_list_prim_u_8_loose(dynamic raw);
 
   @protected
@@ -247,6 +299,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MessagePageResult dco_decode_message_page_result(dynamic raw);
 
   @protected
+  OnlineStatusEntry dco_decode_online_status_entry(dynamic raw);
+
+  @protected
+  OnlineStatusSnapshot dco_decode_online_status_snapshot(dynamic raw);
+
+  @protected
   OperationStatus dco_decode_operation_status(dynamic raw);
 
   @protected
@@ -260,6 +318,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_16(dynamic raw);
 
   @protected
   int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
@@ -280,6 +341,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RecentConversationsResult dco_decode_recent_conversations_result(dynamic raw);
 
   @protected
+  RefreshGroupMembersQuery dco_decode_refresh_group_members_query(dynamic raw);
+
+  @protected
   SearchUserQuery dco_decode_search_user_query(dynamic raw);
 
   @protected
@@ -290,6 +354,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SessionValidationResult dco_decode_session_validation_result(dynamic raw);
+
+  @protected
+  int dco_decode_u_16(dynamic raw);
 
   @protected
   int dco_decode_u_32(dynamic raw);
@@ -305,6 +372,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UpdateProfileRequest dco_decode_update_profile_request(dynamic raw);
+
+  @protected
+  UserInfoResult dco_decode_user_info_result(dynamic raw);
 
   @protected
   UserProfile dco_decode_user_profile(dynamic raw);
@@ -345,10 +415,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  ApiError sse_decode_api_error(SseDeserializer deserializer);
+
+  @protected
+  ApiErrorKind sse_decode_api_error_kind(SseDeserializer deserializer);
+
+  @protected
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
+  ApiError sse_decode_box_autoadd_api_error(SseDeserializer deserializer);
+
+  @protected
   BuildRegisterCodeRequest sse_decode_box_autoadd_build_register_code_request(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CachedGroupMembersQuery sse_decode_box_autoadd_cached_group_members_query(
     SseDeserializer deserializer,
   );
 
@@ -364,6 +448,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ChangePhoneRequest sse_decode_box_autoadd_change_phone_request(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CheckOnlineBatchQuery sse_decode_box_autoadd_check_online_batch_query(
     SseDeserializer deserializer,
   );
 
@@ -402,6 +491,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RefreshGroupMembersQuery sse_decode_box_autoadd_refresh_group_members_query(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   SearchUserQuery sse_decode_box_autoadd_search_user_query(
     SseDeserializer deserializer,
   );
@@ -410,6 +504,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SessionValidateRequest sse_decode_box_autoadd_session_validate_request(
     SseDeserializer deserializer,
   );
+
+  @protected
+  int sse_decode_box_autoadd_u_16(SseDeserializer deserializer);
 
   @protected
   int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
@@ -441,6 +538,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  CachedGroupMembersQuery sse_decode_cached_group_members_query(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ChangeEmailRequest sse_decode_change_email_request(
     SseDeserializer deserializer,
   );
@@ -462,6 +564,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ChangePhoneResult sse_decode_change_phone_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CheckOnlineBatchQuery sse_decode_check_online_batch_query(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CheckOnlineBatchResult sse_decode_check_online_batch_result(
     SseDeserializer deserializer,
   );
 
@@ -517,6 +629,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  GroupMembersSnapshot sse_decode_group_members_snapshot(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   GroupPageResult sse_decode_group_page_result(SseDeserializer deserializer);
 
   @protected
@@ -553,6 +670,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<GroupMember> sse_decode_list_group_member(SseDeserializer deserializer);
 
   @protected
+  List<OnlineStatusEntry> sse_decode_list_online_status_entry(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Int64List sse_decode_list_prim_i_64_strict(SseDeserializer deserializer);
+
+  @protected
   List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
 
   @protected
@@ -575,6 +700,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  OnlineStatusEntry sse_decode_online_status_entry(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  OnlineStatusSnapshot sse_decode_online_status_snapshot(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   OperationStatus sse_decode_operation_status(SseDeserializer deserializer);
 
   @protected
@@ -590,6 +725,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_16(SseDeserializer deserializer);
 
   @protected
   int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
@@ -618,6 +756,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RefreshGroupMembersQuery sse_decode_refresh_group_members_query(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   SearchUserQuery sse_decode_search_user_query(SseDeserializer deserializer);
 
   @protected
@@ -632,6 +775,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SessionValidationResult sse_decode_session_validation_result(
     SseDeserializer deserializer,
   );
+
+  @protected
+  int sse_decode_u_16(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_32(SseDeserializer deserializer);
@@ -649,6 +795,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UpdateProfileRequest sse_decode_update_profile_request(
     SseDeserializer deserializer,
   );
+
+  @protected
+  UserInfoResult sse_decode_user_info_result(SseDeserializer deserializer);
 
   @protected
   UserProfile sse_decode_user_profile(SseDeserializer deserializer);
@@ -693,11 +842,29 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
+  void sse_encode_api_error(ApiError self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_api_error_kind(ApiErrorKind self, SseSerializer serializer);
+
+  @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_api_error(
+    ApiError self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_build_register_code_request(
     BuildRegisterCodeRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_cached_group_members_query(
+    CachedGroupMembersQuery self,
     SseSerializer serializer,
   );
 
@@ -716,6 +883,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_change_phone_request(
     ChangePhoneRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_check_online_batch_query(
+    CheckOnlineBatchQuery self,
     SseSerializer serializer,
   );
 
@@ -765,6 +938,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_refresh_group_members_query(
+    RefreshGroupMembersQuery self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_search_user_query(
     SearchUserQuery self,
     SseSerializer serializer,
@@ -775,6 +954,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     SessionValidateRequest self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_box_autoadd_u_16(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
@@ -813,6 +995,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_cached_group_members_query(
+    CachedGroupMembersQuery self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_change_email_request(
     ChangeEmailRequest self,
     SseSerializer serializer,
@@ -839,6 +1027,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_change_phone_result(
     ChangePhoneResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_check_online_batch_query(
+    CheckOnlineBatchQuery self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_check_online_batch_result(
+    CheckOnlineBatchResult self,
     SseSerializer serializer,
   );
 
@@ -909,6 +1109,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_group_members_snapshot(
+    GroupMembersSnapshot self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_group_page_result(
     GroupPageResult self,
     SseSerializer serializer,
@@ -958,6 +1164,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_online_status_entry(
+    List<OnlineStatusEntry> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_prim_i_64_strict(
+    Int64List self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_prim_u_8_loose(List<int> self, SseSerializer serializer);
 
   @protected
@@ -985,6 +1203,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_online_status_entry(
+    OnlineStatusEntry self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_online_status_snapshot(
+    OnlineStatusSnapshot self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_operation_status(
     OperationStatus self,
     SseSerializer serializer,
@@ -1007,6 +1237,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     PlatformInt64? self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_16(int? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
@@ -1039,6 +1272,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_refresh_group_members_query(
+    RefreshGroupMembersQuery self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_search_user_query(
     SearchUserQuery self,
     SseSerializer serializer,
@@ -1063,6 +1302,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_u_16(int self, SseSerializer serializer);
+
+  @protected
   void sse_encode_u_32(int self, SseSerializer serializer);
 
   @protected
@@ -1077,6 +1319,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_update_profile_request(
     UpdateProfileRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_user_info_result(
+    UserInfoResult self,
     SseSerializer serializer,
   );
 

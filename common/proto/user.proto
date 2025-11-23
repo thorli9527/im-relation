@@ -163,7 +163,7 @@ message LoginRespMsg {
   string avatar = 8;
   optional string language = 9;
   optional string country = 10;
-  optional string nickname = 11;
+  reserved 11;
   optional Gender gender = 12;
   int32 version = 13;
 }

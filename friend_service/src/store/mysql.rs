@@ -27,7 +27,12 @@ pub enum AddOutcome {
 
 #[async_trait]
 pub trait FriendRepo: Send + Sync + 'static {
-    async fn add_friend(&self, user: UID, friend: UID, nickname: Option<&str>) -> Result<AddOutcome>;
+    async fn add_friend(
+        &self,
+        user: UID,
+        friend: UID,
+        nickname: Option<&str>,
+    ) -> Result<AddOutcome>;
     /// 原子地为双方建立好友关系，并刷新两侧计数（以实时 COUNT(*) 为准）。
     async fn add_friend_both(
         &self,
@@ -37,7 +42,7 @@ pub trait FriendRepo: Send + Sync + 'static {
         nickname_for_b: Option<&str>,
     ) -> Result<()>;
     async fn remove_friend(&self, user: UID, friend: UID) -> Result<bool>;
-    async fn set_alias(&self, user: UID, friend: UID, nickname: Option<&str>) -> Result<bool>;
+    async fn set_nickname(&self, user: UID, friend: UID, nickname: Option<&str>) -> Result<bool>;
     async fn set_remark(&self, user: UID, friend: UID, remark: Option<&str>) -> Result<bool>;
     async fn set_blacklist(&self, user: UID, friend: UID, blocked: bool) -> Result<bool>;
     async fn is_friend(&self, user: UID, friend: UID) -> Result<bool>;
@@ -88,7 +93,12 @@ impl FriendStorage {
 
 #[async_trait]
 impl FriendRepo for FriendStorage {
-    async fn add_friend(&self, user: UID, friend: UID, nickname: Option<&str>) -> Result<AddOutcome> {
+    async fn add_friend(
+        &self,
+        user: UID,
+        friend: UID,
+        nickname: Option<&str>,
+    ) -> Result<AddOutcome> {
         let insert_res = sqlx::query(
             r#"
         INSERT INTO friend_edge (uid, friend_id, nickname, remark)
@@ -130,7 +140,7 @@ impl FriendRepo for FriendStorage {
                 }
 
                 // 已存在：读取现有 nickname 并比较
-                let db_alias: Option<String> = sqlx::query_scalar(
+                let db_nick: Option<String> = sqlx::query_scalar(
                     r#"SELECT nickname FROM friend_edge WHERE uid=? AND friend_id=? "#,
                 )
                 .bind(user as u64)
@@ -140,7 +150,7 @@ impl FriendRepo for FriendStorage {
                 .with_context(|| "add_friend: fetch nickname after dup key")?
                 .flatten();
 
-                let changed = match (db_alias.as_deref(), nickname) {
+                let changed = match (db_nick.as_deref(), nickname) {
                     (None, None) => false,
                     (Some(a), Some(b)) => a != b,
                     (Some(_), None) | (None, Some(_)) => true,
@@ -292,7 +302,7 @@ impl FriendRepo for FriendStorage {
         Ok(false)
     }
 
-    async fn set_alias(&self, user: UID, friend: UID, nickname: Option<&str>) -> Result<bool> {
+    async fn set_nickname(&self, user: UID, friend: UID, nickname: Option<&str>) -> Result<bool> {
         // 仅在值真的变化时更新
         let changed = if let Some(a) = nickname {
             let res = sqlx::query(
@@ -311,7 +321,7 @@ impl FriendRepo for FriendStorage {
             .bind(a)
             .execute(self.db())
             .await
-            .with_context(|| "set_alias: update nickname failed")?;
+            .with_context(|| "set_nickname: update nickname failed")?;
             res.rows_affected() > 0
         } else {
             let res = sqlx::query(
@@ -325,7 +335,7 @@ impl FriendRepo for FriendStorage {
             .bind(friend as u64)
             .execute(self.db())
             .await
-            .with_context(|| "set_alias: clear nickname failed")?;
+            .with_context(|| "set_nickname: clear nickname failed")?;
             res.rows_affected() > 0
         };
         Ok(changed)

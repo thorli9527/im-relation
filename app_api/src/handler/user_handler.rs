@@ -114,16 +114,70 @@ fn gen_name(gender: Option<FakeGender>) -> String {
 
     // 简单的英文名库
     const MALE_FIRST: &[&str] = &[
-        "James","John","Robert","Michael","William","David","Richard","Joseph","Thomas","Charles",
-        "Christopher","Daniel","Matthew","Anthony","Mark","Donald","Steven","Paul","Andrew","Joshua",
+        "James",
+        "John",
+        "Robert",
+        "Michael",
+        "William",
+        "David",
+        "Richard",
+        "Joseph",
+        "Thomas",
+        "Charles",
+        "Christopher",
+        "Daniel",
+        "Matthew",
+        "Anthony",
+        "Mark",
+        "Donald",
+        "Steven",
+        "Paul",
+        "Andrew",
+        "Joshua",
     ];
     const FEMALE_FIRST: &[&str] = &[
-        "Mary","Patricia","Jennifer","Linda","Elizabeth","Barbara","Susan","Jessica","Sarah","Karen",
-        "Lisa","Nancy","Betty","Margaret","Sandra","Ashley","Kimberly","Emily","Donna","Michelle",
+        "Mary",
+        "Patricia",
+        "Jennifer",
+        "Linda",
+        "Elizabeth",
+        "Barbara",
+        "Susan",
+        "Jessica",
+        "Sarah",
+        "Karen",
+        "Lisa",
+        "Nancy",
+        "Betty",
+        "Margaret",
+        "Sandra",
+        "Ashley",
+        "Kimberly",
+        "Emily",
+        "Donna",
+        "Michelle",
     ];
     const LAST: &[&str] = &[
-        "Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Rodriguez","Martinez",
-        "Hernandez","Lopez","Gonzalez","Wilson","Anderson","Thomas","Taylor","Moore","Jackson","Martin",
+        "Smith",
+        "Johnson",
+        "Williams",
+        "Brown",
+        "Jones",
+        "Garcia",
+        "Miller",
+        "Davis",
+        "Rodriguez",
+        "Martinez",
+        "Hernandez",
+        "Lopez",
+        "Gonzalez",
+        "Wilson",
+        "Anderson",
+        "Thomas",
+        "Taylor",
+        "Moore",
+        "Jackson",
+        "Martin",
     ];
 
     let mut rng = thread_rng();
@@ -393,9 +447,7 @@ async fn get_friend_list(Json(params): Json<FriendListQuery>) -> HandlerResult<F
             .and_then(normalize_optional_string)
             .unwrap_or_else(|| user.avatar.clone());
 
-        let remark = entry
-            .remark
-            .and_then(normalize_optional_string);
+        let remark = entry.remark.and_then(normalize_optional_string);
 
         friends.push(FriendSummaryResult {
             friend_id,
@@ -492,8 +544,9 @@ async fn get_group_members(
             .into_inner();
 
         let nickname = member
+            .nickname
             .and_then(normalize_optional_string)
-            .unwrap_or(user.name.clone());
+            .unwrap_or_else(|| user.nickname.clone().unwrap_or(user.name.clone()));
 
         let summary = GroupMemberResult {
             group_id: path.group_id,

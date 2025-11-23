@@ -9,7 +9,7 @@ use crate::profile::{GroupProfileCache, MySqlGroupProfileStore};
 use crate::store::GroupStorage;
 use common::infra::grpc::grpc_group::group_service::{
     group_service_server::GroupService as GrpcGroupService, AllKeysByShardReq, AllKeysByShardResp,
-    AllKeysReq, AllKeysResp, ChangeAliasReq, ChangeAliasResp, ChangeRoleReq, ChangeRoleResp,
+    AllKeysReq, AllKeysResp, ChangeNicknameReq, ChangeNicknameResp, ChangeRoleReq, ChangeRoleResp,
     ClearReq, ClearResp, CommonResp, CountReq, CountResp, CreateGroupReq, DismissGroupReq,
     GetAllReq, GetAllResp, GetManagersReq, GetManagersResp, GetPageReq, GetPageResp, GroupInfo,
     GroupRoleType, IdReq, InsertManyReq, InsertManyResp, InsertReq, InsertResp, MemberRef,
@@ -333,14 +333,14 @@ where
 
     async fn change_nickname(
         &self,
-        req: Request<ChangeAliasReq>,
-    ) -> Result<Response<ChangeAliasResp>, Status> {
+        req: Request<ChangeNicknameReq>,
+    ) -> Result<Response<ChangeNicknameResp>, Status> {
         let r = req.into_inner();
         self.facade
             .change_nickname(r.group_id, r.uid, r.nickname)
             .await
             .map_err(Self::map_hot_err)?;
-        Ok(Response::new(ChangeAliasResp {}))
+        Ok(Response::new(ChangeNicknameResp {}))
     }
 
     // ---------- 成员读 ----------

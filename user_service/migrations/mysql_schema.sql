@@ -5,16 +5,16 @@
 -- migrations/mysql_schema.sql
 CREATE TABLE IF NOT EXISTS user_info (
                     id               BIGINT        NOT NULL PRIMARY KEY,          -- (1)
-                    name             VARCHAR(64)   NOT NULL,                      -- (2)
-                    password         VARCHAR(255)  NOT NULL,                      -- 密码字段（明文）
+                    name             VARCHAR(32)   NOT NULL,                      -- (2)
+                    password         VARCHAR(64)  NOT NULL,                      -- 密码字段（明文）
                     language         VARCHAR(16)   NULL,                          -- (6) BCP-47，如 zh-CN
                     country          VARCHAR(32)   NULL,                          -- (16) ISO 国家/地区代码
-                    nickname         VARCHAR(64)   NULL,                          -- (17) 昵称
-                    avatar           VARCHAR(256)  NOT NULL DEFAULT '',           -- (7)
+                    nickname         VARCHAR(32)   NULL,                          -- (17) 昵称
+                    avatar           VARCHAR(128)  NOT NULL DEFAULT '',           -- (7)
                     allow_add_friend TINYINT       NOT NULL DEFAULT 0,            -- (8)
                     gender           TINYINT       NOT NULL DEFAULT 0,            -- (9)
                     user_type        TINYINT       NOT NULL DEFAULT 0,            -- (10)
-                    email_norm       VARBINARY(320) NULL,                         -- (4) lower+punycode
+                    email_norm       VARBINARY(64) NULL,                         -- (4) lower+punycode
                     phone_norm       VARBINARY(32)  NULL,                         -- (5) E.164
                     profile_fields   JSON          NULL,                          -- 扩展个人资料字段
                     created_at       DATETIME(3)   NOT NULL,                      -- (12)
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS user_info (
 -- 如需保持 VARCHAR，可加 COLLATE utf8mb4_bin；或改为 VARBINARY(96)
 -- email -> id
 CREATE TABLE IF NOT EXISTS uid_email (
-                           email        VARBINARY(255) NOT NULL,
+                           email        VARBINARY(64) NOT NULL,
                            id           BIGINT         NOT NULL,
                            state        TINYINT        NOT NULL DEFAULT 1,  -- 0=占位, 1=生效
                            create_time  DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -57,7 +57,7 @@ PARTITION BY KEY(phone) PARTITIONS 64;
 
 -- name -> id
 CREATE TABLE IF NOT EXISTS uid_name (
-                          name         VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+                          name         VARCHAR(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
                           id           BIGINT         NOT NULL,
                           state        TINYINT        NOT NULL DEFAULT 1,
                           create_time  DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3),

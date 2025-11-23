@@ -32,11 +32,11 @@ pub struct FriendListEf {
 
     // ===== 别名：并行三层结构（无享元） =====
     /// 稳定面：随 base 对齐
-    pub alias_base: RwLock<HashMap<FriendId, String>>,
+    pub nickname_base: RwLock<HashMap<FriendId, String>>,
     /// ΔAdd：新增/更新别名
-    pub alias_add: RwLock<HashMap<FriendId, String>>,
+    pub nickname_add: RwLock<HashMap<FriendId, String>>,
     /// ΔDel：清除别名标记（小集合）
-    pub alias_del: RwLock<SmallVec<[FriendId; 8]>>,
+    pub nickname_del: RwLock<SmallVec<[FriendId; 8]>>,
 }
 
 impl Default for FriendListEf {
@@ -53,9 +53,9 @@ impl FriendListEf {
             base: RwLock::new(EliasFano::from_sorted(&[])),
             delta_add: RwLock::new(SmallVec::new()),
             delta_del: RwLock::new(SmallVec::new()),
-            alias_base: RwLock::new(HashMap::new()),
-            alias_add: RwLock::new(HashMap::new()),
-            alias_del: RwLock::new(SmallVec::new()),
+            nickname_base: RwLock::new(HashMap::new()),
+            nickname_add: RwLock::new(HashMap::new()),
+            nickname_del: RwLock::new(SmallVec::new()),
         }
     }
 
@@ -80,52 +80,52 @@ impl FriendListEf {
 
     /// 清理别名的增量标记（在 remove 路径中复用）
     #[inline]
-    fn clear_alias_deltas_for(&self, uid: FriendId) {
-        self.alias_add.write().remove(&uid);
+    fn clear_nickname_deltas_for(&self, uid: FriendId) {
+        self.nickname_add.write().remove(&uid);
         // retain 的闭包参数是 &T（&u64），这里用 != 保留非目标
-        self.alias_del.write().retain(|&mut x| x != uid);
+        self.nickname_del.write().retain(|&mut x| x != uid);
     }
 
     // ====================== 别名 API（无享元） ======================
 
     /// 设置/更新别名；传 None 表示清除别名
-    pub fn set_alias<S: Into<String>>(
+    pub fn set_nickname<S: Into<String>>(
         &self,
         other: UID,
-        alias: Option<S>,
+        nickname: Option<S>,
     ) -> Result<(), RelationError> {
         let u = other as FriendId;
 
-        if let Some(a) = alias {
+        if let Some(a) = nickname {
             // 先去掉“删除”标记，再写入/覆盖 ΔAdd
             {
-                let mut del = self.alias_del.write();
+                let mut del = self.nickname_del.write();
                 Self::smallvec_remove_one(&mut del, u);
             }
-            self.alias_add.write().insert(u, a.into());
+            self.nickname_add.write().insert(u, a.into());
         } else {
             // 标记删除别名，并从 ΔAdd 清除
-            self.alias_add.write().remove(&u);
-            self.alias_del.write().push(u);
+            self.nickname_add.write().remove(&u);
+            self.nickname_del.write().push(u);
         }
         Ok(())
     }
 
     /// 获取别名（ΔDel -> ΔAdd -> Base），返回克隆的 String 给上层使用
-    pub fn get_alias(&self, other: UID) -> Result<Option<String>, RelationError> {
+    pub fn get_nickname(&self, other: UID) -> Result<Option<String>, RelationError> {
         let u = other as FriendId;
 
         // 这里尽量减少锁分段；小集合 + 哈希查找都很快
         {
-            let del = self.alias_del.read();
+            let del = self.nickname_del.read();
             if Self::smallvec_contains(&del, u) {
                 return Ok(None);
             }
         }
-        if let Some(a) = self.alias_add.read().get(&u) {
+        if let Some(a) = self.nickname_add.read().get(&u) {
             return Ok(Some(a.clone()));
         }
-        Ok(self.alias_base.read().get(&u).cloned())
+        Ok(self.nickname_base.read().get(&u).cloned())
     }
 
     // ====================== 关系 API ======================
@@ -146,7 +146,7 @@ impl FriendListEf {
         Ok(self.base.read().contains(u))
     }
 
-    /// 覆盖式重建 Base，并清空关系增量；同步剪枝 alias_base
+    /// 覆盖式重建 Base，并清空关系增量；同步剪枝 nickname_base
     pub fn set_base_from_sorted(&self, sorted_unique: &[FriendId]) {
         debug_assert!(
             sorted_unique.windows(2).all(|w| w[0] < w[1]),
@@ -165,7 +165,7 @@ impl FriendListEf {
 
         // 4) 剪枝别名基线：只保留仍在好友集合内的条目
         {
-            let mut ab = self.alias_base.write();
+            let mut ab = self.nickname_base.write();
             // 避免在迭代中修改：先收集 key
             let keys: Vec<_> = ab.keys().cloned().collect();
             for k in keys {
@@ -197,16 +197,16 @@ impl FriendListEf {
     }
 
     /// 新增好友并可附带别名（仅在“确实新增”时写入别名，不影响已存在关系）
-    pub fn add_with_alias<S: Into<String>>(
+    pub fn add_with_nickname<S: Into<String>>(
         &self,
         other: UID,
-        alias: Option<S>,
+        nickname: Option<S>,
     ) -> Result<bool, RelationError> {
         let added = self.add(other)?;
         if added {
-            if let Some(a) = alias {
+            if let Some(a) = nickname {
                 // 不需要传播错误（infallible）
-                let _ = self.set_alias(other, Some(a));
+                let _ = self.set_nickname(other, Some(a));
             }
         }
         Ok(added)
@@ -222,7 +222,7 @@ impl FriendListEf {
             let mut add = self.delta_add.write();
             if let Some(i) = add.iter().position(|&x| x == u) {
                 add.remove(i);
-                self.clear_alias_deltas_for(u);
+                self.clear_nickname_deltas_for(u);
                 return Ok(true);
             }
         }
@@ -233,7 +233,7 @@ impl FriendListEf {
         }
 
         self.delta_del.write().push(u);
-        self.clear_alias_deltas_for(u);
+        self.clear_nickname_deltas_for(u);
         Ok(true)
     }
 
@@ -291,9 +291,9 @@ impl FriendListEf {
     /// 取全部（含别名）
     pub fn snapshot_all_detailed(&self) -> Vec<(FriendId, Option<String>)> {
         let all = self.snapshot_all();
-        let del = self.alias_del.read().clone();
-        let add = self.alias_add.read().clone();
-        let base = self.alias_base.read();
+        let del = self.nickname_del.read().clone();
+        let add = self.nickname_add.read().clone();
+        let base = self.nickname_base.read();
 
         let mut out = Vec::with_capacity(all.len());
         for uid in all {
@@ -369,9 +369,9 @@ impl FriendListEf {
 
         // 3) 应用别名增量到 Base，并清理非好友（严格顺序：删 -> 加 -> 剪枝）
         {
-            let mut ab = self.alias_base.write();
-            let mut aa = self.alias_add.write();
-            let mut ad = self.alias_del.write();
+            let mut ab = self.nickname_base.write();
+            let mut aa = self.nickname_add.write();
+            let mut ad = self.nickname_del.write();
 
             // (a) 删除优先
             if !ad.is_empty() {
@@ -385,9 +385,9 @@ impl FriendListEf {
             // (b) 应用新增/更新（仅对仍为好友的 id）
             if !aa.is_empty() {
                 // aa.drain() 避免克隆
-                for (uid, alias) in aa.drain() {
+                for (uid, nickname) in aa.drain() {
                     if merged.binary_search(&uid).is_ok() {
-                        ab.insert(uid, alias);
+                        ab.insert(uid, nickname);
                     }
                 }
             }
@@ -418,11 +418,11 @@ impl FriendListEf {
         self.delta_del.read().len()
     }
     #[inline]
-    pub fn alias_add_len(&self) -> usize {
-        self.alias_add.read().len()
+    pub fn nickname_add_len(&self) -> usize {
+        self.nickname_add.read().len()
     }
     #[inline]
-    pub fn alias_del_len(&self) -> usize {
-        self.alias_del.read().len()
+    pub fn nickname_del_len(&self) -> usize {
+        self.nickname_del.read().len()
     }
 }

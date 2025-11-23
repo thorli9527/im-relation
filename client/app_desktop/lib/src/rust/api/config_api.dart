@@ -6,64 +6,11 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `ensure_app_api_base_url_initialized`, `ensure_attempts`, `ensure_limit_inner`, `get_app_api_base_url_internal`, `get_or_init_attempts`, `normalize_app_api_base_url`, `parse_u32`
+// These functions are ignored because they are not marked as `pub`: `ensure_app_api_base_url_initialized`, `ensure_attempts`, `ensure_limit_inner`, `get_app_api_base_url_internal`, `get_or_generate_value`, `get_or_init_attempts`, `get_or_set_u32`, `get_value`, `map_config_err`, `normalize_app_api_base_url`, `parse_value`, `set_numeric_value`, `set_value`
 
 /// 获取设备 ID（若无则自动生成并保存）。
 Future<String> getDeviceId() =>
     RustLib.instance.api.crateApiConfigApiGetDeviceId();
-
-/// 读取上次登录使用的账号（可为空）。
-Future<String?> getLoginName() =>
-    RustLib.instance.api.crateApiConfigApiGetLoginName();
-
-/// 更新登录账号。
-Future<void> setLoginName({required String loginName}) =>
-    RustLib.instance.api.crateApiConfigApiSetLoginName(loginName: loginName);
-
-/// 获取显示用的用户名。
-Future<String?> getUsername() =>
-    RustLib.instance.api.crateApiConfigApiGetUsername();
-
-/// 设置显示用的用户名。
-Future<void> setUsername({required String username}) =>
-    RustLib.instance.api.crateApiConfigApiSetUsername(username: username);
-
-/// 获取绑定邮箱。
-Future<String?> getEmail() => RustLib.instance.api.crateApiConfigApiGetEmail();
-
-/// 设置绑定邮箱。
-Future<void> setEmail({required String email}) =>
-    RustLib.instance.api.crateApiConfigApiSetEmail(email: email);
-
-/// 获取绑定手机号。
-Future<String?> getPhone() => RustLib.instance.api.crateApiConfigApiGetPhone();
-
-/// 设置绑定手机号。
-Future<void> setPhone({required String phone}) =>
-    RustLib.instance.api.crateApiConfigApiSetPhone(phone: phone);
-
-/// 获取头像地址。
-Future<String?> getAvatar() =>
-    RustLib.instance.api.crateApiConfigApiGetAvatar();
-
-/// 设置头像地址。
-Future<void> setAvatar({required String avatar}) =>
-    RustLib.instance.api.crateApiConfigApiSetAvatar(avatar: avatar);
-
-/// 获取登录 token。
-Future<String?> getToken() => RustLib.instance.api.crateApiConfigApiGetToken();
-
-/// 写入登录 token。
-Future<void> setToken({required String token}) =>
-    RustLib.instance.api.crateApiConfigApiSetToken(token: token);
-
-/// 获取 token 失效时间（Unix 秒）。
-Future<PlatformInt64?> getTokenExpireAt() =>
-    RustLib.instance.api.crateApiConfigApiGetTokenExpireAt();
-
-/// 设置 token 失效时间（Unix 秒）。
-Future<void> setTokenExpireAt({required PlatformInt64 expireAt}) =>
-    RustLib.instance.api.crateApiConfigApiSetTokenExpireAt(expireAt: expireAt);
 
 /// 获取应用版本号（用于展示）。
 Future<String?> getAppVersion() =>
@@ -72,30 +19,6 @@ Future<String?> getAppVersion() =>
 /// 写入当前应用版本号。
 Future<void> setAppVersion({required String version}) =>
     RustLib.instance.api.crateApiConfigApiSetAppVersion(version: version);
-
-/// 获取当前登录的 UID。
-Future<PlatformInt64?> getUid() =>
-    RustLib.instance.api.crateApiConfigApiGetUid();
-
-/// 设置当前登录的用户 ID。
-Future<void> setUid({required PlatformInt64 uid}) =>
-    RustLib.instance.api.crateApiConfigApiSetUid(uid: uid);
-
-/// 获取最后一次成功登录时间（Unix 秒）。
-Future<PlatformInt64?> getLastLoginAt() =>
-    RustLib.instance.api.crateApiConfigApiGetLastLoginAt();
-
-/// 设置最后一次成功登录时间（Unix 秒）。
-Future<void> setLastLoginAt({required PlatformInt64 timestamp}) =>
-    RustLib.instance.api.crateApiConfigApiSetLastLoginAt(timestamp: timestamp);
-
-/// 获取客户端最后一次心跳/存活时间（Unix 秒）。
-Future<PlatformInt64?> getLastAliveAt() =>
-    RustLib.instance.api.crateApiConfigApiGetLastAliveAt();
-
-/// 更新客户端最后一次心跳/存活时间（Unix 秒）。
-Future<void> setLastAliveAt({required PlatformInt64 timestamp}) =>
-    RustLib.instance.api.crateApiConfigApiSetLastAliveAt(timestamp: timestamp);
 
 Future<String> getAppApiBaseUrl() =>
     RustLib.instance.api.crateApiConfigApiGetAppApiBaseUrl();
@@ -127,3 +50,60 @@ Future<void> setSocketReconnectMessage({required String message}) => RustLib
 
 Future<String?> getSocketReconnectMessage() =>
     RustLib.instance.api.crateApiConfigApiGetSocketReconnectMessage();
+
+Future<String?> getToken() => RustLib.instance.api.crateApiConfigApiGetToken();
+
+Future<void> setToken({required String token}) =>
+    RustLib.instance.api.crateApiConfigApiSetToken(token: token);
+
+Future<PlatformInt64?> getTokenExpireAt() =>
+    RustLib.instance.api.crateApiConfigApiGetTokenExpireAt();
+
+Future<void> setTokenExpireAt({required PlatformInt64 expireAt}) =>
+    RustLib.instance.api.crateApiConfigApiSetTokenExpireAt(expireAt: expireAt);
+
+Future<PlatformInt64?> getUid() =>
+    RustLib.instance.api.crateApiConfigApiGetUid();
+
+Future<void> setUid({required PlatformInt64 uid}) =>
+    RustLib.instance.api.crateApiConfigApiSetUid(uid: uid);
+
+Future<String?> getUsername() =>
+    RustLib.instance.api.crateApiConfigApiGetUsername();
+
+Future<void> setUsername({required String name}) =>
+    RustLib.instance.api.crateApiConfigApiSetUsername(name: name);
+
+Future<String?> getLoginName() =>
+    RustLib.instance.api.crateApiConfigApiGetLoginName();
+
+Future<void> setLoginName({required String name}) =>
+    RustLib.instance.api.crateApiConfigApiSetLoginName(name: name);
+
+Future<String?> getEmail() => RustLib.instance.api.crateApiConfigApiGetEmail();
+
+Future<void> setEmail({required String email}) =>
+    RustLib.instance.api.crateApiConfigApiSetEmail(email: email);
+
+Future<String?> getPhone() => RustLib.instance.api.crateApiConfigApiGetPhone();
+
+Future<void> setPhone({required String phone}) =>
+    RustLib.instance.api.crateApiConfigApiSetPhone(phone: phone);
+
+Future<String?> getAvatar() =>
+    RustLib.instance.api.crateApiConfigApiGetAvatar();
+
+Future<void> setAvatar({required String avatar}) =>
+    RustLib.instance.api.crateApiConfigApiSetAvatar(avatar: avatar);
+
+Future<PlatformInt64?> getLastLoginAt() =>
+    RustLib.instance.api.crateApiConfigApiGetLastLoginAt();
+
+Future<void> setLastLoginAt({required PlatformInt64 ts}) =>
+    RustLib.instance.api.crateApiConfigApiSetLastLoginAt(ts: ts);
+
+Future<PlatformInt64?> getLastAliveAt() =>
+    RustLib.instance.api.crateApiConfigApiGetLastAliveAt();
+
+Future<void> setLastAliveAt({required PlatformInt64 ts}) =>
+    RustLib.instance.api.crateApiConfigApiSetLastAliveAt(ts: ts);

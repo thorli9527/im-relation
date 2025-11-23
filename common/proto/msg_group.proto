@@ -254,7 +254,7 @@ message KickMemberReq {
 // 更新群名片/昵称
 // - operator 可更新自己或（ADMIN/OWNER）更新他人昵称；空串表示清空；
 
-message UpdateMemberAliasReq {
+message UpdateMemberNicknameReq {
   // 目标群 ID
   int64 group_id = 1;
   // 操作者 UID（=调用者）
@@ -404,6 +404,17 @@ message GroupMemberChangeNotice {
 // - SendMessage 仅负责写入/透传 socket；服务端应追加服务端时间与顺序号；
 // - 回执接口用于可靠送达/已读链路，便于状态回放与多端同步；
 
+// 批量下发 ProfileUpdate（昵称/头像等资料变更）到群
+message BroadcastGroupProfileUpdatesReq {
+  int64 sender_id = 1;
+  repeated int64 group_ids = 2;
+  repeated message.MessageContent contents = 3;
+  // 事件时间（毫秒），缺省用服务器时间
+  int64 ts_ms = 4;
+  // 是否要求 ACK，缺省 false
+  optional bool require_ack = 5;
+}
+
 service GroupMsgService {
   // 分页查询群聊历史消息
   rpc ListGroupMessages(message.QueryGroupMessagesRequest) returns (message.QueryMessagesResponse);
@@ -415,6 +426,8 @@ service GroupMsgService {
   rpc DeleteGroupConversationSnapshot(DeleteGroupConversationSnapshotRequest) returns (google.protobuf.Empty);
   // 处理统一的群消息领域结构
   rpc HandleGroupMessage(message.DomainMessage) returns (google.protobuf.Empty);
+  // 批量广播 ProfileUpdate 事件到群
+  rpc BroadcastGroupProfileUpdates(BroadcastGroupProfileUpdatesReq) returns (google.protobuf.Empty);
 }
 
 // 群聊会话快照定义。

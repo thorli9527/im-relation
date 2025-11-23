@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use once_cell::sync::OnceCell;
-use rusqlite::{params, OptionalExtension, Row, ToSql};
+use rusqlite::{params, OptionalExtension, Row, ToSql, types::Value};
 
 use crate::{
     api::app_api_types::{CachedGroupMembersQuery, GroupMember, GroupMembersResult},
@@ -92,6 +92,49 @@ impl GroupMemberService {
         self.repo.query_one(&conditions, Self::map_row)
     }
 
+    /// 根据资料事件批量刷新本地群成员昵称/头像。
+    pub fn apply_profile_update(
+        &self,
+        member_id: i64,
+        nickname: Option<String>,
+        avatar: Option<String>,
+        updated_at: i64,
+        version: Option<i64>,
+    ) -> Result<(), String> {
+        if nickname.is_none() && avatar.is_none() && version.is_none() {
+            return Ok(());
+        }
+        let conditions = vec![QueryCondition::new(
+            "member_id",
+            QueryType::Equal,
+            vec![Value::Integer(member_id)],
+        )];
+        let mut members = self
+            .repo
+            .query_list(&conditions, Self::map_row)
+            .map_err(|err| err.to_string())?;
+        if members.is_empty() {
+            return Ok(());
+        }
+        for mut m in members.drain(..) {
+            if let Some(ver) = version {
+                if ver < m.version {
+                    continue;
+                }
+                m.version = ver;
+            }
+            if let Some(nick) = nickname.clone() {
+                m.nickname = nick;
+            }
+            if let Some(av) = avatar.clone() {
+                m.avatar = av;
+            }
+            m.updated_at = updated_at;
+            self.repo.update(m)?;
+        }
+        Ok(())
+    }
+
     pub fn refresh_group_members(
         &self,
         session_token: &str,
@@ -147,7 +190,7 @@ impl GroupMemberService {
             page += 1;
         }
 
-        let conn = db::connection()?;
+        let mut conn = db::connection()?;
         let tx = conn.transaction().map_err(|err| err.to_string())?;
         tx.execute(
             &format!("DELETE FROM {} WHERE group_id = ?1", group_member_table_def().name),
@@ -208,7 +251,7 @@ impl GroupMemberService {
             .query_row(params![group_id], |row| row.get(0))
             .optional()
             .map_err(|err| err.to_string())?;
-        Ok(ts.flatten())
+        Ok(ts)
     }
 
     fn ensure_schema(&self) -> Result<(), String> {
@@ -243,6 +286,7 @@ impl GroupMemberService {
         tx: &rusqlite::Transaction,
         entity: GroupMemberEntity,
     ) -> Result<usize, String> {
+        use crate::common::repository::TableEntity;
         let column_values = entity.column_values();
         let columns: Vec<&str> = column_values.iter().map(|c| c.name).collect();
         let placeholders = vec!["?"; columns.len()].join(", ");

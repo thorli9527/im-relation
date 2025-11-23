@@ -12,7 +12,7 @@ use common::infra::grpc::grpc_friend::friend_service::*;
 // 新版：对齐 FriendRepo（非旧 FriendStorage）
 use crate::store::mysql::{FriendEntry as RepoFriendEntry, FriendRepo};
 use common::config::get_db;
-use sqlx::Executor as _;
+// sqlx::Executor as _; // no longer used
 
 /// gRPC 服务实现（对存储做成泛型，默认由上层注入具体 Repo & Facade）
 pub struct FriendServiceImpl<R: FriendRepo> {
@@ -30,17 +30,17 @@ impl<R: FriendRepo> FriendServiceImpl<R> {
     }
 
     #[inline]
-    fn convert_entry(entry: RepoFriendEntry, include_alias: bool) -> FriendEntry {
+    fn convert_entry(entry: RepoFriendEntry, include_nickname: bool) -> FriendEntry {
         let RepoFriendEntry {
             friend_id,
-            alias,
+            nickname,
             remark,
             blacklisted,
             ..
         } = entry;
         FriendEntry {
             friend_id: friend_id as i64,
-            alias: if include_alias { alias } else { None },
+            nickname: if include_nickname { nickname } else { None },
             apply_source: None,
             avatar: None,
             remark,
@@ -58,10 +58,10 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         let req = request.into_inner();
         let uid = Self::cast_uid(req.uid, "uid")?;
         let fid = Self::cast_uid(req.friend_id, "friend_id")?;
-        // 备注字段兼容旧别名逻辑：若 alias_for_user 未提供，则使用 remark
+        // 备注字段兼容逻辑：若 nickname_for_user 未提供，则使用 remark
         let remark = req.remark.as_deref();
-        let alias_for_user = req.alias_for_user.as_deref().or(remark);
-        let alias_for_friend = req.alias_for_friend.as_deref();
+        let nickname_for_user = req.nickname_for_user.as_deref().or(remark);
+        let nickname_for_friend = req.nickname_for_friend.as_deref();
 
         // 判断是否已存在（决定返回布尔）
         let already = self
@@ -74,13 +74,13 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         // 双向建立关系（事务在存储层）
         if let Err(e) = self
             .facade
-            .add_friend_both(uid, fid, alias_for_user, alias_for_friend)
+            .add_friend_both(uid, fid, nickname_for_user, nickname_for_friend)
             .await
         {
             // 补偿：写入 job 表
             let msg = format!("{}", e);
             if let Err(job_err) =
-                enqueue_friend_add_job(uid, fid, alias_for_user, alias_for_friend, &msg).await
+                enqueue_friend_add_job(uid, fid, nickname_for_user, nickname_for_friend, &msg).await
             {
                 eprintln!("friend add compensation enqueue failed: {}", job_err);
             }
@@ -154,7 +154,7 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
             friends.extend(
                 batch
                     .into_iter()
-                    .map(|entry| Self::convert_entry(entry, req.alias)),
+                    .map(|entry| Self::convert_entry(entry, req.nickname)),
             );
             cursor = next;
             if cursor.is_none() {
@@ -202,25 +202,25 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         }
     }
 
-    async fn update_friend_alias(
+    async fn update_friend_nickname(
         &self,
-        request: Request<UpdateFriendAliasReq>,
-    ) -> Result<Response<UpdateFriendAliasResp>, Status> {
+        request: Request<UpdateFriendNicknameReq>,
+    ) -> Result<Response<UpdateFriendNicknameResp>, Status> {
         let req = request.into_inner();
         let uid = Self::cast_uid(req.uid, "uid")?;
         let fid = Self::cast_uid(req.friend_id, "friend_id")?;
-        let alias = req
-            .alias
+        let nickname = req
+            .nickname
             .as_deref()
             .and_then(|s| if s.is_empty() { None } else { Some(s) });
 
         let updated = self
             .facade
-            .update_friend_alias(uid, fid, alias)
+            .update_friend_nickname(uid, fid, nickname)
             .await
-            .map_err(|e| internal_error(format!("update_friend_alias: {e}")))?;
+            .map_err(|e| internal_error(format!("update_friend_nickname: {e}")))?;
 
-        Ok(Response::new(UpdateFriendAliasResp { updated }))
+        Ok(Response::new(UpdateFriendNicknameResp { updated }))
     }
 
     async fn update_friend_remark(
@@ -282,8 +282,8 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
 async fn enqueue_friend_add_job(
     a: UID,
     b: UID,
-    alias_for_a: Option<&str>,
-    alias_for_b: Option<&str>,
+    nickname_for_a: Option<&str>,
+    nickname_for_b: Option<&str>,
     error_msg: &str,
 ) -> anyhow::Result<()> {
     let pool = get_db();
@@ -292,13 +292,13 @@ async fn enqueue_friend_add_job(
         msg.truncate(500);
     }
     sqlx::query(
-        r#"INSERT INTO friend_add_jobs (uid, friend_id, alias_for_user, alias_for_friend, error_msg, status)
+        r#"INSERT INTO friend_add_jobs (uid, friend_id, nickname_for_user, nickname_for_friend, error_msg, status)
            VALUES (?, ?, ?, ?, ?, 0)"#,
     )
         .bind(a as i64)
         .bind(b as i64)
-        .bind(alias_for_a)
-        .bind(alias_for_b)
+        .bind(nickname_for_a)
+        .bind(nickname_for_b)
         .bind(msg)
         .execute(&*pool)
         .await?;

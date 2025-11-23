@@ -69,13 +69,19 @@ where
     fn call(&mut self, request: Request<B>) -> Self::Future {
         let path = request.uri().path().to_owned();
         let request_debug = format!("{request:?}");
-        info!("{}", LogPayload::info("grpc_recv", path.clone(), &request_debug));
+        info!(
+            "{}",
+            LogPayload::info("grpc_recv", path.clone(), &request_debug)
+        );
 
         let fut = self.inner.call(request);
         Box::pin(async move {
             match fut.await {
                 Ok(resp) => {
-                    info!("{}", LogPayload::info("grpc_send", path.clone(), &request_debug));
+                    info!(
+                        "{}",
+                        LogPayload::info("grpc_send", path.clone(), &request_debug)
+                    );
                     Ok(resp)
                 }
                 Err(err) => {

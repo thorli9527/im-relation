@@ -166,9 +166,9 @@ pub struct FriendRequestPayload {
     pub created_at: i64,
     #[prost(string, tag = "7")]
     pub remark: ::prost::alloc::string::String,
-    /// 申请人想展示的别名/昵称（可用于邀请卡片）
+    /// 申请人想展示的昵称（可用于邀请卡片）
     #[prost(string, tag = "8")]
-    pub alias: ::prost::alloc::string::String,
+    pub nickname: ::prost::alloc::string::String,
 }
 /// 好友申请处理（接受/拒绝），加入默认消息字段以便自动下发欢迎/提示
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -185,9 +185,9 @@ pub struct FriendRequestDecisionPayload {
     pub send_default_message: bool,
     #[prost(string, tag = "6")]
     pub default_message: ::prost::alloc::string::String,
-    /// 审批人希望展示给申请人的别名/称呼
+    /// 审批人希望展示给申请人的昵称/称呼
     #[prost(string, tag = "7")]
-    pub alias: ::prost::alloc::string::String,
+    pub nickname: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FriendEventContent {
@@ -200,9 +200,9 @@ pub struct FriendEventContent {
     /// 事件类型
     #[prost(enumeration = "FriendEventType", tag = "3")]
     pub r#type: i32,
-    /// 新别名（可选）
+    /// 新昵称（可选）
     #[prost(string, optional, tag = "4")]
-    pub alias: ::core::option::Option<::prost::alloc::string::String>,
+    pub nickname: ::core::option::Option<::prost::alloc::string::String>,
     /// 新备注（可选）
     #[prost(string, optional, tag = "5")]
     pub remark: ::core::option::Option<::prost::alloc::string::String>,
@@ -284,7 +284,7 @@ pub struct GroupCreationMember {
     #[prost(int64, tag = "1")]
     pub member_id: i64,
     #[prost(string, optional, tag = "2")]
-    pub alias: ::core::option::Option<::prost::alloc::string::String>,
+    pub nickname: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(int32, optional, tag = "3")]
     pub role: ::core::option::Option<i32>,
 }
@@ -944,7 +944,7 @@ pub struct GroupMemberChanged {
     #[prost(int64, tag = "2")]
     pub member_id: i64,
     #[prost(string, tag = "3")]
-    pub member_alias: ::prost::alloc::string::String,
+    pub member_nickname: ::prost::alloc::string::String,
     #[prost(int64, tag = "4")]
     pub occurred_at: i64,
     #[prost(int64, repeated, tag = "5")]
@@ -1930,8 +1930,8 @@ impl FriendRequestSource {
 #[repr(i32)]
 pub enum FriendEventType {
     FeUnspecified = 0,
-    /// 好友别名更新（operator_id 为发起人）
-    FeAliasUpdated = 1,
+    /// 好友昵称更新（operator_id 为发起人）
+    FeNicknameUpdated = 1,
     /// 好友备注更新
     FeRemarkUpdated = 2,
     /// 好友被拉黑/解除黑名单
@@ -1945,7 +1945,7 @@ impl FriendEventType {
     pub fn as_str_name(&self) -> &'static str {
         match self {
             Self::FeUnspecified => "FE_UNSPECIFIED",
-            Self::FeAliasUpdated => "FE_ALIAS_UPDATED",
+            Self::FeNicknameUpdated => "FE_NICKNAME_UPDATED",
             Self::FeRemarkUpdated => "FE_REMARK_UPDATED",
             Self::FeBlacklistUpdated => "FE_BLACKLIST_UPDATED",
         }
@@ -1954,7 +1954,7 @@ impl FriendEventType {
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
             "FE_UNSPECIFIED" => Some(Self::FeUnspecified),
-            "FE_ALIAS_UPDATED" => Some(Self::FeAliasUpdated),
+            "FE_NICKNAME_UPDATED" => Some(Self::FeNicknameUpdated),
             "FE_REMARK_UPDATED" => Some(Self::FeRemarkUpdated),
             "FE_BLACKLIST_UPDATED" => Some(Self::FeBlacklistUpdated),
             _ => None,

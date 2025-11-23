@@ -94,7 +94,7 @@ message GetFriendsPageDetailedResp {
   repeated FriendEntry friends = 1;
 }
 
-// ==== 单独更新/设置别名 ====
+// ==== 单独更新/设置昵称 ====
 
 message UpdateFriendNicknameReq {
   int64 uid = 1;
@@ -146,8 +146,8 @@ service FriendService {
   rpc GetFriendsDetailed      (GetFriendsDetailedReq)      returns (GetFriendsDetailedResp);
   rpc GetFriendsPageDetailed  (GetFriendsPageDetailedReq)  returns (GetFriendsPageDetailedResp);
 
-  // 新增：更新别名与清空
-  rpc UpdateFriendAlias       (UpdateFriendAliasReq)       returns (UpdateFriendAliasResp);
+  // 新增：更新昵称与清空
+  rpc UpdateFriendNickname    (UpdateFriendNicknameReq)    returns (UpdateFriendNicknameResp);
   rpc UpdateFriendRemark      (UpdateFriendRemarkReq)      returns (UpdateFriendRemarkResp);
   rpc UpdateFriendBlacklist   (UpdateFriendBlacklistReq)   returns (UpdateFriendBlacklistResp);
   rpc ClearFriends            (ClearFriendsReq)            returns (ClearFriendsResp);

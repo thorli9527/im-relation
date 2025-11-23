@@ -1,12 +1,15 @@
 use anyhow::{anyhow, Result};
 use common::config::AppConfig;
 use common::infra::grpc::grpc_msg_friend::msg_friend_service::{
-    friend_msg_service_client::FriendMsgServiceClient, FriendConversationSnapshot,
-    ListFriendConversationsRequest,
+    friend_msg_service_client::FriendMsgServiceClient, BroadcastProfileUpdatesReq,
+    FriendConversationSnapshot, ListFriendConversationsRequest,
 };
 use common::infra::grpc::grpc_msg_group::msg_group_service::{
-    group_msg_service_client::GroupMsgServiceClient, GroupConversationSnapshot,
-    ListGroupConversationsRequest,
+    group_msg_service_client::GroupMsgServiceClient, BroadcastGroupProfileUpdatesReq,
+    GroupConversationSnapshot, ListGroupConversationsRequest,
+};
+use common::infra::grpc::message::{
+    self as msgpb, message_content::Content as MessageContentKind, MessageContent,
 };
 use common::infra::grpc::GrpcClientManager;
 use common::support::node::{NodeType, NodeUtil};
@@ -147,4 +150,82 @@ pub async fn list_group_conversations(
         snapshots: response.snapshots,
         has_more: response.has_more,
     })
+}
+
+/// 批量下发 ProfileUpdate 给好友。
+pub async fn send_batch_profile_update_to_friends(
+    sender_id: i64,
+    friend_ids: Vec<i64>,
+    contents: Vec<MessageContent>,
+    ts_ms: i64,
+    require_ack: bool,
+) -> Result<()> {
+    if friend_ids.is_empty() || contents.is_empty() {
+        return Ok(());
+    }
+    let addr = resolve_addr(NodeType::MsgFriend, sender_id).await?;
+    let mut client = connect_friend_msg(&addr).await?;
+    let req = BroadcastProfileUpdatesReq {
+        sender_id,
+        friend_ids,
+        contents,
+        ts_ms,
+        require_ack: Some(require_ack),
+    };
+    client
+        .broadcast_profile_updates(req)
+        .await
+        .map_err(|status| anyhow!("broadcast_profile_updates failed: {status}"))?;
+    Ok(())
+}
+
+/// 批量下发 ProfileUpdate 给群。
+pub async fn send_batch_profile_update_to_groups(
+    sender_id: i64,
+    group_ids: Vec<i64>,
+    contents: Vec<MessageContent>,
+    ts_ms: i64,
+    require_ack: bool,
+) -> Result<()> {
+    if group_ids.is_empty() || contents.is_empty() {
+        return Ok(());
+    }
+    let addr = resolve_addr(NodeType::MesGroup, sender_id).await?;
+    let mut client = connect_group_msg(&addr).await?;
+    let req = BroadcastGroupProfileUpdatesReq {
+        sender_id,
+        group_ids,
+        contents,
+        ts_ms,
+        require_ack: Some(require_ack),
+    };
+    client
+        .broadcast_group_profile_updates(req)
+        .await
+        .map_err(|status| anyhow!("broadcast_group_profile_updates failed: {status}"))?;
+    Ok(())
+}
+
+pub fn build_profile_content(
+    event_type: msgpb::profile_event_content::ProfileEventType,
+    new_value: String,
+    version: Option<i64>,
+    updated_at: Option<i64>,
+) -> MessageContent {
+    let mut metadata = std::collections::HashMap::new();
+    if let Some(v) = version {
+        metadata.insert("version".to_string(), v.to_string());
+    }
+    if let Some(ts) = updated_at {
+        metadata.insert("updated_at".to_string(), ts.to_string());
+    }
+    MessageContent {
+        content: Some(MessageContentKind::ProfileUpdate(
+            msgpb::ProfileEventContent {
+                event_type: event_type as i32,
+                new_value,
+                metadata,
+            },
+        )),
+    }
 }

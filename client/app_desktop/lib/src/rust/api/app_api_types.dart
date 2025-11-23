@@ -6,108 +6,31 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `get_request`, `is_zero_i32`, `perform_login`, `post_request`, `reload_http_client`, `wait_for_auth_ack`
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `GroupMembersQueryParams`, `SessionTokenQuery`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `RandomNicknameQuery`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
-Future<BuildRegisterCodeResponse> buildRegisterCode({
-  required BuildRegisterCodeRequest payload,
-}) => RustLib.instance.api.crateApiAppApiBuildRegisterCode(payload: payload);
+class CachedGroupMembersQuery {
+  final PlatformInt64 groupId;
+  final int? page;
+  final int? pageSize;
 
-Future<OperationStatus> verifyRegisterCode({
-  required VerifyRegisterCodeRequest payload,
-}) => RustLib.instance.api.crateApiAppApiVerifyRegisterCode(payload: payload);
-
-Future<LoginResult> login({
-  required LoginRequest payload,
-  BigInt? timeoutSecs,
-}) => RustLib.instance.api.crateApiAppApiLogin(
-  payload: payload,
-  timeoutSecs: timeoutSecs,
-);
-
-Future<void> logout() => RustLib.instance.api.crateApiAppApiLogout();
-
-Future<SessionValidationResult> validateSession({
-  required SessionValidateRequest payload,
-}) => RustLib.instance.api.crateApiAppApiValidateSession(payload: payload);
-
-Future<OperationStatus> changePassword({
-  required ChangePasswordRequest payload,
-}) => RustLib.instance.api.crateApiAppApiChangePassword(payload: payload);
-
-Future<ChangePhoneResult> changePhone({required ChangePhoneRequest payload}) =>
-    RustLib.instance.api.crateApiAppApiChangePhone(payload: payload);
-
-Future<ChangeEmailResult> changeEmail({required ChangeEmailRequest payload}) =>
-    RustLib.instance.api.crateApiAppApiChangeEmail(payload: payload);
-
-Future<OperationStatus> updateProfile({
-  required UpdateProfileRequest payload,
-}) => RustLib.instance.api.crateApiAppApiUpdateProfile(payload: payload);
-
-Future<FriendListResult> getFriendList({required FriendListQuery query}) =>
-    RustLib.instance.api.crateApiAppApiGetFriendList(query: query);
-
-Future<GroupMembersResult> getGroupMembers({
-  required GroupMembersQuery query,
-}) => RustLib.instance.api.crateApiAppApiGetGroupMembers(query: query);
-
-Future<GroupMemberDetailResult> getGroupMemberDetail({
-  required GroupMemberDetailQuery query,
-}) => RustLib.instance.api.crateApiAppApiGetGroupMemberDetail(query: query);
-
-Future<SearchUserResult> searchUser({required SearchUserQuery query}) =>
-    RustLib.instance.api.crateApiAppApiSearchUser(query: query);
-
-Future<RecentConversationsResult> getRecentConversations({
-  required RecentConversationsQuery query,
-}) => RustLib.instance.api.crateApiAppApiGetRecentConversations(query: query);
-
-class BuildRegisterCodeRequest {
-  final String name;
-  final String password;
-  final int regType;
-  final String target;
-
-  const BuildRegisterCodeRequest({
-    required this.name,
-    required this.password,
-    required this.regType,
-    required this.target,
+  const CachedGroupMembersQuery({
+    required this.groupId,
+    this.page,
+    this.pageSize,
   });
 
   @override
-  int get hashCode =>
-      name.hashCode ^ password.hashCode ^ regType.hashCode ^ target.hashCode;
+  int get hashCode => groupId.hashCode ^ page.hashCode ^ pageSize.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is BuildRegisterCodeRequest &&
+      other is CachedGroupMembersQuery &&
           runtimeType == other.runtimeType &&
-          name == other.name &&
-          password == other.password &&
-          regType == other.regType &&
-          target == other.target;
-}
-
-class BuildRegisterCodeResponse {
-  final String regId;
-  final PlatformInt64 uid;
-
-  const BuildRegisterCodeResponse({required this.regId, required this.uid});
-
-  @override
-  int get hashCode => regId.hashCode ^ uid.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is BuildRegisterCodeResponse &&
-          runtimeType == other.runtimeType &&
-          regId == other.regId &&
-          uid == other.uid;
+          groupId == other.groupId &&
+          page == other.page &&
+          pageSize == other.pageSize;
 }
 
 class ChangeEmailRequest {
@@ -231,6 +154,40 @@ class ChangePhoneResult {
           runtimeType == other.runtimeType &&
           ok == other.ok &&
           phone == other.phone;
+}
+
+class CheckOnlineBatchQuery {
+  final String sessionToken;
+  final Int64List uids;
+
+  const CheckOnlineBatchQuery({required this.sessionToken, required this.uids});
+
+  @override
+  int get hashCode => sessionToken.hashCode ^ uids.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CheckOnlineBatchQuery &&
+          runtimeType == other.runtimeType &&
+          sessionToken == other.sessionToken &&
+          uids == other.uids;
+}
+
+class CheckOnlineBatchResult {
+  final List<OnlineStatusEntry> items;
+
+  const CheckOnlineBatchResult({required this.items});
+
+  @override
+  int get hashCode => items.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CheckOnlineBatchResult &&
+          runtimeType == other.runtimeType &&
+          items == other.items;
 }
 
 class FriendListQuery {
@@ -446,82 +403,74 @@ class GroupMembersResult {
           hasMore == other.hasMore;
 }
 
-class LoginRequest {
-  final String password;
-  final String target;
-  final int deviceType;
-  final String deviceId;
+class GroupMembersSnapshot {
+  final List<GroupMember> members;
 
-  const LoginRequest({
-    required this.password,
-    required this.target,
-    required this.deviceType,
-    required this.deviceId,
+  /// 是否直接使用了本地缓存
+  final bool fromCache;
+
+  /// 如果网络失败并回退缓存，则为 true
+  final bool stale;
+
+  const GroupMembersSnapshot({
+    required this.members,
+    required this.fromCache,
+    required this.stale,
   });
 
   @override
-  int get hashCode =>
-      password.hashCode ^
-      target.hashCode ^
-      deviceType.hashCode ^
-      deviceId.hashCode;
+  int get hashCode => members.hashCode ^ fromCache.hashCode ^ stale.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is LoginRequest &&
+      other is GroupMembersSnapshot &&
           runtimeType == other.runtimeType &&
-          password == other.password &&
-          target == other.target &&
-          deviceType == other.deviceType &&
-          deviceId == other.deviceId;
+          members == other.members &&
+          fromCache == other.fromCache &&
+          stale == other.stale;
 }
 
-class LoginResult {
-  final String token;
-  final BigInt expiresAt;
-  final String socketAddr;
-  final String avatar;
-  final String? email;
-  final String? phone;
-  final String name;
+class OnlineStatusEntry {
   final PlatformInt64 uid;
+  final bool online;
+  final PlatformInt64 fetchedAt;
 
-  const LoginResult({
-    required this.token,
-    required this.expiresAt,
-    required this.socketAddr,
-    required this.avatar,
-    this.email,
-    this.phone,
-    required this.name,
+  const OnlineStatusEntry({
     required this.uid,
+    required this.online,
+    required this.fetchedAt,
   });
 
   @override
-  int get hashCode =>
-      token.hashCode ^
-      expiresAt.hashCode ^
-      socketAddr.hashCode ^
-      avatar.hashCode ^
-      email.hashCode ^
-      phone.hashCode ^
-      name.hashCode ^
-      uid.hashCode;
+  int get hashCode => uid.hashCode ^ online.hashCode ^ fetchedAt.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is LoginResult &&
+      other is OnlineStatusEntry &&
           runtimeType == other.runtimeType &&
-          token == other.token &&
-          expiresAt == other.expiresAt &&
-          socketAddr == other.socketAddr &&
-          avatar == other.avatar &&
-          email == other.email &&
-          phone == other.phone &&
-          name == other.name &&
-          uid == other.uid;
+          uid == other.uid &&
+          online == other.online &&
+          fetchedAt == other.fetchedAt;
+}
+
+class OnlineStatusSnapshot {
+  final List<OnlineStatusEntry> items;
+  final bool stale;
+
+  const OnlineStatusSnapshot({required this.items, required this.stale});
+
+  @override
+  int get hashCode => items.hashCode ^ stale.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OnlineStatusSnapshot &&
+          runtimeType == other.runtimeType &&
+          items == other.items &&
+          stale == other.stale;
 }
 
 class OperationStatus {
@@ -647,6 +596,31 @@ class RecentConversationsResult {
           hasMore == other.hasMore;
 }
 
+class RefreshGroupMembersQuery {
+  final String sessionToken;
+  final PlatformInt64 groupId;
+  final bool forceRefresh;
+
+  const RefreshGroupMembersQuery({
+    required this.sessionToken,
+    required this.groupId,
+    required this.forceRefresh,
+  });
+
+  @override
+  int get hashCode =>
+      sessionToken.hashCode ^ groupId.hashCode ^ forceRefresh.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RefreshGroupMembersQuery &&
+          runtimeType == other.runtimeType &&
+          sessionToken == other.sessionToken &&
+          groupId == other.groupId &&
+          forceRefresh == other.forceRefresh;
+}
+
 class SearchUserQuery {
   final int searchType;
   final String query;
@@ -681,63 +655,31 @@ class SearchUserResult {
           user == other.user;
 }
 
-class SessionValidateRequest {
-  final String sessionToken;
-
-  const SessionValidateRequest({required this.sessionToken});
-
-  @override
-  int get hashCode => sessionToken.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is SessionValidateRequest &&
-          runtimeType == other.runtimeType &&
-          sessionToken == other.sessionToken;
-}
-
-class SessionValidationResult {
-  final bool ok;
-  final PlatformInt64 uid;
-  final BigInt expiresAt;
-  final String token;
-
-  const SessionValidationResult({
-    required this.ok,
-    required this.uid,
-    required this.expiresAt,
-    required this.token,
-  });
-
-  @override
-  int get hashCode =>
-      ok.hashCode ^ uid.hashCode ^ expiresAt.hashCode ^ token.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is SessionValidationResult &&
-          runtimeType == other.runtimeType &&
-          ok == other.ok &&
-          uid == other.uid &&
-          expiresAt == other.expiresAt &&
-          token == other.token;
-}
-
 class UpdateProfileRequest {
   final String sessionToken;
   final String? avatar;
   final int? gender;
+  final String? country;
+  final String? language;
+  final String? nickname;
 
   const UpdateProfileRequest({
     required this.sessionToken,
     this.avatar,
     this.gender,
+    this.country,
+    this.language,
+    this.nickname,
   });
 
   @override
-  int get hashCode => sessionToken.hashCode ^ avatar.hashCode ^ gender.hashCode;
+  int get hashCode =>
+      sessionToken.hashCode ^
+      avatar.hashCode ^
+      gender.hashCode ^
+      country.hashCode ^
+      language.hashCode ^
+      nickname.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -746,7 +688,10 @@ class UpdateProfileRequest {
           runtimeType == other.runtimeType &&
           sessionToken == other.sessionToken &&
           avatar == other.avatar &&
-          gender == other.gender;
+          gender == other.gender &&
+          country == other.country &&
+          language == other.language &&
+          nickname == other.nickname;
 }
 
 class UserProfile {
@@ -794,22 +739,4 @@ class UserProfile {
           signature == other.signature &&
           region == other.region &&
           addFriendPolicy == other.addFriendPolicy;
-}
-
-class VerifyRegisterCodeRequest {
-  final String regId;
-  final String code;
-
-  const VerifyRegisterCodeRequest({required this.regId, required this.code});
-
-  @override
-  int get hashCode => regId.hashCode ^ code.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is VerifyRegisterCodeRequest &&
-          runtimeType == other.runtimeType &&
-          regId == other.regId &&
-          code == other.code;
 }

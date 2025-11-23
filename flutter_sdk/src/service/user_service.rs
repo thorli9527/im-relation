@@ -75,6 +75,39 @@ impl UserService {
         Ok(())
     }
 
+    /// 应用资料变更（昵称/头像/版本），用于 socket 推送。
+    pub fn apply_profile_update(
+        &self,
+        uid: i64,
+        nickname: Option<String>,
+        avatar: Option<String>,
+        version: Option<i64>,
+        updated_at: i64,
+    ) -> Result<(), String> {
+        if nickname.is_none() && avatar.is_none() && version.is_none() {
+            return Ok(());
+        }
+        let mut entity = self.get_by_uid(uid)?.unwrap_or_else(|| UserInfoEntity::new(uid));
+        if let Some(nick) = nickname {
+            entity.nickname = Some(nick);
+        }
+        if let Some(av) = avatar {
+            entity.avatar = av;
+        }
+        if let Some(ver) = version {
+            if ver > entity.version {
+                entity.version = ver;
+            }
+        }
+        entity.updated_at = updated_at;
+        if entity.id.is_some() {
+            self.repo.update(entity)?;
+        } else {
+            self.repo.insert(entity)?;
+        }
+        Ok(())
+    }
+
     pub fn get_by_uid(&self, uid: i64) -> Result<Option<UserInfoEntity>, String> {
         self.repo
             .query_one(

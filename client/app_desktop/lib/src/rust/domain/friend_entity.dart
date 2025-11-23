@@ -10,7 +10,7 @@ class FriendEntity {
   final PlatformInt64? id;
   final PlatformInt64 friendId;
   final String avatar;
-  final String? alias;
+  final String? nickname;
   final String? remark;
   final PlatformInt64 createdAt;
 
@@ -18,7 +18,7 @@ class FriendEntity {
     this.id,
     required this.friendId,
     required this.avatar,
-    this.alias,
+    this.nickname,
     this.remark,
     required this.createdAt,
   });
@@ -28,7 +28,7 @@ class FriendEntity {
       id.hashCode ^
       friendId.hashCode ^
       avatar.hashCode ^
-      alias.hashCode ^
+      nickname.hashCode ^
       remark.hashCode ^
       createdAt.hashCode;
 
@@ -40,7 +40,7 @@ class FriendEntity {
           id == other.id &&
           friendId == other.friendId &&
           avatar == other.avatar &&
-          alias == other.alias &&
+          nickname == other.nickname &&
           remark == other.remark &&
           createdAt == other.createdAt;
 }

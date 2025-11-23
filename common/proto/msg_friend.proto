@@ -143,6 +143,17 @@ message DeleteFriendConversationSnapshotRequest {
   int64 conversation_id = 2;
 }
 
+// 批量下发 ProfileUpdate（昵称/头像等资料变更）
+message BroadcastProfileUpdatesReq {
+  int64 sender_id = 1;
+  repeated int64 friend_ids = 2;
+  repeated message.MessageContent contents = 3;
+  // 事件时间（毫秒），缺省用服务器时间
+  int64 ts_ms = 4;
+  // 是否要求 ACK，缺省 false
+  optional bool require_ack = 5;
+}
+
 // 好友消息服务（非群聊）
 service FriendMsgService {
   // 分页查询好友间的历史消息
@@ -157,4 +168,6 @@ service FriendMsgService {
   rpc DeleteFriendConversationSnapshot(DeleteFriendConversationSnapshotRequest) returns (google.protobuf.Empty);
   // 处理通用的好友消息域结构
   rpc HandleFriendMessage(message.DomainMessage) returns (google.protobuf.Empty);
+  // 批量广播 ProfileUpdate 事件给好友
+  rpc BroadcastProfileUpdates(BroadcastProfileUpdatesReq) returns (google.protobuf.Empty);
 }

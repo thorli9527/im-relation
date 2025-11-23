@@ -92,7 +92,7 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
         Ok(())
     }
 
-    /// 添加好友（若已存在则忽略别名变化，这里 alias=None）。
+    /// 添加好友（若已存在则忽略昵称变化，这里 nickname=None）。
     pub async fn add_friend(&self, uid: UID, fid: UID) -> Result<()> {
         let _outcome = self
             .storage
@@ -116,16 +116,16 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
         Ok(())
     }
 
-    /// 双向添加好友（带别名，原子性由底层存储保证）。
+    /// 双向添加好友（带昵称，原子性由底层存储保证）。
     pub async fn add_friend_both(
         &self,
         a: UID,
         b: UID,
-        alias_for_a: Option<&str>,
-        alias_for_b: Option<&str>,
+        nickname_for_a: Option<&str>,
+        nickname_for_b: Option<&str>,
     ) -> Result<()> {
         self.storage
-            .add_friend_both(a, b, alias_for_a, alias_for_b)
+            .add_friend_both(a, b, nickname_for_a, nickname_for_b)
             .await
             .with_context(|| {
                 format!("add_friend_both: repo.add_friend_both failed a={a}, b={b}")
@@ -308,14 +308,14 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
         Ok(out)
     }
 
-    /// 更新好友别名（None = 清除）；不影响热存（热存仅存 id）
-    pub async fn update_friend_alias(
+    /// 更新好友昵称（None = 清除）；不影响热存（热存仅存 id）
+    pub async fn update_friend_nickname(
         &self,
         uid: UID,
         fid: UID,
-        alias: Option<&str>,
+        nickname: Option<&str>,
     ) -> anyhow::Result<bool> {
-        self.storage.set_alias(uid, fid, alias).await
+        self.storage.set_nickname(uid, fid, nickname).await
     }
 
     /// 更新好友 remark

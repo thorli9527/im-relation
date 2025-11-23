@@ -17,6 +17,7 @@ use common::infra::grpc::message::{
     self as msg_message, Content, DomainMessage, QueryGroupMessagesRequest, QueryMessagesResponse,
 };
 use common::support::util::common_utils::build_snow_id;
+use futures::{stream::FuturesUnordered, StreamExt};
 use log::{info, warn};
 use prost::Message;
 use tonic::{Request, Response, Status};
@@ -160,6 +161,92 @@ impl GroupMsgService for GroupMsgServiceImpl {
             snapshots,
             has_more,
         }))
+    }
+
+    async fn broadcast_group_profile_updates(
+        &self,
+        request: Request<msgpb::BroadcastGroupProfileUpdatesReq>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+        if req.sender_id == 0 {
+            return Err(Status::invalid_argument("sender_id required"));
+        }
+        if req.contents.is_empty() || req.group_ids.is_empty() {
+            return Ok(Response::new(()));
+        }
+        let ts_ms = if req.ts_ms > 0 {
+            req.ts_ms
+        } else {
+            Self::now_ms()
+        };
+        let require_ack = req.require_ack.unwrap_or(false);
+
+        let mut tasks = futures::stream::FuturesUnordered::new();
+        for gid in req.group_ids {
+            if gid == 0 {
+                continue;
+            }
+            let contents = req.contents.clone();
+            let svc = self.clone();
+            tasks.push(async move {
+                let mut attempt: u32 = 0;
+                loop {
+                    attempt += 1;
+                    let domain = DomainMessage {
+                        message_id: Some(build_snow_id() as u64),
+                        sender_id: req.sender_id,
+                        receiver_id: gid,
+                        timestamp: ts_ms,
+                        ts_ms,
+                        delivery: Some(msg_message::DeliveryOptions {
+                            require_ack,
+                            expire_ms: None,
+                            max_retry: None,
+                        }),
+                        scene: msg_message::ChatScene::Profile as i32,
+                        category: msg_message::MsgCategory::Group as i32,
+                        contents: contents.clone(),
+                        friend_business: None,
+                        group_business: None,
+                    };
+
+                    let res = async {
+                        svc.persist_group_message(&domain).await?;
+                        let mut client: Option<HgGroupClient> = None;
+                        svc.process_group_contents(&mut client, &domain.contents)
+                            .await
+                    }
+                    .await;
+
+                    match res {
+                        Ok(_) => return Ok::<(), (i64, u32, Status)>(()),
+                        Err(e) if attempt < 3 => {
+                            warn!(
+                                "broadcast_group_profile_updates retry {} gid={} err={}",
+                                attempt, gid, e
+                            );
+                            tokio::time::sleep(std::time::Duration::from_millis(
+                                50 * attempt as u64,
+                            ))
+                            .await;
+                        }
+                        Err(e) => {
+                            return Err((gid, attempt, e));
+                        }
+                    }
+                }
+            });
+        }
+        while let Some(res) = tasks.next().await {
+            if let Err((gid, attempt, e)) = res {
+                warn!(
+                    "broadcast_group_profile_updates failed gid={} after {} attempts: {}",
+                    gid, attempt, e
+                );
+            }
+        }
+
+        Ok(Response::new(()))
     }
 
     /// 持久化客户端上报的 `DomainMessage` 并执行内容层面的日志/观察。

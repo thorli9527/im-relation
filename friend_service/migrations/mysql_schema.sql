@@ -1,13 +1,13 @@
 CREATE TABLE IF NOT EXISTS friend_edge (
                              uid BIGINT UNSIGNED NOT NULL,
                              friend_id BIGINT UNSIGNED NOT NULL,
-                             alias VARCHAR ( 64 ) NULL,-- NULL/空串 表示无别名
+                             nickname VARCHAR ( 64 ) NULL,-- NULL/空串 表示无昵称
                              remark VARCHAR(256) NULL DEFAULT NULL,-- 好友备注
                              blacklisted TINYINT(1) NOT NULL DEFAULT 0,-- 黑名单标记
                              created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                              updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                              PRIMARY KEY ( uid, friend_id ),
-                             KEY idx_user_alias ( uid, alias ),
+                             KEY idx_user_nickname ( uid, nickname ),
                              KEY idx_friend_user ( friend_id, uid )
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 PARTITION BY HASH ( uid ) PARTITIONS 256;
 CREATE TABLE IF NOT EXISTS user_friends_meta (
@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS friend_add_jobs (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   uid BIGINT UNSIGNED NOT NULL,
   friend_id BIGINT UNSIGNED NOT NULL,
-  alias_for_user VARCHAR(64) NULL,
-  alias_for_friend VARCHAR(64) NULL,
+  nickname_for_user VARCHAR(64) NULL,
+  nickname_for_friend VARCHAR(64) NULL,
   error_msg VARCHAR(512) NULL,
   retry_count INT NOT NULL DEFAULT 0,
   status TINYINT NOT NULL DEFAULT 0, -- 0=pending,1=done,2=failed

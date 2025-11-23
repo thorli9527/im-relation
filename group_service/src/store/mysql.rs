@@ -197,22 +197,22 @@ impl GroupStorage for MySqlStore {
         let mut db_map: HashMap<i64, (Option<String>, i32)> = HashMap::with_capacity(db_rows.len());
         for r in db_rows {
             let uid_u64: u64 = r.try_get("uid")?;
-            let alias_db: Option<String> = r.try_get("nickname")?;
+            let nickname_db: Option<String> = r.try_get("nickname")?;
             let role_i64: i64 = r.try_get("role")?;
             let role_i32 = i32::try_from(role_i64).with_context(|| {
                 format!("save_group(diff): member role overflow, v={}", role_i64)
             })?;
-            db_map.insert(uid_u64 as i64, (alias_db, role_i32));
+            db_map.insert(uid_u64 as i64, (nickname_db, role_i32));
         }
 
         // 内存 -> HashMap<uid, (nickname, role)>（后写覆盖先写；空串 -> None）
         let mut mem_map: HashMap<i64, (Option<String>, i32)> =
             HashMap::with_capacity(members.len());
         for m in members {
-            let nick_norm = m
-                .nickname
-                .as_ref()
-                .and_then(|s| if s.is_empty() { None } else { Some(s.clone()) });
+            let nick_norm =
+                m.nickname
+                    .as_ref()
+                    .and_then(|s| if s.is_empty() { None } else { Some(s.clone()) });
             mem_map.insert(m.id, (nick_norm, m.role));
         }
 
