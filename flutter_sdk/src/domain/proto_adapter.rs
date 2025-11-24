@@ -112,13 +112,6 @@ fn system_business_to_json(sys: &msgpb::SystemBusinessContent) -> JsonValue {
         "business_type": sys.business_type,
         "title": sys.title,
         "detail": sys.detail,
-        "metadata": sys.metadata,
-        "summary": sys.summary,
-        "body": sys.body,
-        "display_area": sys.display_area,
-        "action_url": sys.action_url,
-        "valid_from": sys.valid_from,
-        "valid_to": sys.valid_to,
         "raw": encode_raw(sys),
     })
 }

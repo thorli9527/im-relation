@@ -425,17 +425,17 @@ impl SessionManager {
                 if actor != *a && actor != *b {
                     return;
                 }
-                Some(TypingTarget::ToUserId(other))
+                Some(TypingTarget::ToUid(other))
             }
             SceneKey::Group { group_id } => Some(TypingTarget::GroupId(*group_id)),
         };
 
         let typing_msg = msgpb::Typing {
-            from_user_id: actor,
+            from_uid: actor,
             state: state as i32,
             at: at_ms,
             target,
-            notify_user_ids: recipients.to_vec(),
+            notify_uids: recipients.to_vec(),
         };
 
         let mut buf = Vec::with_capacity(typing_msg.encoded_len());
@@ -748,7 +748,7 @@ mod tests {
             .expect("b timeout")
             .expect("b none");
         let typing = msgpb::Typing::decode(msg_b.raw_payload.as_slice()).unwrap();
-        assert!(matches!(typing.target, Some(typing::Target::ToUserId(1))));
+        assert!(matches!(typing.target, Some(typing::Target::ToUid(1))));
     }
 
     #[tokio::test]

@@ -8,6 +8,7 @@ use crate::{
     },
     domain::{friend_table_def, FriendEntity},
 };
+use crate::common::QueryType;
 
 static INSTANCE: OnceCell<FriendService> = OnceCell::new();
 

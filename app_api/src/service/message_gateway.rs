@@ -225,8 +225,8 @@ pub async fn send_friend_request_message(
     let friend_business = FriendBusinessContent {
         action: Some(FriendAction::Request(msgpb::FriendRequestPayload {
             request_id: req_id,
-            from_user_id: from_uid,
-            to_user_id: to_uid,
+            from_uid,
+            to_uid,
             reason: reason.to_string(),
             source: msgpb::FriendRequestSource::FrsUnknown as i32,
             created_at: ts,

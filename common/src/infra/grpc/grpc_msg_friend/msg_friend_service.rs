@@ -7,10 +7,10 @@ pub struct FriendRequest {
     pub id: i64,
     /// 申请人用户ID
     #[prost(int64, tag = "2")]
-    pub from_user_id: i64,
+    pub from_uid: i64,
     /// 被申请人用户ID
     #[prost(int64, tag = "3")]
-    pub to_user_id: i64,
+    pub to_uid: i64,
     /// 申请理由
     #[prost(string, tag = "4")]
     pub reason: ::prost::alloc::string::String,
@@ -51,10 +51,10 @@ pub struct FriendRequestDecision {
 pub struct FriendDelete {
     /// 发起人用户ID
     #[prost(int64, tag = "1")]
-    pub operator_user_id: i64,
+    pub operator_uid: i64,
     /// 被删除的好友用户ID
     #[prost(int64, tag = "2")]
-    pub friend_user_id: i64,
+    pub friend_uid: i64,
     /// 时间
     #[prost(int64, tag = "3")]
     pub at: i64,
@@ -67,7 +67,7 @@ pub struct FriendUpdateRemark {
     pub uid: i64,
     /// 好友用户ID
     #[prost(int64, tag = "2")]
-    pub friend_user_id: i64,
+    pub friend_uid: i64,
     /// 新备注
     #[prost(string, tag = "3")]
     pub remark: ::prost::alloc::string::String,

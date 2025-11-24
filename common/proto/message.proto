@@ -200,14 +200,21 @@ enum FriendRequestSource {
 
 // 好友申请信息
 message FriendRequestPayload {
+  // 唯一请求ID，用于追踪和幂等处理
   uint64 request_id = 1;
-  int64 from_user_id = 2;
-  int64 to_user_id = 3;
+  // 申请发起方UID
+  int64 from_uid = 2;
+  // 申请接收方UID
+  int64 to_uid = 3;
+  // 申请理由/验证信息
   string reason = 4;
+  // 申请来源（如通过搜索、二维码等）
   FriendRequestSource source = 5;
+  // 申请创建时间戳（毫秒）
   int64 created_at = 6;
+  // 申请人填写的备注信息
   string remark = 7;
-  // 申请人想展示的昵称（可用于邀请卡片）
+  // 申请人希望展示给对方的昵称（可用于邀请卡片）
   string nickname = 8;
 }
 
@@ -572,39 +579,14 @@ message SystemBusinessContent {
   string title = 2;
   // 详细内容（可用 JSON 等结构）
   string detail = 3;
-  // 附加上下文，如关联 ID、发起方等
-  map<string, string> metadata = 4;
-  // 短摘要（可用于列表）
-  optional string summary = 5;
-  // 具体正文内容或跳转文案
-  optional string body = 6;
-  // 展示区域（例如首页/弹窗/ banner）
-  SystemBusinessContent.DisplayArea display_area = 7;
-  // 关联跳转地址
-  optional string action_url = 8;
-  optional int64 valid_from = 9;
-  optional int64 valid_to = 10;
-  // 显示区域：用于控制客户端在哪些位置展示
-  enum DisplayArea {
-    DISPLAY_UNKNOWN = 0;
-    DISPLAY_HOME = 1;
-    DISPLAY_POPUP = 2;
-    DISPLAY_BANNER = 3;
-  }
 }
 
 // 系统业务类型枚举，便于各端通过业务组识别场景。
 enum SystemBusinessType {
   // 默认值：未知/未分类
   SYSTEM_BUSINESS_UNKNOWN = 0;
-  // 维护相关任务（暂停服务、升级等）
-  SYSTEM_BUSINESS_MAINTENANCE = 1;
-  // 告警/风险通知
-  SYSTEM_BUSINESS_ALERT = 2;
-  // 升级/迁移/功能上线
-  SYSTEM_BUSINESS_UPGRADE = 3;
-  // 策略/规则调整、权限变更等
-  SYSTEM_BUSINESS_POLICY = 4;
+  // 通用通知（包含维护、告警、升级、策略调整等）
+  SYSTEM_BUSINESS_NOTIFICATION = 1;
   // 账户在其它设备/地点上线，被动下线通知
   SYSTEM_BUSINESS_PASSIVE_LOGOUT = 5;
 }
@@ -644,14 +626,14 @@ message ProfileEventContent {
     int64 group_id = 1;
     // 事件“类型”：机器可读
     GroupEventType type = 2;
-  // 操作者 ID（系统事件/定时任务可填 0）
-  int64 operator_id = 3;
-  // 事件发生时间（用于审计/排序）
-  int64 at = 4;
-  // 统一可观测：人类可读原因、灰度标记等
-  string reason = 6;
-  // 附加 metadata（灰度开关、来源端、客户端版本等）
-  map<string, string> metadata = 7;
+    // 操作者 ID（系统事件/定时任务可填 0）
+    int64 operator_id = 3;
+    // 事件发生时间（用于审计/排序）
+    int64 at = 4;
+    // 统一可观测：人类可读原因、灰度标记等
+    string reason = 6;
+    // 附加 metadata（灰度开关、来源端、客户端版本等）
+    map<string, string> metadata = 7;
     // 关联的申请/消息/工单等（如审批 request_id、公告消息 id）
     optional uint64 ref_id = 8;
     // 幂等追踪/链路排查（如 ULID/UUID）
@@ -885,19 +867,6 @@ message RedEnvelopeContent {
 }
 
 // ======================================
-// ✂️ Segment - 消息段结构（用于复合内容）
-// ======================================
-// 表示一条消息中的一个独立段（如文本段、图片段等），支持排序、编辑、标记等
-message Segment {
-  // 消息段内容（如文本、图片等，使用 oneof 封装）：段的具体内容
-  MessageContent body = 1;
-  // 消息内顺序编号（用于前端渲染排序）：段在消息中的顺序
-  uint64 seq_in_msg = 2;
-  // 通用扩展字段（以字符串键值对存储 JSON 扁平数据）：段的元数据
-  map<string, string> metadata = 3;
-}
-
-// ======================================
 // 📨 顶层消息结构
 // ======================================
 // 定义了消息的基本框架，包含发送者、接收者、时间等元数据
@@ -970,10 +939,10 @@ message DomainMessage {
 message CallInvite {
   // 通话ID（全局唯一字符串/雪花）
   string call_id = 1;
-  // 主叫用户ID
-  int64 from_user_id = 2;
-  // 被叫用户ID
-  int64 to_user_id = 3;
+  // 主叫UID
+  int64 from_uid = 2;
+  // 被叫UID
+  int64 to_uid = 3;
   // 媒体类型（语音/视频）
   CallMediaType media_type = 4;
   // SDP offer（若使用 WebRTC）
@@ -988,8 +957,8 @@ message CallInvite {
 message CallCancel {
   // 通话ID
   string call_id = 1;
-  // 操作者
-  int64 operator_user_id = 2;
+  // 操作者UID
+  int64 operator_uid = 2;
   // 原因（可选）
   optional string reason = 3;
   // 时间
@@ -1000,8 +969,8 @@ message CallCancel {
 message CallReject {
   // 通话ID
   string call_id = 1;
-  // 拒绝者
-  int64 reject_user_id = 2;
+  // 拒绝者UID
+  int64 reject_uid = 2;
   // 原因（可选）
   optional string reason = 3;
   // 时间
@@ -1012,8 +981,8 @@ message CallReject {
 message CallAccept {
   // 通话ID
   string call_id = 1;
-  // 接受者
-  int64 accept_user_id = 2;
+  // 接受者UID
+  int64 accept_uid = 2;
   // SDP answer（若使用 WebRTC）
   string sdp_answer = 3;
   // 时间
@@ -1024,8 +993,8 @@ message CallAccept {
 message CallHangup {
   // 通话ID
   string call_id = 1;
-  // 操作者
-  int64 operator_user_id = 2;
+  // 操作者UID
+  int64 operator_uid = 2;
   // 结束原因
   CallEndReason reason = 3;
   // 通话时长（毫秒，可选）
@@ -1038,8 +1007,8 @@ message CallHangup {
 message CallModify {
   // 通话ID
   string call_id = 1;
-  // 操作者
-  int64 operator_user_id = 2;
+  // 操作者UID
+  int64 operator_uid = 2;
   // 修改类型
   CallModifyType modify = 3;
   // 开关值（true=开/启用，false=关/禁用）
@@ -1052,8 +1021,8 @@ message CallModify {
 message CallDtmf {
   // 通话ID
   string call_id = 1;
-  // 发送者
-  int64 from_user_id = 2;
+  // 发送者UID
+  int64 from_uid = 2;
   // DTMF 按键序列（如 "123#*")
   string digits = 3;
   // 时间
@@ -1066,8 +1035,8 @@ message CallDtmf {
 
 // 送达回执确认（客户端→服务端：收到 delivered）
 message MsgDeliveredAck {
-  int64 msg_id = 1;
-  int64 ack_user_id = 2;
+  int64 msg_id = 1; // 消息ID
+  int64 ack_uid = 2; // 确认者UID
   int64 ack_at = 3;
 }
 
@@ -1081,15 +1050,15 @@ message MsgRead {
 
 // 已读回执确认（服务端→客户端：收到 read）
 message MsgReadAck {
-  int64 msg_id = 1;
-  int64 ack_user_id = 2;
+  int64 msg_id = 1; // 消息ID
+  int64 ack_uid = 2; // 确认者UID
   int64 ack_at = 3;
 }
 
 // 消息撤回
 message MsgRecall {
   int64 msg_id = 1;
-  int64 operator_user_id = 2;
+  int64 operator_uid = 2;
   optional string reason = 3;
   int64 recalled_at = 4;
 }
@@ -1098,8 +1067,8 @@ message MsgRecall {
 message MsgForward {
   int64 src_msg_id = 1;
   optional int64 new_msg_id = 2;
-  int64 from_user_id = 3;
-  int64 to_user_id = 4;
+  int64 from_uid = 3;
+  int64 to_uid = 4;
   int64 created_at = 5;
 }
 
@@ -1130,16 +1099,16 @@ enum TypingState {
 
 // 正在输入
 message Typing {
-  int64 from_user_id = 1;
+  int64 from_uid = 1;
   TypingState state = 3;
   int64 at = 4;
 
   oneof target {
-    int64 to_user_id = 2;
+    int64 to_uid = 2;
     int64 group_id = 5;
   }
 
-  repeated int64 notify_user_ids = 6;
+  repeated int64 notify_uids = 6;
 }
 
 // =====================

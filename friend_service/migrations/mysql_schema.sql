@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS user_friends_meta (
 CREATE TABLE IF NOT EXISTS friend_add_jobs (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   uid BIGINT UNSIGNED NOT NULL,
-  friend_id BIGINT UNSIGNED NOT NULL,
+  friend_uid BIGINT UNSIGNED NOT NULL,
   nickname_for_user VARCHAR(64) NULL,
   nickname_for_friend VARCHAR(64) NULL,
   error_msg VARCHAR(512) NULL,
@@ -31,5 +31,5 @@ CREATE TABLE IF NOT EXISTS friend_add_jobs (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   KEY idx_status_created (status, created_at),
-  KEY idx_user_friend (uid, friend_id)
+  KEY idx_user_friend (uid, friend_uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -22,9 +22,9 @@ message FriendRequest {
   // 好友申请ID
   int64 id = 1;
   // 申请人用户ID
-  int64 from_user_id = 2;
+  int64 from_uid = 2;
   // 被申请人用户ID
-  int64 to_user_id = 3;
+  int64 to_uid = 3;
   // 申请理由
   string reason = 4;
   // 申请来源
@@ -54,9 +54,9 @@ message FriendRequestDecision {
 // 删除好友
 message FriendDelete {
   // 发起人用户ID
-  int64 operator_user_id = 1;
+  int64 operator_uid = 1;
   // 被删除的好友用户ID
-  int64 friend_user_id = 2;
+  int64 friend_uid = 2;
   // 时间
   int64 at = 3;
 }
@@ -66,7 +66,7 @@ message FriendUpdateRemark {
   // 用户ID
   int64 uid = 1;
   // 好友用户ID
-  int64 friend_user_id = 2;
+  int64 friend_uid = 2;
   // 新备注
   string remark = 3;
   // 时间

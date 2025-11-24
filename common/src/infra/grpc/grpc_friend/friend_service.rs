@@ -13,10 +13,10 @@ pub struct AddFriendReq {
     /// 申请人给好友写的备注（默认与名字一致，可用于联系人列表展示）
     #[prost(string, optional, tag = "3")]
     pub remark: ::core::option::Option<::prost::alloc::string::String>,
-    /// 新增：user_id 对 friend_id 的昵称（优先于 nickname）
+    /// 新增：uid 对 friend_id 的昵称（优先于 nickname）
     #[prost(string, optional, tag = "4")]
     pub nickname_for_user: ::core::option::Option<::prost::alloc::string::String>,
-    /// 新增：friend_id 对 user_id 的昵称（即反向昵称）
+    /// 新增：friend_id 对 uid 的昵称（即反向昵称）
     #[prost(string, optional, tag = "5")]
     pub nickname_for_friend: ::core::option::Option<::prost::alloc::string::String>,
     /// 好友申请来源（默认未知）

@@ -152,21 +152,28 @@ pub mod friend_business_content {
 /// 好友申请信息
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FriendRequestPayload {
+    /// 唯一请求ID，用于追踪和幂等处理
     #[prost(uint64, tag = "1")]
     pub request_id: u64,
+    /// 申请发起方UID
     #[prost(int64, tag = "2")]
-    pub from_user_id: i64,
+    pub from_uid: i64,
+    /// 申请接收方UID
     #[prost(int64, tag = "3")]
-    pub to_user_id: i64,
+    pub to_uid: i64,
+    /// 申请理由/验证信息
     #[prost(string, tag = "4")]
     pub reason: ::prost::alloc::string::String,
+    /// 申请来源（如通过搜索、二维码等）
     #[prost(enumeration = "FriendRequestSource", tag = "5")]
     pub source: i32,
+    /// 申请创建时间戳（毫秒）
     #[prost(int64, tag = "6")]
     pub created_at: i64,
+    /// 申请人填写的备注信息
     #[prost(string, tag = "7")]
     pub remark: ::prost::alloc::string::String,
-    /// 申请人想展示的昵称（可用于邀请卡片）
+    /// 申请人希望展示给对方的昵称（可用于邀请卡片）
     #[prost(string, tag = "8")]
     pub nickname: ::prost::alloc::string::String,
 }
@@ -713,74 +720,6 @@ pub struct SystemBusinessContent {
     /// 详细内容（可用 JSON 等结构）
     #[prost(string, tag = "3")]
     pub detail: ::prost::alloc::string::String,
-    /// 附加上下文，如关联 ID、发起方等
-    #[prost(map = "string, string", tag = "4")]
-    pub metadata: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::string::String,
-    >,
-    /// 短摘要（可用于列表）
-    #[prost(string, optional, tag = "5")]
-    pub summary: ::core::option::Option<::prost::alloc::string::String>,
-    /// 具体正文内容或跳转文案
-    #[prost(string, optional, tag = "6")]
-    pub body: ::core::option::Option<::prost::alloc::string::String>,
-    /// 展示区域（例如首页/弹窗/ banner）
-    #[prost(enumeration = "system_business_content::DisplayArea", tag = "7")]
-    pub display_area: i32,
-    /// 关联跳转地址
-    #[prost(string, optional, tag = "8")]
-    pub action_url: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(int64, optional, tag = "9")]
-    pub valid_from: ::core::option::Option<i64>,
-    #[prost(int64, optional, tag = "10")]
-    pub valid_to: ::core::option::Option<i64>,
-}
-/// Nested message and enum types in `SystemBusinessContent`.
-pub mod system_business_content {
-    /// 显示区域：用于控制客户端在哪些位置展示
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
-    #[repr(i32)]
-    pub enum DisplayArea {
-        DisplayUnknown = 0,
-        DisplayHome = 1,
-        DisplayPopup = 2,
-        DisplayBanner = 3,
-    }
-    impl DisplayArea {
-        /// String value of the enum field names used in the ProtoBuf definition.
-        ///
-        /// The values are not transformed in any way and thus are considered stable
-        /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-        pub fn as_str_name(&self) -> &'static str {
-            match self {
-                Self::DisplayUnknown => "DISPLAY_UNKNOWN",
-                Self::DisplayHome => "DISPLAY_HOME",
-                Self::DisplayPopup => "DISPLAY_POPUP",
-                Self::DisplayBanner => "DISPLAY_BANNER",
-            }
-        }
-        /// Creates an enum from field names used in the ProtoBuf definition.
-        pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-            match value {
-                "DISPLAY_UNKNOWN" => Some(Self::DisplayUnknown),
-                "DISPLAY_HOME" => Some(Self::DisplayHome),
-                "DISPLAY_POPUP" => Some(Self::DisplayPopup),
-                "DISPLAY_BANNER" => Some(Self::DisplayBanner),
-                _ => None,
-            }
-        }
-    }
 }
 /// ===============================
 /// ⏰ 提醒事项
@@ -1272,25 +1211,6 @@ pub struct RedEnvelopeContent {
     pub claimed: bool,
 }
 /// ======================================
-/// ✂️ Segment - 消息段结构（用于复合内容）
-/// ======================================
-/// 表示一条消息中的一个独立段（如文本段、图片段等），支持排序、编辑、标记等
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Segment {
-    /// 消息段内容（如文本、图片等，使用 oneof 封装）：段的具体内容
-    #[prost(message, optional, tag = "1")]
-    pub body: ::core::option::Option<MessageContent>,
-    /// 消息内顺序编号（用于前端渲染排序）：段在消息中的顺序
-    #[prost(uint64, tag = "2")]
-    pub seq_in_msg: u64,
-    /// 通用扩展字段（以字符串键值对存储 JSON 扁平数据）：段的元数据
-    #[prost(map = "string, string", tag = "3")]
-    pub metadata: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::string::String,
-    >,
-}
-/// ======================================
 /// 📨 顶层消息结构
 /// ======================================
 /// 定义了消息的基本框架，包含发送者、接收者、时间等元数据
@@ -1370,12 +1290,12 @@ pub struct CallInvite {
     /// 通话ID（全局唯一字符串/雪花）
     #[prost(string, tag = "1")]
     pub call_id: ::prost::alloc::string::String,
-    /// 主叫用户ID
+    /// 主叫UID
     #[prost(int64, tag = "2")]
-    pub from_user_id: i64,
-    /// 被叫用户ID
+    pub from_uid: i64,
+    /// 被叫UID
     #[prost(int64, tag = "3")]
-    pub to_user_id: i64,
+    pub to_uid: i64,
     /// 媒体类型（语音/视频）
     #[prost(enumeration = "CallMediaType", tag = "4")]
     pub media_type: i32,
@@ -1395,9 +1315,9 @@ pub struct CallCancel {
     /// 通话ID
     #[prost(string, tag = "1")]
     pub call_id: ::prost::alloc::string::String,
-    /// 操作者
+    /// 操作者UID
     #[prost(int64, tag = "2")]
-    pub operator_user_id: i64,
+    pub operator_uid: i64,
     /// 原因（可选）
     #[prost(string, optional, tag = "3")]
     pub reason: ::core::option::Option<::prost::alloc::string::String>,
@@ -1411,9 +1331,9 @@ pub struct CallReject {
     /// 通话ID
     #[prost(string, tag = "1")]
     pub call_id: ::prost::alloc::string::String,
-    /// 拒绝者
+    /// 拒绝者UID
     #[prost(int64, tag = "2")]
-    pub reject_user_id: i64,
+    pub reject_uid: i64,
     /// 原因（可选）
     #[prost(string, optional, tag = "3")]
     pub reason: ::core::option::Option<::prost::alloc::string::String>,
@@ -1427,9 +1347,9 @@ pub struct CallAccept {
     /// 通话ID
     #[prost(string, tag = "1")]
     pub call_id: ::prost::alloc::string::String,
-    /// 接受者
+    /// 接受者UID
     #[prost(int64, tag = "2")]
-    pub accept_user_id: i64,
+    pub accept_uid: i64,
     /// SDP answer（若使用 WebRTC）
     #[prost(string, tag = "3")]
     pub sdp_answer: ::prost::alloc::string::String,
@@ -1443,9 +1363,9 @@ pub struct CallHangup {
     /// 通话ID
     #[prost(string, tag = "1")]
     pub call_id: ::prost::alloc::string::String,
-    /// 操作者
+    /// 操作者UID
     #[prost(int64, tag = "2")]
-    pub operator_user_id: i64,
+    pub operator_uid: i64,
     /// 结束原因
     #[prost(enumeration = "CallEndReason", tag = "3")]
     pub reason: i32,
@@ -1462,9 +1382,9 @@ pub struct CallModify {
     /// 通话ID
     #[prost(string, tag = "1")]
     pub call_id: ::prost::alloc::string::String,
-    /// 操作者
+    /// 操作者UID
     #[prost(int64, tag = "2")]
-    pub operator_user_id: i64,
+    pub operator_uid: i64,
     /// 修改类型
     #[prost(enumeration = "CallModifyType", tag = "3")]
     pub modify: i32,
@@ -1481,9 +1401,9 @@ pub struct CallDtmf {
     /// 通话ID
     #[prost(string, tag = "1")]
     pub call_id: ::prost::alloc::string::String,
-    /// 发送者
+    /// 发送者UID
     #[prost(int64, tag = "2")]
-    pub from_user_id: i64,
+    pub from_uid: i64,
     /// DTMF 按键序列（如 "123#*")
     #[prost(string, tag = "3")]
     pub digits: ::prost::alloc::string::String,
@@ -1494,10 +1414,12 @@ pub struct CallDtmf {
 /// 送达回执确认（客户端→服务端：收到 delivered）
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct MsgDeliveredAck {
+    /// 消息ID
     #[prost(int64, tag = "1")]
     pub msg_id: i64,
+    /// 确认者UID
     #[prost(int64, tag = "2")]
-    pub ack_user_id: i64,
+    pub ack_uid: i64,
     #[prost(int64, tag = "3")]
     pub ack_at: i64,
 }
@@ -1517,10 +1439,12 @@ pub struct MsgRead {
 /// 已读回执确认（服务端→客户端：收到 read）
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct MsgReadAck {
+    /// 消息ID
     #[prost(int64, tag = "1")]
     pub msg_id: i64,
+    /// 确认者UID
     #[prost(int64, tag = "2")]
-    pub ack_user_id: i64,
+    pub ack_uid: i64,
     #[prost(int64, tag = "3")]
     pub ack_at: i64,
 }
@@ -1530,7 +1454,7 @@ pub struct MsgRecall {
     #[prost(int64, tag = "1")]
     pub msg_id: i64,
     #[prost(int64, tag = "2")]
-    pub operator_user_id: i64,
+    pub operator_uid: i64,
     #[prost(string, optional, tag = "3")]
     pub reason: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(int64, tag = "4")]
@@ -1544,9 +1468,9 @@ pub struct MsgForward {
     #[prost(int64, optional, tag = "2")]
     pub new_msg_id: ::core::option::Option<i64>,
     #[prost(int64, tag = "3")]
-    pub from_user_id: i64,
+    pub from_uid: i64,
     #[prost(int64, tag = "4")]
-    pub to_user_id: i64,
+    pub to_uid: i64,
     #[prost(int64, tag = "5")]
     pub created_at: i64,
 }
@@ -1568,13 +1492,13 @@ pub struct MsgReaction {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Typing {
     #[prost(int64, tag = "1")]
-    pub from_user_id: i64,
+    pub from_uid: i64,
     #[prost(enumeration = "TypingState", tag = "3")]
     pub state: i32,
     #[prost(int64, tag = "4")]
     pub at: i64,
     #[prost(int64, repeated, tag = "6")]
-    pub notify_user_ids: ::prost::alloc::vec::Vec<i64>,
+    pub notify_uids: ::prost::alloc::vec::Vec<i64>,
     #[prost(oneof = "typing::Target", tags = "2, 5")]
     pub target: ::core::option::Option<typing::Target>,
 }
@@ -1583,7 +1507,7 @@ pub mod typing {
     #[derive(Clone, Copy, PartialEq, ::prost::Oneof)]
     pub enum Target {
         #[prost(int64, tag = "2")]
-        ToUserId(i64),
+        ToUid(i64),
         #[prost(int64, tag = "5")]
         GroupId(i64),
     }
@@ -1967,14 +1891,8 @@ impl FriendEventType {
 pub enum SystemBusinessType {
     /// 默认值：未知/未分类
     SystemBusinessUnknown = 0,
-    /// 维护相关任务（暂停服务、升级等）
-    SystemBusinessMaintenance = 1,
-    /// 告警/风险通知
-    SystemBusinessAlert = 2,
-    /// 升级/迁移/功能上线
-    SystemBusinessUpgrade = 3,
-    /// 策略/规则调整、权限变更等
-    SystemBusinessPolicy = 4,
+    /// 通用通知（包含维护、告警、升级、策略调整等）
+    SystemBusinessNotification = 1,
     /// 账户在其它设备/地点上线，被动下线通知
     SystemBusinessPassiveLogout = 5,
 }
@@ -1986,10 +1904,7 @@ impl SystemBusinessType {
     pub fn as_str_name(&self) -> &'static str {
         match self {
             Self::SystemBusinessUnknown => "SYSTEM_BUSINESS_UNKNOWN",
-            Self::SystemBusinessMaintenance => "SYSTEM_BUSINESS_MAINTENANCE",
-            Self::SystemBusinessAlert => "SYSTEM_BUSINESS_ALERT",
-            Self::SystemBusinessUpgrade => "SYSTEM_BUSINESS_UPGRADE",
-            Self::SystemBusinessPolicy => "SYSTEM_BUSINESS_POLICY",
+            Self::SystemBusinessNotification => "SYSTEM_BUSINESS_NOTIFICATION",
             Self::SystemBusinessPassiveLogout => "SYSTEM_BUSINESS_PASSIVE_LOGOUT",
         }
     }
@@ -1997,10 +1912,7 @@ impl SystemBusinessType {
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
             "SYSTEM_BUSINESS_UNKNOWN" => Some(Self::SystemBusinessUnknown),
-            "SYSTEM_BUSINESS_MAINTENANCE" => Some(Self::SystemBusinessMaintenance),
-            "SYSTEM_BUSINESS_ALERT" => Some(Self::SystemBusinessAlert),
-            "SYSTEM_BUSINESS_UPGRADE" => Some(Self::SystemBusinessUpgrade),
-            "SYSTEM_BUSINESS_POLICY" => Some(Self::SystemBusinessPolicy),
+            "SYSTEM_BUSINESS_NOTIFICATION" => Some(Self::SystemBusinessNotification),
             "SYSTEM_BUSINESS_PASSIVE_LOGOUT" => Some(Self::SystemBusinessPassiveLogout),
             _ => None,
         }
