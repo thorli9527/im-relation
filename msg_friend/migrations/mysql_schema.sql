@@ -71,6 +71,8 @@ CREATE TABLE IF NOT EXISTS `friend_requests` (
   `decided_at`    BIGINT       NULL COMMENT '处理时间(毫秒，可空)',
   `accepted`      TINYINT(1)   NULL COMMENT '是否接受(可空)',
   `remark`        VARCHAR(1024) NULL COMMENT '备注(可空)',
+  `notified_at`   BIGINT       NOT NULL DEFAULT 0 COMMENT '最近一次系统通知时间(毫秒)',
+  `notify_retry`  INT          NOT NULL DEFAULT 0 COMMENT '系统通知重试次数',
   KEY `idx_friend_req_from` (`from_uid`),
   KEY `idx_friend_req_to`   (`to_uid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

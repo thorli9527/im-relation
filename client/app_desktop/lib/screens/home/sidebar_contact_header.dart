@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:app_desktop/l10n/app_localizations.dart';
 import 'package:app_desktop/app_state.dart';
 import 'package:app_desktop/src/rust/api/user_api.dart' as user_api;
 import 'package:app_desktop/src/rust/api/app_api_types.dart';
@@ -10,6 +11,7 @@ class SidebarContactHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
@@ -18,25 +20,28 @@ class SidebarContactHeader extends ConsumerWidget {
             onSelected: (val) {
               // TODO: hook up sorting logic
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'name', child: Text('by name')),
-              PopupMenuItem(value: 'last_login', child: Text('by last login')),
+            itemBuilder: (_) => [
+              PopupMenuItem(value: 'name', child: Text(l10n.sortByName)),
+              PopupMenuItem(
+                value: 'last_login',
+                child: Text(l10n.sortByLastLogin),
+              ),
             ],
             child: TextButton.icon(
               onPressed: null,
               icon: const Icon(Icons.sort),
-              label: const Text('Sort'),
+              label: Text(l10n.sort),
             ),
           ),
           const Spacer(),
-          const Text(
-            'Contacts',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          Text(
+            l10n.contacts,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const Spacer(),
           IconButton(
-            tooltip: 'Add',
-            onPressed: () => _showAddFriendDialog(context, ref),
+            tooltip: l10n.add,
+            onPressed: () => _showAddFriendDialog(context, ref, l10n),
             icon: const Icon(Icons.person_add_alt_1_outlined),
           ),
         ],
@@ -49,7 +54,11 @@ class SidebarContactHeader extends ConsumerWidget {
   /// 2) 调用后端 searchUser（uid/email/phone/用户名自动判定）。
   /// 3) 未找到则提示；根据策略提示不可添加/占位后续直接添加或申请流程。
   /// （TODO: 接入实际直接添加与申请接口，当前仅提示。）
-  void _showAddFriendDialog(BuildContext context, WidgetRef ref) {
+  void _showAddFriendDialog(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+  ) {
     final contentCtrl = TextEditingController();
     final nicknameCtrl = TextEditingController();
     final remarkCtrl = TextEditingController();
@@ -69,7 +78,7 @@ class SidebarContactHeader extends ConsumerWidget {
             Future<void> submit() async {
               final input = contentCtrl.text.trim();
               if (input.isEmpty) {
-                safeSetState(() => error = "content cannot be empty");
+                safeSetState(() => error = l10n.contentCannotBeEmpty);
                 return;
               }
               safeSetState(() {
@@ -84,12 +93,11 @@ class SidebarContactHeader extends ConsumerWidget {
                     (c) => c.friendId != null && c.friendId == parsedId,
                   )) {
                 safeSetState(() {
-                  error = 'Already a friend';
+                  error = l10n.alreadyFriend;
                   loading = false;
                 });
                 return;
               }
-
 
               try {
                 final res = await user_api.searchUser(
@@ -99,7 +107,7 @@ class SidebarContactHeader extends ConsumerWidget {
                 if (user == null) {
                   // 后端未找到用户
                   safeSetState(() {
-                    error = 'User not found';
+                    error = l10n.userNotFound;
                     loading = false;
                   });
                   return;
@@ -109,7 +117,7 @@ class SidebarContactHeader extends ConsumerWidget {
                 if (contacts.any((c) => c.friendId == uid)) {
                   // 已是好友
                   safeSetState(() {
-                    error = 'Already a friend';
+                    error = l10n.alreadyFriend;
                     loading = false;
                   });
                   return;
@@ -119,7 +127,7 @@ class SidebarContactHeader extends ConsumerWidget {
                 if (policy == 3) {
                   // 对方拒绝加好友
                   safeSetState(() {
-                    error = 'Target does not accept friend requests';
+                    error = l10n.targetRejectsFriendRequest;
                     loading = false;
                   });
                   return;
@@ -133,6 +141,7 @@ class SidebarContactHeader extends ConsumerWidget {
                     ref,
                     user,
                     nicknameCtrl.text.trim(),
+                    l10n,
                   );
                   return;
                 }
@@ -145,6 +154,7 @@ class SidebarContactHeader extends ConsumerWidget {
                   ref,
                   user: user,
                   preferredNickname: nicknameCtrl.text.trim(),
+                  l10n: l10n,
                 );
               } catch (e) {
                 safeSetState(() => error = '$e');
@@ -157,7 +167,7 @@ class SidebarContactHeader extends ConsumerWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
               ),
-              title: const Text('Add Contact'),
+              title: Text(l10n.addContactTitle),
               content: SizedBox(
                 width: 380,
                 child: SingleChildScrollView(
@@ -167,7 +177,7 @@ class SidebarContactHeader extends ConsumerWidget {
                       const SizedBox(height: 10),
                       _roundField(
                         controller: contentCtrl,
-                        hint: 'UID/Email/Phone',
+                        hint: l10n.addContactHint,
                         keyboardType: TextInputType.text,
                       ),
                       if (error != null) ...[
@@ -205,14 +215,14 @@ class SidebarContactHeader extends ConsumerWidget {
                       const SizedBox(height: 10),
                       _roundField(
                         controller: nicknameCtrl,
-                        hint: 'Nickname (optional)',
+                        hint: l10n.nicknameOptional,
                         prefix: const Icon(Icons.emoji_emotions_outlined),
                         maxLines: 1,
                       ),
                       const SizedBox(height: 10),
                       _roundField(
                         controller: remarkCtrl,
-                        hint: 'Remark (optional)',
+                        hint: l10n.remarkOptional,
                         prefix: const Icon(Icons.sticky_note_2_outlined),
                         maxLines: 1,
                       ),
@@ -223,7 +233,7 @@ class SidebarContactHeader extends ConsumerWidget {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Cancel'),
+                  child: Text(l10n.cancel),
                 ),
                 FilledButton(
                   onPressed: loading ? null : submit,
@@ -239,7 +249,7 @@ class SidebarContactHeader extends ConsumerWidget {
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Create'),
+                      : Text(l10n.create),
                 ),
               ],
             );
@@ -254,6 +264,7 @@ class SidebarContactHeader extends ConsumerWidget {
     WidgetRef ref,
     UserProfile user,
     String preferredNickname,
+    AppLocalizations l10n,
   ) async {
     final uid = user.uid.toInt();
     try {
@@ -273,7 +284,7 @@ class SidebarContactHeader extends ConsumerWidget {
           current.add(
             Contact(
               name: user.username,
-              subtitle: 'UID $uid',
+              subtitle: l10n.uidWithValue(uid.toString()),
               friendId: uid,
               avatarUrl: user.avatar.isNotEmpty ? user.avatar : null,
             ),
@@ -284,7 +295,7 @@ class SidebarContactHeader extends ConsumerWidget {
     } catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Add friend failed: $e')));
+      ).showSnackBar(SnackBar(content: Text(l10n.addFriendFailed('$e'))));
     }
   }
 
@@ -293,6 +304,7 @@ class SidebarContactHeader extends ConsumerWidget {
     WidgetRef ref, {
     required UserProfile user,
     required String preferredNickname,
+    required AppLocalizations l10n,
   }) async {
     final nicknameCtrl = TextEditingController(text: preferredNickname);
     final reasonCtrl = TextEditingController();
@@ -308,7 +320,7 @@ class SidebarContactHeader extends ConsumerWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),
-              title: const Text('Friend Request'),
+              title: Text(l10n.friendRequestTitle),
               content: SizedBox(
                 width: 380,
                 child: Column(
@@ -316,21 +328,21 @@ class SidebarContactHeader extends ConsumerWidget {
                   children: [
                     _roundField(
                       controller: nicknameCtrl,
-                      hint: 'Nickname',
+                      hint: l10n.nickname,
                       prefix: const Icon(Icons.emoji_emotions_outlined),
                       maxLines: 1,
                     ),
                     const SizedBox(height: 10),
                     _roundField(
                       controller: reasonCtrl,
-                      hint: 'Reason ',
+                      hint: l10n.reason,
                       prefix: const Icon(Icons.message_outlined),
                       maxLines: 2,
                     ),
                     const SizedBox(height: 10),
                     _roundField(
                       controller: remarkCtrl,
-                      hint: 'Remark ',
+                      hint: l10n.remark,
                       prefix: const Icon(Icons.sticky_note_2_outlined),
                       maxLines: 1,
                     ),
@@ -352,7 +364,7 @@ class SidebarContactHeader extends ConsumerWidget {
                   onPressed: submitting
                       ? null
                       : () => Navigator.of(dialogCtx).pop(),
-                  child: const Text('Cancel'),
+                  child: Text(l10n.cancel),
                 ),
                 FilledButton(
                   onPressed: submitting
@@ -382,8 +394,8 @@ class SidebarContactHeader extends ConsumerWidget {
                               SnackBar(
                                 content: Text(
                                   res.applied
-                                      ? 'Friend request sent'
-                                      : 'Added as friend',
+                                      ? l10n.friendRequestSent
+                                      : l10n.addedAsFriend,
                                 ),
                               ),
                             );
@@ -397,7 +409,9 @@ class SidebarContactHeader extends ConsumerWidget {
                                 current.add(
                                   Contact(
                                     name: user.username,
-                                    subtitle: 'UID $uid',
+                                    subtitle: l10n.uidWithValue(
+                                      uid.toString(),
+                                    ),
                                     friendId: uid,
                                     avatarUrl: user.avatar.isNotEmpty
                                         ? user.avatar
@@ -419,7 +433,7 @@ class SidebarContactHeader extends ConsumerWidget {
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Confirm'),
+                      : Text(l10n.confirm),
                 ),
               ],
             );
@@ -434,17 +448,21 @@ class SidebarContactHeader extends ConsumerWidget {
     WidgetRef ref, {
     required UserProfile user,
     required String preferredNickname,
+    required AppLocalizations l10n,
   }) async {
     final uid = user.uid.toInt();
     final detailBadges = <String>[
-      if (user.email?.isNotEmpty == true) 'Email: ${user.email}',
-      if (user.phone?.isNotEmpty == true) 'Phone: ${user.phone}',
-      if (user.username.isNotEmpty) 'Username: ${user.username}',
+      if (user.email?.isNotEmpty == true)
+        l10n.emailWithValue(user.email!),
+      if (user.phone?.isNotEmpty == true)
+        l10n.phoneWithValue(user.phone!),
+      if (user.username.isNotEmpty)
+        l10n.usernameWithValue(user.username),
     ];
     final country = (user.region ?? '').isNotEmpty ? user.region! : '-';
     const language = '-';
     final nicknameLabel = preferredNickname.isNotEmpty
-        ? 'Nickname: $preferredNickname'
+        ? '${l10n.nickname}: $preferredNickname'
         : null;
 
     await showDialog(
@@ -458,7 +476,7 @@ class SidebarContactHeader extends ConsumerWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),
-              title: const Text('User Summary'),
+              title: Text(l10n.userSummaryTitle),
               content: SizedBox(
                 width: 360,
                 child: Column(
@@ -485,7 +503,7 @@ class SidebarContactHeader extends ConsumerWidget {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            '${user.username} · UID $uid',
+                            '${user.username} · ${l10n.uidWithValue(uid.toString())}',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -509,8 +527,8 @@ class SidebarContactHeader extends ConsumerWidget {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        _infoBadge('Country: $country'),
-                        _infoBadge('Language: $language'),
+                        _infoBadge(l10n.countryWithValue(country)),
+                        _infoBadge(l10n.languageWithValue(language)),
                       ],
                     ),
                     if (error != null) ...[
@@ -525,7 +543,7 @@ class SidebarContactHeader extends ConsumerWidget {
                   onPressed: submitting
                       ? null
                       : () => Navigator.of(dialogCtx).pop(),
-                  child: const Text('Cancel'),
+                  child: Text(l10n.cancel),
                 ),
                 FilledButton(
                   onPressed: submitting
@@ -551,8 +569,8 @@ class SidebarContactHeader extends ConsumerWidget {
                               SnackBar(
                                 content: Text(
                                   res.applied
-                                      ? 'Friend request sent'
-                                      : 'Added as friend',
+                                      ? l10n.friendRequestSent
+                                      : l10n.addedAsFriend,
                                 ),
                               ),
                             );
@@ -565,7 +583,9 @@ class SidebarContactHeader extends ConsumerWidget {
                                 current.add(
                                   Contact(
                                     name: user.username,
-                                    subtitle: 'UID $uid',
+                                    subtitle: l10n.uidWithValue(
+                                      uid.toString(),
+                                    ),
                                     friendId: uid,
                                     avatarUrl: user.avatar.isNotEmpty
                                         ? user.avatar
@@ -587,7 +607,7 @@ class SidebarContactHeader extends ConsumerWidget {
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Confirm'),
+                      : Text(l10n.confirm),
                 ),
               ],
             );

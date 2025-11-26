@@ -14,7 +14,9 @@ pub use messages::{
 pub use device_keys::{fetch_device_bundles, upsert_device_keys, DeviceKeysRow};
 
 pub use friend_requests::{
-    get_friend_request_by_id, mark_friend_request_decision, upsert_friend_request, FriendRequestRow,
+    get_friend_request_by_id, increment_friend_request_notify_retry,
+    list_friend_requests_pending_notify, mark_friend_request_decision,
+    mark_friend_request_notified, upsert_friend_request, FriendRequestRow,
 };
 
 pub use conversation_snapshot::{

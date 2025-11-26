@@ -1,7 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::api::app_api::LoginResult;
-use log::info;
 use once_cell::sync::OnceCell;
 use rusqlite::Row;
 

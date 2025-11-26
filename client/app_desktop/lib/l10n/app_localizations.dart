@@ -184,6 +184,180 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Back to Login'**
   String get backToLogin;
+
+  /// No description provided for @sort.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort'**
+  String get sort;
+
+  /// No description provided for @sortByName.
+  ///
+  /// In en, this message translates to:
+  /// **'by name'**
+  String get sortByName;
+
+  /// No description provided for @sortByLastLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'by last login'**
+  String get sortByLastLogin;
+
+  /// No description provided for @contacts.
+  ///
+  /// In en, this message translates to:
+  /// **'Contacts'**
+  String get contacts;
+
+  /// No description provided for @add.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get add;
+
+  /// No description provided for @addContactTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Contact'**
+  String get addContactTitle;
+
+  /// No description provided for @addContactHint.
+  ///
+  /// In en, this message translates to:
+  /// **'UID/Email/Phone'**
+  String get addContactHint;
+
+  /// No description provided for @nicknameOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Nickname (optional)'**
+  String get nicknameOptional;
+
+  /// No description provided for @remarkOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Remark (optional)'**
+  String get remarkOptional;
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @create.
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get create;
+
+  /// No description provided for @contentCannotBeEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Content cannot be empty'**
+  String get contentCannotBeEmpty;
+
+  /// No description provided for @alreadyFriend.
+  ///
+  /// In en, this message translates to:
+  /// **'Already a friend'**
+  String get alreadyFriend;
+
+  /// No description provided for @userNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'User not found'**
+  String get userNotFound;
+
+  /// No description provided for @targetRejectsFriendRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'Target does not accept friend requests'**
+  String get targetRejectsFriendRequest;
+
+  /// No description provided for @friendRequestTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Friend Request'**
+  String get friendRequestTitle;
+
+  /// No description provided for @reason.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason'**
+  String get reason;
+
+  /// No description provided for @remark.
+  ///
+  /// In en, this message translates to:
+  /// **'Remark'**
+  String get remark;
+
+  /// No description provided for @friendRequestSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Friend request sent'**
+  String get friendRequestSent;
+
+  /// No description provided for @addedAsFriend.
+  ///
+  /// In en, this message translates to:
+  /// **'Added as friend'**
+  String get addedAsFriend;
+
+  /// No description provided for @confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get confirm;
+
+  /// No description provided for @userSummaryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'User Summary'**
+  String get userSummaryTitle;
+
+  /// No description provided for @emailWithValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Email: {email}'**
+  String emailWithValue(String email);
+
+  /// No description provided for @phoneWithValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone: {phone}'**
+  String phoneWithValue(String phone);
+
+  /// No description provided for @usernameWithValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Username: {username}'**
+  String usernameWithValue(String username);
+
+  /// No description provided for @uidWithValue.
+  ///
+  /// In en, this message translates to:
+  /// **'UID {uid}'**
+  String uidWithValue(String uid);
+
+  /// No description provided for @countryWithValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Country: {country}'**
+  String countryWithValue(String country);
+
+  /// No description provided for @languageWithValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Language: {language}'**
+  String languageWithValue(String language);
+
+  /// No description provided for @addFriendFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Add friend failed: {error}'**
+  String addFriendFailed(String error);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

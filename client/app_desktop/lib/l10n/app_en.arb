@@ -22,5 +22,69 @@
   },
   "submit": "Submit",
   "goHome": "Go Home",
-  "backToLogin": "Back to Login"
+  "backToLogin": "Back to Login",
+  "sort": "Sort",
+  "sortByName": "by name",
+  "sortByLastLogin": "by last login",
+  "contacts": "Contacts",
+  "add": "Add",
+  "addContactTitle": "Add Contact",
+  "addContactHint": "UID/Email/Phone",
+  "nicknameOptional": "Nickname",
+  "remarkOptional": "Remark",
+  "cancel": "Cancel",
+  "create": "Create",
+  "contentCannotBeEmpty": "Content cannot be empty",
+  "alreadyFriend": "Already a friend",
+  "userNotFound": "User not found",
+  "targetRejectsFriendRequest": "Target does not accept friend requests",
+  "friendRequestTitle": "Friend Request",
+  "reason": "Reason",
+  "remark": "Remark",
+  "friendRequestSent": "Friend request sent",
+  "addedAsFriend": "Added as friend",
+  "confirm": "Confirm",
+  "userSummaryTitle": "User Summary",
+  "emailWithValue": "Email: {email}",
+  "@emailWithValue": {
+    "placeholders": {
+      "email": {}
+    }
+  },
+  "phoneWithValue": "Phone: {phone}",
+  "@phoneWithValue": {
+    "placeholders": {
+      "phone": {}
+    }
+  },
+  "usernameWithValue": "Username: {username}",
+  "@usernameWithValue": {
+    "placeholders": {
+      "username": {}
+    }
+  },
+  "uidWithValue": "UID {uid}",
+  "@uidWithValue": {
+    "placeholders": {
+      "uid": {}
+    }
+  },
+  "countryWithValue": "Country: {country}",
+  "@countryWithValue": {
+    "placeholders": {
+      "country": {}
+    }
+  },
+  "languageWithValue": "Language: {language}",
+  "@languageWithValue": {
+    "placeholders": {
+      "language": {}
+    }
+  },
+  "addFriendFailed": "Add friend failed: {error}",
+  "@addFriendFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  }
 }

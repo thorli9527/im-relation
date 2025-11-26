@@ -4,7 +4,7 @@ pub use crate::api::login_api_types::*;
 pub use crate::api::reg_api_types::{
     BuildRegisterCodeRequest, BuildRegisterCodeResponse, VerifyRegisterCodeRequest,
 };
-use crate::api::utils;
+pub use crate::api::sync_api;
 pub use crate::api::{login_api::*, reg_api::*, user_api::*};
 use crate::{common::db, domain, service};
 use flutter_rust_bridge::frb;
@@ -20,4 +20,13 @@ pub fn init_app() -> Result<(), String> {
     let limit = config_api::ensure_socket_reconnect_limit()?;
     let _ = config_api::ensure_attempts(limit)?;
     Ok(())
+}
+
+#[frb]
+/// 应用唤醒/前台时触发增量同步；可选重置游标后全量补拉。
+pub fn sync_on_wake(session_token: String, reset_cursor: bool) -> Result<(), String> {
+    if reset_cursor {
+        let _ = service::sync_state_service::SyncStateService::update_seqs(0, 0, 0);
+    }
+    service::sync_service::sync_incremental(&session_token)
 }

@@ -5,6 +5,7 @@ pub mod group_entity;
 pub mod group_member_entity;
 pub mod message_entity;
 pub mod proto_adapter;
+pub mod sync_state_entity;
 pub mod user_entity;
 pub use config_entity::*;
 pub use conversation_entity::*;
@@ -12,6 +13,7 @@ pub use friend_entity::*;
 pub use group_entity::*;
 pub use group_member_entity::*;
 pub use message_entity::*;
+pub use sync_state_entity::*;
 pub use user_entity::*;
 
 pub fn init() {
@@ -22,4 +24,5 @@ pub fn init() {
     group_member_entity::init();
     message_entity::init();
     user_entity::init();
+    sync_state_entity::init();
 }

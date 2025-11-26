@@ -81,6 +81,35 @@ final friendsProvider =
     StateNotifierProvider<FriendsNotifier, List<Contact>>(
         (ref) => FriendsNotifier());
 
+/// 好友申请数据
+class FriendRequest {
+  FriendRequest({
+    required this.name,
+    this.avatarUrl,
+    this.remark,
+  });
+
+  final String name;
+  final String? avatarUrl;
+  final String? remark;
+}
+
+class FriendRequestNotifier extends StateNotifier<List<FriendRequest>> {
+  FriendRequestNotifier() : super(const []);
+
+  void setRequests(List<FriendRequest> list) {
+    state = list;
+  }
+
+  void clear() {
+    state = const [];
+  }
+}
+
+final friendRequestsProvider =
+    StateNotifierProvider<FriendRequestNotifier, List<FriendRequest>>(
+        (_) => FriendRequestNotifier());
+
 /// 当前界面覆盖的语言。
 final localeOverrideProvider = StateProvider<Locale?>((_) => null);
 

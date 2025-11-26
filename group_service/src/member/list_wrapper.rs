@@ -38,8 +38,8 @@ impl MemberListWrapper {
 
     #[inline]
     fn role_from_i32(v: i32) -> GroupRoleType {
-        // prost 生成的一般是 from_i32；兼容 try_from 的场景
-        GroupRoleType::from_i32(v).unwrap_or(GroupRoleType::Member)
+        // 优先使用 TryFrom，兼容旧值。
+        GroupRoleType::try_from(v).unwrap_or(GroupRoleType::Member)
     }
 
     #[inline]

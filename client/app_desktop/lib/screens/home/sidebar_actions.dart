@@ -15,6 +15,7 @@ class SidebarActions extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final current = ref.watch(sidebarTabProvider);
+    final pendingRequests = ref.watch(friendRequestsProvider).length;
     return SizedBox(
       height: _barHeight,
       child: Padding(
@@ -27,6 +28,7 @@ class SidebarActions extends ConsumerWidget {
               icon: Icons.people_outline,
               tab: SidebarTab.friends,
               current: current,
+              badge: pendingRequests,
               onTap: () {
                 ref.read(sidebarTabProvider.notifier).state = SidebarTab.friends;
                 _loadFriends(ref);
@@ -60,6 +62,7 @@ class _TabIcon extends StatelessWidget {
     required this.icon,
     required this.tab,
     required this.current,
+    this.badge = 0,
     required this.onTap,
   });
 
@@ -67,6 +70,7 @@ class _TabIcon extends StatelessWidget {
   final IconData icon;
   final SidebarTab tab;
   final SidebarTab current;
+  final int badge;
   final VoidCallback onTap;
 
   @override
@@ -74,13 +78,40 @@ class _TabIcon extends StatelessWidget {
     final selected = tab == current;
     final Color active = const Color(0xFF1E88E5); // Telegram-like blue
     final Color inactive = Colors.grey;
-    return IconButton(
-      tooltip: label,
-      onPressed: onTap,
-      icon: Icon(
-        icon,
-        color: selected ? active : inactive,
-      ),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          tooltip: label,
+          onPressed: onTap,
+          icon: Icon(
+            icon,
+            color: selected ? active : inactive,
+          ),
+        ),
+        if (badge > 0)
+          Positioned(
+            right: 4,
+            top: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              constraints: const BoxConstraints(minWidth: 20),
+              child: Text(
+                badge > 99 ? '99+' : badge.toString(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

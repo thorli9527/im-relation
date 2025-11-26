@@ -2,25 +2,35 @@ use prost::Message as _;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::hash::Hasher as _;
-use tonic::{Request, Response, Status};
+use tonic::{
+    transport::{Channel, Error as TransportError},
+    Request, Response, Status,
+};
 
 use chrono::Utc;
+use common::config::AppConfig;
+use common::infra::grpc::grpc_msg_system::msg_system_service::system_msg_service_client::SystemMsgServiceClient;
+use common::infra::grpc::{
+    grpc_msg_friend::msg_friend_service as msgpb, message as msg_message, GrpcClientManager,
+};
 use common::support::util::common_utils::build_snow_id;
 use futures::{stream::FuturesUnordered, StreamExt};
 use log::{info, warn};
+use once_cell::sync::OnceCell;
 use std::time::Duration;
 use tokio::time::sleep;
 
 use crate::dao::{
-    delete_friend_conversation_snapshot, insert_encrypted_message, list_conversation_messages,
-    list_friend_conversation_snapshots, upsert_friend_conversation_snapshot,
-    EncryptedMessageRecord, FriendConversationSnapshot,
+    delete_friend_conversation_snapshot, increment_friend_request_notify_retry,
+    insert_encrypted_message, list_conversation_messages, list_friend_conversation_snapshots,
+    list_friend_requests_pending_notify, mark_friend_request_decision,
+    mark_friend_request_notified, upsert_friend_conversation_snapshot, upsert_friend_request,
+    EncryptedMessageRecord, FriendConversationSnapshot, FriendRequestRow,
 };
 use crate::server::Services;
 use common::infra::grpc::grpc_friend::friend_service::{
     GetFriendsDetailedReq, UpdateFriendBlacklistReq, UpdateFriendNicknameReq, UpdateFriendRemarkReq,
 };
-use common::infra::grpc::{grpc_msg_friend::msg_friend_service as msgpb, message as msg_message};
 
 fn make_conversation_id(a: i64, b: i64) -> i64 {
     let (min_id, max_id) = if a <= b { (a, b) } else { (b, a) };
@@ -28,6 +38,89 @@ fn make_conversation_id(a: i64, b: i64) -> i64 {
     let mut hasher = twox_hash::XxHash64::with_seed(0);
     hasher.write(key.as_bytes());
     hasher.finish() as i64
+}
+
+static SYSTEM_MSG_MANAGER: OnceCell<
+    GrpcClientManager<SystemMsgServiceClient<Channel>, TransportError>,
+> = OnceCell::new();
+
+fn system_msg_manager(
+) -> &'static GrpcClientManager<SystemMsgServiceClient<Channel>, TransportError> {
+    SYSTEM_MSG_MANAGER.get_or_init(|| {
+        GrpcClientManager::new(|endpoint: String| async move {
+            SystemMsgServiceClient::connect(endpoint).await
+        })
+    })
+}
+
+/// 后台重试好友业务系统通知的简单 worker。
+pub async fn spawn_friend_business_notify_retry_task(services: Services) {
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(Duration::from_secs(30));
+        loop {
+            ticker.tick().await;
+            if let Err(err) = retry_friend_business_notifications(&services).await {
+                warn!("friend_business notify retry tick error: {}", err);
+            }
+        }
+    });
+}
+
+async fn send_friend_business_system_notify(
+    biz: msg_message::FriendBusinessContent,
+    sender_id: i64,
+    receiver_id: i64,
+) -> Result<(), String> {
+    let cfg = AppConfig::get();
+    let endpoint = match cfg
+        .msg_system_endpoints()
+        .iter()
+        .filter_map(|e| e.resolved_url())
+        .next()
+    {
+        Some(ep) => ep,
+        None => {
+            warn!("msg_system endpoint not configured; skip system notify");
+            return Ok(());
+        }
+    };
+
+    let endpoint = if endpoint.starts_with("http://") || endpoint.starts_with("https://") {
+        endpoint
+    } else {
+        format!("http://{}", endpoint)
+    };
+
+    let client = system_msg_manager()
+        .get(&endpoint)
+        .await
+        .map_err(|e| format!("connect msg_system failed: {e}"))?;
+
+    let ts_ms = Utc::now().timestamp_millis();
+    let domain = msg_message::DomainMessage {
+        message_id: Some(build_snow_id() as u64),
+        sender_id,
+        receiver_id,
+        timestamp: ts_ms,
+        ts_ms,
+        delivery: Some(msg_message::DeliveryOptions {
+            require_ack: true,
+            expire_ms: Some(24 * 3600 * 1000),
+            max_retry: Some(5),
+        }),
+        scene: msg_message::ChatScene::Profile as i32,
+        category: msg_message::MsgCategory::System as i32,
+        contents: Vec::new(),
+        friend_business: Some(biz),
+        group_business: None,
+    };
+
+    let mut client = client.as_ref().clone();
+    client
+        .handle_system_message(Request::new(domain))
+        .await
+        .map(|_| ())
+        .map_err(|e| format!("send to msg_system failed: {e}"))
 }
 
 #[tonic::async_trait]
@@ -361,7 +454,7 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
         request: Request<msg_message::DomainMessage>,
     ) -> Result<Response<()>, Status> {
         let domain = request.into_inner();
-        info!(
+        warn!(
             "handle_friend_message: scene={} message_id={:?}",
             domain.scene, domain.message_id
         );
@@ -374,7 +467,7 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
         let friend_business = domain.friend_business.as_ref();
         if domain.scene == msg_message::ChatScene::Single as i32 {
             if let Some(friend_business) = friend_business {
-                process_friend_business(friend_business);
+                process_friend_business(self, &domain, friend_business).await?;
             }
         }
 
@@ -566,18 +659,158 @@ impl Services {
     }
 }
 
-fn process_friend_business(biz: &msg_message::FriendBusinessContent) {
+async fn process_friend_business(
+    svc: &Services,
+    domain: &msg_message::DomainMessage,
+    biz: &msg_message::FriendBusinessContent,
+) -> Result<(), Status> {
+    use msg_message::friend_business_content::Action;
+
     match &biz.action {
-        Some(msg_message::friend_business_content::Action::Request(_)) => {
-            info!("friend_business: request");
+        Some(Action::Request(payload)) => {
+            let remark = {
+                let trimmed = payload.remark.trim();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed.to_string())
+                }
+            };
+            let row = FriendRequestRow {
+                id: payload.request_id as i64,
+                from_uid: payload.from_uid,
+                to_uid: payload.to_uid,
+                reason: payload.reason.clone(),
+                source: payload.source as i32,
+                created_at: payload.created_at,
+                decided_at: None,
+                accepted: None,
+                remark,
+                notified_at: 0,
+                notify_retry: 0,
+            };
+            upsert_friend_request(svc.pool(), &row)
+                .await
+                .map_err(|e| Status::internal(format!("persist friend request failed: {e}")))?;
+
+            let notify = msg_message::FriendBusinessContent {
+                action: Some(Action::Request(payload.clone())),
+            };
+            let sender = if domain.sender_id != 0 {
+                domain.sender_id
+            } else {
+                payload.from_uid
+            };
+            match send_friend_business_system_notify(notify, sender, payload.to_uid).await {
+                Ok(_) => {
+                    let ts = Utc::now().timestamp_millis();
+                    if let Err(err) =
+                        mark_friend_request_notified(svc.pool(), payload.request_id as i64, ts)
+                            .await
+                    {
+                        warn!(
+                            "friend_business: mark notified failed id={} err={}",
+                            payload.request_id, err
+                        );
+                    } else {
+                        info!(
+                            "friend_business: stored request id={} from={} to={} notified_at={}",
+                            payload.request_id, payload.from_uid, payload.to_uid, ts
+                        );
+                    }
+                }
+                Err(err) => {
+                    warn!(
+                        "friend_business: system notify failed id={} err={}",
+                        payload.request_id, err
+                    );
+                    if let Err(e) =
+                        increment_friend_request_notify_retry(svc.pool(), payload.request_id as i64)
+                            .await
+                    {
+                        warn!(
+                            "friend_business: notify retry mark failed id={} err={}",
+                            payload.request_id, e
+                        );
+                    }
+                }
+            }
         }
-        Some(msg_message::friend_business_content::Action::Decision(_)) => {
-            info!("friend_business: decision");
+        Some(Action::Decision(payload)) => {
+            let decided_at = if payload.decided_at > 0 {
+                payload.decided_at
+            } else {
+                Utc::now().timestamp_millis()
+            };
+            let remark = {
+                let trimmed = payload.remark.trim();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed.to_string())
+                }
+            };
+            mark_friend_request_decision(
+                svc.pool(),
+                payload.request_id as i64,
+                decided_at,
+                payload.accepted,
+                remark.clone(),
+            )
+            .await
+            .map_err(|e| Status::internal(format!("update friend request decision failed: {e}")))?;
+
+            let notify = msg_message::FriendBusinessContent {
+                action: Some(Action::Decision(payload.clone())),
+            };
+            let receiver = if domain.receiver_id != 0 {
+                domain.receiver_id
+            } else {
+                domain.sender_id
+            };
+            match send_friend_business_system_notify(notify, domain.sender_id, receiver).await {
+                Ok(_) => {
+                    if let Err(err) = mark_friend_request_notified(
+                        svc.pool(),
+                        payload.request_id as i64,
+                        decided_at,
+                    )
+                    .await
+                    {
+                        warn!(
+                            "friend_business: mark decision notified failed id={} err={}",
+                            payload.request_id, err
+                        );
+                    } else {
+                        info!(
+                            "friend_business: stored decision request_id={} accepted={} notified_at={}",
+                            payload.request_id, payload.accepted, decided_at
+                        );
+                    }
+                }
+                Err(err) => {
+                    warn!(
+                        "friend_business: system notify decision failed id={} err={}",
+                        payload.request_id, err
+                    );
+                    if let Err(e) =
+                        increment_friend_request_notify_retry(svc.pool(), payload.request_id as i64)
+                            .await
+                    {
+                        warn!(
+                            "friend_business: decision notify retry mark failed id={} err={}",
+                            payload.request_id, e
+                        );
+                    }
+                }
+            }
         }
         _ => {
-            info!("friend_business: unknown action");
+            warn!("friend_business: unknown action");
         }
     }
+
+    Ok(())
 }
 
 fn parse_metadata_flag(metadata: &HashMap<String, String>, key: &str) -> Option<bool> {
@@ -589,4 +822,90 @@ fn parse_metadata_flag(metadata: &HashMap<String, String>, key: &str) -> Option<
             "" => Some(false),
             _ => None,
         })
+}
+
+async fn retry_friend_business_notifications(services: &Services) -> Result<(), String> {
+    // 至少间隔 30 秒后才重试，避免瞬时重复。
+    let now_ms = Utc::now().timestamp_millis();
+    let backoff_ms: i64 = 30_000;
+    let before_ts = now_ms - backoff_ms;
+    let max_retry = 5;
+    let limit = 50;
+
+    let rows = list_friend_requests_pending_notify(services.pool(), before_ts, max_retry, limit)
+        .await
+        .map_err(|e| format!("query pending notify failed: {e}"))?;
+
+    for row in rows {
+        // 根据是否已决策构造 action。
+        let action = if let (Some(decided_at), Some(accepted)) = (row.decided_at, row.accepted) {
+            let payload = msg_message::FriendRequestDecisionPayload {
+                request_id: row.id as u64,
+                accepted,
+                remark: row.remark.clone().unwrap_or_default(),
+                decided_at,
+                send_default_message: false,
+                default_message: String::new(),
+                nickname: String::new(),
+            };
+            msg_message::friend_business_content::Action::Decision(payload)
+        } else {
+            let source = msg_message::FriendRequestSource::from_i32(row.source)
+                .unwrap_or(msg_message::FriendRequestSource::FrsUnknown);
+            let payload = msg_message::FriendRequestPayload {
+                request_id: row.id as u64,
+                from_uid: row.from_uid,
+                to_uid: row.to_uid,
+                reason: row.reason.clone(),
+                source: source as i32,
+                created_at: row.created_at,
+                remark: row.remark.clone().unwrap_or_default(),
+                nickname: String::new(),
+            };
+            msg_message::friend_business_content::Action::Request(payload)
+        };
+
+        let biz = msg_message::FriendBusinessContent {
+            action: Some(action.clone()),
+        };
+
+        // 判定发送双方
+        let (sender_id, receiver_id) = match action {
+            msg_message::friend_business_content::Action::Decision(_) => (row.to_uid, row.from_uid),
+            _ => (row.from_uid, row.to_uid),
+        };
+
+        match send_friend_business_system_notify(biz, sender_id, receiver_id).await {
+            Ok(_) => {
+                if let Err(err) =
+                    mark_friend_request_notified(services.pool(), row.id, now_ms).await
+                {
+                    warn!(
+                        "retry notify: mark notified failed id={} err={}",
+                        row.id, err
+                    );
+                } else {
+                    info!(
+                        "retry notify: success id={} sender={} receiver={}",
+                        row.id, sender_id, receiver_id
+                    );
+                }
+            }
+            Err(err) => {
+                warn!(
+                    "retry notify: send failed id={} retry_count={} err={}",
+                    row.id, row.notify_retry, err
+                );
+                if let Err(e) = increment_friend_request_notify_retry(services.pool(), row.id).await
+                {
+                    warn!(
+                        "retry notify: increment retry failed id={} err={}",
+                        row.id, e
+                    );
+                }
+            }
+        }
+    }
+
+    Ok(())
 }

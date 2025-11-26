@@ -5,7 +5,7 @@ import 'package:app_desktop/screens/home/sidebar_actions.dart';
 import 'package:app_desktop/screens/home/sidebar_list.dart';
 import 'package:app_desktop/src/rust/api/chat_api.dart' as chat_api;
 import 'package:app_desktop/src/rust/domain/friend_entity.dart';
-import 'package:app_desktop/screens/home/sidebar_contact_header.dart';
+import 'package:app_desktop/screens/home/sidebar_contact.dart';
 
 class Sidebar extends ConsumerStatefulWidget {
   const Sidebar({super.key});
@@ -53,24 +53,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
       width: 280,
       child: Column(
         children: [
-          const SizedBox(height: 16),
-          const SidebarContactHeader(),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Colors.grey.shade200,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
+          const SidebarContact(),
           const SizedBox(height: 12),
           Expanded(child: SidebarList(contacts: list)),
           const Divider(height: 1),

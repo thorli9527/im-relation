@@ -51,7 +51,7 @@ impl FriendService {
     }
 
     pub fn list_ids(&self) -> Result<Vec<i64>, String> {
-        let mut conn = db::connection()?;
+        let conn = db::connection()?;
         let mut stmt = conn
             .prepare(&format!(
                 "SELECT friend_id FROM {}",

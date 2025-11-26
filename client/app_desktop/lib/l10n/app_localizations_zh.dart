@@ -54,4 +54,105 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backToLogin => '返回登录';
+
+  @override
+  String get sort => '排序';
+
+  @override
+  String get sortByName => '按名称';
+
+  @override
+  String get sortByLastLogin => '按最近登录';
+
+  @override
+  String get contacts => '联系人';
+
+  @override
+  String get add => '添加';
+
+  @override
+  String get addContactTitle => '添加联系人';
+
+  @override
+  String get addContactHint => 'UID/邮箱/手机号';
+
+  @override
+  String get nicknameOptional => '昵称';
+
+  @override
+  String get remarkOptional => '备注';
+
+  @override
+  String get cancel => '取消';
+
+  @override
+  String get create => '创建';
+
+  @override
+  String get contentCannotBeEmpty => '内容不能为空';
+
+  @override
+  String get alreadyFriend => '已是好友';
+
+  @override
+  String get userNotFound => '未找到用户';
+
+  @override
+  String get targetRejectsFriendRequest => '对方拒绝加好友';
+
+  @override
+  String get friendRequestTitle => '好友申请';
+
+  @override
+  String get reason => '理由';
+
+  @override
+  String get remark => '备注';
+
+  @override
+  String get friendRequestSent => '好友申请已发送';
+
+  @override
+  String get addedAsFriend => '已添加为好友';
+
+  @override
+  String get confirm => '确认';
+
+  @override
+  String get userSummaryTitle => '用户信息';
+
+  @override
+  String emailWithValue(String email) {
+    return '邮箱：$email';
+  }
+
+  @override
+  String phoneWithValue(String phone) {
+    return '手机号：$phone';
+  }
+
+  @override
+  String usernameWithValue(String username) {
+    return '用户名：$username';
+  }
+
+  @override
+  String uidWithValue(String uid) {
+    return 'UID $uid';
+  }
+
+  @override
+  String countryWithValue(String country) {
+    return '国家：$country';
+  }
+
+  @override
+  String languageWithValue(String language) {
+    return '语言：$language';
+  }
+
+  @override
+  String addFriendFailed(String error) {
+    return '添加好友失败：$error';
+  }
 }

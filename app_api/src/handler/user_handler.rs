@@ -5,7 +5,9 @@ use common::core::result::ApiResponse;
 use common::infra::grpc::grpc_group::group_service::GroupInfo;
 use common::infra::grpc::grpc_user::online_service::{FindByContentReq, GetUserReq, UserEntity};
 use common::support::util::common_utils::hash_index;
+use serde::{Deserialize, Serialize};
 use tonic::Code;
+use utoipa::ToSchema;
 use validator::Validate;
 
 pub use crate::handler::user_handler_types::*;
@@ -18,6 +20,7 @@ use crate::service::{
     friend_gateway, group_gateway, message_gateway, user_gateway,
     user_service::{self, UserService, UserServiceAuthOpt},
 };
+use common::infra::grpc::message as msgpb;
 
 fn normalize_optional_string(value: String) -> Option<String> {
     let trimmed = value.trim();
@@ -43,6 +46,7 @@ pub fn router() -> Router {
         .route("/profile/name", post(update_name))
         .route("/friends", post(get_friend_list))
         .route("/friends/add", post(add_friend))
+        .route("/friends/requests", post(list_friend_requests))
         .route("/groups/{group_id}/members", post(get_group_members))
         .route(
             "/groups/{group_id}/members/{member_id}",
@@ -470,10 +474,78 @@ async fn add_group(Json(payload): Json<AddGroupRequest>) -> HandlerResult<AddGro
     }
     let svc = UserService::get();
     let applied = svc
-        .add_group_http(&payload.session_token, payload.group_id, payload.reason.as_deref())
+        .add_group_http(
+            &payload.session_token,
+            payload.group_id,
+            payload.reason.as_deref(),
+        )
         .await
         .map_err(map_internal_error)?;
     success(AddGroupResult { ok: true, applied })
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+struct FriendRequestQuery {
+    pub session_token: String,
+    #[serde(default)]
+    pub since_ms: Option<i64>,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+struct FriendRequestListResult {
+    pub requests: Vec<String>,
+    pub decisions: Vec<String>,
+}
+
+#[utoipa::path(
+    post,
+    path = "/friends/requests",
+    request_body = FriendRequestQuery,
+    responses(
+        (status = 200, description = "好友申请增量", body = ApiResponse<FriendRequestListResult>)
+    ),
+    tag = "app_api/user"
+)]
+async fn list_friend_requests(
+    Json(query): Json<FriendRequestQuery>,
+) -> HandlerResult<FriendRequestListResult> {
+    if query.session_token.trim().is_empty() {
+        return Err(AppError::Validation("session_token is required".into()));
+    }
+    let active = user_service::ensure_active_session(&query.session_token)
+        .await
+        .map_err(map_internal_error)?;
+    let limit = query.limit.unwrap_or(200);
+    let msgs = message_gateway::list_user_friend_messages(active.uid, query.since_ms, limit)
+        .await
+        .map_err(map_internal_error)?;
+
+    let mut request_msgs = Vec::new();
+    let mut decision_msgs = Vec::new();
+    for m in msgs {
+        if let Some(biz) = &m.friend_business {
+            if let Some(action) = &biz.action {
+                match action {
+                    msgpb::friend_business_content::Action::Request(_) => {
+                        request_msgs.push(m.clone())
+                    }
+                    msgpb::friend_business_content::Action::Decision(_) => {
+                        decision_msgs.push(m.clone())
+                    }
+                }
+            }
+        }
+    }
+
+    let requests = message_gateway::encode_messages(request_msgs);
+    let decisions = message_gateway::encode_messages(decision_msgs);
+
+    success(FriendRequestListResult {
+        requests,
+        decisions,
+    })
 }
 
 #[utoipa::path(

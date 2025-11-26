@@ -22,5 +22,69 @@
   },
   "submit": "提交",
   "goHome": "进入首页",
-  "backToLogin": "返回登录"
+  "backToLogin": "返回登录",
+  "sort": "排序",
+  "sortByName": "按名称",
+  "sortByLastLogin": "按最近登录",
+  "contacts": "联系人",
+  "add": "添加",
+  "addContactTitle": "添加联系人",
+  "addContactHint": "UID/邮箱/手机号",
+  "nicknameOptional": "昵称（可选）",
+  "remarkOptional": "备注（可选）",
+  "cancel": "取消",
+  "create": "创建",
+  "contentCannotBeEmpty": "内容不能为空",
+  "alreadyFriend": "已是好友",
+  "userNotFound": "未找到用户",
+  "targetRejectsFriendRequest": "对方拒绝加好友",
+  "friendRequestTitle": "好友申请",
+  "reason": "理由",
+  "remark": "备注",
+  "friendRequestSent": "好友申请已发送",
+  "addedAsFriend": "已添加为好友",
+  "confirm": "确认",
+  "userSummaryTitle": "用户信息",
+  "emailWithValue": "邮箱：{email}",
+  "@emailWithValue": {
+    "placeholders": {
+      "email": {}
+    }
+  },
+  "phoneWithValue": "手机号：{phone}",
+  "@phoneWithValue": {
+    "placeholders": {
+      "phone": {}
+    }
+  },
+  "usernameWithValue": "用户名：{username}",
+  "@usernameWithValue": {
+    "placeholders": {
+      "username": {}
+    }
+  },
+  "uidWithValue": "UID {uid}",
+  "@uidWithValue": {
+    "placeholders": {
+      "uid": {}
+    }
+  },
+  "countryWithValue": "国家：{country}",
+  "@countryWithValue": {
+    "placeholders": {
+      "country": {}
+    }
+  },
+  "languageWithValue": "语言：{language}",
+  "@languageWithValue": {
+    "placeholders": {
+      "language": {}
+    }
+  },
+  "addFriendFailed": "添加好友失败：{error}",
+  "@addFriendFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  }
 }

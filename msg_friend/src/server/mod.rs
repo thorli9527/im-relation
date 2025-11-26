@@ -15,6 +15,7 @@ use tokio_util::sync::CancellationToken;
 use tonic::service::Routes;
 
 use crate::hot_friend_client::{connect as connect_hot_friend, HfFriendClient};
+use crate::service::spawn_friend_business_notify_retry_task;
 use common::infra::grpc::grpc_msg_friend::msg_friend_service::friend_msg_service_server::FriendMsgServiceServer;
 
 mod kafka_producer;
@@ -143,6 +144,9 @@ pub async fn run_server() -> Result<()> {
         shard_index,
         shard_total,
     };
+
+    // 后台重试好友业务系统通知
+    spawn_friend_business_notify_retry_task(services.clone()).await;
 
     let http_router = Router::new().route("/healthz", get(healthz));
 

@@ -21,6 +21,11 @@ kafka_password=""
 index = 0
 grpc_addr = "127.0.0.1:8002"
 
+#------------msg_system nodes (for system notifications)
+[[msg_system_nodes]]
+index = 0
+grpc_addr = "127.0.0.1:8110"
+
 # #------------app_group_dispatcher
 # [[group_service]]
 # index = 0

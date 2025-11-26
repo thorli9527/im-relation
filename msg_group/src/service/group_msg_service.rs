@@ -754,7 +754,7 @@ impl GroupMsgServiceImpl {
             .into_inner();
         for member in resp.members {
             if member.id == uid {
-                return Ok(hotpb::GroupRoleType::from_i32(member.role));
+                return Ok(hotpb::GroupRoleType::try_from(member.role).ok());
             }
         }
         Ok(None)
@@ -801,7 +801,7 @@ impl GroupMsgServiceImpl {
         payload: &msg_message::GroupMemberChanged,
     ) -> Result<(), Status> {
         use msg_message::group_member_changed::Action;
-        match Action::from_i32(payload.action) {
+        match Action::try_from(payload.action).ok() {
             Some(Action::Approved) | Some(Action::Invited) | Some(Action::Kicked) => {
                 if !self.is_admin_or_owner(role) {
                     warn!(

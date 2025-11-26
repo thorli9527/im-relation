@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use common::config::AppConfig;
+use common::infra::grpc::grpc_group::group_service::JoinPermission;
 use common::infra::grpc::grpc_user::online_service::revoke_session_token_request::Target as RevokeTarget;
 use common::infra::grpc::grpc_user::online_service::user_rpc_service_client::UserRpcServiceClient;
 use common::infra::grpc::grpc_user::online_service::{
@@ -9,8 +10,9 @@ use common::infra::grpc::grpc_user::online_service::{
     SessionTokenStatus, UpdateUserReq, UpsertSessionTokenRequest, UserEntity, UserType,
     ValidateSessionTokenRequest,
 };
-use common::infra::grpc::message::{self as msgpb, message_content::Content as MessageContentKind, MessageContent};
-use common::infra::grpc::grpc_group::group_service::JoinPermission;
+use common::infra::grpc::message::{
+    self as msgpb, message_content::Content as MessageContentKind, MessageContent,
+};
 use common::infra::redis::redis_pool::RedisPoolTools;
 use common::support::util::common_utils::{build_md5_with_key, build_uuid};
 use common::UID;
@@ -200,12 +202,7 @@ impl UserService {
 
         warn!(
             "add_friend_http: {} -> {} policy={:?} reason='{}' remark='{}' prefer_nick='{}'",
-            active.uid,
-            target_uid,
-            policy,
-            reason,
-            remark,
-            prefer_nick
+            active.uid, target_uid, policy, reason, remark, prefer_nick
         );
 
         match policy {
@@ -277,16 +274,13 @@ impl UserService {
             .await
             .map_err(|e| anyhow!(e))?;
         let group = group_gateway::get_group(group_id).await?;
-        match JoinPermission::from_i32(group.join_permission) {
+        match JoinPermission::try_from(group.join_permission).ok() {
             Some(JoinPermission::Anyone) => {
                 group_gateway::add_member(group_id, active.uid).await?;
                 // 群系统消息提示加入
-                let _ = message_gateway::send_group_system_message(
-                    active.uid,
-                    group_id,
-                    "已加入群聊",
-                )
-                .await;
+                let _ =
+                    message_gateway::send_group_system_message(active.uid, group_id, "已加入群聊")
+                        .await;
                 Ok(false)
             }
             Some(JoinPermission::NeedApproval) | None | Some(JoinPermission::JoinUnspecified) => {

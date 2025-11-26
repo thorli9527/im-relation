@@ -7,6 +7,8 @@ pub mod group_service;
 pub mod message_service;
 pub mod online_service;
 pub mod socket_client;
+pub mod sync_service;
+pub mod sync_state_service;
 pub mod user_service;
 
 pub fn init() {
@@ -31,6 +33,11 @@ pub fn init() {
     }
     if let Err(err) = message_service::MessageService::init() {
         eprintln!("MessageService init failed: {err}");
+    }
+    if let Err(err) = sync_state_service::SyncStateService::init() {
+        eprintln!("SyncStateService init failed: {err}");
+    } else if let Err(err) = sync_state_service::SyncStateService::ensure_row() {
+        eprintln!("SyncStateService ensure_row failed: {err}");
     }
     if let Err(err) = online_service::OnlineService::init() {
         eprintln!("OnlineService init failed: {err}");

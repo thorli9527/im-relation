@@ -1,5 +1,5 @@
 [database]
-url = "mysql://root:password@127.0.0.1:3306/msg_system"
+url = "mysql://root:73411bf9-a4a9-4a8a-9716-8935d3@127.0.0.1:3306/msg_system"
 
 [server.grpc]
 host = "127.0.0.1"
@@ -11,10 +11,15 @@ port = 8310
 
 [sys]
 log_leve = "info"
-
+[kafka]
+broker = "127.0.0.1:9092"
+group_id = "msg_system_dispatcher"
+replicas = 1
+kafka_user_name=""
+kafka_password=""
 # 对外暴露的系统消息节点列表（供其他服务发现）
 [[msg_system_nodes]]
 index = 0
 grpc_addr = "127.0.0.1:8110"
 
-# 可按需补充 Kafka/其他依赖配置
+

@@ -2,7 +2,7 @@ use crate::api::app_api_types::*;
 use crate::api::user_api_types::{
     AddFriendPayload, GroupMembersQueryParams, SessionTokenQuery, UserInfoResult,
 };
-use crate::api::utils::{get_request, post_request};
+use crate::api::utils::post_request;
 use crate::service::online_service::OnlineService;
 use crate::service::user_service::UserService;
 use crate::service::{friend_service::FriendService, group_member_service::GroupMemberService};

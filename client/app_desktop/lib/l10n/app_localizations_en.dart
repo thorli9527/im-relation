@@ -54,4 +54,105 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backToLogin => 'Back to Login';
+
+  @override
+  String get sort => 'Sort';
+
+  @override
+  String get sortByName => 'by name';
+
+  @override
+  String get sortByLastLogin => 'by last login';
+
+  @override
+  String get contacts => 'Contacts';
+
+  @override
+  String get add => 'Add';
+
+  @override
+  String get addContactTitle => 'Add Contact';
+
+  @override
+  String get addContactHint => 'UID/Email/Phone';
+
+  @override
+  String get nicknameOptional => 'Nickname (optional)';
+
+  @override
+  String get remarkOptional => 'Remark (optional)';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get create => 'Create';
+
+  @override
+  String get contentCannotBeEmpty => 'Content cannot be empty';
+
+  @override
+  String get alreadyFriend => 'Already a friend';
+
+  @override
+  String get userNotFound => 'User not found';
+
+  @override
+  String get targetRejectsFriendRequest => 'Target does not accept friend requests';
+
+  @override
+  String get friendRequestTitle => 'Friend Request';
+
+  @override
+  String get reason => 'Reason';
+
+  @override
+  String get remark => 'Remark';
+
+  @override
+  String get friendRequestSent => 'Friend request sent';
+
+  @override
+  String get addedAsFriend => 'Added as friend';
+
+  @override
+  String get confirm => 'Confirm';
+
+  @override
+  String get userSummaryTitle => 'User Summary';
+
+  @override
+  String emailWithValue(String email) {
+    return 'Email: $email';
+  }
+
+  @override
+  String phoneWithValue(String phone) {
+    return 'Phone: $phone';
+  }
+
+  @override
+  String usernameWithValue(String username) {
+    return 'Username: $username';
+  }
+
+  @override
+  String uidWithValue(String uid) {
+    return 'UID $uid';
+  }
+
+  @override
+  String countryWithValue(String country) {
+    return 'Country: $country';
+  }
+
+  @override
+  String languageWithValue(String language) {
+    return 'Language: $language';
+  }
+
+  @override
+  String addFriendFailed(String error) {
+    return 'Add friend failed: $error';
+  }
 }

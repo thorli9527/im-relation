@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:app_desktop/src/rust/api/config_api.dart' as config_api;
 import 'package:app_desktop/src/rust/api/login_api.dart' as login_api;
 import 'package:app_desktop/src/rust/api/login_api_types.dart';
+import 'package:app_desktop/src/rust/api/app_api.dart' as app_api;
 import 'package:app_desktop/widgets/api_base_url.dart';
 import 'package:app_desktop/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -71,6 +72,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       );
       final res = await login_api.login(payload: req);
       await _saveLastLogin(target);
+      // 登录成功后触发一次增量同步，确保进入首页前数据最新。
+      await app_api.syncOnWake(sessionToken: res.token, resetCursor: false);
       if (!mounted) return;
       context.go('/home');
     } catch (e) {

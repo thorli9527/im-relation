@@ -3,6 +3,7 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
+import 'api/app_api.dart';
 import 'api/app_api_types.dart';
 import 'api/chat_api.dart';
 import 'api/config_api.dart';
@@ -13,6 +14,7 @@ import 'api/login_api_types.dart';
 import 'api/reg_api.dart';
 import 'api/reg_api_types.dart';
 import 'api/socket_api.dart';
+import 'api/sync_api.dart';
 import 'api/user_api.dart';
 import 'api/user_api_types.dart';
 import 'dart:async';
@@ -158,6 +160,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  SyncRequest dco_decode_box_autoadd_sync_request(dynamic raw);
+
+  @protected
   int dco_decode_box_autoadd_u_16(dynamic raw);
 
   @protected
@@ -269,6 +274,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<String> dco_decode_list_String(dynamic raw);
+
+  @protected
   List<ConversationEntity> dco_decode_list_conversation_entity(dynamic raw);
 
   @protected
@@ -363,6 +371,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SessionValidationResult dco_decode_session_validation_result(dynamic raw);
+
+  @protected
+  SyncRequest dco_decode_sync_request(dynamic raw);
+
+  @protected
+  SyncResponse dco_decode_sync_response(dynamic raw);
 
   @protected
   int dco_decode_u_16(dynamic raw);
@@ -526,6 +540,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  SyncRequest sse_decode_box_autoadd_sync_request(SseDeserializer deserializer);
+
+  @protected
   int sse_decode_box_autoadd_u_16(SseDeserializer deserializer);
 
   @protected
@@ -669,6 +686,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<String> sse_decode_list_String(SseDeserializer deserializer);
+
+  @protected
   List<ConversationEntity> sse_decode_list_conversation_entity(
     SseDeserializer deserializer,
   );
@@ -795,6 +815,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SessionValidationResult sse_decode_session_validation_result(
     SseDeserializer deserializer,
   );
+
+  @protected
+  SyncRequest sse_decode_sync_request(SseDeserializer deserializer);
+
+  @protected
+  SyncResponse sse_decode_sync_response(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_16(SseDeserializer deserializer);
@@ -994,6 +1020,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_sync_request(
+    SyncRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_u_16(int self, SseSerializer serializer);
 
   @protected
@@ -1172,6 +1204,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_String(List<String> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_conversation_entity(
     List<ConversationEntity> self,
     SseSerializer serializer,
@@ -1338,6 +1373,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     SessionValidationResult self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_sync_request(SyncRequest self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_sync_response(SyncResponse self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_16(int self, SseSerializer serializer);

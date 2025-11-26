@@ -1,5 +1,8 @@
 use anyhow::{anyhow, Result};
+use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine;
 use common::config::AppConfig;
+use common::infra::grpc::grpc_msg_friend::msg_friend_service::ListUserFriendMessagesRequest;
 use common::infra::grpc::grpc_msg_friend::msg_friend_service::{
     friend_msg_service_client::FriendMsgServiceClient, BroadcastProfileUpdatesReq,
     FriendConversationSnapshot, ListFriendConversationsRequest,
@@ -17,11 +20,12 @@ use common::infra::grpc::message::{
     FriendBusinessContent, GroupBusinessContent, MessageContent, MsgCategory,
 };
 use common::infra::grpc::GrpcClientManager;
-use common::support::util::common_utils::build_snow_id;
-use common::support::util::date_util::now;
 use common::support::node::{NodeType, NodeUtil};
+use common::support::util::common_utils::build_snow_id;
 use common::support::util::common_utils::hash_index;
+use common::support::util::date_util::now;
 use once_cell::sync::OnceCell;
+use prost::Message as ProstMessage;
 use tonic::transport::{Channel, Error as TransportError};
 
 pub struct ConversationPage<T> {
@@ -325,11 +329,7 @@ pub async fn send_group_join_request_message(
 }
 
 /// 直接成为好友时，写一条系统文本消息。
-pub async fn send_friend_system_message(
-    sender_id: i64,
-    peer_id: i64,
-    text: &str,
-) -> Result<()> {
+pub async fn send_friend_system_message(sender_id: i64, peer_id: i64, text: &str) -> Result<()> {
     if text.is_empty() {
         return Ok(());
     }
@@ -433,12 +433,67 @@ pub async fn list_system_messages(
     Ok(resp)
 }
 
-/// 直接入群时，写一条群系统文本消息。
-pub async fn send_group_system_message(
-    operator_id: i64,
+/// 聚合拉取好友消息（按时间 since_ms）；用于增量同步。
+pub async fn list_user_friend_messages(
+    uid: i64,
+    since_ms: Option<i64>,
+    limit: u32,
+) -> Result<Vec<msgpb::Content>> {
+    let addr = resolve_addr(NodeType::MsgFriend, uid).await?;
+    let mut client = connect_friend_msg(&addr).await?;
+    let req = ListUserFriendMessagesRequest {
+        uid,
+        since_timestamp: since_ms.unwrap_or(0),
+        limit,
+    };
+    let resp = client
+        .list_user_friend_messages(req)
+        .await
+        .map_err(|status| anyhow!("list user friend messages failed: {status}"))?
+        .into_inner();
+    Ok(resp.messages)
+}
+
+/// 拉取群消息近窗口后按时间过滤（粗略增量，同步大窗口）。
+pub async fn list_group_messages(
     group_id: i64,
-    text: &str,
-) -> Result<()> {
+    since_ms: i64,
+    limit: u32,
+) -> Result<Vec<msgpb::Content>> {
+    let addr = resolve_addr(NodeType::MesGroup, group_id).await?;
+    let mut client = connect_group_msg(&addr).await?;
+    let req = msgpb::QueryGroupMessagesRequest {
+        group_id,
+        before_message_id: None,
+        before_timestamp: None,
+        limit,
+    };
+    let resp = client
+        .list_group_messages(req)
+        .await
+        .map_err(|status| anyhow!("list group messages failed: {status}"))?
+        .into_inner();
+    let msgs = resp
+        .messages
+        .into_iter()
+        .filter(|m| m.timestamp > since_ms)
+        .collect();
+    Ok(msgs)
+}
+
+/// 将 protobuf Content 编码为 base64，便于 API JSON 返回。
+pub fn encode_messages(msgs: Vec<msgpb::Content>) -> Vec<String> {
+    msgs.into_iter()
+        .filter_map(|m| {
+            let mut buf = Vec::new();
+            m.encode(&mut buf).ok()?;
+            Some(BASE64.encode(buf))
+        })
+        .collect()
+}
+
+/// 直接入群时，写一条群系统文本消息。
+pub async fn send_group_system_message(operator_id: i64, group_id: i64, text: &str) -> Result<()> {
     if text.is_empty() {
         return Ok(());
     }

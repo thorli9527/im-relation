@@ -355,7 +355,7 @@ where
         req: Request<ChangeRoleReq>,
     ) -> Result<Response<ChangeRoleResp>, Status> {
         let r = req.into_inner();
-        let Some(role) = GroupRoleType::from_i32(r.role) else {
+        let Some(role) = GroupRoleType::try_from(r.role).ok() else {
             return Err(Status::invalid_argument("invalid role"));
         };
         self.facade
@@ -452,7 +452,7 @@ async fn auth_is_owner_or_admin<S: GroupStorage>(
     let members = facade.get_all(gid).await;
     for m in members {
         if m.id == uid {
-            if let Some(role) = GroupRoleType::from_i32(m.role) {
+            if let Some(role) = GroupRoleType::try_from(m.role).ok() {
                 return Ok(matches!(role, GroupRoleType::Owner | GroupRoleType::Admin));
             }
         }
@@ -468,7 +468,7 @@ async fn auth_is_owner<S: GroupStorage>(
     let members = facade.get_all(gid).await;
     for m in members {
         if m.id == uid {
-            if let Some(role) = GroupRoleType::from_i32(m.role) {
+            if let Some(role) = GroupRoleType::try_from(m.role).ok() {
                 return Ok(matches!(role, GroupRoleType::Owner));
             }
         }
