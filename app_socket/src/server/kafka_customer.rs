@@ -2,11 +2,15 @@
 //!
 //! ### 模块职责
 //! * 订阅好友/群/系统主题并解析 `DomainMessage` 结构体。
-//! * 将消息映射为内部 `ServerMsg`，同时准备 ACK 策略（超时、重试次数、回调）。
+//! * 将 Kafka payload 映射为内部 `ServerMsg`，同时根据消息的 DeliveryOptions 设置 ACK 策略。
 //! * 调用 `ShardedDispatcher` 按用户分片入队，最终由 `SessionManager` 推送给在线会话。
-//! * 在客户端返回 ACK 之后提交 Kafka offset；若超出 10 次重试仍未确认则放弃并记录日志。
+//! * **消费确认策略**：默认 require_ack=true。收到客户端 socket ACK 后才提交 Kafka offset；超过最大重试次数则放弃并提交 offset（避免堆积）。
 //!
-//! 该模块仅负责“消息下发”的数据通道，没有上行业务逻辑，便于单独测试和演进。
+//! 设计要点：
+//! * Kafka payload 为 prost 编码的 `DomainMessage`，无 msg_id 时使用毫秒时间戳兜底，保证 ACK 对齐。
+//! * 默认重试/过期策略：expire_ms=10s、max_retry=10（若生产端未设置）。
+//! * 订阅主题：好友/群/系统。系统消息用于账号级通知，消费路径与其他一致。
+//! * 仅处理“下行推送”通道，无上行业务逻辑，便于单独演进。
 
 use std::convert::TryFrom;
 use std::sync::Arc;
@@ -24,7 +28,9 @@ use crate::service::dispatcher::ShardedDispatcher;
 use crate::service::types::{SendOpts, ServerMsg, UID};
 use common::infra::grpc::message::{self as msg_message, DomainMessage};
 use common::infra::kafka::start_consumer;
-use common::infra::kafka::topic_info::{TopicInfo, MSG_SEND_FRIEND_TOPIC, MSG_SEND_GROUP_TOPIC};
+use common::infra::kafka::topic_info::{
+    TopicInfo, MSG_SEND_FRIEND_TOPIC, MSG_SEND_GROUP_TOPIC, SYS_MSG_TOPIC_INFO,
+};
 /// 启动 Kafka → dispatcher → SessionManager 的数据通道。
 pub async fn start_socket_pipeline() -> anyhow::Result<()> {
     let cfg = common::config::AppConfig::get();
@@ -52,7 +58,7 @@ pub async fn start_socket_pipeline() -> anyhow::Result<()> {
     let topics: Vec<TopicInfo> = vec![
         MSG_SEND_FRIEND_TOPIC.clone(),
         MSG_SEND_GROUP_TOPIC.clone(),
-        // SYS_MSG_TOPIC_INFO.clone(),
+        SYS_MSG_TOPIC_INFO.clone(),
     ];
 
     let dispatcher_cloned = dispatcher.clone();

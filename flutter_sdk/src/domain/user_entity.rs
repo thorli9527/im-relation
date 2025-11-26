@@ -75,7 +75,10 @@ impl TableEntity for UserInfoEntity {
             Value::Integer(self.expires_at),
         ));
         cols.push(ColumnValue::new("version", Value::Integer(self.version)));
-        cols.push(ColumnValue::new("gender", Value::Integer(self.gender as i64)));
+        cols.push(ColumnValue::new(
+            "gender",
+            Value::Integer(self.gender as i64),
+        ));
         cols.push(ColumnValue::new(
             "country",
             Value::Text(self.country.clone().unwrap_or_default()),

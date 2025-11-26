@@ -44,6 +44,8 @@ pub struct AppConfig {
     pub msg_friend_nodes: Vec<ServiceEndpoint>,
     #[serde(default, deserialize_with = "deserialize_endpoints")]
     pub msg_group_nodes: Vec<ServiceEndpoint>,
+    #[serde(default, deserialize_with = "deserialize_endpoints")]
+    pub msg_system_nodes: Vec<ServiceEndpoint>,
 }
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ShardConfig {
@@ -385,6 +387,10 @@ impl AppConfig {
         &self.msg_group_nodes
     }
 
+    pub fn msg_system_endpoints(&self) -> &[ServiceEndpoint] {
+        &self.msg_system_nodes
+    }
+
     pub fn group_service_endpoints(&self) -> &[ServiceEndpoint] {
         &self.group_service
     }
@@ -438,6 +444,7 @@ impl AppConfig {
             NodeType::FriendNode => Self::sorted_urls(&self.friend_service),
             NodeType::OnlineNode => Self::sorted_urls(&self.user_service),
             NodeType::MsgFriend => Self::sorted_urls(&self.msg_friend_nodes),
+            NodeType::MsgSystem => Self::sorted_urls(&self.msg_system_nodes),
             NodeType::GroupNode => Self::sorted_urls(&self.group_service),
             NodeType::MesGroup => Self::sorted_urls(&self.msg_group_nodes),
             _ => Vec::new(),

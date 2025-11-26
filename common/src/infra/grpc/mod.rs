@@ -2,6 +2,7 @@ pub mod grpc_friend;
 pub mod grpc_group;
 pub mod grpc_msg_friend;
 pub mod grpc_msg_group;
+pub mod grpc_msg_system;
 pub mod grpc_socket;
 pub mod grpc_user;
 pub mod message;

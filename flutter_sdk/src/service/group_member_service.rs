@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use once_cell::sync::OnceCell;
-use rusqlite::{params, OptionalExtension, Row, ToSql, types::Value};
+use rusqlite::{params, types::Value, OptionalExtension, Row, ToSql};
 
 use crate::{
     api::app_api_types::{CachedGroupMembersQuery, GroupMember, GroupMembersResult},
@@ -33,7 +33,9 @@ impl GroupMemberService {
     }
 
     pub fn get() -> &'static GroupMemberService {
-        INSTANCE.get().expect("GroupMemberService is not initialized")
+        INSTANCE
+            .get()
+            .expect("GroupMemberService is not initialized")
     }
 
     pub fn list_by_group(
@@ -193,7 +195,10 @@ impl GroupMemberService {
         let mut conn = db::connection()?;
         let tx = conn.transaction().map_err(|err| err.to_string())?;
         tx.execute(
-            &format!("DELETE FROM {} WHERE group_id = ?1", group_member_table_def().name),
+            &format!(
+                "DELETE FROM {} WHERE group_id = ?1",
+                group_member_table_def().name
+            ),
             params![group_id],
         )
         .map_err(|err| err.to_string())?;
@@ -265,14 +270,14 @@ impl GroupMemberService {
     }
 
     fn map_row(row: &Row) -> Result<GroupMemberEntity, rusqlite::Error> {
-            Ok(GroupMemberEntity {
-                id: Some(row.get("id")?),
-                group_id: row.get("group_id")?,
-                member_id: row.get("member_id")?,
-                nickname: row.get("nickname")?,
-                avatar: row.get("avatar")?,
-                role: row.get("role")?,
-                muted: row.get::<_, i64>("muted")? != 0,
+        Ok(GroupMemberEntity {
+            id: Some(row.get("id")?),
+            group_id: row.get("group_id")?,
+            member_id: row.get("member_id")?,
+            nickname: row.get("nickname")?,
+            avatar: row.get("avatar")?,
+            role: row.get("role")?,
+            muted: row.get::<_, i64>("muted")? != 0,
             join_time: row.get("join_time")?,
             updated_at: row.get("updated_at")?,
             version: row.get("version")?,
@@ -299,7 +304,8 @@ impl GroupMemberService {
         let owned_values: Vec<rusqlite::types::Value> =
             column_values.iter().map(|c| c.value.clone()).collect();
         let params: Vec<&dyn ToSql> = owned_values.iter().map(|v| v as &dyn ToSql).collect();
-        tx.execute(&sql, params.as_slice()).map_err(|err| err.to_string())
+        tx.execute(&sql, params.as_slice())
+            .map_err(|err| err.to_string())
     }
 }
 

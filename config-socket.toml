@@ -55,3 +55,8 @@ grpc_addr = "127.0.0.1:8102"
 [msg_group_nodes]
 index = 0
 grpc_addr = "127.0.0.1:8103"
+
+#------------system_message_service
+[msg_system_nodes]
+index = 0
+grpc_addr = "127.0.0.1:8110"

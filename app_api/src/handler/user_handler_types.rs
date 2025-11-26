@@ -27,6 +27,7 @@ pub struct ChangePhoneResult {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ChangeEmailResult {
     pub ok: bool,
     pub email: String,
@@ -55,8 +56,6 @@ pub struct FriendListQuery {
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchUserQuery {
-    /// 1=uid, 2=username, 3=phone, 4=email
-    pub search_type: i32,
     /// 查询内容（用户 id/用户名/手机号/邮箱）
     pub query: String,
 }
@@ -79,6 +78,8 @@ pub struct AddFriendRequest {
     pub reason: Option<String>,
     /// 对方的备注，可选
     pub remark: Option<String>,
+    /// 我方期望的好友昵称（可选）
+    pub nickname: Option<String>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -107,6 +108,7 @@ pub struct AddGroupResult {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct FriendListResult {
     pub friends: Vec<FriendSummaryResult>,
     pub page: u32,
@@ -115,6 +117,7 @@ pub struct FriendListResult {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct FriendSummaryResult {
     pub friend_id: i64,
     pub nickname: String,
@@ -123,6 +126,7 @@ pub struct FriendSummaryResult {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GroupPath {
     pub group_id: i64,
 }
@@ -136,6 +140,7 @@ pub struct GroupMembersQuery {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct GroupMembersResult {
     pub members: Vec<GroupMemberResult>,
     pub page: u32,
@@ -144,6 +149,7 @@ pub struct GroupMembersResult {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct GroupMemberResult {
     pub group_id: i64,
     pub member_id: i64,
@@ -153,12 +159,14 @@ pub struct GroupMemberResult {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GroupMemberPath {
     pub group_id: i64,
     pub member_id: i64,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct GroupMemberDetailResult {
     pub member: Option<GroupMemberResult>,
     pub is_friend: bool,
@@ -177,6 +185,7 @@ pub struct SearchUserResult {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct GroupInfoResult {
     pub id: i64,
     pub name: String,
@@ -194,6 +203,7 @@ pub struct GroupInfoResult {
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct UserProfileResult {
     pub uid: i64,
     pub username: String,
@@ -216,12 +226,14 @@ pub struct RecentConversationsQuery {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct RecentConversationsResult {
     pub conversations: Vec<RecentConversationResult>,
     pub has_more: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct RecentConversationResult {
     pub scene: i32,
     pub conversation_id: i64,

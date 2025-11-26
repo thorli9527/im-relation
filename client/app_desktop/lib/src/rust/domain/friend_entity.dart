@@ -12,6 +12,9 @@ class FriendEntity {
   final String avatar;
   final String? nickname;
   final String? remark;
+  final String? email;
+  final String? phone;
+  final PlatformInt64? lastLoginAt;
   final PlatformInt64 createdAt;
 
   const FriendEntity({
@@ -20,6 +23,9 @@ class FriendEntity {
     required this.avatar,
     this.nickname,
     this.remark,
+    this.email,
+    this.phone,
+    this.lastLoginAt,
     required this.createdAt,
   });
 
@@ -30,6 +36,9 @@ class FriendEntity {
       avatar.hashCode ^
       nickname.hashCode ^
       remark.hashCode ^
+      email.hashCode ^
+      phone.hashCode ^
+      lastLoginAt.hashCode ^
       createdAt.hashCode;
 
   @override
@@ -42,5 +51,8 @@ class FriendEntity {
           avatar == other.avatar &&
           nickname == other.nickname &&
           remark == other.remark &&
+          email == other.email &&
+          phone == other.phone &&
+          lastLoginAt == other.lastLoginAt &&
           createdAt == other.createdAt;
 }

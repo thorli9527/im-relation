@@ -33,16 +33,16 @@ pub fn with_app_api_client<T>(
 
 pub(crate) fn reload_app_api_client(base_url: String) -> Result<(), String> {
     if let Some(cell) = APP_API_HTTP_CLIENT.get() {
-        let mut guard = cell
-            .write()
-            .map_err(|_| ApiError::concurrency("app_api http client lock poisoned").into_string())?;
+        let mut guard = cell.write().map_err(|_| {
+            ApiError::concurrency("app_api http client lock poisoned").into_string()
+        })?;
         *guard = AppApiHttpClient::new(base_url).map_err(ApiError::into_string)?;
         Ok(())
     } else {
         let client = AppApiHttpClient::new(base_url).map_err(ApiError::into_string)?;
-        APP_API_HTTP_CLIENT
-            .set(RwLock::new(client))
-            .map_err(|_| ApiError::concurrency("app_api http client already initialized").into_string())
+        APP_API_HTTP_CLIENT.set(RwLock::new(client)).map_err(|_| {
+            ApiError::concurrency("app_api http client already initialized").into_string()
+        })
     }
 }
 
@@ -79,12 +79,9 @@ impl AppApiHttpClient {
         let url = self.url(path);
         let body_text =
             to_string(body).unwrap_or_else(|_| "<failed to serialize request body>".to_string());
-        let request = self
-            .client
-            .post(&url)
-            .json(body)
-            .build()
-            .map_err(|err| ApiError::invalid_input(format!("failed to build http request: {err}")))?;
+        let request = self.client.post(&url).json(body).build().map_err(|err| {
+            ApiError::invalid_input(format!("failed to build http request: {err}"))
+        })?;
         info!(
             "HTTP POST {} headers={:?} body={}",
             url,
@@ -103,12 +100,9 @@ impl AppApiHttpClient {
         let url = self.url(path);
         let params_text =
             to_string(params).unwrap_or_else(|_| "<failed to serialize query params>".to_string());
-        let request = self
-            .client
-            .get(&url)
-            .query(params)
-            .build()
-            .map_err(|err| ApiError::invalid_input(format!("failed to build http request: {err}")))?;
+        let request = self.client.get(&url).query(params).build().map_err(|err| {
+            ApiError::invalid_input(format!("failed to build http request: {err}"))
+        })?;
         info!(
             "HTTP GET {} headers={:?} params={}",
             url,
@@ -160,12 +154,16 @@ fn parse_api_response<T: DeserializeOwned>(
         method, url, status, headers, body
     );
     if !status.is_success() {
-        let err_msg = format!("http {} {} failed with status={} body={}", method, url, status, body);
+        let err_msg = format!(
+            "http {} {} failed with status={} body={}",
+            method, url, status, body
+        );
         error!("{err_msg}");
         return Err(ApiError::http_status(status.as_u16(), err_msg));
     }
-    let api_response: ApiResponse<T> = serde_json::from_str(&body)
-        .map_err(|err| ApiError::parse(format!("failed to parse http response: {err}, body={body}")))?;
+    let api_response: ApiResponse<T> = serde_json::from_str(&body).map_err(|err| {
+        ApiError::parse(format!("failed to parse http response: {err}, body={body}"))
+    })?;
     if api_response.code != 0 {
         let err_msg = format!(
             "http {} {} responded failure code={} message=\"{}\" status={} body={}",

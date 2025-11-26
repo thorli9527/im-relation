@@ -4,10 +4,11 @@ use rusqlite::Row;
 use crate::{
     common::{
         db,
-        repository::{PageResult, QueryCondition, Repository, SortOrder},
+        repository::{PageResult, QueryCondition, QueryType, Repository, SortOrder},
     },
     domain::{conversation_table_def, ConversationEntity},
 };
+use rusqlite::types::Value;
 
 static INSTANCE: OnceCell<ConversationService> = OnceCell::new();
 
@@ -45,6 +46,40 @@ impl ConversationService {
             page_size,
             Self::map_row,
         )
+    }
+
+    /// 查询单条会话（按类型+目标 ID）。
+    pub fn get_by_type_and_target(
+        &self,
+        conversation_type: i32,
+        target_id: i64,
+    ) -> Result<Option<ConversationEntity>, String> {
+        let conditions = vec![
+            QueryCondition::new(
+                "conversation_type",
+                QueryType::Equal,
+                vec![Value::Integer(conversation_type as i64)],
+            ),
+            QueryCondition::new(
+                "target_id",
+                QueryType::Equal,
+                vec![Value::Integer(target_id)],
+            ),
+        ];
+        self.repo.query_one(&conditions, Self::map_row)
+    }
+
+    /// 插入或更新会话。
+    pub fn upsert(&self, mut entity: ConversationEntity) -> Result<(), String> {
+        // 若已存在则更新，否则插入。
+        let existing = self.get_by_type_and_target(entity.conversation_type, entity.target_id)?;
+        if let Some(mut found) = existing {
+            entity.id = found.id.take();
+            self.repo.update(entity)?;
+        } else {
+            self.repo.insert(entity)?;
+        }
+        Ok(())
     }
 
     fn ensure_schema(&self) -> Result<(), String> {

@@ -28,6 +28,7 @@ pub struct BuildRegisterCodePayload {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct BuildRegisterCodeResult {
     reg_id: String,
     uid: i64,

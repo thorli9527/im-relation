@@ -8,6 +8,9 @@ use common::infra::grpc::grpc_msg_group::msg_group_service::{
     group_msg_service_client::GroupMsgServiceClient, BroadcastGroupProfileUpdatesReq,
     GroupConversationSnapshot, ListGroupConversationsRequest,
 };
+use common::infra::grpc::grpc_msg_system::msg_system_service::{
+    system_msg_service_client::SystemMsgServiceClient, QuerySystemMessagesRequest,
+};
 use common::infra::grpc::message::{
     self as msgpb, friend_business_content::Action as FriendAction, group_business_content::Action,
     message_content::Content as MessageContentKind, ChatScene, DeliveryOptions, DomainMessage,
@@ -32,6 +35,9 @@ static FRIEND_MSG_MANAGER: OnceCell<
 static GROUP_MSG_MANAGER: OnceCell<
     GrpcClientManager<GroupMsgServiceClient<Channel>, TransportError>,
 > = OnceCell::new();
+static SYSTEM_MSG_MANAGER: OnceCell<
+    GrpcClientManager<SystemMsgServiceClient<Channel>, TransportError>,
+> = OnceCell::new();
 
 fn normalize_endpoint(addr: &str) -> String {
     if addr.starts_with("http://") || addr.starts_with("https://") {
@@ -55,6 +61,15 @@ fn group_msg_manager() -> &'static GrpcClientManager<GroupMsgServiceClient<Chann
     GROUP_MSG_MANAGER.get_or_init(|| {
         GrpcClientManager::new(|endpoint: String| async move {
             GroupMsgServiceClient::connect(endpoint).await
+        })
+    })
+}
+
+fn system_msg_manager(
+) -> &'static GrpcClientManager<SystemMsgServiceClient<Channel>, TransportError> {
+    SYSTEM_MSG_MANAGER.get_or_init(|| {
+        GrpcClientManager::new(|endpoint: String| async move {
+            SystemMsgServiceClient::connect(endpoint).await
         })
     })
 }
@@ -100,6 +115,13 @@ async fn connect_group_msg(addr: &str) -> Result<GroupMsgServiceClient<Channel>>
         .map_err(|err| anyhow!(err))
 }
 
+async fn connect_system_msg(addr: &str) -> Result<SystemMsgServiceClient<Channel>> {
+    system_msg_manager()
+        .get(&normalize_endpoint(addr))
+        .await
+        .map(|client| client.as_ref().clone())
+        .map_err(|err| anyhow!(err))
+}
 pub async fn list_friend_conversations(
     owner_id: i64,
     limit: u32,
@@ -342,6 +364,73 @@ pub async fn send_friend_system_message(
         .await
         .map_err(|status| anyhow!("send friend system message failed: {status}"))?;
     Ok(())
+}
+
+/// 写入系统消息通道：按 receiver_id 分片到 msg_system 节点，并持久化。
+pub async fn send_system_message(
+    sender_id: i64,
+    receiver_id: i64,
+    contents: Vec<MessageContent>,
+) -> Result<()> {
+    if contents.is_empty() {
+        return Ok(());
+    }
+    let addr = resolve_addr(NodeType::MsgSystem, receiver_id).await?;
+    let mut client = connect_system_msg(&addr).await?;
+    let ts = now();
+    let domain = DomainMessage {
+        message_id: Some(build_snow_id() as u64),
+        sender_id,
+        receiver_id,
+        timestamp: ts,
+        ts_ms: ts,
+        delivery: Some(DeliveryOptions {
+            require_ack: false,
+            expire_ms: None,
+            max_retry: None,
+        }),
+        scene: ChatScene::Profile as i32,
+        category: MsgCategory::System as i32,
+        contents,
+        friend_business: Some(FriendBusinessContent {
+            action: None,
+            ..Default::default()
+        }),
+        group_business: Some(GroupBusinessContent {
+            action: None,
+            ..Default::default()
+        }),
+    };
+
+    client
+        .handle_system_message(domain)
+        .await
+        .map_err(|status| anyhow!("send system message failed: {status}"))?;
+    Ok(())
+}
+
+/// 拉取系统消息历史（按 msg_id/timestamp 倒序分页）。
+pub async fn list_system_messages(
+    uid: i64,
+    before_message_id: Option<u64>,
+    before_timestamp: Option<i64>,
+    limit: u32,
+) -> Result<msgpb::QueryMessagesResponse> {
+    let addr = resolve_addr(NodeType::MsgSystem, uid).await?;
+    let mut client = connect_system_msg(&addr).await?;
+    let requested = if limit == 0 { 20 } else { limit };
+    let req = QuerySystemMessagesRequest {
+        uid,
+        before_message_id,
+        before_timestamp,
+        limit: requested,
+    };
+    let resp = client
+        .list_system_messages(req)
+        .await
+        .map_err(|status| anyhow!("list system messages failed: {status}"))?
+        .into_inner();
+    Ok(resp)
 }
 
 /// 直接入群时，写一条群系统文本消息。

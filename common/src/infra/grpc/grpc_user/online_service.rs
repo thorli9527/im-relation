@@ -462,9 +462,13 @@ impl AuthType {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum AddFriendPolicy {
+    /// 未设置：按后端默认策略处理（等同需要验证）
     AddFriendUnspecified = 0,
+    /// 任何人都可直接添加，无需验证
     Anyone = 1,
+    /// 需要验证，通过后才会成为好友
     RequireVerify = 2,
+    /// 仅允许通过手机号验证添加（或完全不接受）
     PhoneOnly = 3,
 }
 impl AddFriendPolicy {

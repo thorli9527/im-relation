@@ -8,7 +8,8 @@ members = [
 "app_api",
 "app_socket", 
 "msg_friend",
-"msg_group"]
+"msg_group",
+"msg_system"]
 resolver = "2"
 [workspace.dependencies]
 # ========================

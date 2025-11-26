@@ -51,17 +51,17 @@ impl TableEntity for GroupMemberEntity {
             cols.push(ColumnValue::new("id", Value::Integer(id)));
         }
         cols.push(ColumnValue::new("group_id", Value::Integer(self.group_id)));
-        cols.push(ColumnValue::new("member_id", Value::Integer(self.member_id)));
+        cols.push(ColumnValue::new(
+            "member_id",
+            Value::Integer(self.member_id),
+        ));
         cols.push(ColumnValue::new(
             "nickname",
             Value::Text(self.nickname.clone()),
         ));
         cols.push(ColumnValue::new("avatar", Value::Text(self.avatar.clone())));
         cols.push(ColumnValue::new("role", Value::Integer(self.role as i64)));
-        cols.push(ColumnValue::new(
-            "muted",
-            Value::Integer(self.muted as i64),
-        ));
+        cols.push(ColumnValue::new("muted", Value::Integer(self.muted as i64)));
         cols.push(ColumnValue::new(
             "join_time",
             Value::Integer(self.join_time),
@@ -70,10 +70,7 @@ impl TableEntity for GroupMemberEntity {
             "updated_at",
             Value::Integer(self.updated_at),
         ));
-        cols.push(ColumnValue::new(
-            "version",
-            Value::Integer(self.version),
-        ));
+        cols.push(ColumnValue::new("version", Value::Integer(self.version)));
         cols
     }
 

@@ -5,7 +5,6 @@ use common::core::result::ApiResponse;
 use common::infra::grpc::grpc_group::group_service::GroupInfo;
 use common::infra::grpc::grpc_user::online_service::{FindByContentReq, GetUserReq, UserEntity};
 use common::support::util::common_utils::hash_index;
-use std::convert::TryFrom;
 use tonic::Code;
 use validator::Validate;
 
@@ -34,28 +33,6 @@ fn normalize_optional_string(value: String) -> Option<String> {
 const SCENE_UNSPECIFIED: i32 = 0;
 const SCENE_FRIEND: i32 = 1;
 const SCENE_GROUP: i32 = 2;
-
-#[derive(Copy, Clone, Debug)]
-enum SearchUserType {
-    Uid,
-    Username,
-    Email,
-    Phone,
-}
-
-impl TryFrom<i32> for SearchUserType {
-    type Error = ();
-
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
-        match value {
-            1 => Ok(Self::Uid),
-            2 => Ok(Self::Username),
-            3 => Ok(Self::Phone),
-            4 => Ok(Self::Email),
-            _ => Err(()),
-        }
-    }
-}
 
 pub fn router() -> Router {
     Router::new()
@@ -462,13 +439,13 @@ async fn add_friend(Json(payload): Json<AddFriendRequest>) -> HandlerResult<AddF
     if payload.target_uid <= 0 {
         return Err(AppError::Validation("target_uid must be positive".into()));
     }
-    let svc = UserService::get();
-    let applied = svc
+    let applied = UserService::get()
         .add_friend_http(
             &payload.session_token,
             payload.target_uid,
             payload.reason.as_deref(),
             payload.remark.as_deref(),
+            payload.nickname.as_deref(),
         )
         .await
         .map_err(map_internal_error)?;
@@ -513,53 +490,61 @@ async fn search_user(Json(query): Json<SearchUserQuery>) -> HandlerResult<Search
     if trimmed.is_empty() {
         return Err(AppError::Validation("query is required".into()));
     }
-
-    let search_type = SearchUserType::try_from(query.search_type)
-        .map_err(|_| AppError::Validation("invalid search_type".into()))?;
-
     let mut user_client = user_gateway::get_user_rpc_client()
         .await
         .map_err(map_internal_error)?;
 
-    let user_entity = match search_type {
-        SearchUserType::Uid => {
-            let id = trimmed
-                .parse::<i64>()
-                .map_err(|_| AppError::Validation("query must be numeric for uid".into()))?;
+    // 自动推断查询类型：邮箱 -> email；纯数字优先按 uid 查找，失败则按 phone；其它按用户名。
+    let mut user_entity: Option<UserEntity> = None;
+
+    let is_email = trimmed.contains('@');
+    let is_numeric = trimmed.chars().all(|c| c.is_ascii_digit());
+
+    if is_email {
+        let resp = user_client
+            .find_by_email(FindByContentReq {
+                content: trimmed.to_string(),
+            })
+            .await;
+        match resp {
+            Ok(resp) => user_entity = resp.into_inner().user,
+            Err(status) if status.code() == Code::NotFound => user_entity = None,
+            Err(status) => return Err(map_internal_error(status)),
+        }
+    } else if is_numeric {
+        // 先尝试按 uid。
+        if let Ok(id) = trimmed.parse::<i64>() {
             match user_client.find_user_by_id(GetUserReq { id }).await {
-                Ok(resp) => Some(resp.into_inner()),
-                Err(status) if status.code() == Code::NotFound => None,
+                Ok(resp) => user_entity = Some(resp.into_inner()),
+                Err(status) if status.code() == Code::NotFound => user_entity = None,
                 Err(status) => return Err(map_internal_error(status)),
             }
         }
-        SearchUserType::Username => {
-            let resp = user_client
-                .find_by_name(FindByContentReq {
-                    content: trimmed.to_string(),
-                })
-                .await
-                .map_err(map_internal_error)?;
-            resp.into_inner().user
-        }
-        SearchUserType::Email => {
-            let resp = user_client
-                .find_by_email(FindByContentReq {
-                    content: trimmed.to_string(),
-                })
-                .await
-                .map_err(map_internal_error)?;
-            resp.into_inner().user
-        }
-        SearchUserType::Phone => {
+        // 如果未找到，再按 phone 查找。
+        if user_entity.is_none() {
             let resp = user_client
                 .find_by_phone(FindByContentReq {
                     content: trimmed.to_string(),
                 })
-                .await
-                .map_err(map_internal_error)?;
-            resp.into_inner().user
+                .await;
+            match resp {
+                Ok(resp) => user_entity = resp.into_inner().user,
+                Err(status) if status.code() == Code::NotFound => user_entity = None,
+                Err(status) => return Err(map_internal_error(status)),
+            }
         }
-    };
+    } else {
+        let resp = user_client
+            .find_by_name(FindByContentReq {
+                content: trimmed.to_string(),
+            })
+            .await;
+        match resp {
+            Ok(resp) => user_entity = resp.into_inner().user,
+            Err(status) if status.code() == Code::NotFound => user_entity = None,
+            Err(status) => return Err(map_internal_error(status)),
+        }
+    }
 
     let profile = user_entity.map(user_entity_to_profile);
 

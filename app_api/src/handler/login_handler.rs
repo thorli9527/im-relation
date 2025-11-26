@@ -51,6 +51,7 @@ pub struct SessionTokenPayload {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct SessionValidationResult {
     ok: bool,
     uid: i64,
@@ -65,6 +66,7 @@ pub struct LogoutPayload {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct LogoutResult {
     ok: bool,
     revoked_token: Option<String>,

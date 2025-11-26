@@ -18,6 +18,7 @@ pub enum NodeType {
     MsgFriend = 6,
     ApiNode = 7,
     FriendNode = 8,
+    MsgSystem = 9,
 }
 
 impl TryFrom<i32> for NodeType {
@@ -34,6 +35,7 @@ impl TryFrom<i32> for NodeType {
             6 => Ok(NodeType::MsgFriend),
             7 => Ok(NodeType::ApiNode),
             8 => Ok(NodeType::FriendNode),
+            9 => Ok(NodeType::MsgSystem),
             _ => Err("invalid node type"),
         }
     }
@@ -57,6 +59,7 @@ impl fmt::Display for NodeType {
             NodeType::MsgFriend => "MSG_FRIEND",
             NodeType::ApiNode => "API_NODE",
             NodeType::FriendNode => "FRIEND_NODE",
+            NodeType::MsgSystem => "MSG_SYSTEM",
         };
         f.write_str(name)
     }

@@ -1,16 +1,13 @@
-use flutter_rust_bridge::frb;
-use crate::api::config_api;
-use crate::api::utils;
-use crate::{common::db, domain, service};
-pub use crate::api::{login_api::*, reg_api::*, user_api::*};
 pub use crate::api::app_api_types::*;
-pub use crate::api::reg_api_types::{
-    BuildRegisterCodeRequest,
-    BuildRegisterCodeResponse,
-    VerifyRegisterCodeRequest,
-};
+use crate::api::config_api;
 pub use crate::api::login_api_types::*;
-
+pub use crate::api::reg_api_types::{
+    BuildRegisterCodeRequest, BuildRegisterCodeResponse, VerifyRegisterCodeRequest,
+};
+use crate::api::utils;
+pub use crate::api::{login_api::*, reg_api::*, user_api::*};
+use crate::{common::db, domain, service};
+use flutter_rust_bridge::frb;
 #[frb(init)]
 /// 初始化应用：启动数据库、领域服务，并准备必要的配置（设备 ID、接口地址、重连限制）。
 pub fn init_app() -> Result<(), String> {

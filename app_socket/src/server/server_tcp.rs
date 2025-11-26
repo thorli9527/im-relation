@@ -159,7 +159,9 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
         }
     }
 
-    // 2) 写协程：将 SessionManager 的下行 ServerMsg 转为 Protobuf 并写回
+    // 2) 写协程：将 SessionManager 的下行 ServerMsg 转为 Protobuf 并写回。
+    // 重要：SessionManager/dispatcher 会在收到客户端的 socket ACK 后执行 ack_hook，
+    // 以提交 Kafka offset。这里仅负责写出和接收 ACK，不直接触碰 Kafka。
     let writer: JoinHandle<anyhow::Result<()>> = tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
             // 将内部结构转换为 Protobuf，再交由 LengthDelimitedCodec 写入 TCP。

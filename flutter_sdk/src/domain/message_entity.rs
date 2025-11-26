@@ -7,7 +7,7 @@ use crate::common::{
     repository::{ColumnValue, TableEntity},
     schema::{ColumnType, TableDef},
 };
-use crate::{column_def, table_def};
+use crate::{column_def, normal_index, table_def};
 
 pub fn init() {
     let _ = &*MESSAGE_TABLE_DEF;
@@ -71,6 +71,8 @@ pub struct MessageEntity {
     /// 场景（单聊/群聊/系统）
     #[serde(default)]
     pub scene: MessageScene,
+    /// 接收方 ID：单聊为对方 uid，群聊为群 ID
+    pub receiver_id: Option<i64>,
     /// 发送者类型（例如 1-用户 2-系统）
     pub sender_type: i32,
     /// 发送者 ID
@@ -78,6 +80,9 @@ pub struct MessageEntity {
     /// 是否为会话消息（非系统）
     #[serde(default)]
     pub is_session_message: bool,
+    /// 是否为聊天内容消息（用于过滤系统/业务消息）
+    #[serde(default)]
+    pub is_chat_message: bool,
     /// 消息内容
     pub content: JsonValue,
     /// 扩展数据（JSON）
@@ -104,9 +109,11 @@ impl MessageEntity {
             id: None,
             conversation_id,
             scene: MessageScene::Single,
+            receiver_id: None,
             sender_type: 1,
             sender_id,
             is_session_message: true,
+            is_chat_message: true,
             content,
             extra: String::new(),
             created_at: 0,
@@ -128,6 +135,9 @@ impl TableEntity for MessageEntity {
             "conversation_id",
             Value::Integer(self.conversation_id),
         ));
+        if let Some(rid) = self.receiver_id {
+            cols.push(ColumnValue::new("receiver_id", Value::Integer(rid)));
+        }
         cols.push(ColumnValue::new(
             "sender_type",
             Value::Integer(self.sender_type as i64),
@@ -140,6 +150,10 @@ impl TableEntity for MessageEntity {
         cols.push(ColumnValue::new(
             "is_session_message",
             Value::Integer(self.is_session_message as i64),
+        ));
+        cols.push(ColumnValue::new(
+            "is_chat_message",
+            Value::Integer(self.is_chat_message as i64),
         ));
         cols.push(ColumnValue::new(
             "content",
@@ -192,6 +206,12 @@ pub static MESSAGE_TABLE_DEF: Lazy<TableDef> = Lazy::new(|| {
                 comment = "关联会话 ID"
             ),
             column_def!(
+                "receiver_id",
+                ColumnType::Integer,
+                constraints = "NULL",
+                comment = "接收方 ID（单聊为对方，群聊为群 ID）"
+            ),
+            column_def!(
                 "sender_type",
                 ColumnType::Integer,
                 constraints = "NOT NULL",
@@ -214,6 +234,12 @@ pub static MESSAGE_TABLE_DEF: Lazy<TableDef> = Lazy::new(|| {
                 ColumnType::Integer,
                 constraints = "NOT NULL DEFAULT 1",
                 comment = "是否为会话消息"
+            ),
+            column_def!(
+                "is_chat_message",
+                ColumnType::Integer,
+                constraints = "NOT NULL DEFAULT 1",
+                comment = "是否聊天内容消息"
             ),
             column_def!(
                 "content",
@@ -257,6 +283,9 @@ pub static MESSAGE_TABLE_DEF: Lazy<TableDef> = Lazy::new(|| {
                 constraints = "NOT NULL DEFAULT 0",
                 comment = "发送次数"
             )
+        ],
+        indexes = [
+            normal_index!("idx_msg_scene_conversation_id", ["scene", "conversation_id"])
         ]
     }
 });

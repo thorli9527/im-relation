@@ -6,8 +6,28 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `RandomNicknameQuery`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `AddFriendRequest`, `RandomNicknameQuery`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+
+class AddFriendResult {
+  final bool ok;
+
+  /// true 表示提交了申请，false 表示已直接成为好友
+  final bool applied;
+
+  const AddFriendResult({required this.ok, required this.applied});
+
+  @override
+  int get hashCode => ok.hashCode ^ applied.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AddFriendResult &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          applied == other.applied;
+}
 
 class CachedGroupMembersQuery {
   final PlatformInt64 groupId;
@@ -622,20 +642,18 @@ class RefreshGroupMembersQuery {
 }
 
 class SearchUserQuery {
-  final int searchType;
   final String query;
 
-  const SearchUserQuery({required this.searchType, required this.query});
+  const SearchUserQuery({required this.query});
 
   @override
-  int get hashCode => searchType.hashCode ^ query.hashCode;
+  int get hashCode => query.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is SearchUserQuery &&
           runtimeType == other.runtimeType &&
-          searchType == other.searchType &&
           query == other.query;
 }
 

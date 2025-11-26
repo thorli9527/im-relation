@@ -1,4 +1,3 @@
-use log::warn;
 use crate::{
     domain::{
         proto_adapter::{content_to_json, json_to_content},
@@ -7,6 +6,7 @@ use crate::{
     generated::message as msgpb,
     service::{message_service::MessageService, socket_client::SocketClient},
 };
+use log::warn;
 
 const MAX_SEND_ATTEMPTS: i32 = 10;
 
@@ -14,10 +14,16 @@ pub fn enqueue_outbound(mut content: msgpb::Content, conversation_id: i64) -> Re
     let entity = MessageEntity {
         id: None,
         conversation_id,
+        receiver_id: if content.scene == msgpb::ChatScene::Group as i32 {
+            Some(content.receiver_id)
+        } else {
+            None
+        },
         scene: MessageScene::from(content.scene as i64),
         sender_type: 1,
         sender_id: content.sender_id,
         is_session_message: content.scene != msgpb::ChatScene::Profile as i32,
+        is_chat_message: true,
         content: content_to_json(&content),
         extra: String::new(),
         created_at: content.timestamp,

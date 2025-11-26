@@ -12,7 +12,6 @@ use crate::{
     generated::socket as socket_proto,
 };
 
-
 /// FRB 导出：把 Content 的 JSON 结构编码为 pb 字节；需传入 proto_adapter 生成的 JSON（包含 raw）。
 #[frb]
 pub fn encode_content(content: JsonValue) -> Result<Vec<u8>, String> {
@@ -52,8 +51,6 @@ pub fn unpack_server_msg(bytes: Vec<u8>) -> Result<JsonValue, String> {
         .map_err(|err| ApiError::parse(err.to_string()).into_string())?;
     Ok(server_msg_to_json(msg))
 }
-
-
 
 /// 将 prost 消息编码为二进制字节，复用 BytesMut 减少分配。
 fn encode<M: Message>(message: M) -> Result<Vec<u8>, String> {

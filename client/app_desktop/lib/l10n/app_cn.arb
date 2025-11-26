@@ -1,0 +1,26 @@
+{
+  "@@locale": "zh",
+  "appTitle": "IM客户端",
+  "login": "登录",
+  "register": "注册",
+  "email": "邮箱",
+  "password": "密码",
+  "country": "国家",
+  "language": "语言",
+  "gender": "性别",
+  "nickname": "昵称",
+  "verificationCode": "验证码",
+  "sendCode": "获取验证码",
+  "resendIn": "{seconds}秒后重发",
+  "@resendIn": {
+    "description": "验证码重发倒计时文案",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "submit": "提交",
+  "goHome": "进入首页",
+  "backToLogin": "返回登录"
+}

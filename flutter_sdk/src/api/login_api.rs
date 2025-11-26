@@ -48,7 +48,9 @@ pub fn logout() -> Result<(), String> {
 
 #[frb]
 /// 校验会话 token 是否有效。
-pub fn validate_session(payload: SessionValidateRequest) -> Result<SessionValidationResult, String> {
+pub fn validate_session(
+    payload: SessionValidateRequest,
+) -> Result<SessionValidationResult, String> {
     post_request("/session/validate", &payload)
 }
 

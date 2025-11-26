@@ -6,7 +6,7 @@ use crate::common::{
     repository::{ColumnValue, TableEntity},
     schema::{ColumnType, TableDef},
 };
-use crate::{column_def, table_def, unique_index};
+use crate::{column_def, normal_index, table_def, unique_index};
 
 pub fn init() {
     let _ = &*FRIEND_TABLE_DEF;
@@ -20,6 +20,9 @@ pub struct FriendEntity {
     pub avatar: String,
     pub nickname: Option<String>,
     pub remark: Option<String>,
+    pub email: Option<String>,
+    pub phone: Option<String>,
+    pub last_login_at: Option<i64>,
     pub created_at: i64,
 }
 
@@ -31,6 +34,9 @@ impl FriendEntity {
             avatar: String::new(),
             nickname: None,
             remark: None,
+            email: None,
+            phone: None,
+            last_login_at: None,
             created_at,
         }
     }
@@ -55,6 +61,17 @@ impl TableEntity for FriendEntity {
             "remark",
             Value::Text(self.remark.clone().unwrap_or_default()),
         ));
+        cols.push(ColumnValue::new(
+            "email",
+            Value::Text(self.email.clone().unwrap_or_default()),
+        ));
+        cols.push(ColumnValue::new(
+            "phone",
+            Value::Text(self.phone.clone().unwrap_or_default()),
+        ));
+        if let Some(ts) = self.last_login_at {
+            cols.push(ColumnValue::new("last_login_at", Value::Integer(ts)));
+        }
         cols.push(ColumnValue::new(
             "created_at",
             Value::Integer(self.created_at),
@@ -103,6 +120,24 @@ pub static FRIEND_TABLE_DEF: Lazy<TableDef> = Lazy::new(|| {
                 comment = "备注信息"
             ),
             column_def!(
+                "email",
+                ColumnType::Text,
+                constraints = "NOT NULL DEFAULT ''",
+                comment = "邮箱（可选）"
+            ),
+            column_def!(
+                "phone",
+                ColumnType::Text,
+                constraints = "NOT NULL DEFAULT ''",
+                comment = "手机号（可选）"
+            ),
+            column_def!(
+                "last_login_at",
+                ColumnType::Integer,
+                constraints = "NULL",
+                comment = "最后登录时间戳"
+            ),
+            column_def!(
                 "created_at",
                 ColumnType::Integer,
                 constraints = "NOT NULL",
@@ -110,7 +145,9 @@ pub static FRIEND_TABLE_DEF: Lazy<TableDef> = Lazy::new(|| {
             )
         ],
         indexes = [
-            unique_index!("idx_default", ["friend_id"])
+            unique_index!("idx_default", ["friend_id"]),
+            normal_index!("idx_friend_nickname", ["nickname"]),
+            normal_index!("idx_friend_last_login_at", ["last_login_at"])
         ]
     }
 });

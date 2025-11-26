@@ -1,10 +1,12 @@
-use flutter_rust_bridge::frb;
 use crate::api::app_api_types::*;
+use crate::api::user_api_types::{
+    AddFriendPayload, GroupMembersQueryParams, SessionTokenQuery, UserInfoResult,
+};
 use crate::api::utils::{get_request, post_request};
-use crate::api::user_api_types::{GroupMembersQueryParams, SessionTokenQuery, UserInfoResult};
-use crate::service::user_service::UserService;
 use crate::service::online_service::OnlineService;
+use crate::service::user_service::UserService;
 use crate::service::{friend_service::FriendService, group_member_service::GroupMemberService};
+use flutter_rust_bridge::frb;
 
 // 用户资料与列表相关接口，保留在 user_api。
 #[frb]
@@ -24,23 +26,57 @@ pub fn update_profile(payload: UpdateProfileRequest) -> Result<OperationStatus, 
 }
 #[frb]
 pub fn get_friend_list(query: FriendListQuery) -> Result<FriendListResult, String> {
-    get_request("/friends", &query)
+    let token = if query.session_token.trim().is_empty() {
+        UserService::get()
+            .latest_user()?
+            .and_then(|u| u.session_token)
+            .filter(|t| !t.trim().is_empty())
+            .ok_or_else(|| "missing session_token".to_string())?
+    } else {
+        query.session_token
+    };
+    let params = FriendListQuery {
+        session_token: token,
+        page: query.page,
+        page_size: query.page_size,
+    };
+    post_request("/friends", &params)
 }
 
 #[frb]
 pub fn search_user(query: SearchUserQuery) -> Result<SearchUserResult, String> {
-    get_request("/users/search", &query)
+    post_request("/users/search", &query)
+}
+
+#[frb]
+pub fn add_friend(payload: AddFriendPayload) -> Result<AddFriendResult, String> {
+    let user = UserService::get()
+        .latest_user()?
+        .ok_or_else(|| "no cached user".to_string())?;
+    let token = user
+        .session_token
+        .as_ref()
+        .filter(|token| !token.trim().is_empty())
+        .ok_or_else(|| "missing session_token".to_string())?;
+    let request = AddFriendRequest {
+        session_token: token.clone(),
+        target_uid: payload.target_uid,
+        reason: payload.reason,
+        remark: payload.remark,
+        nickname: payload.nickname,
+    };
+    post_request("/friends/add", &request)
 }
 #[frb]
 pub fn get_recent_conversations(
     query: RecentConversationsQuery,
 ) -> Result<RecentConversationsResult, String> {
-    get_request("/conversations/recent", &query)
+    post_request("/conversations/recent", &query)
 }
 #[frb]
 pub fn random_nickname(gender: Option<String>) -> Result<String, String> {
     let query = RandomNicknameQuery { gender };
-    get_request("/nickname/random", &query)
+    post_request("/nickname/random", &query)
 }
 
 #[frb]
@@ -76,7 +112,7 @@ pub fn get_group_members(query: GroupMembersQuery) -> Result<GroupMembersResult,
         page: query.page,
         page_size: query.page_size,
     };
-    get_request(&path, &params)
+    post_request(&path, &params)
 }
 
 #[frb]
@@ -88,7 +124,7 @@ pub fn get_group_member_detail(
     let params = SessionTokenQuery {
         session_token: query.session_token,
     };
-    get_request(&path, &params)
+    post_request(&path, &params)
 }
 
 #[frb]

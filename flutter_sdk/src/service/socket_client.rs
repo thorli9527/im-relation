@@ -382,8 +382,14 @@ fn apply_profile_update_event(
         version,
         updated_at,
     )?;
-    FriendService::get().apply_profile_update(sender_id, nickname.clone(), avatar.clone(), updated_at)?;
-    GroupMemberService::get().apply_profile_update(sender_id, nickname, avatar, updated_at, version)?;
+    FriendService::get().apply_profile_update(
+        sender_id,
+        nickname.clone(),
+        avatar.clone(),
+        updated_at,
+    )?;
+    GroupMemberService::get()
+        .apply_profile_update(sender_id, nickname, avatar, updated_at, version)?;
     Ok(())
 }
 

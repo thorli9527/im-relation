@@ -20,6 +20,12 @@ Future<String?> getAppVersion() =>
 Future<void> setAppVersion({required String version}) =>
     RustLib.instance.api.crateApiConfigApiSetAppVersion(version: version);
 
+Future<String?> getLanguage() =>
+    RustLib.instance.api.crateApiConfigApiGetLanguage();
+
+Future<void> setLanguage({required String language}) =>
+    RustLib.instance.api.crateApiConfigApiSetLanguage(language: language);
+
 Future<String> getAppApiBaseUrl() =>
     RustLib.instance.api.crateApiConfigApiGetAppApiBaseUrl();
 
@@ -50,60 +56,3 @@ Future<void> setSocketReconnectMessage({required String message}) => RustLib
 
 Future<String?> getSocketReconnectMessage() =>
     RustLib.instance.api.crateApiConfigApiGetSocketReconnectMessage();
-
-Future<String?> getToken() => RustLib.instance.api.crateApiConfigApiGetToken();
-
-Future<void> setToken({required String token}) =>
-    RustLib.instance.api.crateApiConfigApiSetToken(token: token);
-
-Future<PlatformInt64?> getTokenExpireAt() =>
-    RustLib.instance.api.crateApiConfigApiGetTokenExpireAt();
-
-Future<void> setTokenExpireAt({required PlatformInt64 expireAt}) =>
-    RustLib.instance.api.crateApiConfigApiSetTokenExpireAt(expireAt: expireAt);
-
-Future<PlatformInt64?> getUid() =>
-    RustLib.instance.api.crateApiConfigApiGetUid();
-
-Future<void> setUid({required PlatformInt64 uid}) =>
-    RustLib.instance.api.crateApiConfigApiSetUid(uid: uid);
-
-Future<String?> getUsername() =>
-    RustLib.instance.api.crateApiConfigApiGetUsername();
-
-Future<void> setUsername({required String name}) =>
-    RustLib.instance.api.crateApiConfigApiSetUsername(name: name);
-
-Future<String?> getLoginName() =>
-    RustLib.instance.api.crateApiConfigApiGetLoginName();
-
-Future<void> setLoginName({required String name}) =>
-    RustLib.instance.api.crateApiConfigApiSetLoginName(name: name);
-
-Future<String?> getEmail() => RustLib.instance.api.crateApiConfigApiGetEmail();
-
-Future<void> setEmail({required String email}) =>
-    RustLib.instance.api.crateApiConfigApiSetEmail(email: email);
-
-Future<String?> getPhone() => RustLib.instance.api.crateApiConfigApiGetPhone();
-
-Future<void> setPhone({required String phone}) =>
-    RustLib.instance.api.crateApiConfigApiSetPhone(phone: phone);
-
-Future<String?> getAvatar() =>
-    RustLib.instance.api.crateApiConfigApiGetAvatar();
-
-Future<void> setAvatar({required String avatar}) =>
-    RustLib.instance.api.crateApiConfigApiSetAvatar(avatar: avatar);
-
-Future<PlatformInt64?> getLastLoginAt() =>
-    RustLib.instance.api.crateApiConfigApiGetLastLoginAt();
-
-Future<void> setLastLoginAt({required PlatformInt64 ts}) =>
-    RustLib.instance.api.crateApiConfigApiSetLastLoginAt(ts: ts);
-
-Future<PlatformInt64?> getLastAliveAt() =>
-    RustLib.instance.api.crateApiConfigApiGetLastAliveAt();
-
-Future<void> setLastAliveAt({required PlatformInt64 ts}) =>
-    RustLib.instance.api.crateApiConfigApiSetLastAliveAt(ts: ts);

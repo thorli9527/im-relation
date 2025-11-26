@@ -4,6 +4,27 @@ pub struct OperationStatus {
     pub ok: bool,
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AddFriendRequest {
+    pub session_token: String,
+    /// 目标用户 id
+    pub target_uid: i64,
+    /// 附言/备注，可选
+    pub reason: Option<String>,
+    /// 对方的备注，可选
+    pub remark: Option<String>,
+    /// 我方期望的好友昵称（可选）
+    pub nickname: Option<String>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AddFriendResult {
+    pub ok: bool,
+    /// true 表示提交了申请，false 表示已直接成为好友
+    pub applied: bool,
+}
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -202,7 +223,6 @@ pub struct CheckOnlineBatchResult {
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchUserQuery {
-    pub search_type: i32,
     pub query: String,
 }
 

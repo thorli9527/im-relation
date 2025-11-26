@@ -72,6 +72,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String dco_decode_String(dynamic raw);
 
   @protected
+  AddFriendPayload dco_decode_add_friend_payload(dynamic raw);
+
+  @protected
+  AddFriendResult dco_decode_add_friend_result(dynamic raw);
+
+  @protected
   ApiError dco_decode_api_error(dynamic raw);
 
   @protected
@@ -79,6 +85,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool dco_decode_bool(dynamic raw);
+
+  @protected
+  AddFriendPayload dco_decode_box_autoadd_add_friend_payload(dynamic raw);
 
   @protected
   ApiError dco_decode_box_autoadd_api_error(dynamic raw);
@@ -417,6 +426,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  AddFriendPayload sse_decode_add_friend_payload(SseDeserializer deserializer);
+
+  @protected
+  AddFriendResult sse_decode_add_friend_result(SseDeserializer deserializer);
+
+  @protected
   ApiError sse_decode_api_error(SseDeserializer deserializer);
 
   @protected
@@ -424,6 +439,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
+
+  @protected
+  AddFriendPayload sse_decode_box_autoadd_add_friend_payload(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ApiError sse_decode_box_autoadd_api_error(SseDeserializer deserializer);
@@ -844,6 +864,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
+  void sse_encode_add_friend_payload(
+    AddFriendPayload self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_add_friend_result(
+    AddFriendResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_api_error(ApiError self, SseSerializer serializer);
 
   @protected
@@ -851,6 +883,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_add_friend_payload(
+    AddFriendPayload self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_api_error(

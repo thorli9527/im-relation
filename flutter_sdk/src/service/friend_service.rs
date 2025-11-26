@@ -1,6 +1,7 @@
 use once_cell::sync::OnceCell;
-use rusqlite::{Row, types::Value};
+use rusqlite::{types::Value, Row};
 
+use crate::common::QueryType;
 use crate::{
     common::{
         db,
@@ -8,7 +9,6 @@ use crate::{
     },
     domain::{friend_table_def, FriendEntity},
 };
-use crate::common::QueryType;
 
 static INSTANCE: OnceCell<FriendService> = OnceCell::new();
 
@@ -53,7 +53,10 @@ impl FriendService {
     pub fn list_ids(&self) -> Result<Vec<i64>, String> {
         let mut conn = db::connection()?;
         let mut stmt = conn
-            .prepare(&format!("SELECT friend_id FROM {}", friend_table_def().name))
+            .prepare(&format!(
+                "SELECT friend_id FROM {}",
+                friend_table_def().name
+            ))
             .map_err(|err| err.to_string())?;
         let mut rows = stmt.query([]).map_err(|err| err.to_string())?;
         let mut ids = Vec::new();
@@ -123,6 +126,9 @@ impl FriendService {
             avatar: row.get("avatar")?,
             nickname: normalize_optional(nickname),
             remark: normalize_optional(remark),
+            email: normalize_optional(row.get("email")?),
+            phone: normalize_optional(row.get("phone")?),
+            last_login_at: row.get("last_login_at").ok(),
             created_at: row.get("created_at")?,
         })
     }

@@ -30,6 +30,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -38,6 +41,9 @@ dependencies:
     path: rust_builder
   flutter_rust_bridge: 2.11.1
   freezed_annotation: ^2.2.0
+  flutter_riverpod: ^2.5.1
+  go_router: ^14.2.7
+  shared_preferences: ^2.3.3
 
 dev_dependencies:
   flutter_test:
@@ -59,6 +65,7 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  generate: true
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
@@ -72,6 +79,10 @@ flutter:
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
+
+  assets:
+    - assets/chat_bg.png
+    - assets/data/countries.json
 
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package

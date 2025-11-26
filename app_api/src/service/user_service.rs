@@ -9,12 +9,13 @@ use common::infra::grpc::grpc_user::online_service::{
     SessionTokenStatus, UpdateUserReq, UpsertSessionTokenRequest, UserEntity, UserType,
     ValidateSessionTokenRequest,
 };
+use common::infra::grpc::message::{self as msgpb, message_content::Content as MessageContentKind, MessageContent};
 use common::infra::grpc::grpc_group::group_service::JoinPermission;
 use common::infra::redis::redis_pool::RedisPoolTools;
 use common::support::util::common_utils::{build_md5_with_key, build_uuid};
 use common::UID;
 use deadpool_redis::redis::AsyncCommands;
-use log::error;
+use log::{error, info, warn};
 use once_cell::sync::OnceCell;
 use prost_types::FieldMask;
 use serde::{Deserialize, Serialize};
@@ -144,50 +145,124 @@ impl UserService {
         Ok(groups)
     }
 
-    /// 通过 HTTP 加好友：根据被加方策略决定直接添加或提交申请。
+    /// 通过 HTTP 加好友：
+    /// - 先校验会话、拒绝自己加自己，已有好友直接返回。
+    /// - 根据被加方策略：
+    ///   * Anyone：直接建好友关系，并尝试推送系统消息“我们已经成为好友”。
+    ///   * RequireVerify / 未指定：发送好友申请消息，返回 true 表示已提交申请。
+    ///   * PhoneOnly：对方拒绝添加好友，返回错误。
     pub async fn add_friend_http(
         &self,
         session_token: &str,
         target_uid: i64,
         reason: Option<&str>,
         remark: Option<&str>,
+        nickname: Option<&str>,
     ) -> anyhow::Result<bool> {
+        // 会话校验，获取主动方 UID。
         let active = ensure_active_session(session_token)
             .await
             .map_err(|e| anyhow!(e))?;
+        // 不能加自己
         if target_uid == active.uid {
             return Err(anyhow!("cannot add yourself as friend"));
         }
 
+        // 已是好友则短路，不重复创建关系。
+        if friend_gateway::is_friend(active.uid, target_uid).await? {
+            info!(
+                "add_friend_http: {} -> {} already friends, skip",
+                active.uid, target_uid
+            );
+            return Ok(false);
+        }
+
+        // 查询被加方资料与加好友策略。
         let mut user_client = user_gateway::get_user_rpc_client().await?;
         let target = Self::get_user_by_id(&mut user_client, target_uid).await?;
-        match AddFriendPolicy::from_i32(target.allow_add_friend) {
-            Some(AddFriendPolicy::Anyone) => {
-                let _ = friend_gateway::add_friend(active.uid, target_uid, remark, None, None).await?;
-                // 系统消息提示已成为好友
-                let _ = message_gateway::send_friend_system_message(
+        let policy = AddFriendPolicy::try_from(target.allow_add_friend)
+            .unwrap_or(AddFriendPolicy::RequireVerify);
+
+        // 归一化输入：去空格并转字符串，便于后续复用。
+        let reason = reason.unwrap_or_default().trim().to_string();
+        let remark = remark.unwrap_or_default().trim().to_string();
+        let prefer_nick = nickname.unwrap_or("").trim();
+        let target_nick = if prefer_nick.is_empty() {
+            target
+                .nickname
+                .clone()
+                .unwrap_or_else(|| target.name.clone())
+        } else {
+            prefer_nick.to_string()
+        };
+        let nickname_for_user = (!prefer_nick.is_empty()).then_some(prefer_nick);
+        let remark_ref = (!remark.is_empty()).then_some(remark.as_str());
+
+        warn!(
+            "add_friend_http: {} -> {} policy={:?} reason='{}' remark='{}' prefer_nick='{}'",
+            active.uid,
+            target_uid,
+            policy,
+            reason,
+            remark,
+            prefer_nick
+        );
+
+        match policy {
+            AddFriendPolicy::Anyone => {
+                // 对方允许任何人添加：直接建立好友关系。
+                let _ = friend_gateway::add_friend(
                     active.uid,
                     target_uid,
-                    "我们已经成为好友",
+                    remark_ref,
+                    nickname_for_user,
+                    None,
                 )
-                .await;
+                .await?;
+                // 系统通道广播，确保多设备都能收到（双向各一条即可）
+                let sys_text = MessageContent {
+                    content: Some(MessageContentKind::Text(msgpb::TextContent {
+                        text: "We are now friends".to_string(),
+                        ..Default::default()
+                    })),
+                };
+                for (from, to) in [(active.uid, target_uid), (target_uid, active.uid)] {
+                    if let Err(err) =
+                        message_gateway::send_system_message(from, to, vec![sys_text.clone()]).await
+                    {
+                        warn!(
+                            "add_friend_http: system channel {} -> {} failed: {err}",
+                            from, to
+                        );
+                    } else {
+                        info!(
+                            "add_friend_http: system channel {} -> {} delivered",
+                            from, to
+                        );
+                    }
+                }
                 Ok(false)
             }
-            Some(AddFriendPolicy::RequireVerify) | None | Some(AddFriendPolicy::AddFriendUnspecified) => {
-                let reason = reason.unwrap_or_default();
-                let remark = remark.unwrap_or_default();
-                let nickname = target.nickname.unwrap_or_else(|| target.name.clone());
+            AddFriendPolicy::RequireVerify | AddFriendPolicy::AddFriendUnspecified => {
+                // 对方需要验证或未指定：发送好友申请消息，返回 true 表示已提交申请。
                 message_gateway::send_friend_request_message(
                     active.uid,
                     target_uid,
-                    reason,
-                    remark,
-                    &nickname,
+                    reason.as_str(),
+                    remark.as_str(),
+                    target_nick.as_str(),
                 )
                 .await?;
+                info!(
+                    "add_friend_http: friend request sent {} -> {}",
+                    active.uid, target_uid
+                );
                 Ok(true)
             }
-            Some(AddFriendPolicy::PhoneOnly) => Err(anyhow!("target does not accept friend requests")),
+            AddFriendPolicy::PhoneOnly => {
+                // 对方拒绝加好友策略：直接返回错误提示。
+                Err(anyhow!("target does not accept friend requests"))
+            }
         }
     }
 

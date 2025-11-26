@@ -24,7 +24,7 @@ const PHONE_KEY: &str = "session_phone";
 const AVATAR_KEY: &str = "session_avatar";
 const LAST_LOGIN_AT_KEY: &str = "session_last_login_at";
 const LAST_ALIVE_AT_KEY: &str = "session_last_alive_at";
-
+const LANGUAGE_KEY: &str = "language";
 
 fn map_config_err(err: String) -> String {
     ApiError::system(err).into_string()
@@ -60,10 +60,7 @@ fn get_or_set_u32(key: &str, default: u32) -> Result<u32, String> {
     Ok(default)
 }
 
-fn get_or_generate_value(
-    key: &str,
-    generator: impl FnOnce() -> String,
-) -> Result<String, String> {
+fn get_or_generate_value(key: &str, generator: impl FnOnce() -> String) -> Result<String, String> {
     if let Some(value) = get_value(key)? {
         if !value.trim().is_empty() {
             return Ok(value);
@@ -80,7 +77,6 @@ pub fn get_device_id() -> Result<String, String> {
     get_or_generate_value("device_id", || Uuid::new_v4().to_string())
 }
 
-
 /// 获取应用版本号（用于展示）。
 #[frb]
 pub fn get_app_version() -> Result<Option<String>, String> {
@@ -91,6 +87,19 @@ pub fn get_app_version() -> Result<Option<String>, String> {
 #[frb]
 pub fn set_app_version(version: String) -> Result<(), String> {
     set_value("app_version", &version)
+}
+
+#[frb]
+pub fn get_language() -> Result<Option<String>, String> {
+    get_value(LANGUAGE_KEY)
+}
+
+#[frb]
+pub fn set_language(language: String) -> Result<(), String> {
+    if language.trim().is_empty() {
+        return Err(ApiError::invalid_input("language cannot be empty").into_string());
+    }
+    set_value(LANGUAGE_KEY, language)
 }
 
 #[frb]
@@ -165,7 +174,6 @@ pub fn set_socket_reconnect_attempts(attempts: u32) -> Result<(), String> {
     set_numeric_value(SOCKET_RECONNECT_ATTEMPTS_KEY, attempts)
 }
 
-
 #[frb]
 pub fn set_socket_reconnect_message(message: String) -> Result<(), String> {
     set_value(SOCKET_RECONNECT_MESSAGE_KEY, &message)
@@ -176,112 +184,10 @@ pub fn get_socket_reconnect_message() -> Result<Option<String>, String> {
     get_value(SOCKET_RECONNECT_MESSAGE_KEY)
 }
 
-
 pub(crate) fn get_or_init_attempts(limit: u32) -> Result<u32, String> {
     get_or_set_u32(SOCKET_RECONNECT_ATTEMPTS_KEY, limit)
 }
 
 pub(crate) fn ensure_attempts(limit: u32) -> Result<u32, String> {
     get_or_init_attempts(limit)
-}
-
-// ===== 兼容旧登录态存取 =====
-#[frb]
-pub fn get_token() -> Result<Option<String>, String> {
-    get_value(TOKEN_KEY)
-}
-
-#[frb]
-pub fn set_token(token: String) -> Result<(), String> {
-    set_value(TOKEN_KEY, token)
-}
-
-#[frb]
-pub fn get_token_expire_at() -> Result<Option<i64>, String> {
-    parse_value(TOKEN_EXPIRE_AT_KEY)
-}
-
-#[frb]
-pub fn set_token_expire_at(expire_at: i64) -> Result<(), String> {
-    set_numeric_value(TOKEN_EXPIRE_AT_KEY, expire_at)
-}
-
-#[frb]
-pub fn get_uid() -> Result<Option<i64>, String> {
-    parse_value(UID_KEY)
-}
-
-#[frb]
-pub fn set_uid(uid: i64) -> Result<(), String> {
-    set_numeric_value(UID_KEY, uid)
-}
-
-#[frb]
-pub fn get_username() -> Result<Option<String>, String> {
-    get_value(USERNAME_KEY)
-}
-
-#[frb]
-pub fn set_username(name: String) -> Result<(), String> {
-    set_value(USERNAME_KEY, name)
-}
-
-#[frb]
-pub fn get_login_name() -> Result<Option<String>, String> {
-    get_value(LOGIN_NAME_KEY)
-}
-
-#[frb]
-pub fn set_login_name(name: String) -> Result<(), String> {
-    set_value(LOGIN_NAME_KEY, name)
-}
-
-#[frb]
-pub fn get_email() -> Result<Option<String>, String> {
-    get_value(EMAIL_KEY)
-}
-
-#[frb]
-pub fn set_email(email: String) -> Result<(), String> {
-    set_value(EMAIL_KEY, email)
-}
-
-#[frb]
-pub fn get_phone() -> Result<Option<String>, String> {
-    get_value(PHONE_KEY)
-}
-
-#[frb]
-pub fn set_phone(phone: String) -> Result<(), String> {
-    set_value(PHONE_KEY, phone)
-}
-
-#[frb]
-pub fn get_avatar() -> Result<Option<String>, String> {
-    get_value(AVATAR_KEY)
-}
-
-#[frb]
-pub fn set_avatar(avatar: String) -> Result<(), String> {
-    set_value(AVATAR_KEY, avatar)
-}
-
-#[frb]
-pub fn get_last_login_at() -> Result<Option<i64>, String> {
-    parse_value(LAST_LOGIN_AT_KEY)
-}
-
-#[frb]
-pub fn set_last_login_at(ts: i64) -> Result<(), String> {
-    set_numeric_value(LAST_LOGIN_AT_KEY, ts)
-}
-
-#[frb]
-pub fn get_last_alive_at() -> Result<Option<i64>, String> {
-    parse_value(LAST_ALIVE_AT_KEY)
-}
-
-#[frb]
-pub fn set_last_alive_at(ts: i64) -> Result<(), String> {
-    set_numeric_value(LAST_ALIVE_AT_KEY, ts)
 }

@@ -1,0 +1,26 @@
+{
+  "@@locale": "en",
+  "appTitle": "IM Client",
+  "login": "Login",
+  "register": "Register",
+  "email": "Email",
+  "password": "Password",
+  "country": "Country",
+  "language": "Language",
+  "gender": "Gender",
+  "nickname": "Nickname",
+  "verificationCode": "Verification Code",
+  "sendCode": "Send Code",
+  "resendIn": "Resend in {seconds}s",
+  "@resendIn": {
+    "description": "Countdown text for resending verification code",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "submit": "Submit",
+  "goHome": "Go Home",
+  "backToLogin": "Back to Login"
+}

@@ -1,9 +1,9 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::api::app_api::LoginResult;
 use log::info;
 use once_cell::sync::OnceCell;
 use rusqlite::Row;
-use crate::api::app_api::LoginResult;
 
 use crate::common::{
     db,
@@ -87,7 +87,9 @@ impl UserService {
         if nickname.is_none() && avatar.is_none() && version.is_none() {
             return Ok(());
         }
-        let mut entity = self.get_by_uid(uid)?.unwrap_or_else(|| UserInfoEntity::new(uid));
+        let mut entity = self
+            .get_by_uid(uid)?
+            .unwrap_or_else(|| UserInfoEntity::new(uid));
         if let Some(nick) = nickname {
             entity.nickname = Some(nick);
         }
@@ -109,15 +111,14 @@ impl UserService {
     }
 
     pub fn get_by_uid(&self, uid: i64) -> Result<Option<UserInfoEntity>, String> {
-        self.repo
-            .query_one(
-                &[QueryCondition::new(
-                    "uid",
-                    QueryType::Equal,
-                    vec![rusqlite::types::Value::Integer(uid)],
-                )],
-                Self::map_row,
-            )
+        self.repo.query_one(
+            &[QueryCondition::new(
+                "uid",
+                QueryType::Equal,
+                vec![rusqlite::types::Value::Integer(uid)],
+            )],
+            Self::map_row,
+        )
     }
 
     pub fn list_all(&self) -> Result<Vec<UserInfoEntity>, String> {
@@ -158,9 +159,9 @@ impl UserService {
             language: normalize_optional(language),
             email: normalize_optional(email),
             phone: normalize_optional(phone),
-        updated_at: row.get("updated_at")?,
-    })
-}
+            updated_at: row.get("updated_at")?,
+        })
+    }
 }
 
 fn normalize_optional(value: String) -> Option<String> {

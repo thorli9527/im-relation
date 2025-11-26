@@ -108,7 +108,10 @@ impl OnlineService {
         entries.sort_by_key(|e| e.uid);
         entries.dedup_by_key(|e| e.uid);
 
-        Ok(OnlineStatusSnapshot { items: entries, stale })
+        Ok(OnlineStatusSnapshot {
+            items: entries,
+            stale,
+        })
     }
 
     fn fetch_and_cache(

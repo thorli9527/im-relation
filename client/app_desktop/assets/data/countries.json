@@ -1,0 +1,278 @@
+[
+  {
+    "country_en": "Afrikaans",
+    "code": "AF"
+  },
+  {
+    "country_en": "Albanian",
+    "code": "SQ"
+  },
+  {
+    "country_en": "Arabic",
+    "code": "AR"
+  },
+  {
+    "country_en": "Azerbaijani",
+    "code": "AZ"
+  },
+  {
+    "country_en": "Bengali",
+    "code": "BN"
+  },
+  {
+    "country_en": "Bokmål",
+    "code": "NB"
+  },
+  {
+    "country_en": "Brazil",
+    "code": "BR"
+  },
+  {
+    "country_en": "Bulgarian",
+    "code": "BG"
+  },
+  {
+    "country_en": "Catalan",
+    "code": "CA"
+  },
+  {
+    "country_en": "China",
+    "code": "CN"
+  },
+  {
+    "country_en": "Croatian",
+    "code": "HR"
+  },
+  {
+    "country_en": "Czech",
+    "code": "CS"
+  },
+  {
+    "country_en": "Danish",
+    "code": "DA"
+  },
+  {
+    "country_en": "Dutch",
+    "code": "NL"
+  },
+  {
+    "country_en": "Estonian",
+    "code": "ET"
+  },
+  {
+    "country_en": "Farsi",
+    "code": "FA"
+  },
+  {
+    "country_en": "Filipino",
+    "code": "FIL"
+  },
+  {
+    "country_en": "Finnish",
+    "code": "FI"
+  },
+  {
+    "country_en": "French",
+    "code": "FR"
+  },
+  {
+    "country_en": "Georgian",
+    "code": "KA"
+  },
+  {
+    "country_en": "German",
+    "code": "DE"
+  },
+  {
+    "country_en": "Greek",
+    "code": "EL"
+  },
+  {
+    "country_en": "Gujarati",
+    "code": "GU"
+  },
+  {
+    "country_en": "Hausa",
+    "code": "HA"
+  },
+  {
+    "country_en": "Hebrew",
+    "code": "HE"
+  },
+  {
+    "country_en": "Hindi",
+    "code": "HI"
+  },
+  {
+    "country_en": "Hong Kong",
+    "code": "HK"
+  },
+  {
+    "country_en": "Hungarian",
+    "code": "HU"
+  },
+  {
+    "country_en": "Indonesian",
+    "code": "ID"
+  },
+  {
+    "country_en": "Irish",
+    "code": "GA"
+  },
+  {
+    "country_en": "Italian",
+    "code": "IT"
+  },
+  {
+    "country_en": "Japanese",
+    "code": "JA"
+  },
+  {
+    "country_en": "Kannada",
+    "code": "KN"
+  },
+  {
+    "country_en": "Kazakh",
+    "code": "KK"
+  },
+  {
+    "country_en": "Kinyarwanda",
+    "code": "RW"
+  },
+  {
+    "country_en": "Korean",
+    "code": "KO"
+  },
+  {
+    "country_en": "Kyrgyzstan",
+    "code": "KG"
+  },
+  {
+    "country_en": "Lao",
+    "code": "LO"
+  },
+  {
+    "country_en": "Latvian",
+    "code": "LV"
+  },
+  {
+    "country_en": "Lithuanian",
+    "code": "LT"
+  },
+  {
+    "country_en": "Macedonian",
+    "code": "MK"
+  },
+  {
+    "country_en": "Malay",
+    "code": "MS"
+  },
+  {
+    "country_en": "Malayalam",
+    "code": "ML"
+  },
+  {
+    "country_en": "Marathi",
+    "code": "MR"
+  },
+  {
+    "country_en": "Mexico",
+    "code": "MX"
+  },
+  {
+    "country_en": "Polish",
+    "code": "PL"
+  },
+  {
+    "country_en": "Portugal",
+    "code": "PT"
+  },
+  {
+    "country_en": "Punjabi",
+    "code": "PA"
+  },
+  {
+    "country_en": "Romanian",
+    "code": "RO"
+  },
+  {
+    "country_en": "Russian",
+    "code": "RU"
+  },
+  {
+    "country_en": "Serbian",
+    "code": "SR"
+  },
+  {
+    "country_en": "Slovak",
+    "code": "SK"
+  },
+  {
+    "country_en": "Slovenian",
+    "code": "SL"
+  },
+  {
+    "country_en": "Swahili",
+    "code": "SW"
+  },
+  {
+    "country_en": "Swedish",
+    "code": "SV"
+  },
+  {
+    "country_en": "Taiwan",
+    "code": "TW"
+  },
+  {
+    "country_en": "Tamil",
+    "code": "TA"
+  },
+  {
+    "country_en": "Telugu",
+    "code": "TE"
+  },
+  {
+    "country_en": "Thai",
+    "code": "TH"
+  },
+  {
+    "country_en": "Turkish",
+    "code": "TR"
+  },
+  {
+    "country_en": "UK",
+    "code": "GB"
+  },
+  {
+    "country_en": "US",
+    "code": "US"
+  },
+  {
+    "country_en": "Ukrainian",
+    "code": "UK"
+  },
+  {
+    "country_en": "Urdu",
+    "code": "UR"
+  },
+  {
+    "country_en": "Uzbek",
+    "code": "UZ"
+  },
+  {
+    "country_en": "Vietnamese",
+    "code": "VI"
+  },
+  {
+    "country_en": "Zulu",
+    "code": "ZU"
+  },
+  {
+    "country_en": "generic",
+    "code": "EN"
+  },
+  {
+    "country_en": "generic",
+    "code": "ES"
+  }
+]

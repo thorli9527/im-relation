@@ -19,6 +19,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         &["proto/msg_group.proto"],
         true,
     )?;
+    generate_grpc_with_serde(
+        "src/infra/grpc/grpc_msg_system",
+        &["proto/msg_system.proto"],
+        true,
+    )?;
 
     Ok(())
 }

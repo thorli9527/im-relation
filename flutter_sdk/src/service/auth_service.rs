@@ -2,7 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::{
     api::app_api::{LoginRequest, LoginResult},
-    generated::message::{DeviceType as SocketDeviceType},
+    generated::message::DeviceType as SocketDeviceType,
     service::socket_client::{SocketClient, SocketConfig},
     service::user_service::UserService as LocalUserService,
 };

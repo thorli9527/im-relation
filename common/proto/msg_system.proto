@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+import "message.proto";
+
+// 系统/公告通道，承载账号级通知，与 friend/group 消息隔离。
+package msg_system_service;
+
+// 拉取系统消息请求
+message QuerySystemMessagesRequest {
+  // 接收者用户 ID
+  int64 uid = 1;
+  // 分页游标：消息 ID 上限（不含）
+  optional uint64 before_message_id = 2;
+  // 分页游标：时间上限（毫秒，不含）
+  optional int64 before_timestamp = 3;
+  // 返回条目上限，缺省 20
+  uint32 limit = 4;
+}
+
+service SystemMsgService {
+  // 写入一条系统/公告消息（使用 message.DomainMessage 协议，scene/category 可自定义为 system）。
+  rpc HandleSystemMessage(message.DomainMessage) returns (google.protobuf.Empty);
+  // 分页查询系统消息历史
+  rpc ListSystemMessages(QuerySystemMessagesRequest) returns (message.QueryMessagesResponse);
+}

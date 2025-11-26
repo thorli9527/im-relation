@@ -13,6 +13,7 @@ services=(
   group_service
   msg_friend
   msg_group
+  msg_system
   app_socket
   app_api
 )

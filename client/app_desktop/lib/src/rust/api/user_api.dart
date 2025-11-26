@@ -28,6 +28,9 @@ Future<FriendListResult> getFriendList({required FriendListQuery query}) =>
 Future<SearchUserResult> searchUser({required SearchUserQuery query}) =>
     RustLib.instance.api.crateApiUserApiSearchUser(query: query);
 
+Future<AddFriendResult> addFriend({required AddFriendPayload payload}) =>
+    RustLib.instance.api.crateApiUserApiAddFriend(payload: payload);
+
 Future<RecentConversationsResult> getRecentConversations({
   required RecentConversationsQuery query,
 }) => RustLib.instance.api.crateApiUserApiGetRecentConversations(query: query);

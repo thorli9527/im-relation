@@ -64,9 +64,11 @@ impl MessageService {
         Ok(MessageEntity {
             id: Some(row.get("id")?),
             conversation_id: row.get("conversation_id")?,
+            receiver_id: row.get("receiver_id").ok(),
             sender_type: row.get("sender_type")?,
             sender_id: row.get("sender_id")?,
             is_session_message: row.get::<_, i64>("is_session_message")? != 0,
+            is_chat_message: row.get::<_, i64>("is_chat_message")? != 0,
             content: serde_json::from_str(&row.get::<_, String>("content")?)
                 .unwrap_or_else(|_| serde_json::Value::Null),
             extra: row.get("extra")?,
@@ -96,9 +98,11 @@ impl MessageService {
         let columns = [
             "conversation_id",
             "scene",
+            "receiver_id",
             "sender_type",
             "sender_id",
             "is_session_message",
+            "is_chat_message",
             "content",
             "extra",
             "created_at",
@@ -116,9 +120,11 @@ impl MessageService {
         let values: Vec<Value> = vec![
             Value::Integer(entity.conversation_id),
             Value::Integer(entity.scene as i64),
+            Value::Integer(entity.receiver_id.unwrap_or_default()),
             Value::Integer(entity.sender_type as i64),
             Value::Integer(entity.sender_id),
             Value::Integer(entity.is_session_message as i64),
+            Value::Integer(entity.is_chat_message as i64),
             Value::Text(entity.content.to_string()),
             Value::Text(entity.extra.clone()),
             Value::Integer(entity.created_at),

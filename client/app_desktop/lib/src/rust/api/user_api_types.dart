@@ -7,7 +7,45 @@ import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `GroupMembersQueryParams`, `SessionTokenQuery`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`
+
+class AddFriendPayload {
+  /// 目标用户 id
+  final PlatformInt64 targetUid;
+
+  /// 附言/备注，可选
+  final String? reason;
+
+  /// 对方的备注，可选
+  final String? remark;
+
+  /// 我方期望的好友昵称（可选）
+  final String? nickname;
+
+  const AddFriendPayload({
+    required this.targetUid,
+    this.reason,
+    this.remark,
+    this.nickname,
+  });
+
+  @override
+  int get hashCode =>
+      targetUid.hashCode ^
+      reason.hashCode ^
+      remark.hashCode ^
+      nickname.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AddFriendPayload &&
+          runtimeType == other.runtimeType &&
+          targetUid == other.targetUid &&
+          reason == other.reason &&
+          remark == other.remark &&
+          nickname == other.nickname;
+}
 
 class UserInfoResult {
   final PlatformInt64 uid;
