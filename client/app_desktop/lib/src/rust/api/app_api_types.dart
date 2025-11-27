@@ -718,6 +718,7 @@ class UserProfile {
   final String avatar;
   final String? email;
   final String? phone;
+  final String nickname;
   final String? signature;
   final String? region;
   final int addFriendPolicy;
@@ -728,6 +729,7 @@ class UserProfile {
     required this.avatar,
     this.email,
     this.phone,
+    required this.nickname,
     this.signature,
     this.region,
     required this.addFriendPolicy,
@@ -740,6 +742,7 @@ class UserProfile {
       avatar.hashCode ^
       email.hashCode ^
       phone.hashCode ^
+      nickname.hashCode ^
       signature.hashCode ^
       region.hashCode ^
       addFriendPolicy.hashCode;
@@ -754,6 +757,7 @@ class UserProfile {
           avatar == other.avatar &&
           email == other.email &&
           phone == other.phone &&
+          nickname == other.nickname &&
           signature == other.signature &&
           region == other.region &&
           addFriendPolicy == other.addFriendPolicy;

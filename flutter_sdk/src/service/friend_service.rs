@@ -106,6 +106,36 @@ impl FriendService {
         Ok(())
     }
 
+    /// 确保好友记录存在，通常用于好友申请被同意后的落库。
+    pub fn ensure_friend(
+        &self,
+        friend_id: i64,
+        remark: Option<String>,
+        nickname: Option<String>,
+        created_at: i64,
+    ) -> Result<(), String> {
+        let mut entity = self
+            .get_by_friend_id(friend_id)?
+            .unwrap_or_else(|| FriendEntity::new(friend_id, created_at));
+        if let Some(r) = remark {
+            entity.remark = Some(r);
+        }
+        if let Some(nick) = nickname {
+            if !nick.trim().is_empty() {
+                entity.nickname = Some(nick);
+            }
+        }
+        if entity.created_at == 0 {
+            entity.created_at = created_at;
+        }
+        if entity.id.is_some() {
+            self.repo.update(entity)?;
+        } else {
+            self.repo.insert(entity)?;
+        }
+        Ok(())
+    }
+
     fn ensure_schema(&self) -> Result<(), String> {
         let conn = db::connection()?;
         let ddl = friend_table_def().create_table_sql();

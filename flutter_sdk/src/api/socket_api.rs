@@ -4,13 +4,16 @@ use bytes::BytesMut;
 use flutter_rust_bridge::frb;
 use prost::Message;
 use serde_json::{json, Value as JsonValue};
+use std::sync::Mutex;
 
 use crate::{
     api::errors::ApiError,
     domain::proto_adapter::{content_to_json, json_to_content},
     generated::message as msgpb,
     generated::socket as socket_proto,
+    frb_generated::StreamSink,
 };
+use once_cell::sync::OnceCell;
 
 /// FRB 导出：把 Content 的 JSON 结构编码为 pb 字节；需传入 proto_adapter 生成的 JSON（包含 raw）。
 #[frb]
@@ -74,4 +77,55 @@ fn server_msg_to_json(msg: socket_proto::ServerMsg) -> JsonValue {
         "payload": STANDARD.encode(msg.payload),
         "ts_ms": msg.ts_ms,
     })
+}
+
+/// 好友申请监听事件载体，直接复用 proto 字段并保留 remark/nickname。
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FriendRequestEvent {
+    pub request_id: u64,
+    pub from_uid: i64,
+    pub to_uid: i64,
+    pub reason: String,
+    pub created_at: i64,
+    pub remark: Option<String>,
+    pub nickname: Option<String>,
+}
+
+static FRIEND_REQUEST_SUBSCRIBERS: OnceCell<Mutex<Vec<StreamSink<FriendRequestEvent>>>> =
+    OnceCell::new();
+
+/// Flutter 端注册好友申请事件监听，收到 socket friend_business.Request 时触发。
+#[frb]
+pub fn subscribe_friend_request(sink: StreamSink<FriendRequestEvent>) {
+    let cell = FRIEND_REQUEST_SUBSCRIBERS.get_or_init(|| Mutex::new(Vec::new()));
+    if let Ok(mut guard) = cell.lock() {
+        guard.push(sink);
+    }
+}
+
+pub fn notify_friend_request(payload: &msgpb::FriendRequestPayload) {
+    if let Some(cell) = FRIEND_REQUEST_SUBSCRIBERS.get() {
+        if let Ok(mut guard) = cell.lock() {
+            let event = FriendRequestEvent {
+                request_id: payload.request_id,
+                from_uid: payload.from_uid,
+                to_uid: payload.to_uid,
+                reason: payload.reason.clone(),
+                created_at: payload.created_at,
+                remark: normalize_optional(&payload.remark),
+                nickname: normalize_optional(&payload.nickname),
+            };
+            guard.retain(|sink| sink.add(event.clone()).is_ok());
+        }
+    }
+}
+
+fn normalize_optional(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
 }

@@ -91,6 +91,23 @@ impl MessageService {
             .query_one(&conditions, Self::map_row)
             .map_err(|err| err.to_string())
     }
+
+    /// 计算某会话在指定游标之后的未读数量（使用 created_at 作为序列）。
+    pub fn count_unread_since(
+        &self,
+        conversation_id: i64,
+        scene: MessageScene,
+        last_read_seq: i64,
+    ) -> Result<i64, String> {
+        let conn = db::connection()?;
+        let sql = "SELECT COUNT(1) FROM message WHERE conversation_id = ?1 AND scene = ?2 AND created_at > ?3";
+        conn.query_row(
+            sql,
+            params![conversation_id, scene as i64, last_read_seq],
+            |row| row.get(0),
+        )
+        .map_err(|err| err.to_string())
+    }
 }
 
 impl MessageService {

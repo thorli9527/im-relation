@@ -30,3 +30,37 @@ pub fn sync_on_wake(session_token: String, reset_cursor: bool) -> Result<(), Str
     }
     service::sync_service::sync_incremental(&session_token)
 }
+
+#[frb]
+/// 清理本地用户缓存（消息/好友/会话等），仅保留设备 ID。
+pub fn reset_local_data_preserve_device() -> Result<(), String> {
+    use crate::common::db;
+    use rusqlite::params;
+
+    let device_id = crate::api::config_api::get_device_id()?;
+    let conn = db::connection()?;
+    let tables = [
+        "friend",
+        "friend_request",
+        "group",
+        "group_member",
+        "message",
+        "conversation",
+        "sync_state",
+        "read_cursor",
+        "user_info",
+        "group_request",
+    ];
+    for table in tables {
+        let _ = conn
+            .execute(&format!("DELETE FROM {}", table), params![])
+            .map_err(|e| e.to_string())?;
+    }
+    conn.execute("DELETE FROM config WHERE code != 'device_id'", params![])
+    .map_err(|e| e.to_string())?;
+    // 确保必要的初始行存在
+    let _ = service::sync_state_service::SyncStateService::ensure_row();
+    // 触发 device_id 生成/校验
+    let _ = crate::api::config_api::get_device_id();
+    Ok(())
+}

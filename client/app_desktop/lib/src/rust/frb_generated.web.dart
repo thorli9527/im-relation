@@ -12,6 +12,8 @@ import 'api/chat_api.dart';
 import 'api/config_api.dart';
 import 'api/errors.dart';
 import 'api/frb_types.dart';
+import 'api/friend_request_api.dart';
+import 'api/group_request_api.dart';
 import 'api/login_api.dart';
 import 'api/login_api_types.dart';
 import 'api/reg_api.dart';
@@ -24,9 +26,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'domain/conversation_entity.dart';
 import 'domain/friend_entity.dart';
+import 'domain/friend_request_entity.dart';
 import 'domain/group_entity.dart';
+import 'domain/group_request_entity.dart';
 import 'domain/message_entity.dart';
 import 'frb_generated.dart';
+import 'generated/message.dart';
 import 'lib.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
 
@@ -45,6 +50,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CrossPlatformFinalizerArg
   get rust_arc_decrement_strong_count_MessageEntityPtr => wire
       .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity;
+
+  @protected
+  AnyhowException dco_decode_AnyhowException(dynamic raw);
 
   @protected
   JsonValue
@@ -71,6 +79,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<FriendRequestEvent>
+  dco_decode_StreamSink_friend_request_event_Sse(dynamic raw);
+
+  @protected
   String dco_decode_String(dynamic raw);
 
   @protected
@@ -93,6 +105,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ApiError dco_decode_box_autoadd_api_error(dynamic raw);
+
+  @protected
+  bool dco_decode_box_autoadd_bool(dynamic raw);
 
   @protected
   BuildRegisterCodeRequest dco_decode_box_autoadd_build_register_code_request(
@@ -122,6 +137,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   FriendListQuery dco_decode_box_autoadd_friend_list_query(dynamic raw);
+
+  @protected
+  FriendRequestPayload dco_decode_box_autoadd_friend_request_payload(
+    dynamic raw,
+  );
 
   @protected
   GroupMember dco_decode_box_autoadd_group_member(dynamic raw);
@@ -237,6 +257,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   FriendPageResult dco_decode_friend_page_result(dynamic raw);
 
   @protected
+  FriendRequestEntity dco_decode_friend_request_entity(dynamic raw);
+
+  @protected
+  FriendRequestEvent dco_decode_friend_request_event(dynamic raw);
+
+  @protected
+  FriendRequestPageResult dco_decode_friend_request_page_result(dynamic raw);
+
+  @protected
+  FriendRequestPayload dco_decode_friend_request_payload(dynamic raw);
+
+  @protected
   FriendSummary dco_decode_friend_summary(dynamic raw);
 
   @protected
@@ -264,6 +296,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   GroupPageResult dco_decode_group_page_result(dynamic raw);
 
   @protected
+  GroupRequestEntity dco_decode_group_request_entity(dynamic raw);
+
+  @protected
+  GroupRequestPageResult dco_decode_group_request_page_result(dynamic raw);
+
+  @protected
   int dco_decode_i_32(dynamic raw);
 
   @protected
@@ -285,6 +323,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<FriendEntity> dco_decode_list_friend_entity(dynamic raw);
 
   @protected
+  List<FriendRequestEntity> dco_decode_list_friend_request_entity(dynamic raw);
+
+  @protected
   List<FriendSummary> dco_decode_list_friend_summary(dynamic raw);
 
   @protected
@@ -292,6 +333,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<GroupMember> dco_decode_list_group_member(dynamic raw);
+
+  @protected
+  List<GroupRequestEntity> dco_decode_list_group_request_entity(dynamic raw);
 
   @protected
   List<OnlineStatusEntry> dco_decode_list_online_status_entry(dynamic raw);
@@ -328,6 +372,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
+
+  @protected
+  bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
 
   @protected
   GroupMember? dco_decode_opt_box_autoadd_group_member(dynamic raw);
@@ -413,6 +460,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
+
+  @protected
   JsonValue
   sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(
     SseDeserializer deserializer,
@@ -435,6 +485,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(
     SseDeserializer deserializer,
   );
+
+  @protected
+  RustStreamSink<FriendRequestEvent>
+  sse_decode_StreamSink_friend_request_event_Sse(SseDeserializer deserializer);
 
   @protected
   String sse_decode_String(SseDeserializer deserializer);
@@ -461,6 +515,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ApiError sse_decode_box_autoadd_api_error(SseDeserializer deserializer);
+
+  @protected
+  bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
 
   @protected
   BuildRegisterCodeRequest sse_decode_box_autoadd_build_register_code_request(
@@ -494,6 +551,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   FriendListQuery sse_decode_box_autoadd_friend_list_query(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  FriendRequestPayload sse_decode_box_autoadd_friend_request_payload(
     SseDeserializer deserializer,
   );
 
@@ -639,6 +701,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   FriendPageResult sse_decode_friend_page_result(SseDeserializer deserializer);
 
   @protected
+  FriendRequestEntity sse_decode_friend_request_entity(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  FriendRequestEvent sse_decode_friend_request_event(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  FriendRequestPageResult sse_decode_friend_request_page_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  FriendRequestPayload sse_decode_friend_request_payload(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   FriendSummary sse_decode_friend_summary(SseDeserializer deserializer);
 
   @protected
@@ -676,6 +758,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   GroupPageResult sse_decode_group_page_result(SseDeserializer deserializer);
 
   @protected
+  GroupRequestEntity sse_decode_group_request_entity(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  GroupRequestPageResult sse_decode_group_request_page_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   int sse_decode_i_32(SseDeserializer deserializer);
 
   @protected
@@ -701,6 +793,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<FriendRequestEntity> sse_decode_list_friend_request_entity(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<FriendSummary> sse_decode_list_friend_summary(
     SseDeserializer deserializer,
   );
@@ -710,6 +807,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<GroupMember> sse_decode_list_group_member(SseDeserializer deserializer);
+
+  @protected
+  List<GroupRequestEntity> sse_decode_list_group_request_entity(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<OnlineStatusEntry> sse_decode_list_online_status_entry(
@@ -756,6 +858,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
+
+  @protected
+  bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
 
   @protected
   GroupMember? sse_decode_opt_box_autoadd_group_member(
@@ -859,6 +964,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_AnyhowException(
+    AnyhowException self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void
   sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(
     JsonValue self,
@@ -883,6 +994,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void
   sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(
     MessageEntity self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_friend_request_event_Sse(
+    RustStreamSink<FriendRequestEvent> self,
     SseSerializer serializer,
   );
 
@@ -923,6 +1040,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_build_register_code_request(
     BuildRegisterCodeRequest self,
     SseSerializer serializer,
@@ -961,6 +1081,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_friend_list_query(
     FriendListQuery self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_friend_request_payload(
+    FriendRequestPayload self,
     SseSerializer serializer,
   );
 
@@ -1148,6 +1274,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_friend_request_entity(
+    FriendRequestEntity self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_friend_request_event(
+    FriendRequestEvent self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_friend_request_page_result(
+    FriendRequestPageResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_friend_request_payload(
+    FriendRequestPayload self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_friend_summary(FriendSummary self, SseSerializer serializer);
 
   @protected
@@ -1193,6 +1343,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_group_request_entity(
+    GroupRequestEntity self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_group_request_page_result(
+    GroupRequestPageResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
 
   @protected
@@ -1221,6 +1383,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_friend_request_entity(
+    List<FriendRequestEntity> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_friend_summary(
     List<FriendSummary> self,
     SseSerializer serializer,
@@ -1235,6 +1403,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_group_member(
     List<GroupMember> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_group_request_entity(
+    List<GroupRequestEntity> self,
     SseSerializer serializer,
   );
 
@@ -1297,6 +1471,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_group_member(

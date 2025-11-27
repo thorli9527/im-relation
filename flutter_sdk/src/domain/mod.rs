@@ -1,24 +1,32 @@
 pub mod config_entity;
 pub mod conversation_entity;
 pub mod friend_entity;
+pub mod group_request_entity;
+pub mod friend_request_entity;
 pub mod group_entity;
 pub mod group_member_entity;
 pub mod message_entity;
 pub mod proto_adapter;
 pub mod sync_state_entity;
+pub mod read_cursor_entity;
 pub mod user_entity;
 pub use config_entity::*;
 pub use conversation_entity::*;
 pub use friend_entity::*;
+pub use group_request_entity::*;
+pub use friend_request_entity::*;
 pub use group_entity::*;
 pub use group_member_entity::*;
 pub use message_entity::*;
+pub use read_cursor_entity::*;
 pub use sync_state_entity::*;
 pub use user_entity::*;
 
 pub fn init() {
     config_entity::init();
     friend_entity::init();
+    group_request_entity::init();
+    friend_request_entity::init();
     conversation_entity::init();
     group_entity::init();
     group_member_entity::init();

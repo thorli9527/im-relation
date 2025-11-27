@@ -4,6 +4,7 @@ import 'package:app_desktop/src/rust/api/config_api.dart' as config_api;
 import 'package:app_desktop/src/rust/api/login_api.dart' as login_api;
 import 'package:app_desktop/src/rust/api/login_api_types.dart';
 import 'package:app_desktop/src/rust/api/app_api.dart' as app_api;
+import 'package:app_desktop/app_state.dart';
 import 'package:app_desktop/widgets/api_base_url.dart';
 import 'package:app_desktop/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,6 +22,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _passwordCtrl = TextEditingController();
   bool _loggingIn = false;
   static const _lastLoginKey = 'last_login_name';
+  static const _lastUidKey = 'last_uid';
 
   @override
   void initState() {
@@ -48,6 +50,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     await prefs.setString(_lastLoginKey, name);
   }
 
+  Future<void> _clearUserCache(SharedPreferences prefs) async {
+    // 保留 device_id，其它缓存清空
+    for (final key in prefs.getKeys()) {
+      if (key == 'device_id') continue;
+      await prefs.remove(key);
+    }
+    // 清空内存态
+    ref.read(friendsProvider.notifier).setFriends(const []);
+    ref.read(friendRequestsProvider.notifier).clear();
+    ref.read(selectedFriendProvider.notifier).state = null;
+  }
+
   Future<void> _openApiBaseDialog(BuildContext context) =>
       showApiBaseUrlDialog(context);
 
@@ -63,6 +77,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
     setState(() => _loggingIn = true);
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastUid = prefs.getInt(_lastUidKey);
       final deviceId = await config_api.getDeviceId();
       final req = LoginRequest(
         password: pwd,
@@ -71,7 +87,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         deviceId: deviceId,
       );
       final res = await login_api.login(payload: req);
+      final currentUid = res.uid.toInt();
+      if (lastUid != null && lastUid != currentUid) {
+        await _clearUserCache(prefs);
+      }
       await _saveLastLogin(target);
+      await prefs.setInt(_lastUidKey, currentUid);
       // 登录成功后触发一次增量同步，确保进入首页前数据最新。
       await app_api.syncOnWake(sessionToken: res.token, resetCursor: false);
       if (!mounted) return;

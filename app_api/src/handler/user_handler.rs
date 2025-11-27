@@ -635,6 +635,7 @@ fn user_entity_to_profile(entity: UserEntity) -> UserProfileResult {
         avatar: entity.avatar,
         email: entity.email,
         phone: entity.phone,
+        nickname: entity.nickname.unwrap_or_default(),
         signature,
         region,
         add_friend_policy: entity.allow_add_friend,

@@ -92,6 +92,7 @@ pub struct UserProfile {
     pub avatar: String,
     pub email: Option<String>,
     pub phone: Option<String>,
+    pub nickname: String,
     pub signature: Option<String>,
     pub region: Option<String>,
     pub add_friend_policy: i32,

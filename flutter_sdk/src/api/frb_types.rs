@@ -2,7 +2,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     common::repository::PageResult,
-    domain::{ConversationEntity, FriendEntity, GroupEntity, MessageEntity},
+    domain::{
+        ConversationEntity, FriendEntity, FriendRequestEntity, GroupEntity, GroupRequestEntity,
+        MessageEntity,
+    },
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,6 +68,40 @@ pub struct MessagePageResult {
 
 impl From<PageResult<MessageEntity>> for MessagePageResult {
     fn from(value: PageResult<MessageEntity>) -> Self {
+        Self {
+            items: value.items,
+            has_next: value.has_next,
+            has_prev: value.has_prev,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupRequestPageResult {
+    pub items: Vec<GroupRequestEntity>,
+    pub has_next: bool,
+    pub has_prev: bool,
+}
+
+impl From<PageResult<GroupRequestEntity>> for GroupRequestPageResult {
+    fn from(value: PageResult<GroupRequestEntity>) -> Self {
+        Self {
+            items: value.items,
+            has_next: value.has_next,
+            has_prev: value.has_prev,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FriendRequestPageResult {
+    pub items: Vec<FriendRequestEntity>,
+    pub has_next: bool,
+    pub has_prev: bool,
+}
+
+impl From<PageResult<FriendRequestEntity>> for FriendRequestPageResult {
+    fn from(value: PageResult<FriendRequestEntity>) -> Self {
         Self {
             items: value.items,
             has_next: value.has_next,

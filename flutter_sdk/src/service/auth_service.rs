@@ -25,6 +25,13 @@ pub fn handle_login(payload: &LoginRequest, result: &LoginResult) -> Result<i64,
     let device_type =
         SocketDeviceType::from_i32(payload.device_type).unwrap_or(SocketDeviceType::Unknown);
 
+    // 如果本地已有缓存用户且 uid 不一致，清理本地数据（保留 device_id）
+    if let Ok(Some(local)) = LocalUserService::get().latest_user() {
+        if local.uid != result.uid {
+            let _ = crate::api::app_api::reset_local_data_preserve_device();
+        }
+    }
+
     // 缓存当前用户资料到本地 user_info 表，便于会话/好友展示。
     LocalUserService::get().upsert_from_login(result)?;
     // 拉取增量消息并更新游标

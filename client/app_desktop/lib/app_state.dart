@@ -7,6 +7,7 @@ class Contact {
   Contact({
     required this.name,
     required this.subtitle,
+    this.nickname,
     this.friendId,
     this.color,
     this.avatarUrl,
@@ -15,6 +16,7 @@ class Contact {
 
   final String name;
   final String subtitle;
+  final String? nickname;
   final int? friendId;
   final Color? color;
   final String? avatarUrl;
@@ -85,13 +87,21 @@ final friendsProvider =
 class FriendRequest {
   FriendRequest({
     required this.name,
+    required this.fromUid,
+    this.nickname,
     this.avatarUrl,
     this.remark,
+    this.signature,
+    this.accepted = false,
   });
 
   final String name;
+  final int fromUid;
+  final String? nickname;
   final String? avatarUrl;
   final String? remark;
+  final String? signature;
+  final bool accepted;
 }
 
 class FriendRequestNotifier extends StateNotifier<List<FriendRequest>> {

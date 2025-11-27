@@ -61,7 +61,7 @@ class SidebarList extends ConsumerWidget {
                 child: Text(c.name.characters.first),
               ),
           title: Text(
-            c.name,
+            c.nickname ?? c.name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(

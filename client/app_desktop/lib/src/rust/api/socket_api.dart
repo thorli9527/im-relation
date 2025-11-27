@@ -4,10 +4,12 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
+import '../generated/message.dart';
 import '../lib.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `content_from_json`, `encode`, `server_msg_to_json`
+// These functions are ignored because they are not marked as `pub`: `content_from_json`, `encode`, `normalize_optional`, `server_msg_to_json`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
 
 /// FRB 导出：把 Content 的 JSON 结构编码为 pb 字节；需传入 proto_adapter 生成的 JSON（包含 raw）。
 Future<Uint8List> encodeContent({required JsonValue content}) =>
@@ -31,3 +33,54 @@ Future<Uint8List> packClientMsg({
 /// 解包下行原始字节为 JSON，含消息 ID/时间戳/base64 载荷。
 Future<JsonValue> unpackServerMsg({required List<int> bytes}) =>
     RustLib.instance.api.crateApiSocketApiUnpackServerMsg(bytes: bytes);
+
+/// Flutter 端注册好友申请事件监听，收到 socket friend_business.Request 时触发。
+Stream<FriendRequestEvent> subscribeFriendRequest() =>
+    RustLib.instance.api.crateApiSocketApiSubscribeFriendRequest();
+
+Future<void> notifyFriendRequest({required FriendRequestPayload payload}) =>
+    RustLib.instance.api.crateApiSocketApiNotifyFriendRequest(payload: payload);
+
+/// 好友申请监听事件载体，直接复用 proto 字段并保留 remark/nickname。
+class FriendRequestEvent {
+  final BigInt requestId;
+  final PlatformInt64 fromUid;
+  final PlatformInt64 toUid;
+  final String reason;
+  final PlatformInt64 createdAt;
+  final String? remark;
+  final String? nickname;
+
+  const FriendRequestEvent({
+    required this.requestId,
+    required this.fromUid,
+    required this.toUid,
+    required this.reason,
+    required this.createdAt,
+    this.remark,
+    this.nickname,
+  });
+
+  @override
+  int get hashCode =>
+      requestId.hashCode ^
+      fromUid.hashCode ^
+      toUid.hashCode ^
+      reason.hashCode ^
+      createdAt.hashCode ^
+      remark.hashCode ^
+      nickname.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FriendRequestEvent &&
+          runtimeType == other.runtimeType &&
+          requestId == other.requestId &&
+          fromUid == other.fromUid &&
+          toUid == other.toUid &&
+          reason == other.reason &&
+          createdAt == other.createdAt &&
+          remark == other.remark &&
+          nickname == other.nickname;
+}

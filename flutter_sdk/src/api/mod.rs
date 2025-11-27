@@ -4,6 +4,8 @@ pub mod chat_api;
 pub mod config_api;
 pub mod errors;
 pub mod frb_types;
+pub mod group_request_api;
+pub mod friend_request_api;
 pub mod login_api;
 pub mod login_api_types;
 pub mod reg_api;

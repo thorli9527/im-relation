@@ -13,7 +13,7 @@ pub fn init() {
     let _ = &*MESSAGE_TABLE_DEF;
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 #[repr(i64)]
 pub enum MessageScene {

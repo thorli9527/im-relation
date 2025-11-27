@@ -285,6 +285,7 @@ class SidebarContactHeader extends ConsumerWidget {
             Contact(
               name: user.username,
               subtitle: l10n.uidWithValue(uid.toString()),
+              nickname: user.nickname,
               friendId: uid,
               avatarUrl: user.avatar.isNotEmpty ? user.avatar : null,
             ),
@@ -412,6 +413,7 @@ class SidebarContactHeader extends ConsumerWidget {
                                     subtitle: l10n.uidWithValue(
                                       uid.toString(),
                                     ),
+                                    nickname: user.nickname,
                                     friendId: uid,
                                     avatarUrl: user.avatar.isNotEmpty
                                         ? user.avatar
@@ -586,6 +588,7 @@ class SidebarContactHeader extends ConsumerWidget {
                                     subtitle: l10n.uidWithValue(
                                       uid.toString(),
                                     ),
+                                    nickname: user.nickname,
                                     friendId: uid,
                                     avatarUrl: user.avatar.isNotEmpty
                                         ? user.avatar
