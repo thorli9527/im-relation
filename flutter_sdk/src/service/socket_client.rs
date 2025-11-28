@@ -3,7 +3,6 @@ use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
         mpsc::{self, Receiver, Sender},
-        Mutex,
     },
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -28,6 +27,7 @@ use bytes::{Bytes, BytesMut};
 use futures_util::sink::SinkExt;
 use log::{debug, info, warn};
 use once_cell::sync::OnceCell;
+use parking_lot::{Mutex, MutexGuard};
 use prost::Message;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc::{self as tokio_mpsc, UnboundedReceiver, UnboundedSender};
@@ -79,8 +79,13 @@ impl SocketClient {
             .map_err(|_| "SocketClient already initialized".to_string())
     }
 
+    fn lock_inner(&self) -> MutexGuard<'_, Option<SocketControl>> {
+        // parking_lot locks are not poisoned, so we can just lock directly.
+        self.inner.lock()
+    }
+
     pub fn connect(&self, config: SocketConfig) -> Result<(), String> {
-        let mut guard = self.inner.lock().map_err(|_| "socket lock poisoned")?;
+        let mut guard = self.lock_inner();
         // Clean up previous loop if already connected.
         if let Some(control) = guard.take() {
             let _ = control.tx.send(SocketCommand::Shutdown);
@@ -119,7 +124,7 @@ impl SocketClient {
 
     pub fn disconnect(&self) -> Result<(), String> {
         // Gracefully stop the background thread and drop channels.
-        let mut guard = self.inner.lock().map_err(|_| "socket lock poisoned")?;
+        let mut guard = self.lock_inner();
         if let Some(control) = guard.take() {
             let _ = control.tx.send(SocketCommand::Shutdown);
             let _ = control.handle.join();
@@ -128,7 +133,7 @@ impl SocketClient {
     }
 
     pub fn status(&self) -> Result<bool, String> {
-        let guard = self.inner.lock().map_err(|_| "socket lock poisoned")?;
+        let guard = self.lock_inner();
         Ok(guard.is_some())
     }
 
@@ -138,7 +143,7 @@ impl SocketClient {
             notify_connection_success();
             return Ok(());
         }
-        let guard = self.inner.lock().map_err(|_| "socket lock poisoned")?;
+        let guard = self.lock_inner();
         if let Some(control) = guard.as_ref() {
             control
                 .content_tx

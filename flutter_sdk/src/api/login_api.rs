@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use flutter_rust_bridge::frb;
-use log::{error, info};
+use log::{error, info, warn};
 
 use crate::api::errors::ApiError;
 use crate::api::login_api_types::*;
@@ -30,18 +30,23 @@ pub fn logout() -> Result<(), String> {
     if let Some(user) = UserService::get().latest_user()? {
         if let Some(token) = user.session_token {
             if !token.trim().is_empty() {
-                let resp: LogoutResult = post_request(
+                match post_request::<LogoutRequest, LogoutResult>(
                     "/logout",
-                    &LogoutRequest {
-                        session_token: token,
-                    },
-                )?;
-                if !resp.ok {
-                    return Err("logout failed on server".into());
+                    &LogoutRequest { session_token: token },
+                ) {
+                    Ok(resp) => {
+                        if !resp.ok {
+                            warn!("logout failed on server");
+                        }
+                    }
+                    Err(err) => warn!("logout request error: {}", err),
                 }
             }
         }
     }
+
+    // 主动断开 socket 连接，避免残留后台线程。
+    let _ = SocketClient::get().disconnect();
 
     auth_service::logout().map_err(|err| ApiError::system(err).into_string())
 }
