@@ -6,94 +6,71 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `GroupMembersQueryParams`, `SessionTokenQuery`
+
+            // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `GroupMembersQueryParams`, `SessionTokenQuery`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`
 
-class AddFriendPayload {
-  /// 目标用户 id
-  final PlatformInt64 targetUid;
 
-  /// 附言/备注，可选
-  final String? reason;
+            
 
-  /// 对方的备注，可选
-  final String? remark;
+            class AddFriendPayload  {
+                /// 目标用户 id
+final PlatformInt64 targetUid;
+/// 附言/备注，可选
+final String? reason;
+/// 对方的备注，可选
+final String? remark;
+/// 我方期望的好友昵称（可选）
+final String? nickname;
 
-  /// 我方期望的好友昵称（可选）
-  final String? nickname;
+                const AddFriendPayload({required this.targetUid ,this.reason ,this.remark ,this.nickname ,});
 
-  const AddFriendPayload({
-    required this.targetUid,
-    this.reason,
-    this.remark,
-    this.nickname,
-  });
+                
+                
 
-  @override
-  int get hashCode =>
-      targetUid.hashCode ^
-      reason.hashCode ^
-      remark.hashCode ^
-      nickname.hashCode;
+                
+        @override
+        int get hashCode => targetUid.hashCode^reason.hashCode^remark.hashCode^nickname.hashCode;
+        
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is AddFriendPayload &&
-          runtimeType == other.runtimeType &&
-          targetUid == other.targetUid &&
-          reason == other.reason &&
-          remark == other.remark &&
-          nickname == other.nickname;
-}
+                
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is AddFriendPayload &&
+                runtimeType == other.runtimeType
+                && targetUid == other.targetUid&& reason == other.reason&& remark == other.remark&& nickname == other.nickname;
+        
+            }
 
-class UserInfoResult {
-  final PlatformInt64 uid;
-  final String name;
-  final String avatar;
-  final String? nickname;
-  final int gender;
-  final String? country;
-  final String? language;
-  final String? email;
-  final String? phone;
+class UserInfoResult  {
+                final PlatformInt64 uid;
+final String name;
+final String avatar;
+final String? nickname;
+final int gender;
+final String? country;
+final String? language;
+final String? email;
+final String? phone;
 
-  const UserInfoResult({
-    required this.uid,
-    required this.name,
-    required this.avatar,
-    this.nickname,
-    required this.gender,
-    this.country,
-    this.language,
-    this.email,
-    this.phone,
-  });
+                const UserInfoResult({required this.uid ,required this.name ,required this.avatar ,this.nickname ,required this.gender ,this.country ,this.language ,this.email ,this.phone ,});
 
-  @override
-  int get hashCode =>
-      uid.hashCode ^
-      name.hashCode ^
-      avatar.hashCode ^
-      nickname.hashCode ^
-      gender.hashCode ^
-      country.hashCode ^
-      language.hashCode ^
-      email.hashCode ^
-      phone.hashCode;
+                
+                
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is UserInfoResult &&
-          runtimeType == other.runtimeType &&
-          uid == other.uid &&
-          name == other.name &&
-          avatar == other.avatar &&
-          nickname == other.nickname &&
-          gender == other.gender &&
-          country == other.country &&
-          language == other.language &&
-          email == other.email &&
-          phone == other.phone;
-}
+                
+        @override
+        int get hashCode => uid.hashCode^name.hashCode^avatar.hashCode^nickname.hashCode^gender.hashCode^country.hashCode^language.hashCode^email.hashCode^phone.hashCode;
+        
+
+                
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is UserInfoResult &&
+                runtimeType == other.runtimeType
+                && uid == other.uid&& name == other.name&& avatar == other.avatar&& nickname == other.nickname&& gender == other.gender&& country == other.country&& language == other.language&& email == other.email&& phone == other.phone;
+        
+            }
+            

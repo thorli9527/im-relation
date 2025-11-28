@@ -6,87 +6,89 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
 
-class BuildRegisterCodeRequest {
-  final String password;
-  final String target;
+            // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
 
-  /// 可选语言
-  final String? language;
 
-  /// 可选国家
-  final String? country;
+            
 
-  /// 可选性别
-  final int? gender;
+            class BuildRegisterCodeRequest  {
+                final String password;
+final String target;
+/// 可选语言
+final String? language;
+/// 可选国家
+final String? country;
+/// 可选性别
+final int? gender;
+/// 可选昵称
+final String? nickname;
 
-  /// 可选昵称
-  final String? nickname;
+                const BuildRegisterCodeRequest({required this.password ,required this.target ,this.language ,this.country ,this.gender ,this.nickname ,});
 
-  const BuildRegisterCodeRequest({
-    required this.password,
-    required this.target,
-    this.language,
-    this.country,
-    this.gender,
-    this.nickname,
-  });
+                
+                
 
-  @override
-  int get hashCode =>
-      password.hashCode ^
-      target.hashCode ^
-      language.hashCode ^
-      country.hashCode ^
-      gender.hashCode ^
-      nickname.hashCode;
+                
+        @override
+        int get hashCode => password.hashCode^target.hashCode^language.hashCode^country.hashCode^gender.hashCode^nickname.hashCode;
+        
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is BuildRegisterCodeRequest &&
-          runtimeType == other.runtimeType &&
-          password == other.password &&
-          target == other.target &&
-          language == other.language &&
-          country == other.country &&
-          gender == other.gender &&
-          nickname == other.nickname;
-}
+                
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is BuildRegisterCodeRequest &&
+                runtimeType == other.runtimeType
+                && password == other.password&& target == other.target&& language == other.language&& country == other.country&& gender == other.gender&& nickname == other.nickname;
+        
+            }
 
-class BuildRegisterCodeResponse {
-  final String regId;
-  final PlatformInt64 uid;
+class BuildRegisterCodeResponse  {
+                final String regId;
+final PlatformInt64 uid;
 
-  const BuildRegisterCodeResponse({required this.regId, required this.uid});
+                const BuildRegisterCodeResponse({required this.regId ,required this.uid ,});
 
-  @override
-  int get hashCode => regId.hashCode ^ uid.hashCode;
+                
+                
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is BuildRegisterCodeResponse &&
-          runtimeType == other.runtimeType &&
-          regId == other.regId &&
-          uid == other.uid;
-}
+                
+        @override
+        int get hashCode => regId.hashCode^uid.hashCode;
+        
 
-class VerifyRegisterCodeRequest {
-  final String regId;
-  final String code;
+                
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is BuildRegisterCodeResponse &&
+                runtimeType == other.runtimeType
+                && regId == other.regId&& uid == other.uid;
+        
+            }
 
-  const VerifyRegisterCodeRequest({required this.regId, required this.code});
+class VerifyRegisterCodeRequest  {
+                final String regId;
+final String code;
 
-  @override
-  int get hashCode => regId.hashCode ^ code.hashCode;
+                const VerifyRegisterCodeRequest({required this.regId ,required this.code ,});
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is VerifyRegisterCodeRequest &&
-          runtimeType == other.runtimeType &&
-          regId == other.regId &&
-          code == other.code;
-}
+                
+                
+
+                
+        @override
+        int get hashCode => regId.hashCode^code.hashCode;
+        
+
+                
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is VerifyRegisterCodeRequest &&
+                runtimeType == other.runtimeType
+                && regId == other.regId&& code == other.code;
+        
+            }
+            

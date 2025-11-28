@@ -8,11 +8,11 @@ import '../frb_generated.dart';
 import 'frb_types.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-/// 分页获取本地已同步的好友申请记录。
-Future<FriendRequestPageResult> getFriendRequestPage({
-  required int page,
-  required int pageSize,
-}) => RustLib.instance.api.crateApiFriendRequestApiGetFriendRequestPage(
-  page: page,
-  pageSize: pageSize,
-);
+
+            
+
+            /// 分页获取本地已同步的好友申请记录。
+Future<FriendRequestPageResult>  getFriendRequestPage({required int page , required int pageSize }) => RustLib.instance.api.crateApiFriendRequestApiGetFriendRequestPage(page: page, pageSize: pageSize);
+
+            
+            

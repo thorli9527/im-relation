@@ -6,147 +6,120 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `LogoutRequest`, `LogoutResult`
+
+            // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `LogoutRequest`, `LogoutResult`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
-class LoginRequest {
-  final String password;
-  final String target;
-  final int deviceType;
-  final String deviceId;
 
-  const LoginRequest({
-    required this.password,
-    required this.target,
-    required this.deviceType,
-    required this.deviceId,
-  });
+            
 
-  @override
-  int get hashCode =>
-      password.hashCode ^
-      target.hashCode ^
-      deviceType.hashCode ^
-      deviceId.hashCode;
+            class LoginRequest  {
+                final String password;
+final String target;
+final int deviceType;
+final String deviceId;
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is LoginRequest &&
-          runtimeType == other.runtimeType &&
-          password == other.password &&
-          target == other.target &&
-          deviceType == other.deviceType &&
-          deviceId == other.deviceId;
-}
+                const LoginRequest({required this.password ,required this.target ,required this.deviceType ,required this.deviceId ,});
 
-class LoginResult {
-  final String token;
-  final BigInt expiresAt;
-  final String socketAddr;
-  final String avatar;
-  final String? email;
-  final String? phone;
-  final String name;
-  final PlatformInt64 uid;
-  final String? language;
-  final String? country;
-  final String? nickname;
-  final int gender;
-  final int version;
+                
+                
 
-  const LoginResult({
-    required this.token,
-    required this.expiresAt,
-    required this.socketAddr,
-    required this.avatar,
-    this.email,
-    this.phone,
-    required this.name,
-    required this.uid,
-    this.language,
-    this.country,
-    this.nickname,
-    required this.gender,
-    required this.version,
-  });
+                
+        @override
+        int get hashCode => password.hashCode^target.hashCode^deviceType.hashCode^deviceId.hashCode;
+        
 
-  @override
-  int get hashCode =>
-      token.hashCode ^
-      expiresAt.hashCode ^
-      socketAddr.hashCode ^
-      avatar.hashCode ^
-      email.hashCode ^
-      phone.hashCode ^
-      name.hashCode ^
-      uid.hashCode ^
-      language.hashCode ^
-      country.hashCode ^
-      nickname.hashCode ^
-      gender.hashCode ^
-      version.hashCode;
+                
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is LoginRequest &&
+                runtimeType == other.runtimeType
+                && password == other.password&& target == other.target&& deviceType == other.deviceType&& deviceId == other.deviceId;
+        
+            }
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is LoginResult &&
-          runtimeType == other.runtimeType &&
-          token == other.token &&
-          expiresAt == other.expiresAt &&
-          socketAddr == other.socketAddr &&
-          avatar == other.avatar &&
-          email == other.email &&
-          phone == other.phone &&
-          name == other.name &&
-          uid == other.uid &&
-          language == other.language &&
-          country == other.country &&
-          nickname == other.nickname &&
-          gender == other.gender &&
-          version == other.version;
-}
+class LoginResult  {
+                final String token;
+final BigInt expiresAt;
+final String socketAddr;
+final String avatar;
+final String? email;
+final String? phone;
+final String name;
+final PlatformInt64 uid;
+final String? language;
+final String? country;
+final String? nickname;
+final int gender;
+final int version;
 
-class SessionValidateRequest {
-  final String sessionToken;
+                const LoginResult({required this.token ,required this.expiresAt ,required this.socketAddr ,required this.avatar ,this.email ,this.phone ,required this.name ,required this.uid ,this.language ,this.country ,this.nickname ,required this.gender ,required this.version ,});
 
-  const SessionValidateRequest({required this.sessionToken});
+                
+                
 
-  @override
-  int get hashCode => sessionToken.hashCode;
+                
+        @override
+        int get hashCode => token.hashCode^expiresAt.hashCode^socketAddr.hashCode^avatar.hashCode^email.hashCode^phone.hashCode^name.hashCode^uid.hashCode^language.hashCode^country.hashCode^nickname.hashCode^gender.hashCode^version.hashCode;
+        
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is SessionValidateRequest &&
-          runtimeType == other.runtimeType &&
-          sessionToken == other.sessionToken;
-}
+                
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is LoginResult &&
+                runtimeType == other.runtimeType
+                && token == other.token&& expiresAt == other.expiresAt&& socketAddr == other.socketAddr&& avatar == other.avatar&& email == other.email&& phone == other.phone&& name == other.name&& uid == other.uid&& language == other.language&& country == other.country&& nickname == other.nickname&& gender == other.gender&& version == other.version;
+        
+            }
 
-class SessionValidationResult {
-  final bool ok;
-  final PlatformInt64 uid;
-  final BigInt expiresAt;
-  final String token;
+class SessionValidateRequest  {
+                final String sessionToken;
 
-  const SessionValidationResult({
-    required this.ok,
-    required this.uid,
-    required this.expiresAt,
-    required this.token,
-  });
+                const SessionValidateRequest({required this.sessionToken ,});
 
-  @override
-  int get hashCode =>
-      ok.hashCode ^ uid.hashCode ^ expiresAt.hashCode ^ token.hashCode;
+                
+                
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is SessionValidationResult &&
-          runtimeType == other.runtimeType &&
-          ok == other.ok &&
-          uid == other.uid &&
-          expiresAt == other.expiresAt &&
-          token == other.token;
-}
+                
+        @override
+        int get hashCode => sessionToken.hashCode;
+        
+
+                
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is SessionValidateRequest &&
+                runtimeType == other.runtimeType
+                && sessionToken == other.sessionToken;
+        
+            }
+
+class SessionValidationResult  {
+                final bool ok;
+final PlatformInt64 uid;
+final BigInt expiresAt;
+final String token;
+
+                const SessionValidationResult({required this.ok ,required this.uid ,required this.expiresAt ,required this.token ,});
+
+                
+                
+
+                
+        @override
+        int get hashCode => ok.hashCode^uid.hashCode^expiresAt.hashCode^token.hashCode;
+        
+
+                
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is SessionValidationResult &&
+                runtimeType == other.runtimeType
+                && ok == other.ok&& uid == other.uid&& expiresAt == other.expiresAt&& token == other.token;
+        
+            }
+            

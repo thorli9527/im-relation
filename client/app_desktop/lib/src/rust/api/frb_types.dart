@@ -12,148 +12,159 @@ import '../domain/message_entity.dart';
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `from`, `from`, `from`, `from`
 
-class ConversationPageResult {
-  final List<ConversationEntity> items;
-  final bool hasNext;
-  final bool hasPrev;
+            // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `from`, `from`, `from`, `from`
 
-  const ConversationPageResult({
-    required this.items,
-    required this.hasNext,
-    required this.hasPrev,
-  });
 
-  @override
-  int get hashCode => items.hashCode ^ hasNext.hashCode ^ hasPrev.hashCode;
+            
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is ConversationPageResult &&
-          runtimeType == other.runtimeType &&
-          items == other.items &&
-          hasNext == other.hasNext &&
-          hasPrev == other.hasPrev;
-}
+            class ConversationPageResult  {
+                final List<ConversationEntity> items;
+final bool hasNext;
+final bool hasPrev;
 
-class FriendPageResult {
-  final List<FriendEntity> items;
-  final bool hasNext;
-  final bool hasPrev;
+                const ConversationPageResult({required this.items ,required this.hasNext ,required this.hasPrev ,});
 
-  const FriendPageResult({
-    required this.items,
-    required this.hasNext,
-    required this.hasPrev,
-  });
+                
+                
 
-  @override
-  int get hashCode => items.hashCode ^ hasNext.hashCode ^ hasPrev.hashCode;
+                
+        @override
+        int get hashCode => items.hashCode^hasNext.hashCode^hasPrev.hashCode;
+        
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is FriendPageResult &&
-          runtimeType == other.runtimeType &&
-          items == other.items &&
-          hasNext == other.hasNext &&
-          hasPrev == other.hasPrev;
-}
+                
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is ConversationPageResult &&
+                runtimeType == other.runtimeType
+                && items == other.items&& hasNext == other.hasNext&& hasPrev == other.hasPrev;
+        
+            }
 
-class FriendRequestPageResult {
-  final List<FriendRequestEntity> items;
-  final bool hasNext;
-  final bool hasPrev;
+class FriendPageResult  {
+                final List<FriendEntity> items;
+final bool hasNext;
+final bool hasPrev;
 
-  const FriendRequestPageResult({
-    required this.items,
-    required this.hasNext,
-    required this.hasPrev,
-  });
+                const FriendPageResult({required this.items ,required this.hasNext ,required this.hasPrev ,});
 
-  @override
-  int get hashCode => items.hashCode ^ hasNext.hashCode ^ hasPrev.hashCode;
+                
+                
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is FriendRequestPageResult &&
-          runtimeType == other.runtimeType &&
-          items == other.items &&
-          hasNext == other.hasNext &&
-          hasPrev == other.hasPrev;
-}
+                
+        @override
+        int get hashCode => items.hashCode^hasNext.hashCode^hasPrev.hashCode;
+        
 
-class GroupPageResult {
-  final List<GroupEntity> items;
-  final bool hasNext;
-  final bool hasPrev;
+                
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is FriendPageResult &&
+                runtimeType == other.runtimeType
+                && items == other.items&& hasNext == other.hasNext&& hasPrev == other.hasPrev;
+        
+            }
 
-  const GroupPageResult({
-    required this.items,
-    required this.hasNext,
-    required this.hasPrev,
-  });
+class FriendRequestPageResult  {
+                final List<FriendRequestEntity> items;
+final bool hasNext;
+final bool hasPrev;
 
-  @override
-  int get hashCode => items.hashCode ^ hasNext.hashCode ^ hasPrev.hashCode;
+                const FriendRequestPageResult({required this.items ,required this.hasNext ,required this.hasPrev ,});
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is GroupPageResult &&
-          runtimeType == other.runtimeType &&
-          items == other.items &&
-          hasNext == other.hasNext &&
-          hasPrev == other.hasPrev;
-}
+                
+                
 
-class GroupRequestPageResult {
-  final List<GroupRequestEntity> items;
-  final bool hasNext;
-  final bool hasPrev;
+                
+        @override
+        int get hashCode => items.hashCode^hasNext.hashCode^hasPrev.hashCode;
+        
 
-  const GroupRequestPageResult({
-    required this.items,
-    required this.hasNext,
-    required this.hasPrev,
-  });
+                
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is FriendRequestPageResult &&
+                runtimeType == other.runtimeType
+                && items == other.items&& hasNext == other.hasNext&& hasPrev == other.hasPrev;
+        
+            }
 
-  @override
-  int get hashCode => items.hashCode ^ hasNext.hashCode ^ hasPrev.hashCode;
+class GroupPageResult  {
+                final List<GroupEntity> items;
+final bool hasNext;
+final bool hasPrev;
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is GroupRequestPageResult &&
-          runtimeType == other.runtimeType &&
-          items == other.items &&
-          hasNext == other.hasNext &&
-          hasPrev == other.hasPrev;
-}
+                const GroupPageResult({required this.items ,required this.hasNext ,required this.hasPrev ,});
 
-class MessagePageResult {
-  final List<MessageEntity> items;
-  final bool hasNext;
-  final bool hasPrev;
+                
+                
 
-  const MessagePageResult({
-    required this.items,
-    required this.hasNext,
-    required this.hasPrev,
-  });
+                
+        @override
+        int get hashCode => items.hashCode^hasNext.hashCode^hasPrev.hashCode;
+        
 
-  @override
-  int get hashCode => items.hashCode ^ hasNext.hashCode ^ hasPrev.hashCode;
+                
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is GroupPageResult &&
+                runtimeType == other.runtimeType
+                && items == other.items&& hasNext == other.hasNext&& hasPrev == other.hasPrev;
+        
+            }
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is MessagePageResult &&
-          runtimeType == other.runtimeType &&
-          items == other.items &&
-          hasNext == other.hasNext &&
-          hasPrev == other.hasPrev;
-}
+class GroupRequestPageResult  {
+                final List<GroupRequestEntity> items;
+final bool hasNext;
+final bool hasPrev;
+
+                const GroupRequestPageResult({required this.items ,required this.hasNext ,required this.hasPrev ,});
+
+                
+                
+
+                
+        @override
+        int get hashCode => items.hashCode^hasNext.hashCode^hasPrev.hashCode;
+        
+
+                
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is GroupRequestPageResult &&
+                runtimeType == other.runtimeType
+                && items == other.items&& hasNext == other.hasNext&& hasPrev == other.hasPrev;
+        
+            }
+
+class MessagePageResult  {
+                final List<MessageEntity> items;
+final bool hasNext;
+final bool hasPrev;
+
+                const MessagePageResult({required this.items ,required this.hasNext ,required this.hasPrev ,});
+
+                
+                
+
+                
+        @override
+        int get hashCode => items.hashCode^hasNext.hashCode^hasPrev.hashCode;
+        
+
+                
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is MessagePageResult &&
+                runtimeType == other.runtimeType
+                && items == other.items&& hasNext == other.hasNext&& hasPrev == other.hasPrev;
+        
+            }
+            

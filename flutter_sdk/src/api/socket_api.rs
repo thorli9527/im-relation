@@ -95,6 +95,17 @@ pub struct FriendRequestEvent {
 static FRIEND_REQUEST_SUBSCRIBERS: OnceCell<Mutex<Vec<StreamSink<FriendRequestEvent>>>> =
     OnceCell::new();
 
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemNoticeEvent {
+    pub business_type: i32,
+    pub title: String,
+    pub detail: String,
+}
+
+static SYSTEM_NOTICE_SUBSCRIBERS: OnceCell<Mutex<Vec<StreamSink<SystemNoticeEvent>>>> =
+    OnceCell::new();
+
 /// Flutter 端注册好友申请事件监听，收到 socket friend_business.Request 时触发。
 #[frb]
 pub fn subscribe_friend_request(sink: StreamSink<FriendRequestEvent>) {
@@ -116,6 +127,23 @@ pub fn notify_friend_request(payload: &msgpb::FriendRequestPayload) {
                 remark: normalize_optional(&payload.remark),
                 nickname: normalize_optional(&payload.nickname),
             };
+            guard.retain(|sink| sink.add(event.clone()).is_ok());
+        }
+    }
+}
+
+/// Flutter 端注册系统通知监听（目前用于被动下线提醒）。
+#[frb]
+pub fn subscribe_system_notice(sink: StreamSink<SystemNoticeEvent>) {
+    let cell = SYSTEM_NOTICE_SUBSCRIBERS.get_or_init(|| Mutex::new(Vec::new()));
+    if let Ok(mut guard) = cell.lock() {
+        guard.push(sink);
+    }
+}
+
+pub fn notify_system_notice(event: SystemNoticeEvent) {
+    if let Some(cell) = SYSTEM_NOTICE_SUBSCRIBERS.get() {
+        if let Ok(mut guard) = cell.lock() {
             guard.retain(|sink| sink.add(event.clone()).is_ok());
         }
     }

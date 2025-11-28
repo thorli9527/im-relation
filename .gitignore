@@ -1,8 +1,8 @@
 # OS & Editor files
 .DS_Store
 .idea
-.vscode/
-/.dart_tool/
+.vscode
+.dart_tool
 build
 *.sqlite
 debug
@@ -12,5 +12,6 @@ logs
 # Local env and logs
 .env
 *.log
-/tmp/
+tmp
 .idea
+flutter_sdk/tmp_flutter/

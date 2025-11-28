@@ -8,66 +8,46 @@ import 'app_api_types.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'user_api_types.dart';
 
-Future<OperationStatus> changePassword({
-  required ChangePasswordRequest payload,
-}) => RustLib.instance.api.crateApiUserApiChangePassword(payload: payload);
 
-Future<ChangePhoneResult> changePhone({required ChangePhoneRequest payload}) =>
-    RustLib.instance.api.crateApiUserApiChangePhone(payload: payload);
+            
 
-Future<ChangeEmailResult> changeEmail({required ChangeEmailRequest payload}) =>
-    RustLib.instance.api.crateApiUserApiChangeEmail(payload: payload);
+            Future<OperationStatus>  changePassword({required ChangePasswordRequest payload }) => RustLib.instance.api.crateApiUserApiChangePassword(payload: payload);
 
-Future<OperationStatus> updateProfile({
-  required UpdateProfileRequest payload,
-}) => RustLib.instance.api.crateApiUserApiUpdateProfile(payload: payload);
+Future<ChangePhoneResult>  changePhone({required ChangePhoneRequest payload }) => RustLib.instance.api.crateApiUserApiChangePhone(payload: payload);
 
-Future<FriendListResult> getFriendList({required FriendListQuery query}) =>
-    RustLib.instance.api.crateApiUserApiGetFriendList(query: query);
+Future<ChangeEmailResult>  changeEmail({required ChangeEmailRequest payload }) => RustLib.instance.api.crateApiUserApiChangeEmail(payload: payload);
 
-Future<SearchUserResult> searchUser({required SearchUserQuery query}) =>
-    RustLib.instance.api.crateApiUserApiSearchUser(query: query);
+Future<OperationStatus>  updateProfile({required UpdateProfileRequest payload }) => RustLib.instance.api.crateApiUserApiUpdateProfile(payload: payload);
 
-Future<AddFriendResult> addFriend({required AddFriendPayload payload}) =>
-    RustLib.instance.api.crateApiUserApiAddFriend(payload: payload);
+Future<FriendListResult>  getFriendList({required FriendListQuery query }) => RustLib.instance.api.crateApiUserApiGetFriendList(query: query);
 
-Future<RecentConversationsResult> getRecentConversations({
-  required RecentConversationsQuery query,
-}) => RustLib.instance.api.crateApiUserApiGetRecentConversations(query: query);
+Future<SearchUserResult>  searchUser({required SearchUserQuery query }) => RustLib.instance.api.crateApiUserApiSearchUser(query: query);
 
-Future<String> randomNickname({String? gender}) =>
-    RustLib.instance.api.crateApiUserApiRandomNickname(gender: gender);
+Future<AddFriendResult>  addFriend({required AddFriendPayload payload }) => RustLib.instance.api.crateApiUserApiAddFriend(payload: payload);
+
+Future<RecentConversationsResult>  getRecentConversations({required RecentConversationsQuery query }) => RustLib.instance.api.crateApiUserApiGetRecentConversations(query: query);
+
+Future<String>  randomNickname({String? gender }) => RustLib.instance.api.crateApiUserApiRandomNickname(gender: gender);
 
 /// 批量查询在线状态（转发到 app_api -> online_service）。
-Future<CheckOnlineBatchResult> checkOnlineBatch({
-  required CheckOnlineBatchQuery query,
-}) => RustLib.instance.api.crateApiUserApiCheckOnlineBatch(query: query);
+Future<CheckOnlineBatchResult>  checkOnlineBatch({required CheckOnlineBatchQuery query }) => RustLib.instance.api.crateApiUserApiCheckOnlineBatch(query: query);
 
-Future<UserInfoResult> getUserInfo() =>
-    RustLib.instance.api.crateApiUserApiGetUserInfo();
+Future<UserInfoResult>  getUserInfo() => RustLib.instance.api.crateApiUserApiGetUserInfo();
 
 /// 分页拉取群成员列表。
-Future<GroupMembersResult> getGroupMembers({
-  required GroupMembersQuery query,
-}) => RustLib.instance.api.crateApiUserApiGetGroupMembers(query: query);
+Future<GroupMembersResult>  getGroupMembers({required GroupMembersQuery query }) => RustLib.instance.api.crateApiUserApiGetGroupMembers(query: query);
 
 /// 获取群成员详情并判断是否为好友关系。
-Future<GroupMemberDetailResult> getGroupMemberDetail({
-  required GroupMemberDetailQuery query,
-}) => RustLib.instance.api.crateApiUserApiGetGroupMemberDetail(query: query);
+Future<GroupMemberDetailResult>  getGroupMemberDetail({required GroupMemberDetailQuery query }) => RustLib.instance.api.crateApiUserApiGetGroupMemberDetail(query: query);
 
 /// 获取本地好友的在线状态（带短期缓存，网络失败返回 stale=true）。
-Future<OnlineStatusSnapshot> getOnlineFriends({required bool forceRefresh}) =>
-    RustLib.instance.api.crateApiUserApiGetOnlineFriends(
-      forceRefresh: forceRefresh,
-    );
+Future<OnlineStatusSnapshot>  getOnlineFriends({required bool forceRefresh }) => RustLib.instance.api.crateApiUserApiGetOnlineFriends(forceRefresh: forceRefresh);
 
 /// 刷新并缓存群成员列表；网络失败会回退缓存并标记 stale。
-Future<GroupMembersSnapshot> refreshGroupMembers({
-  required RefreshGroupMembersQuery query,
-}) => RustLib.instance.api.crateApiUserApiRefreshGroupMembers(query: query);
+Future<GroupMembersSnapshot>  refreshGroupMembers({required RefreshGroupMembersQuery query }) => RustLib.instance.api.crateApiUserApiRefreshGroupMembers(query: query);
 
 /// 读取已缓存的群成员分页数据。
-Future<GroupMembersResult> getCachedGroupMembers({
-  required CachedGroupMembersQuery query,
-}) => RustLib.instance.api.crateApiUserApiGetCachedGroupMembers(query: query);
+Future<GroupMembersResult>  getCachedGroupMembers({required CachedGroupMembersQuery query }) => RustLib.instance.api.crateApiUserApiGetCachedGroupMembers(query: query);
+
+            
+            

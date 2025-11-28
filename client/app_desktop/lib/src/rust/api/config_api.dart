@@ -6,53 +6,40 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `ensure_app_api_base_url_initialized`, `ensure_attempts`, `ensure_limit_inner`, `get_app_api_base_url_internal`, `get_or_generate_value`, `get_or_init_attempts`, `get_or_set_u32`, `get_value`, `map_config_err`, `normalize_app_api_base_url`, `parse_value`, `set_numeric_value`, `set_value`
 
-/// 获取设备 ID（若无则自动生成并保存）。
-Future<String> getDeviceId() =>
-    RustLib.instance.api.crateApiConfigApiGetDeviceId();
+            // These functions are ignored because they are not marked as `pub`: `ensure_app_api_base_url_initialized`, `ensure_attempts`, `ensure_limit_inner`, `get_app_api_base_url_internal`, `get_or_generate_value`, `get_or_init_attempts`, `get_or_set_u32`, `get_value`, `map_config_err`, `normalize_app_api_base_url`, `parse_value`, `set_numeric_value`, `set_value`
+
+
+            /// 获取设备 ID（若无则自动生成并保存）。
+Future<String>  getDeviceId() => RustLib.instance.api.crateApiConfigApiGetDeviceId();
 
 /// 获取应用版本号（用于展示）。
-Future<String?> getAppVersion() =>
-    RustLib.instance.api.crateApiConfigApiGetAppVersion();
+Future<String?>  getAppVersion() => RustLib.instance.api.crateApiConfigApiGetAppVersion();
 
 /// 写入当前应用版本号。
-Future<void> setAppVersion({required String version}) =>
-    RustLib.instance.api.crateApiConfigApiSetAppVersion(version: version);
+Future<void>  setAppVersion({required String version }) => RustLib.instance.api.crateApiConfigApiSetAppVersion(version: version);
 
-Future<String?> getLanguage() =>
-    RustLib.instance.api.crateApiConfigApiGetLanguage();
+Future<String?>  getLanguage() => RustLib.instance.api.crateApiConfigApiGetLanguage();
 
-Future<void> setLanguage({required String language}) =>
-    RustLib.instance.api.crateApiConfigApiSetLanguage(language: language);
+Future<void>  setLanguage({required String language }) => RustLib.instance.api.crateApiConfigApiSetLanguage(language: language);
 
-Future<String> getAppApiBaseUrl() =>
-    RustLib.instance.api.crateApiConfigApiGetAppApiBaseUrl();
+Future<String>  getAppApiBaseUrl() => RustLib.instance.api.crateApiConfigApiGetAppApiBaseUrl();
 
-Future<void> setAppApiBaseUrl({required String baseUrl}) =>
-    RustLib.instance.api.crateApiConfigApiSetAppApiBaseUrl(baseUrl: baseUrl);
+Future<void>  setAppApiBaseUrl({required String baseUrl }) => RustLib.instance.api.crateApiConfigApiSetAppApiBaseUrl(baseUrl: baseUrl);
 
-Future<int?> getSocketReconnectLimit() =>
-    RustLib.instance.api.crateApiConfigApiGetSocketReconnectLimit();
+Future<int?>  getSocketReconnectLimit() => RustLib.instance.api.crateApiConfigApiGetSocketReconnectLimit();
 
-Future<void> setSocketReconnectLimit({required int limit}) =>
-    RustLib.instance.api.crateApiConfigApiSetSocketReconnectLimit(limit: limit);
+Future<void>  setSocketReconnectLimit({required int limit }) => RustLib.instance.api.crateApiConfigApiSetSocketReconnectLimit(limit: limit);
 
-Future<int> ensureSocketReconnectLimit() =>
-    RustLib.instance.api.crateApiConfigApiEnsureSocketReconnectLimit();
+Future<int>  ensureSocketReconnectLimit() => RustLib.instance.api.crateApiConfigApiEnsureSocketReconnectLimit();
 
-Future<int?> getSocketReconnectAttempts() =>
-    RustLib.instance.api.crateApiConfigApiGetSocketReconnectAttempts();
+Future<int?>  getSocketReconnectAttempts() => RustLib.instance.api.crateApiConfigApiGetSocketReconnectAttempts();
 
-Future<void> setSocketReconnectAttempts({required int attempts}) => RustLib
-    .instance
-    .api
-    .crateApiConfigApiSetSocketReconnectAttempts(attempts: attempts);
+Future<void>  setSocketReconnectAttempts({required int attempts }) => RustLib.instance.api.crateApiConfigApiSetSocketReconnectAttempts(attempts: attempts);
 
-Future<void> setSocketReconnectMessage({required String message}) => RustLib
-    .instance
-    .api
-    .crateApiConfigApiSetSocketReconnectMessage(message: message);
+Future<void>  setSocketReconnectMessage({required String message }) => RustLib.instance.api.crateApiConfigApiSetSocketReconnectMessage(message: message);
 
-Future<String?> getSocketReconnectMessage() =>
-    RustLib.instance.api.crateApiConfigApiGetSocketReconnectMessage();
+Future<String?>  getSocketReconnectMessage() => RustLib.instance.api.crateApiConfigApiGetSocketReconnectMessage();
+
+            
+            

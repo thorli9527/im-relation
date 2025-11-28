@@ -6,65 +6,42 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-class FriendRequestEntity {
-  final PlatformInt64? id;
-  final PlatformInt64 requestId;
-  final PlatformInt64 fromUid;
-  final PlatformInt64 toUid;
-  final String reason;
-  final int source;
-  final String? remark;
-  final String? nickname;
-  final PlatformInt64 createdAt;
-  final PlatformInt64? decidedAt;
-  final bool? accepted;
-  final PlatformInt64 updatedAt;
 
-  const FriendRequestEntity({
-    this.id,
-    required this.requestId,
-    required this.fromUid,
-    required this.toUid,
-    required this.reason,
-    required this.source,
-    this.remark,
-    this.nickname,
-    required this.createdAt,
-    this.decidedAt,
-    this.accepted,
-    required this.updatedAt,
-  });
+            
 
-  @override
-  int get hashCode =>
-      id.hashCode ^
-      requestId.hashCode ^
-      fromUid.hashCode ^
-      toUid.hashCode ^
-      reason.hashCode ^
-      source.hashCode ^
-      remark.hashCode ^
-      nickname.hashCode ^
-      createdAt.hashCode ^
-      decidedAt.hashCode ^
-      accepted.hashCode ^
-      updatedAt.hashCode;
+            
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is FriendRequestEntity &&
-          runtimeType == other.runtimeType &&
-          id == other.id &&
-          requestId == other.requestId &&
-          fromUid == other.fromUid &&
-          toUid == other.toUid &&
-          reason == other.reason &&
-          source == other.source &&
-          remark == other.remark &&
-          nickname == other.nickname &&
-          createdAt == other.createdAt &&
-          decidedAt == other.decidedAt &&
-          accepted == other.accepted &&
-          updatedAt == other.updatedAt;
-}
+            class FriendRequestEntity  {
+                final PlatformInt64? id;
+final PlatformInt64 requestId;
+final PlatformInt64 fromUid;
+final PlatformInt64 toUid;
+final String reason;
+final int source;
+final String? remark;
+final String? nickname;
+final PlatformInt64 createdAt;
+final PlatformInt64? decidedAt;
+final bool? accepted;
+final PlatformInt64 updatedAt;
+
+                const FriendRequestEntity({this.id ,required this.requestId ,required this.fromUid ,required this.toUid ,required this.reason ,required this.source ,this.remark ,this.nickname ,required this.createdAt ,this.decidedAt ,this.accepted ,required this.updatedAt ,});
+
+                
+                
+
+                
+        @override
+        int get hashCode => id.hashCode^requestId.hashCode^fromUid.hashCode^toUid.hashCode^reason.hashCode^source.hashCode^remark.hashCode^nickname.hashCode^createdAt.hashCode^decidedAt.hashCode^accepted.hashCode^updatedAt.hashCode;
+        
+
+                
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is FriendRequestEntity &&
+                runtimeType == other.runtimeType
+                && id == other.id&& requestId == other.requestId&& fromUid == other.fromUid&& toUid == other.toUid&& reason == other.reason&& source == other.source&& remark == other.remark&& nickname == other.nickname&& createdAt == other.createdAt&& decidedAt == other.decidedAt&& accepted == other.accepted&& updatedAt == other.updatedAt;
+        
+            }
+            

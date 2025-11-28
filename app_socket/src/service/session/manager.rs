@@ -295,18 +295,30 @@ impl SessionManager {
     }
 
     /// 通知被踢下线的旧会话，以便客户端展示原因。
-    fn notify_kick(&self, handle: &SessionHandle, _reason: &str) {
+    fn notify_kick(&self, handle: &SessionHandle, reason: &str) {
         let now_ms = current_millis();
-        let payload = json!({
-            "notice_type": "login_duplicate",
-            "content": "你的账户已在另一台相同类型的设备上登录",
-        })
-        .to_string();
+        let detail = format!(
+            "账号已在其他 {:?} 设备登录，当前会话将下线（device_id={}，reason={}）",
+            handle.device_type, handle.device_id, reason
+        );
+        let content = msgpb::Content {
+            sender_id: 0,
+            receiver_id: handle.user_id,
+            timestamp: now_ms,
+            scene: msgpb::ChatScene::Profile as i32,
+            system_business: Some(msgpb::SystemBusinessContent {
+                business_type: msgpb::SystemBusinessType::SystemBusinessPassiveLogout as i32,
+                title: "账号已在其他设备登录".to_string(),
+                detail,
+            }),
+            ..Default::default()
+        };
+        let raw_payload = content.encode_to_vec();
         let msg = ServerMsg {
             id: now_ms,
             auth: None,
-            payload: msgpb::Content::default(),
-            raw_payload: payload.into_bytes(),
+            payload: content,
+            raw_payload,
             ts_ms: now_ms,
         };
         let _ = handle.send(msg);

@@ -366,6 +366,20 @@ fn handle_inbound_content(content: &msgpb::Content, current_uid: Option<i64>) {
     if let Err(err) = persist_inbound_content(content, current_uid) {
         warn!("persist inbound content failed: {}", err);
     }
+    if let Some(system) = content.system_business.as_ref() {
+        crate::api::socket_api::notify_system_notice(crate::api::socket_api::SystemNoticeEvent {
+            business_type: system.business_type,
+            title: system.title.clone(),
+            detail: system.detail.clone(),
+        });
+        if system.business_type
+            == msgpb::SystemBusinessType::SystemBusinessPassiveLogout as i32
+        {
+            if let Err(err) = crate::service::auth_service::logout() {
+                warn!("force logout after passive logout notice failed: {}", err);
+            }
+        }
+    }
     for item in &content.contents {
         if let Some(msgpb::message_content::Content::ProfileUpdate(event)) = &item.content {
             if let Err(err) = apply_profile_update_event(content.sender_id, event) {

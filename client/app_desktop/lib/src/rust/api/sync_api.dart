@@ -6,69 +6,61 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `fmt`, `fmt`
 
-Future<SyncResponse> syncMessages({required SyncRequest req}) =>
-    RustLib.instance.api.crateApiSyncApiSyncMessages(req: req);
+            // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `fmt`, `fmt`
 
-class SyncRequest {
-  final String sessionToken;
-  final PlatformInt64? friendLastSeq;
-  final PlatformInt64? groupLastSeq;
-  final BigInt? systemLastSeq;
-  final int? limit;
 
-  const SyncRequest({
-    required this.sessionToken,
-    this.friendLastSeq,
-    this.groupLastSeq,
-    this.systemLastSeq,
-    this.limit,
-  });
+            Future<SyncResponse>  syncMessages({required SyncRequest req }) => RustLib.instance.api.crateApiSyncApiSyncMessages(req: req);
 
-  @override
-  int get hashCode =>
-      sessionToken.hashCode ^
-      friendLastSeq.hashCode ^
-      groupLastSeq.hashCode ^
-      systemLastSeq.hashCode ^
-      limit.hashCode;
+            class SyncRequest  {
+                final String sessionToken;
+final PlatformInt64? friendLastSeq;
+final PlatformInt64? groupLastSeq;
+final BigInt? systemLastSeq;
+final int? limit;
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is SyncRequest &&
-          runtimeType == other.runtimeType &&
-          sessionToken == other.sessionToken &&
-          friendLastSeq == other.friendLastSeq &&
-          groupLastSeq == other.groupLastSeq &&
-          systemLastSeq == other.systemLastSeq &&
-          limit == other.limit;
-}
+                const SyncRequest({required this.sessionToken ,this.friendLastSeq ,this.groupLastSeq ,this.systemLastSeq ,this.limit ,});
 
-class SyncResponse {
-  final List<String> friendMessages;
-  final List<String> groupMessages;
-  final List<String> systemMessages;
+                
+                
 
-  const SyncResponse({
-    required this.friendMessages,
-    required this.groupMessages,
-    required this.systemMessages,
-  });
+                
+        @override
+        int get hashCode => sessionToken.hashCode^friendLastSeq.hashCode^groupLastSeq.hashCode^systemLastSeq.hashCode^limit.hashCode;
+        
 
-  @override
-  int get hashCode =>
-      friendMessages.hashCode ^
-      groupMessages.hashCode ^
-      systemMessages.hashCode;
+                
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is SyncRequest &&
+                runtimeType == other.runtimeType
+                && sessionToken == other.sessionToken&& friendLastSeq == other.friendLastSeq&& groupLastSeq == other.groupLastSeq&& systemLastSeq == other.systemLastSeq&& limit == other.limit;
+        
+            }
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is SyncResponse &&
-          runtimeType == other.runtimeType &&
-          friendMessages == other.friendMessages &&
-          groupMessages == other.groupMessages &&
-          systemMessages == other.systemMessages;
-}
+class SyncResponse  {
+                final List<String> friendMessages;
+final List<String> groupMessages;
+final List<String> systemMessages;
+
+                const SyncResponse({required this.friendMessages ,required this.groupMessages ,required this.systemMessages ,});
+
+                
+                
+
+                
+        @override
+        int get hashCode => friendMessages.hashCode^groupMessages.hashCode^systemMessages.hashCode;
+        
+
+                
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is SyncResponse &&
+                runtimeType == other.runtimeType
+                && friendMessages == other.friendMessages&& groupMessages == other.groupMessages&& systemMessages == other.systemMessages;
+        
+            }
+            

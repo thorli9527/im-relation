@@ -88,20 +88,20 @@ PARTITION BY KEY(name) PARTITIONS 64;
 
 -- 设备 session token：单表存储，记录每台设备的会话令牌及其过期时间（15 天）
 CREATE TABLE IF NOT EXISTS user_session (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '自增主键',
-    uid BIGINT NOT NULL COMMENT '用户ID',
-    device_type TINYINT NOT NULL COMMENT '设备类型：0 UNKNOWN，1 MOBILE，3 WEB，4 PC',
-    device_id VARCHAR(128) NOT NULL COMMENT '设备唯一标识',
-    session_token VARBINARY(96) NOT NULL COMMENT '当前 session token（随机32字节）',
-    refresh_token VARBINARY(96) NULL COMMENT '可选 refresh token',
-    status TINYINT NOT NULL DEFAULT 1 COMMENT '状态：1 active，2 revoked，3 expired',
-    issued_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT 'token下发时间',
-    expires_at DATETIME(3) NOT NULL COMMENT 'token 过期时间',
-    last_seen_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '最近活跃时间',
-    login_ip VARBINARY(32) NULL COMMENT '登录IP（可选）',
-    login_user_agent VARCHAR(256) NULL COMMENT '登录UserAgent（可选）',
+    id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,                 -- 自增主键
+    uid              BIGINT         NOT NULL,                                 -- 用户ID
+    device_type      TINYINT        NOT NULL,                                 -- 设备类型：0 UNKNOWN，1 MOBILE，3 WEB，4 PC
+    device_id        VARCHAR(128)   NOT NULL,                                 -- 设备唯一标识
+    session_token    VARBINARY(96)  NOT NULL,                                 -- 当前 session token（随机32字节）
+    refresh_token    VARBINARY(96)  NULL,                                     -- 可选 refresh token
+    status           TINYINT        NOT NULL DEFAULT 1,                       -- 状态：1 active，2 revoked，3 expired
+    issued_at        DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3),    -- token下发时间
+    expires_at       DATETIME(3)    NOT NULL,                                 -- token 过期时间
+    last_seen_at     DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3),    -- 最近活跃时间
+    login_ip         VARBINARY(32)  NULL,                                     -- 登录IP（可选）
+    login_user_agent VARCHAR(256)   NULL,                                     -- 登录UserAgent（可选）
     PRIMARY KEY (id),
-    UNIQUE KEY uk_uid_device (uid, device_type, device_id),
+    UNIQUE KEY uk_uid_device (uid, device_type),
     UNIQUE KEY uk_token (session_token),
     KEY idx_uid_status (uid, status),
     KEY idx_expires_at (expires_at)
