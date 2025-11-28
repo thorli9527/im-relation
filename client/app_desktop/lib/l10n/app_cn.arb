@@ -101,6 +101,12 @@
       "reason": {}
     }
   },
-  "passiveLogoutAction": "重新登录"
+  "passiveLogoutAction": "重新登录",
+  "passiveLogoutCountdown": "{seconds} 秒后将自动跳转至登录页面",
+  "@passiveLogoutCountdown": {
+    "placeholders": {
+      "seconds": {}
+    }
+  }
 }
 }

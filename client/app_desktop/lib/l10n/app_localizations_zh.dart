@@ -174,4 +174,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get passiveLogoutAction => '重新登录';
+
+  @override
+  String passiveLogoutCountdown(String seconds) {
+    return '$seconds 秒后将自动跳转至登录页面';
+  }
 }

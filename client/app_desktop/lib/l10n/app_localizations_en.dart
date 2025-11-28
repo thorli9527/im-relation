@@ -174,4 +174,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get passiveLogoutAction => 'Re-login';
+
+  @override
+  String passiveLogoutCountdown(String seconds) {
+    return 'Auto redirecting to login in ${seconds}s';
+  }
 }

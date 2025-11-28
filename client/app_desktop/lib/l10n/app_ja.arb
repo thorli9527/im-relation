@@ -101,6 +101,12 @@
       "reason": {}
     }
   },
-  "passiveLogoutAction": "再ログイン"
+  "passiveLogoutAction": "再ログイン",
+  "passiveLogoutCountdown": "{seconds}秒後にログイン画面へ自動遷移します",
+  "@passiveLogoutCountdown": {
+    "placeholders": {
+      "seconds": {}
+    }
+  }
 }
 }

@@ -390,6 +390,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Re-login'**
   String get passiveLogoutAction;
+
+  /// No description provided for @passiveLogoutCountdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto redirecting to login in {seconds}s'**
+  String passiveLogoutCountdown(String seconds);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

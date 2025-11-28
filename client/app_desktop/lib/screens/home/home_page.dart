@@ -64,16 +64,42 @@ class _HomePageState extends ConsumerState<HomePage> {
         await showDialog<bool>(
           context: context,
           barrierDismissible: false,
-          builder: (ctx) => AlertDialog(
-            title: Text(title),
-            content: Text(message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: Text(l10n?.passiveLogoutAction ?? 'Re-login'),
-              ),
-            ],
-          ),
+          builder: (ctx) {
+            int secondsLeft = 10;
+            Timer? timer;
+
+            void closeDialog([bool result = true]) {
+              timer?.cancel();
+              if (Navigator.of(ctx).canPop()) {
+                Navigator.of(ctx).pop(result);
+              }
+            }
+
+            return StatefulBuilder(
+              builder: (context, setState) {
+                timer ??= Timer.periodic(const Duration(seconds: 1), (t) {
+                  if (secondsLeft <= 1) {
+                    closeDialog(true);
+                  } else {
+                    secondsLeft--;
+                    setState(() {});
+                  }
+                });
+                final countdownText = l10n?.passiveLogoutCountdown(secondsLeft.toString()) ??
+                    'Auto redirecting to login in ${secondsLeft}s';
+                return AlertDialog(
+                  title: Text(title),
+                  content: Text('$message\n$countdownText'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => closeDialog(true),
+                      child: Text(l10n?.passiveLogoutAction ?? 'Re-login'),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
         ) ??
         false;
     _showingLogout = false;

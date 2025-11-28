@@ -174,4 +174,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get passiveLogoutAction => '再ログイン';
+
+  @override
+  String passiveLogoutCountdown(String seconds) {
+    return '${seconds}秒後にログイン画面へ自動遷移します';
+  }
 }
