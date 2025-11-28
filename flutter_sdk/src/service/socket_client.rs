@@ -118,7 +118,7 @@ impl SocketClient {
         if flag.load(Ordering::SeqCst) {
             let _ = tx.send(());
         } else if let Some(waiters) = SUCCESS_WAITERS.get() {
-            waiters.lock().unwrap().push(tx);
+            waiters.lock().push(tx);
         }
         rx
     }
@@ -773,7 +773,7 @@ fn notify_connection_success() {
         flag.store(true, Ordering::SeqCst);
     }
     if let Some(waiters) = SUCCESS_WAITERS.get() {
-        let mut guard = waiters.lock().unwrap();
+        let mut guard = waiters.lock();
         for tx in guard.drain(..) {
             let _ = tx.send(());
         }
@@ -802,7 +802,7 @@ fn start_resend_thread() {
 
 impl fmt::Debug for SocketClient {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let guard = self.inner.lock().map_err(|_| fmt::Error)?;
+        let guard = self.inner.lock();
         f.debug_struct("SocketClient")
             .field("connected", &guard.is_some())
             .finish()
