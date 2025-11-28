@@ -155,4 +155,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String addFriendFailed(String error) {
     return '添加好友失败：$error';
   }
+
+  @override
+  String get passiveLogoutTitle => '已在其它地方登录';
+
+  @override
+  String get passiveLogoutMessage => '你的账号已在其它设备登录，需要重新登录。';
+
+  @override
+  String passiveLogoutDevice(String deviceId) {
+    return '设备ID：$deviceId';
+  }
+
+  @override
+  String passiveLogoutReason(String reason) {
+    return '原因：$reason';
+  }
+
+  @override
+  String get passiveLogoutAction => '重新登录';
 }

@@ -86,5 +86,21 @@
     "placeholders": {
       "error": {}
     }
-  }
+  },
+  "passiveLogoutTitle": "已在其它地方登录",
+  "passiveLogoutMessage": "你的账号已在其它设备登录，需要重新登录。",
+  "passiveLogoutDevice": "设备ID：{deviceId}",
+  "@passiveLogoutDevice": {
+    "placeholders": {
+      "deviceId": {}
+    }
+  },
+  "passiveLogoutReason": "原因：{reason}",
+  "@passiveLogoutReason": {
+    "placeholders": {
+      "reason": {}
+    }
+  },
+  "passiveLogoutAction": "重新登录"
+}
 }

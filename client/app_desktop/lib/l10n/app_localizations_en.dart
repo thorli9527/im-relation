@@ -155,4 +155,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String addFriendFailed(String error) {
     return 'Add friend failed: $error';
   }
+
+  @override
+  String get passiveLogoutTitle => 'Signed in elsewhere';
+
+  @override
+  String get passiveLogoutMessage => 'Your account signed in on another device and must log in again.';
+
+  @override
+  String passiveLogoutDevice(String deviceId) {
+    return 'Device ID: $deviceId';
+  }
+
+  @override
+  String passiveLogoutReason(String reason) {
+    return 'Reason: $reason';
+  }
+
+  @override
+  String get passiveLogoutAction => 'Re-login';
 }

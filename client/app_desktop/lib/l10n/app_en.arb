@@ -86,5 +86,21 @@
     "placeholders": {
       "error": {}
     }
-  }
+  },
+  "passiveLogoutTitle": "Signed in elsewhere",
+  "passiveLogoutMessage": "Your account signed in on another device and must log in again.",
+  "passiveLogoutDevice": "Device ID: {deviceId}",
+  "@passiveLogoutDevice": {
+    "placeholders": {
+      "deviceId": {}
+    }
+  },
+  "passiveLogoutReason": "Reason: {reason}",
+  "@passiveLogoutReason": {
+    "placeholders": {
+      "reason": {}
+    }
+  },
+  "passiveLogoutAction": "Re-login"
+}
 }

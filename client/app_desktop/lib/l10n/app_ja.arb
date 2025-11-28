@@ -1,0 +1,106 @@
+{
+  "@@locale": "ja",
+  "appTitle": "IMクライアント",
+  "login": "ログイン",
+  "register": "登録",
+  "email": "メールアドレス",
+  "password": "パスワード",
+  "country": "国/地域",
+  "language": "言語",
+  "gender": "性別",
+  "nickname": "ニックネーム",
+  "verificationCode": "認証コード",
+  "sendCode": "コードを送信",
+  "resendIn": "{seconds}秒後に再送",
+  "@resendIn": {
+    "description": "認証コードの再送カウントダウン",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "submit": "送信",
+  "goHome": "ホームへ",
+  "backToLogin": "ログインに戻る",
+  "sort": "並び替え",
+  "sortByName": "名前順",
+  "sortByLastLogin": "最終ログイン順",
+  "contacts": "連絡先",
+  "add": "追加",
+  "addContactTitle": "連絡先を追加",
+  "addContactHint": "UID / メール / 電話番号",
+  "nicknameOptional": "ニックネーム（任意）",
+  "remarkOptional": "備考（任意）",
+  "cancel": "キャンセル",
+  "create": "作成",
+  "contentCannotBeEmpty": "内容は必須です",
+  "alreadyFriend": "すでに友達です",
+  "userNotFound": "ユーザーが見つかりません",
+  "targetRejectsFriendRequest": "相手が友達申請を拒否しました",
+  "friendRequestTitle": "友達申請",
+  "reason": "理由",
+  "remark": "備考",
+  "friendRequestSent": "友達申請を送信しました",
+  "addedAsFriend": "友達として追加しました",
+  "confirm": "確認",
+  "userSummaryTitle": "ユーザー情報",
+  "emailWithValue": "メール：{email}",
+  "@emailWithValue": {
+    "placeholders": {
+      "email": {}
+    }
+  },
+  "phoneWithValue": "電話番号：{phone}",
+  "@phoneWithValue": {
+    "placeholders": {
+      "phone": {}
+    }
+  },
+  "usernameWithValue": "ユーザー名：{username}",
+  "@usernameWithValue": {
+    "placeholders": {
+      "username": {}
+    }
+  },
+  "uidWithValue": "UID {uid}",
+  "@uidWithValue": {
+    "placeholders": {
+      "uid": {}
+    }
+  },
+  "countryWithValue": "国/地域：{country}",
+  "@countryWithValue": {
+    "placeholders": {
+      "country": {}
+    }
+  },
+  "languageWithValue": "言語：{language}",
+  "@languageWithValue": {
+    "placeholders": {
+      "language": {}
+    }
+  },
+  "addFriendFailed": "友達追加に失敗しました：{error}",
+  "@addFriendFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "passiveLogoutTitle": "別の端末でログインしました",
+  "passiveLogoutMessage": "アカウントが別の端末でログインされました。再ログインしてください。",
+  "passiveLogoutDevice": "デバイスID：{deviceId}",
+  "@passiveLogoutDevice": {
+    "placeholders": {
+      "deviceId": {}
+    }
+  },
+  "passiveLogoutReason": "理由：{reason}",
+  "@passiveLogoutReason": {
+    "placeholders": {
+      "reason": {}
+    }
+  },
+  "passiveLogoutAction": "再ログイン"
+}
+}

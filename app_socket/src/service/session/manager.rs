@@ -297,10 +297,12 @@ impl SessionManager {
     /// 通知被踢下线的旧会话，以便客户端展示原因。
     fn notify_kick(&self, handle: &SessionHandle, reason: &str) {
         let now_ms = current_millis();
-        let detail = format!(
-            "账号已在其他 {:?} 设备登录，当前会话将下线（device_id={}，reason={}）",
-            handle.device_type, handle.device_id, reason
-        );
+        let detail = json!({
+            "deviceType": handle.device_type as i32,
+            "deviceId": handle.device_id,
+            "reason": reason,
+        })
+        .to_string();
         let content = msgpb::Content {
             sender_id: 0,
             receiver_id: handle.user_id,
@@ -308,7 +310,8 @@ impl SessionManager {
             scene: msgpb::ChatScene::Profile as i32,
             system_business: Some(msgpb::SystemBusinessContent {
                 business_type: msgpb::SystemBusinessType::SystemBusinessPassiveLogout as i32,
-                title: "账号已在其他设备登录".to_string(),
+                // 客户端本地化：使用 key 而非固定中文文案
+                title: "system.passive_logout".to_string(),
                 detail,
             }),
             ..Default::default()

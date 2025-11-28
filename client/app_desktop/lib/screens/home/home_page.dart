@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:app_desktop/app_state.dart';
+import 'package:app_desktop/l10n/app_localizations.dart';
 import 'package:app_desktop/screens/home/chat_pane/chat_pane.dart';
 import 'package:app_desktop/screens/home/sidebar.dart';
 import 'package:flutter/material.dart';
@@ -9,8 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app_desktop/src/rust/api/login_api.dart' as login_api;
 import 'package:app_desktop/src/rust/api/socket_api.dart' as socket_api;
-import 'package:app_desktop/src/rust/api/socket_api.dart'
-    show SystemNoticeEvent;
+import 'package:app_desktop/src/rust/api/socket_api.dart' show SystemNoticeEvent;
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -41,19 +42,35 @@ class _HomePageState extends ConsumerState<HomePage> {
       return;
     }
     _showingLogout = true;
+    final l10n = AppLocalizations.of(context);
+    Map<String, dynamic> detail = {};
+    try {
+      detail = jsonDecode(event.detail) as Map<String, dynamic>;
+    } catch (_) {}
+    final deviceId = detail['deviceId']?.toString() ?? '';
+    final reason = detail['reason']?.toString() ?? '';
+    final title = l10n?.passiveLogoutTitle ?? 'Signed in elsewhere';
+    final messageBase =
+        l10n?.passiveLogoutMessage ?? 'Your account signed in on another device and must log in again.';
+    final List<String> lines = [messageBase];
+    if (deviceId.isNotEmpty) {
+      lines.add(l10n?.passiveLogoutDevice(deviceId) ?? 'Device ID: $deviceId');
+    }
+    if (reason.isNotEmpty) {
+      lines.add(l10n?.passiveLogoutReason(reason) ?? 'Reason: $reason');
+    }
+    final message = lines.join('\n');
     final confirmed =
         await showDialog<bool>(
           context: context,
           barrierDismissible: false,
           builder: (ctx) => AlertDialog(
-            title: const Text('已在其它地方登录'),
-            content: Text(
-              event.detail.isNotEmpty ? event.detail : '你的账号已在其它设备登录，需要重新登录。',
-            ),
+            title: Text(title),
+            content: Text(message),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('重新登录'),
+                child: Text(l10n?.passiveLogoutAction ?? 'Re-login'),
               ),
             ],
           ),

@@ -5,8 +5,9 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart' as intl;
 
-import 'app_localizations_en.dart';
 import 'app_localizations_zh.dart';
+import 'app_localizations_en.dart';
+import 'app_localizations_ja.dart';
 
 // ignore_for_file: type=lint
 
@@ -92,7 +93,8 @@ abstract class AppLocalizations {
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('zh'),
-    Locale('en')
+    Locale('en'),
+    Locale('ja')
   ];
 
   /// No description provided for @appTitle.
@@ -358,6 +360,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add friend failed: {error}'**
   String addFriendFailed(String error);
+
+  /// No description provided for @passiveLogoutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Signed in elsewhere'**
+  String get passiveLogoutTitle;
+
+  /// No description provided for @passiveLogoutMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account signed in on another device and must log in again.'**
+  String get passiveLogoutMessage;
+
+  /// No description provided for @passiveLogoutDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Device ID: {deviceId}'**
+  String passiveLogoutDevice(String deviceId);
+
+  /// No description provided for @passiveLogoutReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason: {reason}'**
+  String passiveLogoutReason(String reason);
+
+  /// No description provided for @passiveLogoutAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-login'**
+  String get passiveLogoutAction;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
@@ -369,7 +401,7 @@ class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> 
   }
 
   @override
-  bool isSupported(Locale locale) => <String>['zh', 'en'].contains(locale.languageCode);
+  bool isSupported(Locale locale) => <String>['zh', 'en', 'ja'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -382,6 +414,7 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   switch (locale.languageCode) {
     case 'zh': return AppLocalizationsZh();
     case 'en': return AppLocalizationsEn();
+    case 'ja': return AppLocalizationsJa();
   }
 
   throw FlutterError(
