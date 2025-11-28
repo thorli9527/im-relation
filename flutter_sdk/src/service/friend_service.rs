@@ -28,7 +28,15 @@ impl FriendService {
     }
 
     pub fn get() -> &'static FriendService {
-        INSTANCE.get().expect("FriendService is not initialized")
+        INSTANCE.get_or_init(|| {
+            let service = FriendService {
+                repo: Repository::new(friend_table_def()),
+            };
+            if let Err(err) = service.ensure_schema() {
+                panic!("FriendService auto init failed: {}", err);
+            }
+            service
+        })
     }
 
     pub fn list(
