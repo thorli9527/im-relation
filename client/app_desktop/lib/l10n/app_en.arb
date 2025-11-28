@@ -101,7 +101,7 @@
       "reason": {}
     }
   },
-  "passiveLogoutAction": "Re-login",
+  "passiveLogoutAction": "Ok",
   "passiveLogoutCountdown": "Auto redirecting to login in {seconds}s",
   "@passiveLogoutCountdown": {
     "placeholders": {

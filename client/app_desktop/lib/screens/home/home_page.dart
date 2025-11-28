@@ -42,6 +42,11 @@ class _HomePageState extends ConsumerState<HomePage> {
       return;
     }
     _showingLogout = true;
+    try {
+      await login_api.logout(); // disconnect socket via flutter_sdk to stop further events
+    } catch (e) {
+      debugPrint('Passive logout socket disconnect failed: $e');
+    }
     final l10n = AppLocalizations.of(context);
     Map<String, dynamic> detail = {};
     try {
@@ -64,16 +69,16 @@ class _HomePageState extends ConsumerState<HomePage> {
         await showDialog<bool>(
           context: context,
           barrierDismissible: false,
-          builder: (ctx) {
-            int secondsLeft = 10;
-            Timer? timer;
+            builder: (ctx) {
+              int secondsLeft = 10;
+              Timer? timer;
 
-            void closeDialog([bool result = true]) {
-              timer?.cancel();
-              if (Navigator.of(ctx).canPop()) {
-                Navigator.of(ctx).pop(result);
+              void closeDialog([bool result = true]) {
+                timer?.cancel();
+                if (Navigator.of(ctx).canPop()) {
+                  Navigator.of(ctx).pop(result);
+                }
               }
-            }
 
             return StatefulBuilder(
               builder: (context, setState) {
@@ -104,9 +109,14 @@ class _HomePageState extends ConsumerState<HomePage> {
         false;
     _showingLogout = false;
     if (!confirmed || !mounted) return;
+    await _noticeSub?.cancel();
+    _noticeSub = null;
     final prefs = await SharedPreferences.getInstance();
-    await _clearUserCache(prefs);
-    await login_api.logout();
+    try {
+      await _clearUserCache(prefs);
+    } catch (e) {
+      debugPrint('Passive logout cleanup failed: $e');
+    }
     if (!mounted) return;
     if (context.mounted) {
       context.go('/login');
