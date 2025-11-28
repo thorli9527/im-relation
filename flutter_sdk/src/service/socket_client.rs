@@ -71,6 +71,7 @@ impl SocketClient {
         // Prepare waiters list, connection flag, and resender thread.
         SUCCESS_WAITERS.get_or_init(|| Mutex::new(Vec::new()));
         AUTH_SUCCESS.get_or_init(|| AtomicBool::new(false));
+        PASSIVE_LOGOUT.get_or_init(|| AtomicBool::new(false));
         start_resend_thread();
         INSTANCE
             .set(SocketClient {
@@ -153,12 +154,20 @@ impl SocketClient {
             Err("socket not connected".into())
         }
     }
+
+    /// Return whether a passive logout notice was received; clears the flag.
+    pub fn take_passive_logout_flag(&self) -> bool {
+        PASSIVE_LOGOUT
+            .get_or_init(|| AtomicBool::new(false))
+            .swap(false, Ordering::SeqCst)
+    }
 }
 
 static INSTANCE: OnceCell<SocketClient> = OnceCell::new();
 static SUCCESS_WAITERS: OnceCell<Mutex<Vec<Sender<()>>>> = OnceCell::new();
 static AUTH_SUCCESS: OnceCell<AtomicBool> = OnceCell::new();
 static MESSAGE_RESENDER: OnceCell<thread::JoinHandle<()>> = OnceCell::new();
+static PASSIVE_LOGOUT: OnceCell<AtomicBool> = OnceCell::new();
 
 const RESEND_INTERVAL_SECS: u64 = 5;
 
@@ -380,6 +389,9 @@ fn handle_inbound_content(content: &msgpb::Content, current_uid: Option<i64>) {
         if system.business_type
             == msgpb::SystemBusinessType::SystemBusinessPassiveLogout as i32
         {
+            PASSIVE_LOGOUT
+                .get_or_init(|| AtomicBool::new(false))
+                .store(true, Ordering::SeqCst);
             if let Err(err) = crate::service::auth_service::logout() {
                 warn!("force logout after passive logout notice failed: {}", err);
             }

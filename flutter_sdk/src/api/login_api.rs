@@ -27,19 +27,23 @@ pub fn login(payload: LoginRequest, timeout_secs: Option<u64>) -> Result<LoginRe
 #[frb]
 /// 登出并清理登录态。
 pub fn logout() -> Result<(), String> {
-    if let Some(user) = UserService::get().latest_user()? {
-        if let Some(token) = user.session_token {
-            if !token.trim().is_empty() {
-                match post_request::<LogoutRequest, LogoutResult>(
-                    "/logout",
-                    &LogoutRequest { session_token: token },
-                ) {
-                    Ok(resp) => {
-                        if !resp.ok {
-                            warn!("logout failed on server");
+    // 若已收到被动下线通知，跳过远程 /logout，避免重复调用。
+    let passive_logout = SocketClient::get().take_passive_logout_flag();
+    if !passive_logout {
+        if let Some(user) = UserService::get().latest_user()? {
+            if let Some(token) = user.session_token {
+                if !token.trim().is_empty() {
+                    match post_request::<LogoutRequest, LogoutResult>(
+                        "/logout",
+                        &LogoutRequest { session_token: token },
+                    ) {
+                        Ok(resp) => {
+                            if !resp.ok {
+                                warn!("logout failed on server");
+                            }
                         }
+                        Err(err) => warn!("logout request error: {}", err),
                     }
-                    Err(err) => warn!("logout request error: {}", err),
                 }
             }
         }
