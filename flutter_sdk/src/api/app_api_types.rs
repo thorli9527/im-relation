@@ -28,6 +28,17 @@ pub struct AddFriendResult {
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
+pub struct FriendRequestDecisionRequest {
+    pub session_token: String,
+    pub request_id: u64,
+    pub from_uid: i64,
+    pub accepted: bool,
+    pub remark: Option<String>,
+    pub nickname: Option<String>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateProfileRequest {
     pub session_token: String,
     pub avatar: Option<String>,

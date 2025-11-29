@@ -6,14 +6,15 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-
-            
-
-            /// 应用唤醒/前台时触发增量同步；可选重置游标后全量补拉。
-Future<void>  syncOnWake({required String sessionToken , required bool resetCursor }) => RustLib.instance.api.crateApiAppApiSyncOnWake(sessionToken: sessionToken, resetCursor: resetCursor);
+/// 应用唤醒/前台时触发增量同步；可选重置游标后全量补拉。
+Future<void> syncOnWake({
+  required String sessionToken,
+  required bool resetCursor,
+}) => RustLib.instance.api.crateApiAppApiSyncOnWake(
+  sessionToken: sessionToken,
+  resetCursor: resetCursor,
+);
 
 /// 清理本地用户缓存（消息/好友/会话等），仅保留设备 ID。
-Future<void>  resetLocalDataPreserveDevice() => RustLib.instance.api.crateApiAppApiResetLocalDataPreserveDevice();
-
-            
-            
+Future<void> resetLocalDataPreserveDevice() =>
+    RustLib.instance.api.crateApiAppApiResetLocalDataPreserveDevice();

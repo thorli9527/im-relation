@@ -6,39 +6,53 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+class FriendEntity {
+  final PlatformInt64? id;
+  final PlatformInt64 friendId;
+  final String avatar;
+  final String? nickname;
+  final String? remark;
+  final String? email;
+  final String? phone;
+  final PlatformInt64? lastLoginAt;
+  final PlatformInt64 createdAt;
 
-            
+  const FriendEntity({
+    this.id,
+    required this.friendId,
+    required this.avatar,
+    this.nickname,
+    this.remark,
+    this.email,
+    this.phone,
+    this.lastLoginAt,
+    required this.createdAt,
+  });
 
-            
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      friendId.hashCode ^
+      avatar.hashCode ^
+      nickname.hashCode ^
+      remark.hashCode ^
+      email.hashCode ^
+      phone.hashCode ^
+      lastLoginAt.hashCode ^
+      createdAt.hashCode;
 
-            class FriendEntity  {
-                final PlatformInt64? id;
-final PlatformInt64 friendId;
-final String avatar;
-final String? nickname;
-final String? remark;
-final String? email;
-final String? phone;
-final PlatformInt64? lastLoginAt;
-final PlatformInt64 createdAt;
-
-                const FriendEntity({this.id ,required this.friendId ,required this.avatar ,this.nickname ,this.remark ,this.email ,this.phone ,this.lastLoginAt ,required this.createdAt ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => id.hashCode^friendId.hashCode^avatar.hashCode^nickname.hashCode^remark.hashCode^email.hashCode^phone.hashCode^lastLoginAt.hashCode^createdAt.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is FriendEntity &&
-                runtimeType == other.runtimeType
-                && id == other.id&& friendId == other.friendId&& avatar == other.avatar&& nickname == other.nickname&& remark == other.remark&& email == other.email&& phone == other.phone&& lastLoginAt == other.lastLoginAt&& createdAt == other.createdAt;
-        
-            }
-            
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FriendEntity &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          friendId == other.friendId &&
+          avatar == other.avatar &&
+          nickname == other.nickname &&
+          remark == other.remark &&
+          email == other.email &&
+          phone == other.phone &&
+          lastLoginAt == other.lastLoginAt &&
+          createdAt == other.createdAt;
+}

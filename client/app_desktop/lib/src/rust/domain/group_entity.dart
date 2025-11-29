@@ -6,50 +6,76 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+class GroupEntity {
+  /// 主键 ID（自增）
+  final PlatformInt64? id;
 
-            
+  /// 群 ID（业务唯一）
+  final PlatformInt64 groupId;
 
-            
+  /// 群头像 URL
+  final String avatar;
 
-            class GroupEntity  {
-                /// 主键 ID（自增）
-final PlatformInt64? id;
-/// 群 ID（业务唯一）
-final PlatformInt64 groupId;
-/// 群头像 URL
-final String avatar;
-/// 群名称
-final String name;
-/// 群公告
-final String notice;
-/// 群主 ID
-final PlatformInt64 ownerId;
-/// 群类型：示例 1-普通群等
-final int groupType;
-/// 群描述
-final String description;
-/// 成员数量
-final int memberCount;
-/// 创建时间（Unix 秒）
-final PlatformInt64 createTime;
+  /// 群名称
+  final String name;
 
-                const GroupEntity({this.id ,required this.groupId ,required this.avatar ,required this.name ,required this.notice ,required this.ownerId ,required this.groupType ,required this.description ,required this.memberCount ,required this.createTime ,});
+  /// 群公告
+  final String notice;
 
-                
-                
+  /// 群主 ID
+  final PlatformInt64 ownerId;
 
-                
-        @override
-        int get hashCode => id.hashCode^groupId.hashCode^avatar.hashCode^name.hashCode^notice.hashCode^ownerId.hashCode^groupType.hashCode^description.hashCode^memberCount.hashCode^createTime.hashCode;
-        
+  /// 群类型：示例 1-普通群等
+  final int groupType;
 
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is GroupEntity &&
-                runtimeType == other.runtimeType
-                && id == other.id&& groupId == other.groupId&& avatar == other.avatar&& name == other.name&& notice == other.notice&& ownerId == other.ownerId&& groupType == other.groupType&& description == other.description&& memberCount == other.memberCount&& createTime == other.createTime;
-        
-            }
-            
+  /// 群描述
+  final String description;
+
+  /// 成员数量
+  final int memberCount;
+
+  /// 创建时间（Unix 秒）
+  final PlatformInt64 createTime;
+
+  const GroupEntity({
+    this.id,
+    required this.groupId,
+    required this.avatar,
+    required this.name,
+    required this.notice,
+    required this.ownerId,
+    required this.groupType,
+    required this.description,
+    required this.memberCount,
+    required this.createTime,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      groupId.hashCode ^
+      avatar.hashCode ^
+      name.hashCode ^
+      notice.hashCode ^
+      ownerId.hashCode ^
+      groupType.hashCode ^
+      description.hashCode ^
+      memberCount.hashCode ^
+      createTime.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GroupEntity &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          groupId == other.groupId &&
+          avatar == other.avatar &&
+          name == other.name &&
+          notice == other.notice &&
+          ownerId == other.ownerId &&
+          groupType == other.groupType &&
+          description == other.description &&
+          memberCount == other.memberCount &&
+          createTime == other.createTime;
+}

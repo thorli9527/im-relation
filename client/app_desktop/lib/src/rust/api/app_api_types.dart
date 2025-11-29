@@ -6,748 +6,759 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-
-            // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `AddFriendRequest`, `RandomNicknameQuery`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
-
-
-            
-
-            class AddFriendResult  {
-                final bool ok;
-/// true 表示提交了申请，false 表示已直接成为好友
-final bool applied;
-
-                const AddFriendResult({required this.ok ,required this.applied ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => ok.hashCode^applied.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is AddFriendResult &&
-                runtimeType == other.runtimeType
-                && ok == other.ok&& applied == other.applied;
-        
-            }
-
-class CachedGroupMembersQuery  {
-                final PlatformInt64 groupId;
-final int? page;
-final int? pageSize;
-
-                const CachedGroupMembersQuery({required this.groupId ,this.page ,this.pageSize ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => groupId.hashCode^page.hashCode^pageSize.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is CachedGroupMembersQuery &&
-                runtimeType == other.runtimeType
-                && groupId == other.groupId&& page == other.page&& pageSize == other.pageSize;
-        
-            }
-
-class ChangeEmailRequest  {
-                final String sessionToken;
-final String newEmail;
-final String? oldEmailCode;
-final String newEmailCode;
-
-                const ChangeEmailRequest({required this.sessionToken ,required this.newEmail ,this.oldEmailCode ,required this.newEmailCode ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => sessionToken.hashCode^newEmail.hashCode^oldEmailCode.hashCode^newEmailCode.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is ChangeEmailRequest &&
-                runtimeType == other.runtimeType
-                && sessionToken == other.sessionToken&& newEmail == other.newEmail&& oldEmailCode == other.oldEmailCode&& newEmailCode == other.newEmailCode;
-        
-            }
-
-class ChangeEmailResult  {
-                final bool ok;
-final String email;
-
-                const ChangeEmailResult({required this.ok ,required this.email ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => ok.hashCode^email.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is ChangeEmailResult &&
-                runtimeType == other.runtimeType
-                && ok == other.ok&& email == other.email;
-        
-            }
-
-class ChangePasswordRequest  {
-                final String sessionToken;
-final String oldPassword;
-final String newPassword;
-
-                const ChangePasswordRequest({required this.sessionToken ,required this.oldPassword ,required this.newPassword ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => sessionToken.hashCode^oldPassword.hashCode^newPassword.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is ChangePasswordRequest &&
-                runtimeType == other.runtimeType
-                && sessionToken == other.sessionToken&& oldPassword == other.oldPassword&& newPassword == other.newPassword;
-        
-            }
-
-class ChangePhoneRequest  {
-                final String sessionToken;
-final String newPhone;
-final String? oldPhoneCode;
-final String newPhoneCode;
-
-                const ChangePhoneRequest({required this.sessionToken ,required this.newPhone ,this.oldPhoneCode ,required this.newPhoneCode ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => sessionToken.hashCode^newPhone.hashCode^oldPhoneCode.hashCode^newPhoneCode.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is ChangePhoneRequest &&
-                runtimeType == other.runtimeType
-                && sessionToken == other.sessionToken&& newPhone == other.newPhone&& oldPhoneCode == other.oldPhoneCode&& newPhoneCode == other.newPhoneCode;
-        
-            }
-
-class ChangePhoneResult  {
-                final bool ok;
-final String phone;
-
-                const ChangePhoneResult({required this.ok ,required this.phone ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => ok.hashCode^phone.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is ChangePhoneResult &&
-                runtimeType == other.runtimeType
-                && ok == other.ok&& phone == other.phone;
-        
-            }
-
-class CheckOnlineBatchQuery  {
-                final String sessionToken;
-final Int64List uids;
-
-                const CheckOnlineBatchQuery({required this.sessionToken ,required this.uids ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => sessionToken.hashCode^uids.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is CheckOnlineBatchQuery &&
-                runtimeType == other.runtimeType
-                && sessionToken == other.sessionToken&& uids == other.uids;
-        
-            }
-
-class CheckOnlineBatchResult  {
-                final List<OnlineStatusEntry> items;
-
-                const CheckOnlineBatchResult({required this.items ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => items.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is CheckOnlineBatchResult &&
-                runtimeType == other.runtimeType
-                && items == other.items;
-        
-            }
-
-class FriendListQuery  {
-                final String sessionToken;
-final int? page;
-final int? pageSize;
-
-                const FriendListQuery({required this.sessionToken ,this.page ,this.pageSize ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => sessionToken.hashCode^page.hashCode^pageSize.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is FriendListQuery &&
-                runtimeType == other.runtimeType
-                && sessionToken == other.sessionToken&& page == other.page&& pageSize == other.pageSize;
-        
-            }
-
-class FriendListResult  {
-                final List<FriendSummary> friends;
-final int page;
-final int pageSize;
-final bool hasMore;
-
-                const FriendListResult({required this.friends ,required this.page ,required this.pageSize ,required this.hasMore ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => friends.hashCode^page.hashCode^pageSize.hashCode^hasMore.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is FriendListResult &&
-                runtimeType == other.runtimeType
-                && friends == other.friends&& page == other.page&& pageSize == other.pageSize&& hasMore == other.hasMore;
-        
-            }
-
-class FriendSummary  {
-                final PlatformInt64 friendId;
-final String nickname;
-final String avatar;
-final String? remark;
-
-                const FriendSummary({required this.friendId ,required this.nickname ,required this.avatar ,this.remark ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => friendId.hashCode^nickname.hashCode^avatar.hashCode^remark.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is FriendSummary &&
-                runtimeType == other.runtimeType
-                && friendId == other.friendId&& nickname == other.nickname&& avatar == other.avatar&& remark == other.remark;
-        
-            }
-
-class GroupMember  {
-                final PlatformInt64 groupId;
-final PlatformInt64 memberId;
-final String nickname;
-final String avatar;
-final int role;
-
-                const GroupMember({required this.groupId ,required this.memberId ,required this.nickname ,required this.avatar ,required this.role ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => groupId.hashCode^memberId.hashCode^nickname.hashCode^avatar.hashCode^role.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is GroupMember &&
-                runtimeType == other.runtimeType
-                && groupId == other.groupId&& memberId == other.memberId&& nickname == other.nickname&& avatar == other.avatar&& role == other.role;
-        
-            }
-
-class GroupMemberDetailQuery  {
-                final String sessionToken;
-final PlatformInt64 groupId;
-final PlatformInt64 memberId;
-
-                const GroupMemberDetailQuery({required this.sessionToken ,required this.groupId ,required this.memberId ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => sessionToken.hashCode^groupId.hashCode^memberId.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is GroupMemberDetailQuery &&
-                runtimeType == other.runtimeType
-                && sessionToken == other.sessionToken&& groupId == other.groupId&& memberId == other.memberId;
-        
-            }
-
-class GroupMemberDetailResult  {
-                final GroupMember? member;
-final bool isFriend;
-
-                const GroupMemberDetailResult({this.member ,required this.isFriend ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => member.hashCode^isFriend.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is GroupMemberDetailResult &&
-                runtimeType == other.runtimeType
-                && member == other.member&& isFriend == other.isFriend;
-        
-            }
-
-class GroupMembersQuery  {
-                final String sessionToken;
-final PlatformInt64 groupId;
-final int? page;
-final int? pageSize;
-
-                const GroupMembersQuery({required this.sessionToken ,required this.groupId ,this.page ,this.pageSize ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => sessionToken.hashCode^groupId.hashCode^page.hashCode^pageSize.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is GroupMembersQuery &&
-                runtimeType == other.runtimeType
-                && sessionToken == other.sessionToken&& groupId == other.groupId&& page == other.page&& pageSize == other.pageSize;
-        
-            }
-
-class GroupMembersResult  {
-                final List<GroupMember> members;
-final int page;
-final int pageSize;
-final bool hasMore;
-
-                const GroupMembersResult({required this.members ,required this.page ,required this.pageSize ,required this.hasMore ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => members.hashCode^page.hashCode^pageSize.hashCode^hasMore.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is GroupMembersResult &&
-                runtimeType == other.runtimeType
-                && members == other.members&& page == other.page&& pageSize == other.pageSize&& hasMore == other.hasMore;
-        
-            }
-
-class GroupMembersSnapshot  {
-                final List<GroupMember> members;
-/// 是否直接使用了本地缓存
-final bool fromCache;
-/// 如果网络失败并回退缓存，则为 true
-final bool stale;
-
-                const GroupMembersSnapshot({required this.members ,required this.fromCache ,required this.stale ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => members.hashCode^fromCache.hashCode^stale.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is GroupMembersSnapshot &&
-                runtimeType == other.runtimeType
-                && members == other.members&& fromCache == other.fromCache&& stale == other.stale;
-        
-            }
-
-class OnlineStatusEntry  {
-                final PlatformInt64 uid;
-final bool online;
-final PlatformInt64 fetchedAt;
-
-                const OnlineStatusEntry({required this.uid ,required this.online ,required this.fetchedAt ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => uid.hashCode^online.hashCode^fetchedAt.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is OnlineStatusEntry &&
-                runtimeType == other.runtimeType
-                && uid == other.uid&& online == other.online&& fetchedAt == other.fetchedAt;
-        
-            }
-
-class OnlineStatusSnapshot  {
-                final List<OnlineStatusEntry> items;
-final bool stale;
-
-                const OnlineStatusSnapshot({required this.items ,required this.stale ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => items.hashCode^stale.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is OnlineStatusSnapshot &&
-                runtimeType == other.runtimeType
-                && items == other.items&& stale == other.stale;
-        
-            }
-
-class OperationStatus  {
-                final bool ok;
-
-                const OperationStatus({required this.ok ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => ok.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is OperationStatus &&
-                runtimeType == other.runtimeType
-                && ok == other.ok;
-        
-            }
-
-class RecentConversation  {
-                final int scene;
-final PlatformInt64 conversationId;
-final PlatformInt64 targetId;
-final PlatformInt64 lastMsgId;
-final int lastMsgKind;
-final PlatformInt64 lastSenderId;
-final PlatformInt64 lastTimestamp;
-final int unreadCount;
-final PlatformInt64 updatedAt;
-
-                const RecentConversation({required this.scene ,required this.conversationId ,required this.targetId ,required this.lastMsgId ,required this.lastMsgKind ,required this.lastSenderId ,required this.lastTimestamp ,required this.unreadCount ,required this.updatedAt ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => scene.hashCode^conversationId.hashCode^targetId.hashCode^lastMsgId.hashCode^lastMsgKind.hashCode^lastSenderId.hashCode^lastTimestamp.hashCode^unreadCount.hashCode^updatedAt.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is RecentConversation &&
-                runtimeType == other.runtimeType
-                && scene == other.scene&& conversationId == other.conversationId&& targetId == other.targetId&& lastMsgId == other.lastMsgId&& lastMsgKind == other.lastMsgKind&& lastSenderId == other.lastSenderId&& lastTimestamp == other.lastTimestamp&& unreadCount == other.unreadCount&& updatedAt == other.updatedAt;
-        
-            }
-
-class RecentConversationsQuery  {
-                final String sessionToken;
-final int? limit;
-final PlatformInt64? beforeUpdatedAt;
-final int? beforeScene;
-final PlatformInt64? beforeConversationId;
-
-                const RecentConversationsQuery({required this.sessionToken ,this.limit ,this.beforeUpdatedAt ,this.beforeScene ,this.beforeConversationId ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => sessionToken.hashCode^limit.hashCode^beforeUpdatedAt.hashCode^beforeScene.hashCode^beforeConversationId.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is RecentConversationsQuery &&
-                runtimeType == other.runtimeType
-                && sessionToken == other.sessionToken&& limit == other.limit&& beforeUpdatedAt == other.beforeUpdatedAt&& beforeScene == other.beforeScene&& beforeConversationId == other.beforeConversationId;
-        
-            }
-
-class RecentConversationsResult  {
-                final List<RecentConversation> conversations;
-final bool hasMore;
-
-                const RecentConversationsResult({required this.conversations ,required this.hasMore ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => conversations.hashCode^hasMore.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is RecentConversationsResult &&
-                runtimeType == other.runtimeType
-                && conversations == other.conversations&& hasMore == other.hasMore;
-        
-            }
-
-class RefreshGroupMembersQuery  {
-                final String sessionToken;
-final PlatformInt64 groupId;
-final bool forceRefresh;
-
-                const RefreshGroupMembersQuery({required this.sessionToken ,required this.groupId ,required this.forceRefresh ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => sessionToken.hashCode^groupId.hashCode^forceRefresh.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is RefreshGroupMembersQuery &&
-                runtimeType == other.runtimeType
-                && sessionToken == other.sessionToken&& groupId == other.groupId&& forceRefresh == other.forceRefresh;
-        
-            }
-
-class SearchUserQuery  {
-                final String query;
-
-                const SearchUserQuery({required this.query ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => query.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is SearchUserQuery &&
-                runtimeType == other.runtimeType
-                && query == other.query;
-        
-            }
-
-class SearchUserResult  {
-                final UserProfile? user;
-
-                const SearchUserResult({this.user ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => user.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is SearchUserResult &&
-                runtimeType == other.runtimeType
-                && user == other.user;
-        
-            }
-
-class UpdateProfileRequest  {
-                final String sessionToken;
-final String? avatar;
-final int? gender;
-final String? country;
-final String? language;
-final String? nickname;
-
-                const UpdateProfileRequest({required this.sessionToken ,this.avatar ,this.gender ,this.country ,this.language ,this.nickname ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => sessionToken.hashCode^avatar.hashCode^gender.hashCode^country.hashCode^language.hashCode^nickname.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is UpdateProfileRequest &&
-                runtimeType == other.runtimeType
-                && sessionToken == other.sessionToken&& avatar == other.avatar&& gender == other.gender&& country == other.country&& language == other.language&& nickname == other.nickname;
-        
-            }
-
-class UserProfile  {
-                final PlatformInt64 uid;
-final String username;
-final String avatar;
-final String? email;
-final String? phone;
-final String nickname;
-final String? signature;
-final String? region;
-final int addFriendPolicy;
-
-                const UserProfile({required this.uid ,required this.username ,required this.avatar ,this.email ,this.phone ,required this.nickname ,this.signature ,this.region ,required this.addFriendPolicy ,});
-
-                
-                
-
-                
-        @override
-        int get hashCode => uid.hashCode^username.hashCode^avatar.hashCode^email.hashCode^phone.hashCode^nickname.hashCode^signature.hashCode^region.hashCode^addFriendPolicy.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is UserProfile &&
-                runtimeType == other.runtimeType
-                && uid == other.uid&& username == other.username&& avatar == other.avatar&& email == other.email&& phone == other.phone&& nickname == other.nickname&& signature == other.signature&& region == other.region&& addFriendPolicy == other.addFriendPolicy;
-        
-            }
-            
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `AddFriendRequest`, `FriendRequestDecisionRequest`, `RandomNicknameQuery`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+
+class AddFriendResult {
+  final bool ok;
+
+  /// true 表示提交了申请，false 表示已直接成为好友
+  final bool applied;
+
+  const AddFriendResult({required this.ok, required this.applied});
+
+  @override
+  int get hashCode => ok.hashCode ^ applied.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AddFriendResult &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          applied == other.applied;
+}
+
+class CachedGroupMembersQuery {
+  final PlatformInt64 groupId;
+  final int? page;
+  final int? pageSize;
+
+  const CachedGroupMembersQuery({
+    required this.groupId,
+    this.page,
+    this.pageSize,
+  });
+
+  @override
+  int get hashCode => groupId.hashCode ^ page.hashCode ^ pageSize.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CachedGroupMembersQuery &&
+          runtimeType == other.runtimeType &&
+          groupId == other.groupId &&
+          page == other.page &&
+          pageSize == other.pageSize;
+}
+
+class ChangeEmailRequest {
+  final String sessionToken;
+  final String newEmail;
+  final String? oldEmailCode;
+  final String newEmailCode;
+
+  const ChangeEmailRequest({
+    required this.sessionToken,
+    required this.newEmail,
+    this.oldEmailCode,
+    required this.newEmailCode,
+  });
+
+  @override
+  int get hashCode =>
+      sessionToken.hashCode ^
+      newEmail.hashCode ^
+      oldEmailCode.hashCode ^
+      newEmailCode.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ChangeEmailRequest &&
+          runtimeType == other.runtimeType &&
+          sessionToken == other.sessionToken &&
+          newEmail == other.newEmail &&
+          oldEmailCode == other.oldEmailCode &&
+          newEmailCode == other.newEmailCode;
+}
+
+class ChangeEmailResult {
+  final bool ok;
+  final String email;
+
+  const ChangeEmailResult({required this.ok, required this.email});
+
+  @override
+  int get hashCode => ok.hashCode ^ email.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ChangeEmailResult &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          email == other.email;
+}
+
+class ChangePasswordRequest {
+  final String sessionToken;
+  final String oldPassword;
+  final String newPassword;
+
+  const ChangePasswordRequest({
+    required this.sessionToken,
+    required this.oldPassword,
+    required this.newPassword,
+  });
+
+  @override
+  int get hashCode =>
+      sessionToken.hashCode ^ oldPassword.hashCode ^ newPassword.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ChangePasswordRequest &&
+          runtimeType == other.runtimeType &&
+          sessionToken == other.sessionToken &&
+          oldPassword == other.oldPassword &&
+          newPassword == other.newPassword;
+}
+
+class ChangePhoneRequest {
+  final String sessionToken;
+  final String newPhone;
+  final String? oldPhoneCode;
+  final String newPhoneCode;
+
+  const ChangePhoneRequest({
+    required this.sessionToken,
+    required this.newPhone,
+    this.oldPhoneCode,
+    required this.newPhoneCode,
+  });
+
+  @override
+  int get hashCode =>
+      sessionToken.hashCode ^
+      newPhone.hashCode ^
+      oldPhoneCode.hashCode ^
+      newPhoneCode.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ChangePhoneRequest &&
+          runtimeType == other.runtimeType &&
+          sessionToken == other.sessionToken &&
+          newPhone == other.newPhone &&
+          oldPhoneCode == other.oldPhoneCode &&
+          newPhoneCode == other.newPhoneCode;
+}
+
+class ChangePhoneResult {
+  final bool ok;
+  final String phone;
+
+  const ChangePhoneResult({required this.ok, required this.phone});
+
+  @override
+  int get hashCode => ok.hashCode ^ phone.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ChangePhoneResult &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          phone == other.phone;
+}
+
+class CheckOnlineBatchQuery {
+  final String sessionToken;
+  final Int64List uids;
+
+  const CheckOnlineBatchQuery({required this.sessionToken, required this.uids});
+
+  @override
+  int get hashCode => sessionToken.hashCode ^ uids.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CheckOnlineBatchQuery &&
+          runtimeType == other.runtimeType &&
+          sessionToken == other.sessionToken &&
+          uids == other.uids;
+}
+
+class CheckOnlineBatchResult {
+  final List<OnlineStatusEntry> items;
+
+  const CheckOnlineBatchResult({required this.items});
+
+  @override
+  int get hashCode => items.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CheckOnlineBatchResult &&
+          runtimeType == other.runtimeType &&
+          items == other.items;
+}
+
+class FriendListQuery {
+  final String sessionToken;
+  final int? page;
+  final int? pageSize;
+
+  const FriendListQuery({required this.sessionToken, this.page, this.pageSize});
+
+  @override
+  int get hashCode => sessionToken.hashCode ^ page.hashCode ^ pageSize.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FriendListQuery &&
+          runtimeType == other.runtimeType &&
+          sessionToken == other.sessionToken &&
+          page == other.page &&
+          pageSize == other.pageSize;
+}
+
+class FriendListResult {
+  final List<FriendSummary> friends;
+  final int page;
+  final int pageSize;
+  final bool hasMore;
+
+  const FriendListResult({
+    required this.friends,
+    required this.page,
+    required this.pageSize,
+    required this.hasMore,
+  });
+
+  @override
+  int get hashCode =>
+      friends.hashCode ^ page.hashCode ^ pageSize.hashCode ^ hasMore.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FriendListResult &&
+          runtimeType == other.runtimeType &&
+          friends == other.friends &&
+          page == other.page &&
+          pageSize == other.pageSize &&
+          hasMore == other.hasMore;
+}
+
+class FriendSummary {
+  final PlatformInt64 friendId;
+  final String nickname;
+  final String avatar;
+  final String? remark;
+
+  const FriendSummary({
+    required this.friendId,
+    required this.nickname,
+    required this.avatar,
+    this.remark,
+  });
+
+  @override
+  int get hashCode =>
+      friendId.hashCode ^ nickname.hashCode ^ avatar.hashCode ^ remark.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FriendSummary &&
+          runtimeType == other.runtimeType &&
+          friendId == other.friendId &&
+          nickname == other.nickname &&
+          avatar == other.avatar &&
+          remark == other.remark;
+}
+
+class GroupMember {
+  final PlatformInt64 groupId;
+  final PlatformInt64 memberId;
+  final String nickname;
+  final String avatar;
+  final int role;
+
+  const GroupMember({
+    required this.groupId,
+    required this.memberId,
+    required this.nickname,
+    required this.avatar,
+    required this.role,
+  });
+
+  @override
+  int get hashCode =>
+      groupId.hashCode ^
+      memberId.hashCode ^
+      nickname.hashCode ^
+      avatar.hashCode ^
+      role.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GroupMember &&
+          runtimeType == other.runtimeType &&
+          groupId == other.groupId &&
+          memberId == other.memberId &&
+          nickname == other.nickname &&
+          avatar == other.avatar &&
+          role == other.role;
+}
+
+class GroupMemberDetailQuery {
+  final String sessionToken;
+  final PlatformInt64 groupId;
+  final PlatformInt64 memberId;
+
+  const GroupMemberDetailQuery({
+    required this.sessionToken,
+    required this.groupId,
+    required this.memberId,
+  });
+
+  @override
+  int get hashCode =>
+      sessionToken.hashCode ^ groupId.hashCode ^ memberId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GroupMemberDetailQuery &&
+          runtimeType == other.runtimeType &&
+          sessionToken == other.sessionToken &&
+          groupId == other.groupId &&
+          memberId == other.memberId;
+}
+
+class GroupMemberDetailResult {
+  final GroupMember? member;
+  final bool isFriend;
+
+  const GroupMemberDetailResult({this.member, required this.isFriend});
+
+  @override
+  int get hashCode => member.hashCode ^ isFriend.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GroupMemberDetailResult &&
+          runtimeType == other.runtimeType &&
+          member == other.member &&
+          isFriend == other.isFriend;
+}
+
+class GroupMembersQuery {
+  final String sessionToken;
+  final PlatformInt64 groupId;
+  final int? page;
+  final int? pageSize;
+
+  const GroupMembersQuery({
+    required this.sessionToken,
+    required this.groupId,
+    this.page,
+    this.pageSize,
+  });
+
+  @override
+  int get hashCode =>
+      sessionToken.hashCode ^
+      groupId.hashCode ^
+      page.hashCode ^
+      pageSize.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GroupMembersQuery &&
+          runtimeType == other.runtimeType &&
+          sessionToken == other.sessionToken &&
+          groupId == other.groupId &&
+          page == other.page &&
+          pageSize == other.pageSize;
+}
+
+class GroupMembersResult {
+  final List<GroupMember> members;
+  final int page;
+  final int pageSize;
+  final bool hasMore;
+
+  const GroupMembersResult({
+    required this.members,
+    required this.page,
+    required this.pageSize,
+    required this.hasMore,
+  });
+
+  @override
+  int get hashCode =>
+      members.hashCode ^ page.hashCode ^ pageSize.hashCode ^ hasMore.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GroupMembersResult &&
+          runtimeType == other.runtimeType &&
+          members == other.members &&
+          page == other.page &&
+          pageSize == other.pageSize &&
+          hasMore == other.hasMore;
+}
+
+class GroupMembersSnapshot {
+  final List<GroupMember> members;
+
+  /// 是否直接使用了本地缓存
+  final bool fromCache;
+
+  /// 如果网络失败并回退缓存，则为 true
+  final bool stale;
+
+  const GroupMembersSnapshot({
+    required this.members,
+    required this.fromCache,
+    required this.stale,
+  });
+
+  @override
+  int get hashCode => members.hashCode ^ fromCache.hashCode ^ stale.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GroupMembersSnapshot &&
+          runtimeType == other.runtimeType &&
+          members == other.members &&
+          fromCache == other.fromCache &&
+          stale == other.stale;
+}
+
+class OnlineStatusEntry {
+  final PlatformInt64 uid;
+  final bool online;
+  final PlatformInt64 fetchedAt;
+
+  const OnlineStatusEntry({
+    required this.uid,
+    required this.online,
+    required this.fetchedAt,
+  });
+
+  @override
+  int get hashCode => uid.hashCode ^ online.hashCode ^ fetchedAt.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OnlineStatusEntry &&
+          runtimeType == other.runtimeType &&
+          uid == other.uid &&
+          online == other.online &&
+          fetchedAt == other.fetchedAt;
+}
+
+class OnlineStatusSnapshot {
+  final List<OnlineStatusEntry> items;
+  final bool stale;
+
+  const OnlineStatusSnapshot({required this.items, required this.stale});
+
+  @override
+  int get hashCode => items.hashCode ^ stale.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OnlineStatusSnapshot &&
+          runtimeType == other.runtimeType &&
+          items == other.items &&
+          stale == other.stale;
+}
+
+class OperationStatus {
+  final bool ok;
+
+  const OperationStatus({required this.ok});
+
+  @override
+  int get hashCode => ok.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OperationStatus &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok;
+}
+
+class RecentConversation {
+  final int scene;
+  final PlatformInt64 conversationId;
+  final PlatformInt64 targetId;
+  final PlatformInt64 lastMsgId;
+  final int lastMsgKind;
+  final PlatformInt64 lastSenderId;
+  final PlatformInt64 lastTimestamp;
+  final int unreadCount;
+  final PlatformInt64 updatedAt;
+
+  const RecentConversation({
+    required this.scene,
+    required this.conversationId,
+    required this.targetId,
+    required this.lastMsgId,
+    required this.lastMsgKind,
+    required this.lastSenderId,
+    required this.lastTimestamp,
+    required this.unreadCount,
+    required this.updatedAt,
+  });
+
+  @override
+  int get hashCode =>
+      scene.hashCode ^
+      conversationId.hashCode ^
+      targetId.hashCode ^
+      lastMsgId.hashCode ^
+      lastMsgKind.hashCode ^
+      lastSenderId.hashCode ^
+      lastTimestamp.hashCode ^
+      unreadCount.hashCode ^
+      updatedAt.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RecentConversation &&
+          runtimeType == other.runtimeType &&
+          scene == other.scene &&
+          conversationId == other.conversationId &&
+          targetId == other.targetId &&
+          lastMsgId == other.lastMsgId &&
+          lastMsgKind == other.lastMsgKind &&
+          lastSenderId == other.lastSenderId &&
+          lastTimestamp == other.lastTimestamp &&
+          unreadCount == other.unreadCount &&
+          updatedAt == other.updatedAt;
+}
+
+class RecentConversationsQuery {
+  final String sessionToken;
+  final int? limit;
+  final PlatformInt64? beforeUpdatedAt;
+  final int? beforeScene;
+  final PlatformInt64? beforeConversationId;
+
+  const RecentConversationsQuery({
+    required this.sessionToken,
+    this.limit,
+    this.beforeUpdatedAt,
+    this.beforeScene,
+    this.beforeConversationId,
+  });
+
+  @override
+  int get hashCode =>
+      sessionToken.hashCode ^
+      limit.hashCode ^
+      beforeUpdatedAt.hashCode ^
+      beforeScene.hashCode ^
+      beforeConversationId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RecentConversationsQuery &&
+          runtimeType == other.runtimeType &&
+          sessionToken == other.sessionToken &&
+          limit == other.limit &&
+          beforeUpdatedAt == other.beforeUpdatedAt &&
+          beforeScene == other.beforeScene &&
+          beforeConversationId == other.beforeConversationId;
+}
+
+class RecentConversationsResult {
+  final List<RecentConversation> conversations;
+  final bool hasMore;
+
+  const RecentConversationsResult({
+    required this.conversations,
+    required this.hasMore,
+  });
+
+  @override
+  int get hashCode => conversations.hashCode ^ hasMore.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RecentConversationsResult &&
+          runtimeType == other.runtimeType &&
+          conversations == other.conversations &&
+          hasMore == other.hasMore;
+}
+
+class RefreshGroupMembersQuery {
+  final String sessionToken;
+  final PlatformInt64 groupId;
+  final bool forceRefresh;
+
+  const RefreshGroupMembersQuery({
+    required this.sessionToken,
+    required this.groupId,
+    required this.forceRefresh,
+  });
+
+  @override
+  int get hashCode =>
+      sessionToken.hashCode ^ groupId.hashCode ^ forceRefresh.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RefreshGroupMembersQuery &&
+          runtimeType == other.runtimeType &&
+          sessionToken == other.sessionToken &&
+          groupId == other.groupId &&
+          forceRefresh == other.forceRefresh;
+}
+
+class SearchUserQuery {
+  final String query;
+
+  const SearchUserQuery({required this.query});
+
+  @override
+  int get hashCode => query.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SearchUserQuery &&
+          runtimeType == other.runtimeType &&
+          query == other.query;
+}
+
+class SearchUserResult {
+  final UserProfile? user;
+
+  const SearchUserResult({this.user});
+
+  @override
+  int get hashCode => user.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SearchUserResult &&
+          runtimeType == other.runtimeType &&
+          user == other.user;
+}
+
+class UpdateProfileRequest {
+  final String sessionToken;
+  final String? avatar;
+  final int? gender;
+  final String? country;
+  final String? language;
+  final String? nickname;
+
+  const UpdateProfileRequest({
+    required this.sessionToken,
+    this.avatar,
+    this.gender,
+    this.country,
+    this.language,
+    this.nickname,
+  });
+
+  @override
+  int get hashCode =>
+      sessionToken.hashCode ^
+      avatar.hashCode ^
+      gender.hashCode ^
+      country.hashCode ^
+      language.hashCode ^
+      nickname.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UpdateProfileRequest &&
+          runtimeType == other.runtimeType &&
+          sessionToken == other.sessionToken &&
+          avatar == other.avatar &&
+          gender == other.gender &&
+          country == other.country &&
+          language == other.language &&
+          nickname == other.nickname;
+}
+
+class UserProfile {
+  final PlatformInt64 uid;
+  final String username;
+  final String avatar;
+  final String? email;
+  final String? phone;
+  final String nickname;
+  final String? signature;
+  final String? region;
+  final int addFriendPolicy;
+
+  const UserProfile({
+    required this.uid,
+    required this.username,
+    required this.avatar,
+    this.email,
+    this.phone,
+    required this.nickname,
+    this.signature,
+    this.region,
+    required this.addFriendPolicy,
+  });
+
+  @override
+  int get hashCode =>
+      uid.hashCode ^
+      username.hashCode ^
+      avatar.hashCode ^
+      email.hashCode ^
+      phone.hashCode ^
+      nickname.hashCode ^
+      signature.hashCode ^
+      region.hashCode ^
+      addFriendPolicy.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UserProfile &&
+          runtimeType == other.runtimeType &&
+          uid == other.uid &&
+          username == other.username &&
+          avatar == other.avatar &&
+          email == other.email &&
+          phone == other.phone &&
+          nickname == other.nickname &&
+          signature == other.signature &&
+          region == other.region &&
+          addFriendPolicy == other.addFriendPolicy;
+}

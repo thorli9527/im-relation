@@ -3,7 +3,6 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
-
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
@@ -36,798 +35,1673 @@ import 'generated/message.dart';
 import 'lib.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
 
+abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
+  RustLibApiImplPlatform({
+    required super.handler,
+    required super.wire,
+    required super.generalizedFrbRustBinding,
+    required super.portManager,
+  });
+
+  CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_JsonValuePtr => wire
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue;
+
+  CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_MessageEntityPtr => wire
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity;
+
+  @protected
+  AnyhowException dco_decode_AnyhowException(dynamic raw);
+
+  @protected
+  JsonValue
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(
+    dynamic raw,
+  );
+
+  @protected
+  MessageEntity
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(
+    dynamic raw,
+  );
+
+  @protected
+  JsonValue
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(
+    dynamic raw,
+  );
+
+  @protected
+  MessageEntity
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(
+    dynamic raw,
+  );
+
+  @protected
+  RustStreamSink<FriendRequestEvent>
+  dco_decode_StreamSink_friend_request_event_Sse(dynamic raw);
+
+  @protected
+  RustStreamSink<SystemNoticeEvent>
+  dco_decode_StreamSink_system_notice_event_Sse(dynamic raw);
+
+  @protected
+  String dco_decode_String(dynamic raw);
+
+  @protected
+  AddFriendPayload dco_decode_add_friend_payload(dynamic raw);
 
+  @protected
+  AddFriendResult dco_decode_add_friend_result(dynamic raw);
 
+  @protected
+  ApiError dco_decode_api_error(dynamic raw);
 
-                abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
-                  RustLibApiImplPlatform({
-                    required super.handler,
-                    required super.wire,
-                    required super.generalizedFrbRustBinding,
-                    required super.portManager,
-                  });
+  @protected
+  ApiErrorKind dco_decode_api_error_kind(dynamic raw);
 
-                  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_JsonValuePtr => wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue;
+  @protected
+  bool dco_decode_bool(dynamic raw);
 
-CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_MessageEntityPtr => wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity;
+  @protected
+  AddFriendPayload dco_decode_box_autoadd_add_friend_payload(dynamic raw);
 
+  @protected
+  ApiError dco_decode_box_autoadd_api_error(dynamic raw);
 
+  @protected
+  bool dco_decode_box_autoadd_bool(dynamic raw);
+
+  @protected
+  BuildRegisterCodeRequest dco_decode_box_autoadd_build_register_code_request(
+    dynamic raw,
+  );
 
-                  @protected AnyhowException dco_decode_AnyhowException(dynamic raw);
+  @protected
+  CachedGroupMembersQuery dco_decode_box_autoadd_cached_group_members_query(
+    dynamic raw,
+  );
 
-@protected JsonValue dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(dynamic raw);
+  @protected
+  ChangeEmailRequest dco_decode_box_autoadd_change_email_request(dynamic raw);
 
-@protected MessageEntity dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(dynamic raw);
+  @protected
+  ChangePasswordRequest dco_decode_box_autoadd_change_password_request(
+    dynamic raw,
+  );
 
-@protected JsonValue dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(dynamic raw);
+  @protected
+  ChangePhoneRequest dco_decode_box_autoadd_change_phone_request(dynamic raw);
 
-@protected MessageEntity dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(dynamic raw);
+  @protected
+  CheckOnlineBatchQuery dco_decode_box_autoadd_check_online_batch_query(
+    dynamic raw,
+  );
 
-@protected RustStreamSink<FriendRequestEvent> dco_decode_StreamSink_friend_request_event_Sse(dynamic raw);
+  @protected
+  FriendListQuery dco_decode_box_autoadd_friend_list_query(dynamic raw);
 
-@protected RustStreamSink<SystemNoticeEvent> dco_decode_StreamSink_system_notice_event_Sse(dynamic raw);
+  @protected
+  FriendRequestPayload dco_decode_box_autoadd_friend_request_payload(
+    dynamic raw,
+  );
 
-@protected String dco_decode_String(dynamic raw);
+  @protected
+  GroupMember dco_decode_box_autoadd_group_member(dynamic raw);
 
-@protected AddFriendPayload dco_decode_add_friend_payload(dynamic raw);
+  @protected
+  GroupMemberDetailQuery dco_decode_box_autoadd_group_member_detail_query(
+    dynamic raw,
+  );
 
-@protected AddFriendResult dco_decode_add_friend_result(dynamic raw);
+  @protected
+  GroupMembersQuery dco_decode_box_autoadd_group_members_query(dynamic raw);
 
-@protected ApiError dco_decode_api_error(dynamic raw);
+  @protected
+  int dco_decode_box_autoadd_i_32(dynamic raw);
 
-@protected ApiErrorKind dco_decode_api_error_kind(dynamic raw);
+  @protected
+  PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw);
 
-@protected bool dco_decode_bool(dynamic raw);
+  @protected
+  LoginRequest dco_decode_box_autoadd_login_request(dynamic raw);
 
-@protected AddFriendPayload dco_decode_box_autoadd_add_friend_payload(dynamic raw);
+  @protected
+  RecentConversationsQuery dco_decode_box_autoadd_recent_conversations_query(
+    dynamic raw,
+  );
 
-@protected ApiError dco_decode_box_autoadd_api_error(dynamic raw);
+  @protected
+  RefreshGroupMembersQuery dco_decode_box_autoadd_refresh_group_members_query(
+    dynamic raw,
+  );
 
-@protected bool dco_decode_box_autoadd_bool(dynamic raw);
+  @protected
+  SearchUserQuery dco_decode_box_autoadd_search_user_query(dynamic raw);
 
-@protected BuildRegisterCodeRequest dco_decode_box_autoadd_build_register_code_request(dynamic raw);
+  @protected
+  SessionValidateRequest dco_decode_box_autoadd_session_validate_request(
+    dynamic raw,
+  );
 
-@protected CachedGroupMembersQuery dco_decode_box_autoadd_cached_group_members_query(dynamic raw);
+  @protected
+  SyncRequest dco_decode_box_autoadd_sync_request(dynamic raw);
 
-@protected ChangeEmailRequest dco_decode_box_autoadd_change_email_request(dynamic raw);
+  @protected
+  SystemNoticeEvent dco_decode_box_autoadd_system_notice_event(dynamic raw);
 
-@protected ChangePasswordRequest dco_decode_box_autoadd_change_password_request(dynamic raw);
+  @protected
+  int dco_decode_box_autoadd_u_16(dynamic raw);
 
-@protected ChangePhoneRequest dco_decode_box_autoadd_change_phone_request(dynamic raw);
+  @protected
+  int dco_decode_box_autoadd_u_32(dynamic raw);
 
-@protected CheckOnlineBatchQuery dco_decode_box_autoadd_check_online_batch_query(dynamic raw);
+  @protected
+  BigInt dco_decode_box_autoadd_u_64(dynamic raw);
 
-@protected FriendListQuery dco_decode_box_autoadd_friend_list_query(dynamic raw);
+  @protected
+  UpdateProfileRequest dco_decode_box_autoadd_update_profile_request(
+    dynamic raw,
+  );
 
-@protected FriendRequestPayload dco_decode_box_autoadd_friend_request_payload(dynamic raw);
+  @protected
+  UserProfile dco_decode_box_autoadd_user_profile(dynamic raw);
 
-@protected GroupMember dco_decode_box_autoadd_group_member(dynamic raw);
+  @protected
+  VerifyRegisterCodeRequest dco_decode_box_autoadd_verify_register_code_request(
+    dynamic raw,
+  );
 
-@protected GroupMemberDetailQuery dco_decode_box_autoadd_group_member_detail_query(dynamic raw);
+  @protected
+  BuildRegisterCodeRequest dco_decode_build_register_code_request(dynamic raw);
 
-@protected GroupMembersQuery dco_decode_box_autoadd_group_members_query(dynamic raw);
+  @protected
+  BuildRegisterCodeResponse dco_decode_build_register_code_response(
+    dynamic raw,
+  );
 
-@protected int dco_decode_box_autoadd_i_32(dynamic raw);
+  @protected
+  CachedGroupMembersQuery dco_decode_cached_group_members_query(dynamic raw);
 
-@protected PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw);
+  @protected
+  ChangeEmailRequest dco_decode_change_email_request(dynamic raw);
 
-@protected LoginRequest dco_decode_box_autoadd_login_request(dynamic raw);
+  @protected
+  ChangeEmailResult dco_decode_change_email_result(dynamic raw);
 
-@protected RecentConversationsQuery dco_decode_box_autoadd_recent_conversations_query(dynamic raw);
+  @protected
+  ChangePasswordRequest dco_decode_change_password_request(dynamic raw);
 
-@protected RefreshGroupMembersQuery dco_decode_box_autoadd_refresh_group_members_query(dynamic raw);
+  @protected
+  ChangePhoneRequest dco_decode_change_phone_request(dynamic raw);
 
-@protected SearchUserQuery dco_decode_box_autoadd_search_user_query(dynamic raw);
+  @protected
+  ChangePhoneResult dco_decode_change_phone_result(dynamic raw);
 
-@protected SessionValidateRequest dco_decode_box_autoadd_session_validate_request(dynamic raw);
+  @protected
+  CheckOnlineBatchQuery dco_decode_check_online_batch_query(dynamic raw);
 
-@protected SyncRequest dco_decode_box_autoadd_sync_request(dynamic raw);
+  @protected
+  CheckOnlineBatchResult dco_decode_check_online_batch_result(dynamic raw);
 
-@protected SystemNoticeEvent dco_decode_box_autoadd_system_notice_event(dynamic raw);
+  @protected
+  ConversationEntity dco_decode_conversation_entity(dynamic raw);
 
-@protected int dco_decode_box_autoadd_u_16(dynamic raw);
+  @protected
+  ConversationPageResult dco_decode_conversation_page_result(dynamic raw);
 
-@protected int dco_decode_box_autoadd_u_32(dynamic raw);
+  @protected
+  FriendEntity dco_decode_friend_entity(dynamic raw);
 
-@protected BigInt dco_decode_box_autoadd_u_64(dynamic raw);
+  @protected
+  FriendListQuery dco_decode_friend_list_query(dynamic raw);
 
-@protected UpdateProfileRequest dco_decode_box_autoadd_update_profile_request(dynamic raw);
+  @protected
+  FriendListResult dco_decode_friend_list_result(dynamic raw);
 
-@protected UserProfile dco_decode_box_autoadd_user_profile(dynamic raw);
+  @protected
+  FriendPageResult dco_decode_friend_page_result(dynamic raw);
 
-@protected VerifyRegisterCodeRequest dco_decode_box_autoadd_verify_register_code_request(dynamic raw);
+  @protected
+  FriendRequestEntity dco_decode_friend_request_entity(dynamic raw);
 
-@protected BuildRegisterCodeRequest dco_decode_build_register_code_request(dynamic raw);
+  @protected
+  FriendRequestEvent dco_decode_friend_request_event(dynamic raw);
 
-@protected BuildRegisterCodeResponse dco_decode_build_register_code_response(dynamic raw);
+  @protected
+  FriendRequestPageResult dco_decode_friend_request_page_result(dynamic raw);
 
-@protected CachedGroupMembersQuery dco_decode_cached_group_members_query(dynamic raw);
+  @protected
+  FriendRequestPayload dco_decode_friend_request_payload(dynamic raw);
 
-@protected ChangeEmailRequest dco_decode_change_email_request(dynamic raw);
+  @protected
+  FriendSummary dco_decode_friend_summary(dynamic raw);
 
-@protected ChangeEmailResult dco_decode_change_email_result(dynamic raw);
+  @protected
+  GroupEntity dco_decode_group_entity(dynamic raw);
 
-@protected ChangePasswordRequest dco_decode_change_password_request(dynamic raw);
+  @protected
+  GroupMember dco_decode_group_member(dynamic raw);
 
-@protected ChangePhoneRequest dco_decode_change_phone_request(dynamic raw);
+  @protected
+  GroupMemberDetailQuery dco_decode_group_member_detail_query(dynamic raw);
 
-@protected ChangePhoneResult dco_decode_change_phone_result(dynamic raw);
+  @protected
+  GroupMemberDetailResult dco_decode_group_member_detail_result(dynamic raw);
 
-@protected CheckOnlineBatchQuery dco_decode_check_online_batch_query(dynamic raw);
+  @protected
+  GroupMembersQuery dco_decode_group_members_query(dynamic raw);
 
-@protected CheckOnlineBatchResult dco_decode_check_online_batch_result(dynamic raw);
+  @protected
+  GroupMembersResult dco_decode_group_members_result(dynamic raw);
 
-@protected ConversationEntity dco_decode_conversation_entity(dynamic raw);
+  @protected
+  GroupMembersSnapshot dco_decode_group_members_snapshot(dynamic raw);
 
-@protected ConversationPageResult dco_decode_conversation_page_result(dynamic raw);
+  @protected
+  GroupPageResult dco_decode_group_page_result(dynamic raw);
 
-@protected FriendEntity dco_decode_friend_entity(dynamic raw);
+  @protected
+  GroupRequestEntity dco_decode_group_request_entity(dynamic raw);
 
-@protected FriendListQuery dco_decode_friend_list_query(dynamic raw);
+  @protected
+  GroupRequestPageResult dco_decode_group_request_page_result(dynamic raw);
 
-@protected FriendListResult dco_decode_friend_list_result(dynamic raw);
+  @protected
+  int dco_decode_i_32(dynamic raw);
 
-@protected FriendPageResult dco_decode_friend_page_result(dynamic raw);
+  @protected
+  PlatformInt64 dco_decode_i_64(dynamic raw);
 
-@protected FriendRequestEntity dco_decode_friend_request_entity(dynamic raw);
+  @protected
+  List<MessageEntity>
+  dco_decode_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(
+    dynamic raw,
+  );
 
-@protected FriendRequestEvent dco_decode_friend_request_event(dynamic raw);
+  @protected
+  List<String> dco_decode_list_String(dynamic raw);
 
-@protected FriendRequestPageResult dco_decode_friend_request_page_result(dynamic raw);
+  @protected
+  List<ConversationEntity> dco_decode_list_conversation_entity(dynamic raw);
 
-@protected FriendRequestPayload dco_decode_friend_request_payload(dynamic raw);
+  @protected
+  List<FriendEntity> dco_decode_list_friend_entity(dynamic raw);
 
-@protected FriendSummary dco_decode_friend_summary(dynamic raw);
+  @protected
+  List<FriendRequestEntity> dco_decode_list_friend_request_entity(dynamic raw);
 
-@protected GroupEntity dco_decode_group_entity(dynamic raw);
+  @protected
+  List<FriendSummary> dco_decode_list_friend_summary(dynamic raw);
 
-@protected GroupMember dco_decode_group_member(dynamic raw);
+  @protected
+  List<GroupEntity> dco_decode_list_group_entity(dynamic raw);
 
-@protected GroupMemberDetailQuery dco_decode_group_member_detail_query(dynamic raw);
+  @protected
+  List<GroupMember> dco_decode_list_group_member(dynamic raw);
 
-@protected GroupMemberDetailResult dco_decode_group_member_detail_result(dynamic raw);
+  @protected
+  List<GroupRequestEntity> dco_decode_list_group_request_entity(dynamic raw);
 
-@protected GroupMembersQuery dco_decode_group_members_query(dynamic raw);
+  @protected
+  List<OnlineStatusEntry> dco_decode_list_online_status_entry(dynamic raw);
 
-@protected GroupMembersResult dco_decode_group_members_result(dynamic raw);
+  @protected
+  Int64List dco_decode_list_prim_i_64_strict(dynamic raw);
 
-@protected GroupMembersSnapshot dco_decode_group_members_snapshot(dynamic raw);
+  @protected
+  List<int> dco_decode_list_prim_u_8_loose(dynamic raw);
 
-@protected GroupPageResult dco_decode_group_page_result(dynamic raw);
+  @protected
+  Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
-@protected GroupRequestEntity dco_decode_group_request_entity(dynamic raw);
+  @protected
+  List<RecentConversation> dco_decode_list_recent_conversation(dynamic raw);
 
-@protected GroupRequestPageResult dco_decode_group_request_page_result(dynamic raw);
+  @protected
+  LoginRequest dco_decode_login_request(dynamic raw);
 
-@protected int dco_decode_i_32(dynamic raw);
+  @protected
+  LoginResult dco_decode_login_result(dynamic raw);
 
-@protected PlatformInt64 dco_decode_i_64(dynamic raw);
+  @protected
+  MessagePageResult dco_decode_message_page_result(dynamic raw);
 
-@protected List<MessageEntity> dco_decode_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(dynamic raw);
+  @protected
+  OnlineStatusEntry dco_decode_online_status_entry(dynamic raw);
 
-@protected List<String> dco_decode_list_String(dynamic raw);
+  @protected
+  OnlineStatusSnapshot dco_decode_online_status_snapshot(dynamic raw);
 
-@protected List<ConversationEntity> dco_decode_list_conversation_entity(dynamic raw);
+  @protected
+  OperationStatus dco_decode_operation_status(dynamic raw);
 
-@protected List<FriendEntity> dco_decode_list_friend_entity(dynamic raw);
+  @protected
+  String? dco_decode_opt_String(dynamic raw);
 
-@protected List<FriendRequestEntity> dco_decode_list_friend_request_entity(dynamic raw);
+  @protected
+  bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
 
-@protected List<FriendSummary> dco_decode_list_friend_summary(dynamic raw);
+  @protected
+  GroupMember? dco_decode_opt_box_autoadd_group_member(dynamic raw);
 
-@protected List<GroupEntity> dco_decode_list_group_entity(dynamic raw);
+  @protected
+  int? dco_decode_opt_box_autoadd_i_32(dynamic raw);
 
-@protected List<GroupMember> dco_decode_list_group_member(dynamic raw);
+  @protected
+  PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
 
-@protected List<GroupRequestEntity> dco_decode_list_group_request_entity(dynamic raw);
+  @protected
+  int? dco_decode_opt_box_autoadd_u_16(dynamic raw);
 
-@protected List<OnlineStatusEntry> dco_decode_list_online_status_entry(dynamic raw);
+  @protected
+  int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
 
-@protected Int64List dco_decode_list_prim_i_64_strict(dynamic raw);
+  @protected
+  BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
 
-@protected List<int> dco_decode_list_prim_u_8_loose(dynamic raw);
+  @protected
+  UserProfile? dco_decode_opt_box_autoadd_user_profile(dynamic raw);
 
-@protected Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+  @protected
+  RecentConversation dco_decode_recent_conversation(dynamic raw);
 
-@protected List<RecentConversation> dco_decode_list_recent_conversation(dynamic raw);
+  @protected
+  RecentConversationsQuery dco_decode_recent_conversations_query(dynamic raw);
 
-@protected LoginRequest dco_decode_login_request(dynamic raw);
+  @protected
+  RecentConversationsResult dco_decode_recent_conversations_result(dynamic raw);
 
-@protected LoginResult dco_decode_login_result(dynamic raw);
+  @protected
+  RefreshGroupMembersQuery dco_decode_refresh_group_members_query(dynamic raw);
 
-@protected MessagePageResult dco_decode_message_page_result(dynamic raw);
+  @protected
+  SearchUserQuery dco_decode_search_user_query(dynamic raw);
 
-@protected OnlineStatusEntry dco_decode_online_status_entry(dynamic raw);
+  @protected
+  SearchUserResult dco_decode_search_user_result(dynamic raw);
 
-@protected OnlineStatusSnapshot dco_decode_online_status_snapshot(dynamic raw);
+  @protected
+  SessionValidateRequest dco_decode_session_validate_request(dynamic raw);
 
-@protected OperationStatus dco_decode_operation_status(dynamic raw);
+  @protected
+  SessionValidationResult dco_decode_session_validation_result(dynamic raw);
 
-@protected String? dco_decode_opt_String(dynamic raw);
+  @protected
+  SyncRequest dco_decode_sync_request(dynamic raw);
 
-@protected bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
+  @protected
+  SyncResponse dco_decode_sync_response(dynamic raw);
 
-@protected GroupMember? dco_decode_opt_box_autoadd_group_member(dynamic raw);
+  @protected
+  SystemNoticeEvent dco_decode_system_notice_event(dynamic raw);
 
-@protected int? dco_decode_opt_box_autoadd_i_32(dynamic raw);
+  @protected
+  int dco_decode_u_16(dynamic raw);
 
-@protected PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
+  @protected
+  int dco_decode_u_32(dynamic raw);
 
-@protected int? dco_decode_opt_box_autoadd_u_16(dynamic raw);
+  @protected
+  BigInt dco_decode_u_64(dynamic raw);
 
-@protected int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
+  @protected
+  int dco_decode_u_8(dynamic raw);
 
-@protected BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
+  @protected
+  void dco_decode_unit(dynamic raw);
 
-@protected UserProfile? dco_decode_opt_box_autoadd_user_profile(dynamic raw);
+  @protected
+  UpdateProfileRequest dco_decode_update_profile_request(dynamic raw);
 
-@protected RecentConversation dco_decode_recent_conversation(dynamic raw);
+  @protected
+  UserInfoResult dco_decode_user_info_result(dynamic raw);
 
-@protected RecentConversationsQuery dco_decode_recent_conversations_query(dynamic raw);
+  @protected
+  UserProfile dco_decode_user_profile(dynamic raw);
 
-@protected RecentConversationsResult dco_decode_recent_conversations_result(dynamic raw);
+  @protected
+  BigInt dco_decode_usize(dynamic raw);
 
-@protected RefreshGroupMembersQuery dco_decode_refresh_group_members_query(dynamic raw);
+  @protected
+  VerifyRegisterCodeRequest dco_decode_verify_register_code_request(
+    dynamic raw,
+  );
 
-@protected SearchUserQuery dco_decode_search_user_query(dynamic raw);
+  @protected
+  AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
 
-@protected SearchUserResult dco_decode_search_user_result(dynamic raw);
+  @protected
+  JsonValue
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(
+    SseDeserializer deserializer,
+  );
 
-@protected SessionValidateRequest dco_decode_session_validate_request(dynamic raw);
+  @protected
+  MessageEntity
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(
+    SseDeserializer deserializer,
+  );
 
-@protected SessionValidationResult dco_decode_session_validation_result(dynamic raw);
+  @protected
+  JsonValue
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(
+    SseDeserializer deserializer,
+  );
 
-@protected SyncRequest dco_decode_sync_request(dynamic raw);
+  @protected
+  MessageEntity
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(
+    SseDeserializer deserializer,
+  );
 
-@protected SyncResponse dco_decode_sync_response(dynamic raw);
+  @protected
+  RustStreamSink<FriendRequestEvent>
+  sse_decode_StreamSink_friend_request_event_Sse(SseDeserializer deserializer);
 
-@protected SystemNoticeEvent dco_decode_system_notice_event(dynamic raw);
+  @protected
+  RustStreamSink<SystemNoticeEvent>
+  sse_decode_StreamSink_system_notice_event_Sse(SseDeserializer deserializer);
 
-@protected int dco_decode_u_16(dynamic raw);
+  @protected
+  String sse_decode_String(SseDeserializer deserializer);
 
-@protected int dco_decode_u_32(dynamic raw);
+  @protected
+  AddFriendPayload sse_decode_add_friend_payload(SseDeserializer deserializer);
 
-@protected BigInt dco_decode_u_64(dynamic raw);
+  @protected
+  AddFriendResult sse_decode_add_friend_result(SseDeserializer deserializer);
 
-@protected int dco_decode_u_8(dynamic raw);
+  @protected
+  ApiError sse_decode_api_error(SseDeserializer deserializer);
 
-@protected void dco_decode_unit(dynamic raw);
+  @protected
+  ApiErrorKind sse_decode_api_error_kind(SseDeserializer deserializer);
 
-@protected UpdateProfileRequest dco_decode_update_profile_request(dynamic raw);
+  @protected
+  bool sse_decode_bool(SseDeserializer deserializer);
 
-@protected UserInfoResult dco_decode_user_info_result(dynamic raw);
+  @protected
+  AddFriendPayload sse_decode_box_autoadd_add_friend_payload(
+    SseDeserializer deserializer,
+  );
 
-@protected UserProfile dco_decode_user_profile(dynamic raw);
+  @protected
+  ApiError sse_decode_box_autoadd_api_error(SseDeserializer deserializer);
 
-@protected BigInt dco_decode_usize(dynamic raw);
+  @protected
+  bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
 
-@protected VerifyRegisterCodeRequest dco_decode_verify_register_code_request(dynamic raw);
+  @protected
+  BuildRegisterCodeRequest sse_decode_box_autoadd_build_register_code_request(
+    SseDeserializer deserializer,
+  );
 
-@protected AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
+  @protected
+  CachedGroupMembersQuery sse_decode_box_autoadd_cached_group_members_query(
+    SseDeserializer deserializer,
+  );
 
-@protected JsonValue sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(SseDeserializer deserializer);
+  @protected
+  ChangeEmailRequest sse_decode_box_autoadd_change_email_request(
+    SseDeserializer deserializer,
+  );
 
-@protected MessageEntity sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(SseDeserializer deserializer);
+  @protected
+  ChangePasswordRequest sse_decode_box_autoadd_change_password_request(
+    SseDeserializer deserializer,
+  );
 
-@protected JsonValue sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(SseDeserializer deserializer);
+  @protected
+  ChangePhoneRequest sse_decode_box_autoadd_change_phone_request(
+    SseDeserializer deserializer,
+  );
 
-@protected MessageEntity sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(SseDeserializer deserializer);
+  @protected
+  CheckOnlineBatchQuery sse_decode_box_autoadd_check_online_batch_query(
+    SseDeserializer deserializer,
+  );
 
-@protected RustStreamSink<FriendRequestEvent> sse_decode_StreamSink_friend_request_event_Sse(SseDeserializer deserializer);
+  @protected
+  FriendListQuery sse_decode_box_autoadd_friend_list_query(
+    SseDeserializer deserializer,
+  );
 
-@protected RustStreamSink<SystemNoticeEvent> sse_decode_StreamSink_system_notice_event_Sse(SseDeserializer deserializer);
+  @protected
+  FriendRequestPayload sse_decode_box_autoadd_friend_request_payload(
+    SseDeserializer deserializer,
+  );
 
-@protected String sse_decode_String(SseDeserializer deserializer);
+  @protected
+  GroupMember sse_decode_box_autoadd_group_member(SseDeserializer deserializer);
 
-@protected AddFriendPayload sse_decode_add_friend_payload(SseDeserializer deserializer);
+  @protected
+  GroupMemberDetailQuery sse_decode_box_autoadd_group_member_detail_query(
+    SseDeserializer deserializer,
+  );
 
-@protected AddFriendResult sse_decode_add_friend_result(SseDeserializer deserializer);
+  @protected
+  GroupMembersQuery sse_decode_box_autoadd_group_members_query(
+    SseDeserializer deserializer,
+  );
 
-@protected ApiError sse_decode_api_error(SseDeserializer deserializer);
+  @protected
+  int sse_decode_box_autoadd_i_32(SseDeserializer deserializer);
 
-@protected ApiErrorKind sse_decode_api_error_kind(SseDeserializer deserializer);
+  @protected
+  PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer);
 
-@protected bool sse_decode_bool(SseDeserializer deserializer);
+  @protected
+  LoginRequest sse_decode_box_autoadd_login_request(
+    SseDeserializer deserializer,
+  );
 
-@protected AddFriendPayload sse_decode_box_autoadd_add_friend_payload(SseDeserializer deserializer);
+  @protected
+  RecentConversationsQuery sse_decode_box_autoadd_recent_conversations_query(
+    SseDeserializer deserializer,
+  );
 
-@protected ApiError sse_decode_box_autoadd_api_error(SseDeserializer deserializer);
+  @protected
+  RefreshGroupMembersQuery sse_decode_box_autoadd_refresh_group_members_query(
+    SseDeserializer deserializer,
+  );
 
-@protected bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
+  @protected
+  SearchUserQuery sse_decode_box_autoadd_search_user_query(
+    SseDeserializer deserializer,
+  );
 
-@protected BuildRegisterCodeRequest sse_decode_box_autoadd_build_register_code_request(SseDeserializer deserializer);
+  @protected
+  SessionValidateRequest sse_decode_box_autoadd_session_validate_request(
+    SseDeserializer deserializer,
+  );
 
-@protected CachedGroupMembersQuery sse_decode_box_autoadd_cached_group_members_query(SseDeserializer deserializer);
+  @protected
+  SyncRequest sse_decode_box_autoadd_sync_request(SseDeserializer deserializer);
 
-@protected ChangeEmailRequest sse_decode_box_autoadd_change_email_request(SseDeserializer deserializer);
+  @protected
+  SystemNoticeEvent sse_decode_box_autoadd_system_notice_event(
+    SseDeserializer deserializer,
+  );
 
-@protected ChangePasswordRequest sse_decode_box_autoadd_change_password_request(SseDeserializer deserializer);
+  @protected
+  int sse_decode_box_autoadd_u_16(SseDeserializer deserializer);
 
-@protected ChangePhoneRequest sse_decode_box_autoadd_change_phone_request(SseDeserializer deserializer);
+  @protected
+  int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
 
-@protected CheckOnlineBatchQuery sse_decode_box_autoadd_check_online_batch_query(SseDeserializer deserializer);
+  @protected
+  BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
 
-@protected FriendListQuery sse_decode_box_autoadd_friend_list_query(SseDeserializer deserializer);
+  @protected
+  UpdateProfileRequest sse_decode_box_autoadd_update_profile_request(
+    SseDeserializer deserializer,
+  );
 
-@protected FriendRequestPayload sse_decode_box_autoadd_friend_request_payload(SseDeserializer deserializer);
+  @protected
+  UserProfile sse_decode_box_autoadd_user_profile(SseDeserializer deserializer);
 
-@protected GroupMember sse_decode_box_autoadd_group_member(SseDeserializer deserializer);
+  @protected
+  VerifyRegisterCodeRequest sse_decode_box_autoadd_verify_register_code_request(
+    SseDeserializer deserializer,
+  );
 
-@protected GroupMemberDetailQuery sse_decode_box_autoadd_group_member_detail_query(SseDeserializer deserializer);
+  @protected
+  BuildRegisterCodeRequest sse_decode_build_register_code_request(
+    SseDeserializer deserializer,
+  );
 
-@protected GroupMembersQuery sse_decode_box_autoadd_group_members_query(SseDeserializer deserializer);
+  @protected
+  BuildRegisterCodeResponse sse_decode_build_register_code_response(
+    SseDeserializer deserializer,
+  );
 
-@protected int sse_decode_box_autoadd_i_32(SseDeserializer deserializer);
+  @protected
+  CachedGroupMembersQuery sse_decode_cached_group_members_query(
+    SseDeserializer deserializer,
+  );
 
-@protected PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer);
+  @protected
+  ChangeEmailRequest sse_decode_change_email_request(
+    SseDeserializer deserializer,
+  );
 
-@protected LoginRequest sse_decode_box_autoadd_login_request(SseDeserializer deserializer);
+  @protected
+  ChangeEmailResult sse_decode_change_email_result(
+    SseDeserializer deserializer,
+  );
 
-@protected RecentConversationsQuery sse_decode_box_autoadd_recent_conversations_query(SseDeserializer deserializer);
+  @protected
+  ChangePasswordRequest sse_decode_change_password_request(
+    SseDeserializer deserializer,
+  );
 
-@protected RefreshGroupMembersQuery sse_decode_box_autoadd_refresh_group_members_query(SseDeserializer deserializer);
+  @protected
+  ChangePhoneRequest sse_decode_change_phone_request(
+    SseDeserializer deserializer,
+  );
 
-@protected SearchUserQuery sse_decode_box_autoadd_search_user_query(SseDeserializer deserializer);
+  @protected
+  ChangePhoneResult sse_decode_change_phone_result(
+    SseDeserializer deserializer,
+  );
 
-@protected SessionValidateRequest sse_decode_box_autoadd_session_validate_request(SseDeserializer deserializer);
+  @protected
+  CheckOnlineBatchQuery sse_decode_check_online_batch_query(
+    SseDeserializer deserializer,
+  );
 
-@protected SyncRequest sse_decode_box_autoadd_sync_request(SseDeserializer deserializer);
+  @protected
+  CheckOnlineBatchResult sse_decode_check_online_batch_result(
+    SseDeserializer deserializer,
+  );
 
-@protected SystemNoticeEvent sse_decode_box_autoadd_system_notice_event(SseDeserializer deserializer);
+  @protected
+  ConversationEntity sse_decode_conversation_entity(
+    SseDeserializer deserializer,
+  );
 
-@protected int sse_decode_box_autoadd_u_16(SseDeserializer deserializer);
+  @protected
+  ConversationPageResult sse_decode_conversation_page_result(
+    SseDeserializer deserializer,
+  );
 
-@protected int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
+  @protected
+  FriendEntity sse_decode_friend_entity(SseDeserializer deserializer);
 
-@protected BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
+  @protected
+  FriendListQuery sse_decode_friend_list_query(SseDeserializer deserializer);
 
-@protected UpdateProfileRequest sse_decode_box_autoadd_update_profile_request(SseDeserializer deserializer);
+  @protected
+  FriendListResult sse_decode_friend_list_result(SseDeserializer deserializer);
 
-@protected UserProfile sse_decode_box_autoadd_user_profile(SseDeserializer deserializer);
+  @protected
+  FriendPageResult sse_decode_friend_page_result(SseDeserializer deserializer);
 
-@protected VerifyRegisterCodeRequest sse_decode_box_autoadd_verify_register_code_request(SseDeserializer deserializer);
+  @protected
+  FriendRequestEntity sse_decode_friend_request_entity(
+    SseDeserializer deserializer,
+  );
 
-@protected BuildRegisterCodeRequest sse_decode_build_register_code_request(SseDeserializer deserializer);
+  @protected
+  FriendRequestEvent sse_decode_friend_request_event(
+    SseDeserializer deserializer,
+  );
 
-@protected BuildRegisterCodeResponse sse_decode_build_register_code_response(SseDeserializer deserializer);
+  @protected
+  FriendRequestPageResult sse_decode_friend_request_page_result(
+    SseDeserializer deserializer,
+  );
 
-@protected CachedGroupMembersQuery sse_decode_cached_group_members_query(SseDeserializer deserializer);
+  @protected
+  FriendRequestPayload sse_decode_friend_request_payload(
+    SseDeserializer deserializer,
+  );
 
-@protected ChangeEmailRequest sse_decode_change_email_request(SseDeserializer deserializer);
+  @protected
+  FriendSummary sse_decode_friend_summary(SseDeserializer deserializer);
 
-@protected ChangeEmailResult sse_decode_change_email_result(SseDeserializer deserializer);
+  @protected
+  GroupEntity sse_decode_group_entity(SseDeserializer deserializer);
 
-@protected ChangePasswordRequest sse_decode_change_password_request(SseDeserializer deserializer);
+  @protected
+  GroupMember sse_decode_group_member(SseDeserializer deserializer);
 
-@protected ChangePhoneRequest sse_decode_change_phone_request(SseDeserializer deserializer);
+  @protected
+  GroupMemberDetailQuery sse_decode_group_member_detail_query(
+    SseDeserializer deserializer,
+  );
 
-@protected ChangePhoneResult sse_decode_change_phone_result(SseDeserializer deserializer);
+  @protected
+  GroupMemberDetailResult sse_decode_group_member_detail_result(
+    SseDeserializer deserializer,
+  );
 
-@protected CheckOnlineBatchQuery sse_decode_check_online_batch_query(SseDeserializer deserializer);
+  @protected
+  GroupMembersQuery sse_decode_group_members_query(
+    SseDeserializer deserializer,
+  );
 
-@protected CheckOnlineBatchResult sse_decode_check_online_batch_result(SseDeserializer deserializer);
+  @protected
+  GroupMembersResult sse_decode_group_members_result(
+    SseDeserializer deserializer,
+  );
 
-@protected ConversationEntity sse_decode_conversation_entity(SseDeserializer deserializer);
+  @protected
+  GroupMembersSnapshot sse_decode_group_members_snapshot(
+    SseDeserializer deserializer,
+  );
 
-@protected ConversationPageResult sse_decode_conversation_page_result(SseDeserializer deserializer);
+  @protected
+  GroupPageResult sse_decode_group_page_result(SseDeserializer deserializer);
 
-@protected FriendEntity sse_decode_friend_entity(SseDeserializer deserializer);
+  @protected
+  GroupRequestEntity sse_decode_group_request_entity(
+    SseDeserializer deserializer,
+  );
 
-@protected FriendListQuery sse_decode_friend_list_query(SseDeserializer deserializer);
+  @protected
+  GroupRequestPageResult sse_decode_group_request_page_result(
+    SseDeserializer deserializer,
+  );
 
-@protected FriendListResult sse_decode_friend_list_result(SseDeserializer deserializer);
+  @protected
+  int sse_decode_i_32(SseDeserializer deserializer);
 
-@protected FriendPageResult sse_decode_friend_page_result(SseDeserializer deserializer);
+  @protected
+  PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
 
-@protected FriendRequestEntity sse_decode_friend_request_entity(SseDeserializer deserializer);
+  @protected
+  List<MessageEntity>
+  sse_decode_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(
+    SseDeserializer deserializer,
+  );
 
-@protected FriendRequestEvent sse_decode_friend_request_event(SseDeserializer deserializer);
+  @protected
+  List<String> sse_decode_list_String(SseDeserializer deserializer);
 
-@protected FriendRequestPageResult sse_decode_friend_request_page_result(SseDeserializer deserializer);
+  @protected
+  List<ConversationEntity> sse_decode_list_conversation_entity(
+    SseDeserializer deserializer,
+  );
 
-@protected FriendRequestPayload sse_decode_friend_request_payload(SseDeserializer deserializer);
+  @protected
+  List<FriendEntity> sse_decode_list_friend_entity(
+    SseDeserializer deserializer,
+  );
 
-@protected FriendSummary sse_decode_friend_summary(SseDeserializer deserializer);
+  @protected
+  List<FriendRequestEntity> sse_decode_list_friend_request_entity(
+    SseDeserializer deserializer,
+  );
 
-@protected GroupEntity sse_decode_group_entity(SseDeserializer deserializer);
+  @protected
+  List<FriendSummary> sse_decode_list_friend_summary(
+    SseDeserializer deserializer,
+  );
 
-@protected GroupMember sse_decode_group_member(SseDeserializer deserializer);
+  @protected
+  List<GroupEntity> sse_decode_list_group_entity(SseDeserializer deserializer);
 
-@protected GroupMemberDetailQuery sse_decode_group_member_detail_query(SseDeserializer deserializer);
+  @protected
+  List<GroupMember> sse_decode_list_group_member(SseDeserializer deserializer);
 
-@protected GroupMemberDetailResult sse_decode_group_member_detail_result(SseDeserializer deserializer);
+  @protected
+  List<GroupRequestEntity> sse_decode_list_group_request_entity(
+    SseDeserializer deserializer,
+  );
 
-@protected GroupMembersQuery sse_decode_group_members_query(SseDeserializer deserializer);
+  @protected
+  List<OnlineStatusEntry> sse_decode_list_online_status_entry(
+    SseDeserializer deserializer,
+  );
 
-@protected GroupMembersResult sse_decode_group_members_result(SseDeserializer deserializer);
+  @protected
+  Int64List sse_decode_list_prim_i_64_strict(SseDeserializer deserializer);
 
-@protected GroupMembersSnapshot sse_decode_group_members_snapshot(SseDeserializer deserializer);
+  @protected
+  List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
 
-@protected GroupPageResult sse_decode_group_page_result(SseDeserializer deserializer);
+  @protected
+  Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
-@protected GroupRequestEntity sse_decode_group_request_entity(SseDeserializer deserializer);
+  @protected
+  List<RecentConversation> sse_decode_list_recent_conversation(
+    SseDeserializer deserializer,
+  );
 
-@protected GroupRequestPageResult sse_decode_group_request_page_result(SseDeserializer deserializer);
+  @protected
+  LoginRequest sse_decode_login_request(SseDeserializer deserializer);
 
-@protected int sse_decode_i_32(SseDeserializer deserializer);
+  @protected
+  LoginResult sse_decode_login_result(SseDeserializer deserializer);
 
-@protected PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
+  @protected
+  MessagePageResult sse_decode_message_page_result(
+    SseDeserializer deserializer,
+  );
 
-@protected List<MessageEntity> sse_decode_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(SseDeserializer deserializer);
+  @protected
+  OnlineStatusEntry sse_decode_online_status_entry(
+    SseDeserializer deserializer,
+  );
 
-@protected List<String> sse_decode_list_String(SseDeserializer deserializer);
+  @protected
+  OnlineStatusSnapshot sse_decode_online_status_snapshot(
+    SseDeserializer deserializer,
+  );
 
-@protected List<ConversationEntity> sse_decode_list_conversation_entity(SseDeserializer deserializer);
+  @protected
+  OperationStatus sse_decode_operation_status(SseDeserializer deserializer);
 
-@protected List<FriendEntity> sse_decode_list_friend_entity(SseDeserializer deserializer);
+  @protected
+  String? sse_decode_opt_String(SseDeserializer deserializer);
 
-@protected List<FriendRequestEntity> sse_decode_list_friend_request_entity(SseDeserializer deserializer);
+  @protected
+  bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
 
-@protected List<FriendSummary> sse_decode_list_friend_summary(SseDeserializer deserializer);
+  @protected
+  GroupMember? sse_decode_opt_box_autoadd_group_member(
+    SseDeserializer deserializer,
+  );
 
-@protected List<GroupEntity> sse_decode_list_group_entity(SseDeserializer deserializer);
+  @protected
+  int? sse_decode_opt_box_autoadd_i_32(SseDeserializer deserializer);
 
-@protected List<GroupMember> sse_decode_list_group_member(SseDeserializer deserializer);
+  @protected
+  PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
 
-@protected List<GroupRequestEntity> sse_decode_list_group_request_entity(SseDeserializer deserializer);
+  @protected
+  int? sse_decode_opt_box_autoadd_u_16(SseDeserializer deserializer);
 
-@protected List<OnlineStatusEntry> sse_decode_list_online_status_entry(SseDeserializer deserializer);
+  @protected
+  int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
 
-@protected Int64List sse_decode_list_prim_i_64_strict(SseDeserializer deserializer);
+  @protected
+  BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
 
-@protected List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
+  @protected
+  UserProfile? sse_decode_opt_box_autoadd_user_profile(
+    SseDeserializer deserializer,
+  );
 
-@protected Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+  @protected
+  RecentConversation sse_decode_recent_conversation(
+    SseDeserializer deserializer,
+  );
 
-@protected List<RecentConversation> sse_decode_list_recent_conversation(SseDeserializer deserializer);
+  @protected
+  RecentConversationsQuery sse_decode_recent_conversations_query(
+    SseDeserializer deserializer,
+  );
 
-@protected LoginRequest sse_decode_login_request(SseDeserializer deserializer);
+  @protected
+  RecentConversationsResult sse_decode_recent_conversations_result(
+    SseDeserializer deserializer,
+  );
 
-@protected LoginResult sse_decode_login_result(SseDeserializer deserializer);
+  @protected
+  RefreshGroupMembersQuery sse_decode_refresh_group_members_query(
+    SseDeserializer deserializer,
+  );
 
-@protected MessagePageResult sse_decode_message_page_result(SseDeserializer deserializer);
+  @protected
+  SearchUserQuery sse_decode_search_user_query(SseDeserializer deserializer);
 
-@protected OnlineStatusEntry sse_decode_online_status_entry(SseDeserializer deserializer);
+  @protected
+  SearchUserResult sse_decode_search_user_result(SseDeserializer deserializer);
 
-@protected OnlineStatusSnapshot sse_decode_online_status_snapshot(SseDeserializer deserializer);
+  @protected
+  SessionValidateRequest sse_decode_session_validate_request(
+    SseDeserializer deserializer,
+  );
 
-@protected OperationStatus sse_decode_operation_status(SseDeserializer deserializer);
+  @protected
+  SessionValidationResult sse_decode_session_validation_result(
+    SseDeserializer deserializer,
+  );
 
-@protected String? sse_decode_opt_String(SseDeserializer deserializer);
+  @protected
+  SyncRequest sse_decode_sync_request(SseDeserializer deserializer);
 
-@protected bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
+  @protected
+  SyncResponse sse_decode_sync_response(SseDeserializer deserializer);
 
-@protected GroupMember? sse_decode_opt_box_autoadd_group_member(SseDeserializer deserializer);
+  @protected
+  SystemNoticeEvent sse_decode_system_notice_event(
+    SseDeserializer deserializer,
+  );
 
-@protected int? sse_decode_opt_box_autoadd_i_32(SseDeserializer deserializer);
+  @protected
+  int sse_decode_u_16(SseDeserializer deserializer);
 
-@protected PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
+  @protected
+  int sse_decode_u_32(SseDeserializer deserializer);
 
-@protected int? sse_decode_opt_box_autoadd_u_16(SseDeserializer deserializer);
+  @protected
+  BigInt sse_decode_u_64(SseDeserializer deserializer);
 
-@protected int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
+  @protected
+  int sse_decode_u_8(SseDeserializer deserializer);
 
-@protected BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
+  @protected
+  void sse_decode_unit(SseDeserializer deserializer);
 
-@protected UserProfile? sse_decode_opt_box_autoadd_user_profile(SseDeserializer deserializer);
+  @protected
+  UpdateProfileRequest sse_decode_update_profile_request(
+    SseDeserializer deserializer,
+  );
 
-@protected RecentConversation sse_decode_recent_conversation(SseDeserializer deserializer);
+  @protected
+  UserInfoResult sse_decode_user_info_result(SseDeserializer deserializer);
 
-@protected RecentConversationsQuery sse_decode_recent_conversations_query(SseDeserializer deserializer);
+  @protected
+  UserProfile sse_decode_user_profile(SseDeserializer deserializer);
 
-@protected RecentConversationsResult sse_decode_recent_conversations_result(SseDeserializer deserializer);
+  @protected
+  BigInt sse_decode_usize(SseDeserializer deserializer);
 
-@protected RefreshGroupMembersQuery sse_decode_refresh_group_members_query(SseDeserializer deserializer);
+  @protected
+  VerifyRegisterCodeRequest sse_decode_verify_register_code_request(
+    SseDeserializer deserializer,
+  );
 
-@protected SearchUserQuery sse_decode_search_user_query(SseDeserializer deserializer);
+  @protected
+  void sse_encode_AnyhowException(
+    AnyhowException self,
+    SseSerializer serializer,
+  );
 
-@protected SearchUserResult sse_decode_search_user_result(SseDeserializer deserializer);
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(
+    JsonValue self,
+    SseSerializer serializer,
+  );
 
-@protected SessionValidateRequest sse_decode_session_validate_request(SseDeserializer deserializer);
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(
+    MessageEntity self,
+    SseSerializer serializer,
+  );
 
-@protected SessionValidationResult sse_decode_session_validation_result(SseDeserializer deserializer);
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(
+    JsonValue self,
+    SseSerializer serializer,
+  );
 
-@protected SyncRequest sse_decode_sync_request(SseDeserializer deserializer);
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(
+    MessageEntity self,
+    SseSerializer serializer,
+  );
 
-@protected SyncResponse sse_decode_sync_response(SseDeserializer deserializer);
+  @protected
+  void sse_encode_StreamSink_friend_request_event_Sse(
+    RustStreamSink<FriendRequestEvent> self,
+    SseSerializer serializer,
+  );
 
-@protected SystemNoticeEvent sse_decode_system_notice_event(SseDeserializer deserializer);
+  @protected
+  void sse_encode_StreamSink_system_notice_event_Sse(
+    RustStreamSink<SystemNoticeEvent> self,
+    SseSerializer serializer,
+  );
 
-@protected int sse_decode_u_16(SseDeserializer deserializer);
+  @protected
+  void sse_encode_String(String self, SseSerializer serializer);
 
-@protected int sse_decode_u_32(SseDeserializer deserializer);
+  @protected
+  void sse_encode_add_friend_payload(
+    AddFriendPayload self,
+    SseSerializer serializer,
+  );
 
-@protected BigInt sse_decode_u_64(SseDeserializer deserializer);
+  @protected
+  void sse_encode_add_friend_result(
+    AddFriendResult self,
+    SseSerializer serializer,
+  );
 
-@protected int sse_decode_u_8(SseDeserializer deserializer);
+  @protected
+  void sse_encode_api_error(ApiError self, SseSerializer serializer);
 
-@protected void sse_decode_unit(SseDeserializer deserializer);
+  @protected
+  void sse_encode_api_error_kind(ApiErrorKind self, SseSerializer serializer);
 
-@protected UpdateProfileRequest sse_decode_update_profile_request(SseDeserializer deserializer);
+  @protected
+  void sse_encode_bool(bool self, SseSerializer serializer);
 
-@protected UserInfoResult sse_decode_user_info_result(SseDeserializer deserializer);
+  @protected
+  void sse_encode_box_autoadd_add_friend_payload(
+    AddFriendPayload self,
+    SseSerializer serializer,
+  );
 
-@protected UserProfile sse_decode_user_profile(SseDeserializer deserializer);
+  @protected
+  void sse_encode_box_autoadd_api_error(
+    ApiError self,
+    SseSerializer serializer,
+  );
 
-@protected BigInt sse_decode_usize(SseDeserializer deserializer);
+  @protected
+  void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
 
-@protected VerifyRegisterCodeRequest sse_decode_verify_register_code_request(SseDeserializer deserializer);
+  @protected
+  void sse_encode_box_autoadd_build_register_code_request(
+    BuildRegisterCodeRequest self,
+    SseSerializer serializer,
+  );
 
-@protected void sse_encode_AnyhowException(AnyhowException self, SseSerializer serializer);
+  @protected
+  void sse_encode_box_autoadd_cached_group_members_query(
+    CachedGroupMembersQuery self,
+    SseSerializer serializer,
+  );
 
-@protected void sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(JsonValue self, SseSerializer serializer);
+  @protected
+  void sse_encode_box_autoadd_change_email_request(
+    ChangeEmailRequest self,
+    SseSerializer serializer,
+  );
 
-@protected void sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(MessageEntity self, SseSerializer serializer);
+  @protected
+  void sse_encode_box_autoadd_change_password_request(
+    ChangePasswordRequest self,
+    SseSerializer serializer,
+  );
 
-@protected void sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(JsonValue self, SseSerializer serializer);
+  @protected
+  void sse_encode_box_autoadd_change_phone_request(
+    ChangePhoneRequest self,
+    SseSerializer serializer,
+  );
 
-@protected void sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(MessageEntity self, SseSerializer serializer);
+  @protected
+  void sse_encode_box_autoadd_check_online_batch_query(
+    CheckOnlineBatchQuery self,
+    SseSerializer serializer,
+  );
 
-@protected void sse_encode_StreamSink_friend_request_event_Sse(RustStreamSink<FriendRequestEvent> self, SseSerializer serializer);
+  @protected
+  void sse_encode_box_autoadd_friend_list_query(
+    FriendListQuery self,
+    SseSerializer serializer,
+  );
 
-@protected void sse_encode_StreamSink_system_notice_event_Sse(RustStreamSink<SystemNoticeEvent> self, SseSerializer serializer);
+  @protected
+  void sse_encode_box_autoadd_friend_request_payload(
+    FriendRequestPayload self,
+    SseSerializer serializer,
+  );
 
-@protected void sse_encode_String(String self, SseSerializer serializer);
-
-@protected void sse_encode_add_friend_payload(AddFriendPayload self, SseSerializer serializer);
-
-@protected void sse_encode_add_friend_result(AddFriendResult self, SseSerializer serializer);
-
-@protected void sse_encode_api_error(ApiError self, SseSerializer serializer);
-
-@protected void sse_encode_api_error_kind(ApiErrorKind self, SseSerializer serializer);
-
-@protected void sse_encode_bool(bool self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_add_friend_payload(AddFriendPayload self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_api_error(ApiError self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_build_register_code_request(BuildRegisterCodeRequest self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_cached_group_members_query(CachedGroupMembersQuery self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_change_email_request(ChangeEmailRequest self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_change_password_request(ChangePasswordRequest self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_change_phone_request(ChangePhoneRequest self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_check_online_batch_query(CheckOnlineBatchQuery self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_friend_list_query(FriendListQuery self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_friend_request_payload(FriendRequestPayload self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_group_member(GroupMember self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_group_member_detail_query(GroupMemberDetailQuery self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_group_members_query(GroupMembersQuery self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_i_32(int self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_i_64(PlatformInt64 self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_login_request(LoginRequest self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_recent_conversations_query(RecentConversationsQuery self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_refresh_group_members_query(RefreshGroupMembersQuery self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_search_user_query(SearchUserQuery self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_session_validate_request(SessionValidateRequest self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_sync_request(SyncRequest self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_system_notice_event(SystemNoticeEvent self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_u_16(int self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_update_profile_request(UpdateProfileRequest self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_user_profile(UserProfile self, SseSerializer serializer);
-
-@protected void sse_encode_box_autoadd_verify_register_code_request(VerifyRegisterCodeRequest self, SseSerializer serializer);
-
-@protected void sse_encode_build_register_code_request(BuildRegisterCodeRequest self, SseSerializer serializer);
-
-@protected void sse_encode_build_register_code_response(BuildRegisterCodeResponse self, SseSerializer serializer);
-
-@protected void sse_encode_cached_group_members_query(CachedGroupMembersQuery self, SseSerializer serializer);
-
-@protected void sse_encode_change_email_request(ChangeEmailRequest self, SseSerializer serializer);
-
-@protected void sse_encode_change_email_result(ChangeEmailResult self, SseSerializer serializer);
-
-@protected void sse_encode_change_password_request(ChangePasswordRequest self, SseSerializer serializer);
-
-@protected void sse_encode_change_phone_request(ChangePhoneRequest self, SseSerializer serializer);
-
-@protected void sse_encode_change_phone_result(ChangePhoneResult self, SseSerializer serializer);
-
-@protected void sse_encode_check_online_batch_query(CheckOnlineBatchQuery self, SseSerializer serializer);
-
-@protected void sse_encode_check_online_batch_result(CheckOnlineBatchResult self, SseSerializer serializer);
-
-@protected void sse_encode_conversation_entity(ConversationEntity self, SseSerializer serializer);
-
-@protected void sse_encode_conversation_page_result(ConversationPageResult self, SseSerializer serializer);
-
-@protected void sse_encode_friend_entity(FriendEntity self, SseSerializer serializer);
-
-@protected void sse_encode_friend_list_query(FriendListQuery self, SseSerializer serializer);
-
-@protected void sse_encode_friend_list_result(FriendListResult self, SseSerializer serializer);
-
-@protected void sse_encode_friend_page_result(FriendPageResult self, SseSerializer serializer);
-
-@protected void sse_encode_friend_request_entity(FriendRequestEntity self, SseSerializer serializer);
-
-@protected void sse_encode_friend_request_event(FriendRequestEvent self, SseSerializer serializer);
-
-@protected void sse_encode_friend_request_page_result(FriendRequestPageResult self, SseSerializer serializer);
-
-@protected void sse_encode_friend_request_payload(FriendRequestPayload self, SseSerializer serializer);
-
-@protected void sse_encode_friend_summary(FriendSummary self, SseSerializer serializer);
-
-@protected void sse_encode_group_entity(GroupEntity self, SseSerializer serializer);
-
-@protected void sse_encode_group_member(GroupMember self, SseSerializer serializer);
-
-@protected void sse_encode_group_member_detail_query(GroupMemberDetailQuery self, SseSerializer serializer);
-
-@protected void sse_encode_group_member_detail_result(GroupMemberDetailResult self, SseSerializer serializer);
-
-@protected void sse_encode_group_members_query(GroupMembersQuery self, SseSerializer serializer);
-
-@protected void sse_encode_group_members_result(GroupMembersResult self, SseSerializer serializer);
-
-@protected void sse_encode_group_members_snapshot(GroupMembersSnapshot self, SseSerializer serializer);
-
-@protected void sse_encode_group_page_result(GroupPageResult self, SseSerializer serializer);
-
-@protected void sse_encode_group_request_entity(GroupRequestEntity self, SseSerializer serializer);
-
-@protected void sse_encode_group_request_page_result(GroupRequestPageResult self, SseSerializer serializer);
-
-@protected void sse_encode_i_32(int self, SseSerializer serializer);
-
-@protected void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
-
-@protected void sse_encode_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(List<MessageEntity> self, SseSerializer serializer);
-
-@protected void sse_encode_list_String(List<String> self, SseSerializer serializer);
-
-@protected void sse_encode_list_conversation_entity(List<ConversationEntity> self, SseSerializer serializer);
-
-@protected void sse_encode_list_friend_entity(List<FriendEntity> self, SseSerializer serializer);
-
-@protected void sse_encode_list_friend_request_entity(List<FriendRequestEntity> self, SseSerializer serializer);
-
-@protected void sse_encode_list_friend_summary(List<FriendSummary> self, SseSerializer serializer);
-
-@protected void sse_encode_list_group_entity(List<GroupEntity> self, SseSerializer serializer);
-
-@protected void sse_encode_list_group_member(List<GroupMember> self, SseSerializer serializer);
-
-@protected void sse_encode_list_group_request_entity(List<GroupRequestEntity> self, SseSerializer serializer);
-
-@protected void sse_encode_list_online_status_entry(List<OnlineStatusEntry> self, SseSerializer serializer);
-
-@protected void sse_encode_list_prim_i_64_strict(Int64List self, SseSerializer serializer);
-
-@protected void sse_encode_list_prim_u_8_loose(List<int> self, SseSerializer serializer);
-
-@protected void sse_encode_list_prim_u_8_strict(Uint8List self, SseSerializer serializer);
-
-@protected void sse_encode_list_recent_conversation(List<RecentConversation> self, SseSerializer serializer);
-
-@protected void sse_encode_login_request(LoginRequest self, SseSerializer serializer);
-
-@protected void sse_encode_login_result(LoginResult self, SseSerializer serializer);
-
-@protected void sse_encode_message_page_result(MessagePageResult self, SseSerializer serializer);
-
-@protected void sse_encode_online_status_entry(OnlineStatusEntry self, SseSerializer serializer);
-
-@protected void sse_encode_online_status_snapshot(OnlineStatusSnapshot self, SseSerializer serializer);
-
-@protected void sse_encode_operation_status(OperationStatus self, SseSerializer serializer);
-
-@protected void sse_encode_opt_String(String? self, SseSerializer serializer);
-
-@protected void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
-
-@protected void sse_encode_opt_box_autoadd_group_member(GroupMember? self, SseSerializer serializer);
-
-@protected void sse_encode_opt_box_autoadd_i_32(int? self, SseSerializer serializer);
-
-@protected void sse_encode_opt_box_autoadd_i_64(PlatformInt64? self, SseSerializer serializer);
-
-@protected void sse_encode_opt_box_autoadd_u_16(int? self, SseSerializer serializer);
-
-@protected void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
-
-@protected void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
-
-@protected void sse_encode_opt_box_autoadd_user_profile(UserProfile? self, SseSerializer serializer);
-
-@protected void sse_encode_recent_conversation(RecentConversation self, SseSerializer serializer);
-
-@protected void sse_encode_recent_conversations_query(RecentConversationsQuery self, SseSerializer serializer);
-
-@protected void sse_encode_recent_conversations_result(RecentConversationsResult self, SseSerializer serializer);
-
-@protected void sse_encode_refresh_group_members_query(RefreshGroupMembersQuery self, SseSerializer serializer);
-
-@protected void sse_encode_search_user_query(SearchUserQuery self, SseSerializer serializer);
-
-@protected void sse_encode_search_user_result(SearchUserResult self, SseSerializer serializer);
-
-@protected void sse_encode_session_validate_request(SessionValidateRequest self, SseSerializer serializer);
-
-@protected void sse_encode_session_validation_result(SessionValidationResult self, SseSerializer serializer);
-
-@protected void sse_encode_sync_request(SyncRequest self, SseSerializer serializer);
-
-@protected void sse_encode_sync_response(SyncResponse self, SseSerializer serializer);
-
-@protected void sse_encode_system_notice_event(SystemNoticeEvent self, SseSerializer serializer);
-
-@protected void sse_encode_u_16(int self, SseSerializer serializer);
-
-@protected void sse_encode_u_32(int self, SseSerializer serializer);
-
-@protected void sse_encode_u_64(BigInt self, SseSerializer serializer);
-
-@protected void sse_encode_u_8(int self, SseSerializer serializer);
-
-@protected void sse_encode_unit(void self, SseSerializer serializer);
-
-@protected void sse_encode_update_profile_request(UpdateProfileRequest self, SseSerializer serializer);
-
-@protected void sse_encode_user_info_result(UserInfoResult self, SseSerializer serializer);
-
-@protected void sse_encode_user_profile(UserProfile self, SseSerializer serializer);
-
-@protected void sse_encode_usize(BigInt self, SseSerializer serializer);
-
-@protected void sse_encode_verify_register_code_request(VerifyRegisterCodeRequest self, SseSerializer serializer);
-                }
-                
-
+  @protected
+  void sse_encode_box_autoadd_group_member(
+    GroupMember self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_group_member_detail_query(
+    GroupMemberDetailQuery self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_group_members_query(
+    GroupMembersQuery self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_i_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_i_64(
+    PlatformInt64 self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_login_request(
+    LoginRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_recent_conversations_query(
+    RecentConversationsQuery self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_refresh_group_members_query(
+    RefreshGroupMembersQuery self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_search_user_query(
+    SearchUserQuery self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_session_validate_request(
+    SessionValidateRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_sync_request(
+    SyncRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_system_notice_event(
+    SystemNoticeEvent self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_u_16(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_update_profile_request(
+    UpdateProfileRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_user_profile(
+    UserProfile self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_verify_register_code_request(
+    VerifyRegisterCodeRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_build_register_code_request(
+    BuildRegisterCodeRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_build_register_code_response(
+    BuildRegisterCodeResponse self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cached_group_members_query(
+    CachedGroupMembersQuery self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_change_email_request(
+    ChangeEmailRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_change_email_result(
+    ChangeEmailResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_change_password_request(
+    ChangePasswordRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_change_phone_request(
+    ChangePhoneRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_change_phone_result(
+    ChangePhoneResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_check_online_batch_query(
+    CheckOnlineBatchQuery self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_check_online_batch_result(
+    CheckOnlineBatchResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_conversation_entity(
+    ConversationEntity self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_conversation_page_result(
+    ConversationPageResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_friend_entity(FriendEntity self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_friend_list_query(
+    FriendListQuery self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_friend_list_result(
+    FriendListResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_friend_page_result(
+    FriendPageResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_friend_request_entity(
+    FriendRequestEntity self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_friend_request_event(
+    FriendRequestEvent self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_friend_request_page_result(
+    FriendRequestPageResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_friend_request_payload(
+    FriendRequestPayload self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_friend_summary(FriendSummary self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_group_entity(GroupEntity self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_group_member(GroupMember self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_group_member_detail_query(
+    GroupMemberDetailQuery self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_group_member_detail_result(
+    GroupMemberDetailResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_group_members_query(
+    GroupMembersQuery self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_group_members_result(
+    GroupMembersResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_group_members_snapshot(
+    GroupMembersSnapshot self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_group_page_result(
+    GroupPageResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_group_request_entity(
+    GroupRequestEntity self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_group_request_page_result(
+    GroupRequestPageResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_i_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
+
+  @protected
+  void
+  sse_encode_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(
+    List<MessageEntity> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_String(List<String> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_conversation_entity(
+    List<ConversationEntity> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_friend_entity(
+    List<FriendEntity> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_friend_request_entity(
+    List<FriendRequestEntity> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_friend_summary(
+    List<FriendSummary> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_group_entity(
+    List<GroupEntity> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_group_member(
+    List<GroupMember> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_group_request_entity(
+    List<GroupRequestEntity> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_online_status_entry(
+    List<OnlineStatusEntry> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_prim_i_64_strict(
+    Int64List self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_prim_u_8_loose(List<int> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_prim_u_8_strict(
+    Uint8List self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_recent_conversation(
+    List<RecentConversation> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_login_request(LoginRequest self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_login_result(LoginResult self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_message_page_result(
+    MessagePageResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_online_status_entry(
+    OnlineStatusEntry self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_online_status_snapshot(
+    OnlineStatusSnapshot self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_operation_status(
+    OperationStatus self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_String(String? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_group_member(
+    GroupMember? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_i_32(int? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_i_64(
+    PlatformInt64? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_16(int? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_user_profile(
+    UserProfile? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_recent_conversation(
+    RecentConversation self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_recent_conversations_query(
+    RecentConversationsQuery self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_recent_conversations_result(
+    RecentConversationsResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_refresh_group_members_query(
+    RefreshGroupMembersQuery self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_search_user_query(
+    SearchUserQuery self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_search_user_result(
+    SearchUserResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_session_validate_request(
+    SessionValidateRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_session_validation_result(
+    SessionValidationResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_sync_request(SyncRequest self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_sync_response(SyncResponse self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_system_notice_event(
+    SystemNoticeEvent self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_u_16(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_64(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_8(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_unit(void self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_update_profile_request(
+    UpdateProfileRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_user_info_result(
+    UserInfoResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_user_profile(UserProfile self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_usize(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_verify_register_code_request(
+    VerifyRegisterCodeRequest self,
+    SseSerializer serializer,
+  );
+}
 
 // Section: wire_class
 
 class RustLibWire implements BaseWire {
-            RustLibWire.fromExternalLibrary(ExternalLibrary lib);
+  RustLibWire.fromExternalLibrary(ExternalLibrary lib);
 
-            void rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(int ptr) => wasmModule.rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(ptr);
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(
+        ptr,
+      );
 
-void rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(int ptr) => wasmModule.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(ptr);
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(
+        ptr,
+      );
 
-void rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(int ptr) => wasmModule.rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(ptr);
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(
+        ptr,
+      );
 
-void rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(int ptr) => wasmModule.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(ptr);
-        }
-        @JS('wasm_bindgen') external RustLibWasmModule get wasmModule;
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(
+        ptr,
+      );
+}
 
-        @JS() @anonymous extension type RustLibWasmModule._(JSObject _) implements JSObject {
-            external void rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(int ptr);
+@JS('wasm_bindgen')
+external RustLibWasmModule get wasmModule;
 
-external void rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(int ptr);
+@JS()
+@anonymous
+extension type RustLibWasmModule._(JSObject _) implements JSObject {
+  external void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(
+    int ptr,
+  );
 
-external void rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(int ptr);
+  external void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerJsonValue(
+    int ptr,
+  );
 
-external void rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(int ptr);
-        }
-        
+  external void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(
+    int ptr,
+  );
+
+  external void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageEntity(
+    int ptr,
+  );
+}

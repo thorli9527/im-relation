@@ -8,11 +8,11 @@ import '../frb_generated.dart';
 import 'frb_types.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-
-            
-
-            /// 分页获取加群申请/审批记录。
-Future<GroupRequestPageResult>  getGroupRequestPage({required int page , required int pageSize }) => RustLib.instance.api.crateApiGroupRequestApiGetGroupRequestPage(page: page, pageSize: pageSize);
-
-            
-            
+/// 分页获取加群申请/审批记录。
+Future<GroupRequestPageResult> getGroupRequestPage({
+  required int page,
+  required int pageSize,
+}) => RustLib.instance.api.crateApiGroupRequestApiGetGroupRequestPage(
+  page: page,
+  pageSize: pageSize,
+);

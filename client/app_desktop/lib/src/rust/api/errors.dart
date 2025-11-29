@@ -6,61 +6,60 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-
-            // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
 // These functions have error during generation (see debug logs or enable `stop_on_error: true` for more details): `backend`, `concurrency`, `http_status`, `invalid_input`, `io`, `network`, `parse`, `system`, `timeout`, `unknown`
 
+/// Helper for the Dart side to decode the structured error string.
+Future<ApiError> parseApiError({required String error}) =>
+    RustLib.instance.api.crateApiErrorsParseApiError(error: error);
 
-            /// Helper for the Dart side to decode the structured error string.
-Future<ApiError>  parseApiError({required String error }) => RustLib.instance.api.crateApiErrorsParseApiError(error: error);
+/// 结构化错误，包含类别、HTTP 状态码、业务码，便于 Dart 侧统一解析。
+class ApiError {
+  final ApiErrorKind kind;
+  final String message;
+  final int? status;
+  final int? code;
 
-            /// 结构化错误，包含类别、HTTP 状态码、业务码，便于 Dart 侧统一解析。
-class ApiError  {
-                final ApiErrorKind kind;
-final String message;
-final int? status;
-final int? code;
+  const ApiError({
+    required this.kind,
+    required this.message,
+    this.status,
+    this.code,
+  });
 
-                const ApiError({required this.kind ,required this.message ,this.status ,this.code ,});
+  /// 将字符串形式的错误还原为 ApiError，异常时降级为 unknown。
+  static Future<ApiError> fromSerialized({required String error}) =>
+      RustLib.instance.api.crateApiErrorsApiErrorFromSerialized(error: error);
 
-                /// 将字符串形式的错误还原为 ApiError，异常时降级为 unknown。
-static Future<ApiError>  fromSerialized({required String error })=>RustLib.instance.api.crateApiErrorsApiErrorFromSerialized(error: error);
+  /// 序列化错误对象到字符串，Flutter 通过 JSON 解析 kind/status/code。
+  Future<String> intoString() =>
+      RustLib.instance.api.crateApiErrorsApiErrorIntoString(that: this);
 
+  @override
+  int get hashCode =>
+      kind.hashCode ^ message.hashCode ^ status.hashCode ^ code.hashCode;
 
-/// 序列化错误对象到字符串，Flutter 通过 JSON 解析 kind/status/code。
- Future<String>  intoString()=>RustLib.instance.api.crateApiErrorsApiErrorIntoString(that: this, );
-
-
-                
-
-                
-        @override
-        int get hashCode => kind.hashCode^message.hashCode^status.hashCode^code.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is ApiError &&
-                runtimeType == other.runtimeType
-                && kind == other.kind&& message == other.message&& status == other.status&& code == other.code;
-        
-            }
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ApiError &&
+          runtimeType == other.runtimeType &&
+          kind == other.kind &&
+          message == other.message &&
+          status == other.status &&
+          code == other.code;
+}
 
 /// 面向 Flutter 暴露的错误种类，便于按网络/超时/系统等维度区分。
 enum ApiErrorKind {
-                    network,
-timeout,
-io,
-system,
-httpStatus,
-backend,
-parse,
-invalidInput,
-concurrency,
-unknown,
-                    ;
-                    
-                }
-            
+  network,
+  timeout,
+  io,
+  system,
+  httpStatus,
+  backend,
+  parse,
+  invalidInput,
+  concurrency,
+  unknown,
+}

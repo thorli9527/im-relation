@@ -47,6 +47,7 @@ pub fn router() -> Router {
         .route("/friends", post(get_friend_list))
         .route("/friends/add", post(add_friend))
         .route("/friends/requests", post(list_friend_requests))
+        .route("/friends/requests/decision", post(decide_friend_request))
         .route("/groups/{group_id}/members", post(get_group_members))
         .route(
             "/groups/{group_id}/members/{member_id}",
@@ -499,6 +500,18 @@ struct FriendRequestListResult {
     pub decisions: Vec<String>,
 }
 
+#[derive(Debug, Deserialize, ToSchema)]
+struct FriendRequestDecisionDto {
+    pub session_token: String,
+    pub request_id: u64,
+    pub from_uid: i64,
+    pub accepted: bool,
+    #[serde(default)]
+    pub remark: Option<String>,
+    #[serde(default)]
+    pub nickname: Option<String>,
+}
+
 #[utoipa::path(
     post,
     path = "/friends/requests",
@@ -546,6 +559,38 @@ async fn list_friend_requests(
         requests,
         decisions,
     })
+}
+
+#[utoipa::path(
+    post,
+    path = "/friends/requests/decision",
+    request_body = FriendRequestDecisionDto,
+    responses(
+        (status = 200, description = "处理好友申请", body = ApiResponse<OperationStatus>)
+    ),
+    tag = "app_api/user"
+)]
+async fn decide_friend_request(
+    Json(query): Json<FriendRequestDecisionDto>,
+) -> HandlerResult<OperationStatus> {
+    let active = user_service::ensure_active_session(&query.session_token)
+        .await
+        .map_err(map_session_error)?;
+    if active.uid == query.from_uid {
+        return Err(AppError::Validation("cannot decide self request".into()));
+    }
+    user_service::UserService::get()
+        .decide_friend_request(
+            active.uid,
+            query.from_uid,
+            query.request_id as i64,
+            query.accepted,
+            query.remark.as_deref(),
+            query.nickname.as_deref(),
+        )
+        .await
+        .map_err(map_internal_error)?;
+    success(OperationStatus { ok: true })
 }
 
 #[utoipa::path(

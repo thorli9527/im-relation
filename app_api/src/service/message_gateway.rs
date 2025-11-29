@@ -284,6 +284,42 @@ pub async fn send_friend_request_message(
     Ok(())
 }
 
+/// 处理好友申请的决策（同意/拒绝），落到好友消息域。
+pub async fn send_friend_decision_message(
+    approver_uid: i64,
+    requester_uid: i64,
+    payload: msgpb::FriendRequestDecisionPayload,
+) -> Result<()> {
+    let addr = resolve_addr(NodeType::MsgFriend, approver_uid).await?;
+    let mut client = connect_friend_msg(&addr).await?;
+    let ts = now();
+    let friend_business = FriendBusinessContent {
+        action: Some(FriendAction::Decision(payload)),
+    };
+    let domain = DomainMessage {
+        message_id: Some(build_snow_id() as u64),
+        sender_id: approver_uid,
+        receiver_id: requester_uid,
+        timestamp: ts,
+        ts_ms: ts,
+        delivery: Some(DeliveryOptions {
+            require_ack: false,
+            expire_ms: None,
+            max_retry: None,
+        }),
+        scene: ChatScene::Single as i32,
+        category: MsgCategory::Friend as i32,
+        contents: Vec::new(),
+        friend_business: Some(friend_business),
+        group_business: None,
+    };
+    client
+        .handle_friend_message(domain)
+        .await
+        .map_err(|status| anyhow!("send friend decision failed: {status}"))?;
+    Ok(())
+}
+
 /// 提交加群申请，落到群消息域。
 pub async fn send_group_join_request_message(
     applicant_id: i64,

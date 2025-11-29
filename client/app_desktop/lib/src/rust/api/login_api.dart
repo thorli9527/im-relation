@@ -7,18 +7,21 @@ import '../frb_generated.dart';
 import 'login_api_types.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+// These functions are ignored because they are not marked as `pub`: `perform_login`
 
-            // These functions are ignored because they are not marked as `pub`: `perform_login`
-
-
-            /// 登录并等待 socket 连接及鉴权完成，超时可配置。
-Future<LoginResult>  login({required LoginRequest payload , BigInt? timeoutSecs }) => RustLib.instance.api.crateApiLoginApiLogin(payload: payload, timeoutSecs: timeoutSecs);
+/// 登录并等待 socket 连接及鉴权完成，超时可配置。
+Future<LoginResult> login({
+  required LoginRequest payload,
+  BigInt? timeoutSecs,
+}) => RustLib.instance.api.crateApiLoginApiLogin(
+  payload: payload,
+  timeoutSecs: timeoutSecs,
+);
 
 /// 登出并清理登录态。
-Future<void>  logout() => RustLib.instance.api.crateApiLoginApiLogout();
+Future<void> logout() => RustLib.instance.api.crateApiLoginApiLogout();
 
 /// 校验会话 token 是否有效。
-Future<SessionValidationResult>  validateSession({required SessionValidateRequest payload }) => RustLib.instance.api.crateApiLoginApiValidateSession(payload: payload);
-
-            
-            
+Future<SessionValidationResult> validateSession({
+  required SessionValidateRequest payload,
+}) => RustLib.instance.api.crateApiLoginApiValidateSession(payload: payload);

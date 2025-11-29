@@ -8,14 +8,12 @@ import 'app_api_types.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'reg_api_types.dart';
 
-
-            
-
-            /// 拉取注册验证码（邮箱/手机号）。
-Future<BuildRegisterCodeResponse>  buildRegisterCode({required BuildRegisterCodeRequest payload }) => RustLib.instance.api.crateApiRegApiBuildRegisterCode(payload: payload);
+/// 拉取注册验证码（邮箱/手机号）。
+Future<BuildRegisterCodeResponse> buildRegisterCode({
+  required BuildRegisterCodeRequest payload,
+}) => RustLib.instance.api.crateApiRegApiBuildRegisterCode(payload: payload);
 
 /// 校验注册验证码。
-Future<OperationStatus>  verifyRegisterCode({required VerifyRegisterCodeRequest payload }) => RustLib.instance.api.crateApiRegApiVerifyRegisterCode(payload: payload);
-
-            
-            
+Future<OperationStatus> verifyRegisterCode({
+  required VerifyRegisterCodeRequest payload,
+}) => RustLib.instance.api.crateApiRegApiVerifyRegisterCode(payload: payload);

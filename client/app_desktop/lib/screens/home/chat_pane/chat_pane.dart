@@ -8,6 +8,8 @@ import 'package:app_desktop/screens/home/chat_pane/header.dart';
 import 'package:app_desktop/screens/home/chat_pane/messages.dart';
 import 'package:app_desktop/screens/home/chat_pane/input_bar.dart';
 import 'package:app_desktop/src/rust/api/app_api_types.dart' show SearchUserQuery;
+import 'package:app_desktop/src/rust/api/friend_request_api.dart'
+    as friend_request_api;
 import 'package:app_desktop/src/rust/api/user_api.dart' as user_api;
 
 class ChatPane extends ConsumerWidget {
@@ -50,7 +52,7 @@ class ChatPane extends ConsumerWidget {
   }
 }
 
-class FriendRequestPanel extends StatelessWidget {
+class FriendRequestPanel extends ConsumerWidget {
   const FriendRequestPanel({super.key, required this.requests});
 
   final List<FriendRequest> requests;
@@ -118,7 +120,7 @@ class FriendRequestPanel extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Expanded(
       child: Container(
         color: Colors.white.withOpacity(0.8),
@@ -163,9 +165,11 @@ class FriendRequestPanel extends StatelessWidget {
                   );
                 },
               ),
-              trailing: ElevatedButton(
-                onPressed: null, // TODO: hook accept API when available
-                child: Text(r.accepted ? '已受理' : '受理'),
+              trailing: _DecisionButtons(
+                request: r,
+                onHandled: () =>
+                    _profileCache.remove(r.fromUid), // drop cache after decision
+                ref: ref,
               ),
             );
           },
@@ -189,4 +193,151 @@ String _initialOf(String value) {
 Color _colorForUid(int uid) {
   final idx = uid.abs() % FriendRequestPanel._palette.length;
   return FriendRequestPanel._palette[idx];
+}
+
+class _DecisionButtons extends StatefulWidget {
+  const _DecisionButtons(
+      {required this.request, required this.onHandled, required this.ref});
+  final FriendRequest request;
+  final VoidCallback onHandled;
+  final WidgetRef ref;
+
+  @override
+  State<_DecisionButtons> createState() => _DecisionButtonsState();
+}
+
+class _DecisionButtonsState extends State<_DecisionButtons> {
+  bool _busy = false;
+
+  Future<void> _showDecisionDialog(bool accept) async {
+    final r = widget.request;
+    final name = r.nickname?.isNotEmpty == true ? r.nickname! : r.name;
+    final nicknameCtrl = TextEditingController(text: name);
+    final remarkCtrl = TextEditingController(text: r.remark ?? '');
+    String? error;
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setState) {
+          return AlertDialog(
+            title: Text(accept ? '受理好友申请' : '拒绝好友申请'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('来自 UID ${r.fromUid}'),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: nicknameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '好友昵称',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: remarkCtrl,
+                  decoration: const InputDecoration(labelText: '备注'),
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(error!, style: const TextStyle(color: Colors.red)),
+                ]
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: _busy ? null : () => Navigator.of(ctx).pop(),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: _busy
+                    ? null
+                    : () async {
+                        setState(() => _busy = true);
+                        try {
+                          if (accept) {
+                            await friend_request_api.acceptFriendRequest(
+                              requestId: r.requestId,
+                              fromUid: r.fromUid,
+                              remark: remarkCtrl.text.trim().isEmpty
+                                  ? null
+                                  : remarkCtrl.text.trim(),
+                              nickname: nicknameCtrl.text.trim().isEmpty
+                                  ? null
+                                  : nicknameCtrl.text.trim(),
+                            );
+                          } else {
+                            await friend_request_api.rejectFriendRequest(
+                              requestId: r.requestId,
+                              fromUid: r.fromUid,
+                              remark: remarkCtrl.text.trim().isEmpty
+                                  ? null
+                                  : remarkCtrl.text.trim(),
+                            );
+                          }
+                          if (mounted) {
+                            Navigator.of(ctx).pop(true);
+                          }
+                        } catch (e) {
+                          setState(() => error = '$e');
+                        } finally {
+                          setState(() => _busy = false);
+                        }
+                      },
+                child: _busy
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(accept ? '同意' : '拒绝'),
+              ),
+            ],
+          );
+        });
+      },
+    ).then((ok) {
+      if (ok == true) {
+        widget.onHandled();
+        final notifier = widget.ref.read(friendRequestsProvider.notifier);
+        final current = widget.ref.read(friendRequestsProvider);
+        final updated = current
+            .map((req) => req.requestId == r.requestId
+                ? req.copyWith(
+                    accepted: accept,
+                    remark: remarkCtrl.text.trim().isEmpty
+                        ? req.remark
+                        : remarkCtrl.text.trim(),
+                    nickname: nicknameCtrl.text.trim().isEmpty
+                        ? req.nickname
+                        : nicknameCtrl.text.trim(),
+                  )
+                : req)
+            .toList();
+        notifier.setRequests(updated);
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final r = widget.request;
+    if (r.accepted) {
+      return const Text('已受理');
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextButton(
+          onPressed: _busy ? null : () => _showDecisionDialog(false),
+          child: const Text('拒绝'),
+        ),
+        const SizedBox(width: 8),
+        ElevatedButton(
+          onPressed: _busy ? null : () => _showDecisionDialog(true),
+          child: const Text('受理'),
+        ),
+      ],
+    );
+  }
 }

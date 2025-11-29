@@ -6,6 +6,11 @@ pub struct VerifyRegisterResult {
     pub ok: bool,
 }
 
+#[derive(Debug, Serialize, ToSchema)]
+pub struct OperationStatus {
+    pub ok: bool,
+}
+
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct GenerateNicknamePayload {

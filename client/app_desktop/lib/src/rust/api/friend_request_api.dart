@@ -5,14 +5,41 @@
 
 import '../domain/friend_request_entity.dart';
 import '../frb_generated.dart';
+import 'app_api_types.dart';
 import 'frb_types.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+// These functions are ignored because they are not marked as `pub`: `current_millis`, `decide_friend_request`
 
-            
+/// 分页获取本地已同步的好友申请记录。
+Future<FriendRequestPageResult> getFriendRequestPage({
+  required int page,
+  required int pageSize,
+}) => RustLib.instance.api.crateApiFriendRequestApiGetFriendRequestPage(
+  page: page,
+  pageSize: pageSize,
+);
 
-            /// 分页获取本地已同步的好友申请记录。
-Future<FriendRequestPageResult>  getFriendRequestPage({required int page , required int pageSize }) => RustLib.instance.api.crateApiFriendRequestApiGetFriendRequestPage(page: page, pageSize: pageSize);
+/// 同意好友申请。
+Future<OperationStatus> acceptFriendRequest({
+  required BigInt requestId,
+  required PlatformInt64 fromUid,
+  String? remark,
+  String? nickname,
+}) => RustLib.instance.api.crateApiFriendRequestApiAcceptFriendRequest(
+  requestId: requestId,
+  fromUid: fromUid,
+  remark: remark,
+  nickname: nickname,
+);
 
-            
-            
+/// 拒绝好友申请。
+Future<OperationStatus> rejectFriendRequest({
+  required BigInt requestId,
+  required PlatformInt64 fromUid,
+  String? remark,
+}) => RustLib.instance.api.crateApiFriendRequestApiRejectFriendRequest(
+  requestId: requestId,
+  fromUid: fromUid,
+  remark: remark,
+);

@@ -263,6 +263,81 @@ impl UserService {
         }
     }
 
+    /// 处理好友申请（接受或拒绝），发送决策消息并在必要时建立好友关系。
+    pub async fn decide_friend_request(
+        &self,
+        approver_uid: i64,
+        requester_uid: i64,
+        request_id: i64,
+        accepted: bool,
+        remark: Option<&str>,
+        nickname: Option<&str>,
+    ) -> anyhow::Result<()> {
+        // 若已是好友且请求接受，直接发送决策消息即可。
+        let already_friend = friend_gateway::is_friend(approver_uid, requester_uid).await?;
+
+        // 查询双方昵称，作为默认展示昵称。
+        let mut user_client = user_gateway::get_user_rpc_client().await?;
+        let requester = Self::get_user_by_id(&mut user_client, requester_uid).await?;
+        let approver = Self::get_user_by_id(&mut user_client, approver_uid).await?;
+
+        let approver_nick = approver
+            .nickname
+            .clone()
+            .unwrap_or_else(|| approver.name.clone());
+        let preferred_nick = nickname
+            .and_then(|n| {
+                let t = n.trim();
+                (!t.is_empty()).then_some(t.to_string())
+            })
+            .unwrap_or_else(|| requester.nickname.clone().unwrap_or_else(|| requester.name));
+        let remark_clean = remark
+            .and_then(|r| {
+                let t = r.trim();
+                (!t.is_empty()).then_some(t.to_string())
+            })
+            .unwrap_or_default();
+
+        if accepted && !already_friend {
+            // 为审批人侧写入好友关系（备注/昵称为审批人填的）。
+            let _ = friend_gateway::add_friend(
+                approver_uid,
+                requester_uid,
+                (!remark_clean.is_empty()).then_some(remark_clean.as_str()),
+                Some(preferred_nick.as_str()),
+                None,
+            )
+            .await?;
+            // 为申请人侧写入好友关系，昵称默认用审批人昵称。
+            let _ = friend_gateway::add_friend(
+                requester_uid,
+                approver_uid,
+                None,
+                Some(approver_nick.as_str()),
+                None,
+            )
+            .await?;
+            // 可选系统消息由后端发送，使用默认欢迎语。
+        }
+
+        // 发送好友业务决策消息（含默认欢迎语由 msg_friend 侧处理）。
+        let decision = msgpb::FriendRequestDecisionPayload {
+            request_id: request_id as u64,
+            accepted,
+            remark: remark_clean.clone(),
+            decided_at: common::support::util::date_util::now(),
+            send_default_message: accepted,
+            default_message: if accepted {
+                "We are now friends".to_string()
+            } else {
+                String::new()
+            },
+            nickname: preferred_nick.clone(),
+        };
+        message_gateway::send_friend_decision_message(approver_uid, requester_uid, decision).await?;
+        Ok(())
+    }
+
     /// 通过 HTTP 加群：根据群 join_permission 决定直接入群或提交申请。
     pub async fn add_group_http(
         &self,

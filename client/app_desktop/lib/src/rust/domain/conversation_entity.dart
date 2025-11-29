@@ -6,42 +6,52 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+class ConversationEntity {
+  /// 主键 ID，自增。
+  final PlatformInt64? id;
 
-            
+  /// 会话类型：如私聊、群聊、系统等。
+  final int conversationType;
 
-            
+  /// 会话目标 ID（好友 ID 或群 ID 等）。
+  final PlatformInt64 targetId;
 
-            class ConversationEntity  {
-                /// 主键 ID，自增。
-final PlatformInt64? id;
-/// 会话类型：如私聊、群聊、系统等。
-final int conversationType;
-/// 会话目标 ID（好友 ID 或群 ID 等）。
-final PlatformInt64 targetId;
-/// 当前会话的未读消息数量。
-final int unreadCount;
-/// 最后一条消息的时间戳（秒）。
-final PlatformInt64 lastMessageTime;
-/// 最后一条消息的内容摘要。
-final String lastMessageContent;
+  /// 当前会话的未读消息数量。
+  final int unreadCount;
 
-                const ConversationEntity({this.id ,required this.conversationType ,required this.targetId ,required this.unreadCount ,required this.lastMessageTime ,required this.lastMessageContent ,});
+  /// 最后一条消息的时间戳（秒）。
+  final PlatformInt64 lastMessageTime;
 
-                
-                
+  /// 最后一条消息的内容摘要。
+  final String lastMessageContent;
 
-                
-        @override
-        int get hashCode => id.hashCode^conversationType.hashCode^targetId.hashCode^unreadCount.hashCode^lastMessageTime.hashCode^lastMessageContent.hashCode;
-        
+  const ConversationEntity({
+    this.id,
+    required this.conversationType,
+    required this.targetId,
+    required this.unreadCount,
+    required this.lastMessageTime,
+    required this.lastMessageContent,
+  });
 
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is ConversationEntity &&
-                runtimeType == other.runtimeType
-                && id == other.id&& conversationType == other.conversationType&& targetId == other.targetId&& unreadCount == other.unreadCount&& lastMessageTime == other.lastMessageTime&& lastMessageContent == other.lastMessageContent;
-        
-            }
-            
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      conversationType.hashCode ^
+      targetId.hashCode ^
+      unreadCount.hashCode ^
+      lastMessageTime.hashCode ^
+      lastMessageContent.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ConversationEntity &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          conversationType == other.conversationType &&
+          targetId == other.targetId &&
+          unreadCount == other.unreadCount &&
+          lastMessageTime == other.lastMessageTime &&
+          lastMessageContent == other.lastMessageContent;
+}

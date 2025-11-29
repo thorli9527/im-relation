@@ -6,47 +6,65 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+/// 好友申请信息
+class FriendRequestPayload {
+  /// 唯一请求ID，用于追踪和幂等处理
+  final BigInt requestId;
 
-            
+  /// 申请发起方UID
+  final PlatformInt64 fromUid;
 
-            
+  /// 申请接收方UID
+  final PlatformInt64 toUid;
 
-            /// 好友申请信息
-class FriendRequestPayload  {
-                /// 唯一请求ID，用于追踪和幂等处理
-final BigInt requestId;
-/// 申请发起方UID
-final PlatformInt64 fromUid;
-/// 申请接收方UID
-final PlatformInt64 toUid;
-/// 申请理由/验证信息
-final String reason;
-/// 申请来源（如通过搜索、二维码等）
-final int source;
-/// 申请创建时间戳（毫秒）
-final PlatformInt64 createdAt;
-/// 申请人填写的备注信息
-final String remark;
-/// 申请人希望展示给对方的昵称（可用于邀请卡片）
-final String nickname;
+  /// 申请理由/验证信息
+  final String reason;
 
-                const FriendRequestPayload({required this.requestId ,required this.fromUid ,required this.toUid ,required this.reason ,required this.source ,required this.createdAt ,required this.remark ,required this.nickname ,});
+  /// 申请来源（如通过搜索、二维码等）
+  final int source;
 
-                
-                
+  /// 申请创建时间戳（毫秒）
+  final PlatformInt64 createdAt;
 
-                
-        @override
-        int get hashCode => requestId.hashCode^fromUid.hashCode^toUid.hashCode^reason.hashCode^source.hashCode^createdAt.hashCode^remark.hashCode^nickname.hashCode;
-        
+  /// 申请人填写的备注信息
+  final String remark;
 
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is FriendRequestPayload &&
-                runtimeType == other.runtimeType
-                && requestId == other.requestId&& fromUid == other.fromUid&& toUid == other.toUid&& reason == other.reason&& source == other.source&& createdAt == other.createdAt&& remark == other.remark&& nickname == other.nickname;
-        
-            }
-            
+  /// 申请人希望展示给对方的昵称（可用于邀请卡片）
+  final String nickname;
+
+  const FriendRequestPayload({
+    required this.requestId,
+    required this.fromUid,
+    required this.toUid,
+    required this.reason,
+    required this.source,
+    required this.createdAt,
+    required this.remark,
+    required this.nickname,
+  });
+
+  @override
+  int get hashCode =>
+      requestId.hashCode ^
+      fromUid.hashCode ^
+      toUid.hashCode ^
+      reason.hashCode ^
+      source.hashCode ^
+      createdAt.hashCode ^
+      remark.hashCode ^
+      nickname.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FriendRequestPayload &&
+          runtimeType == other.runtimeType &&
+          requestId == other.requestId &&
+          fromUid == other.fromUid &&
+          toUid == other.toUid &&
+          reason == other.reason &&
+          source == other.source &&
+          createdAt == other.createdAt &&
+          remark == other.remark &&
+          nickname == other.nickname;
+}

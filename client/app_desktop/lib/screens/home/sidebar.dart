@@ -86,6 +86,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
         ? e.remark!
         : (e.reason.isNotEmpty ? e.reason : '该用户什么都没有留下');
     return FriendRequest(
+      requestId: e.requestId.toInt(),
       name: name,
       fromUid: e.fromUid.toInt(),
       nickname: e.nickname,
@@ -105,6 +106,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
           ? event.remark!
           : event.reason;
       final req = FriendRequest(
+        requestId: event.requestId.toInt(),
         name: name,
         fromUid: event.fromUid.toInt(),
         nickname: event.nickname?.isNotEmpty == true ? event.nickname! : null,

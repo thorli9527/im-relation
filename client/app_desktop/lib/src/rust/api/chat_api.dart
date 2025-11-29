@@ -11,20 +11,42 @@ import '../frb_generated.dart';
 import 'frb_types.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-
-            
-
-            /// 分页获取好友列表（按创建时间倒序）。
-Future<FriendPageResult>  getFriendPage({required int page , required int pageSize }) => RustLib.instance.api.crateApiChatApiGetFriendPage(page: page, pageSize: pageSize);
+/// 分页获取好友列表（按创建时间倒序）。
+Future<FriendPageResult> getFriendPage({
+  required int page,
+  required int pageSize,
+}) => RustLib.instance.api.crateApiChatApiGetFriendPage(
+  page: page,
+  pageSize: pageSize,
+);
 
 /// 分页获取最近会话（按最后消息时间倒序）。
-Future<ConversationPageResult>  getRecentConversations({required int page , required int pageSize }) => RustLib.instance.api.crateApiChatApiGetRecentConversations(page: page, pageSize: pageSize);
+Future<ConversationPageResult> getRecentConversations({
+  required int page,
+  required int pageSize,
+}) => RustLib.instance.api.crateApiChatApiGetRecentConversations(
+  page: page,
+  pageSize: pageSize,
+);
 
 /// 分页获取群信息（按创建时间倒序）。
-Future<GroupPageResult>  getGroupPage({required int page , required int pageSize }) => RustLib.instance.api.crateApiChatApiGetGroupPage(page: page, pageSize: pageSize);
+Future<GroupPageResult> getGroupPage({
+  required int page,
+  required int pageSize,
+}) => RustLib.instance.api.crateApiChatApiGetGroupPage(
+  page: page,
+  pageSize: pageSize,
+);
 
 /// 按会话分页拉取消息，可选按消息类型过滤（按时间倒序）。
-Future<MessagePageResult>  getMessagePage({required PlatformInt64 conversationId , required int page , required int pageSize , int? messageType }) => RustLib.instance.api.crateApiChatApiGetMessagePage(conversationId: conversationId, page: page, pageSize: pageSize, messageType: messageType);
-
-            
-            
+Future<MessagePageResult> getMessagePage({
+  required PlatformInt64 conversationId,
+  required int page,
+  required int pageSize,
+  int? messageType,
+}) => RustLib.instance.api.crateApiChatApiGetMessagePage(
+  conversationId: conversationId,
+  page: page,
+  pageSize: pageSize,
+  messageType: messageType,
+);

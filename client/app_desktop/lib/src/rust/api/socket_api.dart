@@ -8,85 +8,110 @@ import '../generated/message.dart';
 import '../lib.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-
-            // These functions are ignored because they are not marked as `pub`: `content_from_json`, `encode`, `normalize_optional`, `server_msg_to_json`
+// These functions are ignored because they are not marked as `pub`: `content_from_json`, `encode`, `normalize_optional`, `server_msg_to_json`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
 
-
-            /// FRB 导出：把 Content 的 JSON 结构编码为 pb 字节；需传入 proto_adapter 生成的 JSON（包含 raw）。
-Future<Uint8List>  encodeContent({required JsonValue content }) => RustLib.instance.api.crateApiSocketApiEncodeContent(content: content);
+/// FRB 导出：把 Content 的 JSON 结构编码为 pb 字节；需传入 proto_adapter 生成的 JSON（包含 raw）。
+Future<Uint8List> encodeContent({required JsonValue content}) =>
+    RustLib.instance.api.crateApiSocketApiEncodeContent(content: content);
 
 /// FRB 导出：解码 pb 字节为 JSON（经 proto_adapter），Flutter 收消息应调用此方法。
-Future<JsonValue>  decodeContent({required List<int> bytes }) => RustLib.instance.api.crateApiSocketApiDecodeContent(bytes: bytes);
+Future<JsonValue> decodeContent({required List<int> bytes}) =>
+    RustLib.instance.api.crateApiSocketApiDecodeContent(bytes: bytes);
 
 /// 打包客户端上行 JSON 为 socket ClientMsg，ack/client_id 保持显式字段，payload 转换为 msgpb::Content。
-Future<Uint8List>  packClientMsg({required JsonValue payload , PlatformInt64? ack , PlatformInt64? clientId }) => RustLib.instance.api.crateApiSocketApiPackClientMsg(payload: payload, ack: ack, clientId: clientId);
+Future<Uint8List> packClientMsg({
+  required JsonValue payload,
+  PlatformInt64? ack,
+  PlatformInt64? clientId,
+}) => RustLib.instance.api.crateApiSocketApiPackClientMsg(
+  payload: payload,
+  ack: ack,
+  clientId: clientId,
+);
 
 /// 解包下行原始字节为 JSON，含消息 ID/时间戳/base64 载荷。
-Future<JsonValue>  unpackServerMsg({required List<int> bytes }) => RustLib.instance.api.crateApiSocketApiUnpackServerMsg(bytes: bytes);
+Future<JsonValue> unpackServerMsg({required List<int> bytes}) =>
+    RustLib.instance.api.crateApiSocketApiUnpackServerMsg(bytes: bytes);
 
 /// Flutter 端注册好友申请事件监听，收到 socket friend_business.Request 时触发。
-Stream<FriendRequestEvent>  subscribeFriendRequest() => RustLib.instance.api.crateApiSocketApiSubscribeFriendRequest();
+Stream<FriendRequestEvent> subscribeFriendRequest() =>
+    RustLib.instance.api.crateApiSocketApiSubscribeFriendRequest();
 
-Future<void>  notifyFriendRequest({required FriendRequestPayload payload }) => RustLib.instance.api.crateApiSocketApiNotifyFriendRequest(payload: payload);
+Future<void> notifyFriendRequest({required FriendRequestPayload payload}) =>
+    RustLib.instance.api.crateApiSocketApiNotifyFriendRequest(payload: payload);
 
 /// Flutter 端注册系统通知监听（目前用于被动下线提醒）。
-Stream<SystemNoticeEvent>  subscribeSystemNotice() => RustLib.instance.api.crateApiSocketApiSubscribeSystemNotice();
+Stream<SystemNoticeEvent> subscribeSystemNotice() =>
+    RustLib.instance.api.crateApiSocketApiSubscribeSystemNotice();
 
-Future<void>  notifySystemNotice({required SystemNoticeEvent event }) => RustLib.instance.api.crateApiSocketApiNotifySystemNotice(event: event);
+Future<void> notifySystemNotice({required SystemNoticeEvent event}) =>
+    RustLib.instance.api.crateApiSocketApiNotifySystemNotice(event: event);
 
-            /// 好友申请监听事件载体，直接复用 proto 字段并保留 remark/nickname。
-class FriendRequestEvent  {
-                final BigInt requestId;
-final PlatformInt64 fromUid;
-final PlatformInt64 toUid;
-final String reason;
-final PlatformInt64 createdAt;
-final String? remark;
-final String? nickname;
+/// 好友申请监听事件载体，直接复用 proto 字段并保留 remark/nickname。
+class FriendRequestEvent {
+  final BigInt requestId;
+  final PlatformInt64 fromUid;
+  final PlatformInt64 toUid;
+  final String reason;
+  final PlatformInt64 createdAt;
+  final String? remark;
+  final String? nickname;
 
-                const FriendRequestEvent({required this.requestId ,required this.fromUid ,required this.toUid ,required this.reason ,required this.createdAt ,this.remark ,this.nickname ,});
+  const FriendRequestEvent({
+    required this.requestId,
+    required this.fromUid,
+    required this.toUid,
+    required this.reason,
+    required this.createdAt,
+    this.remark,
+    this.nickname,
+  });
 
-                
-                
+  @override
+  int get hashCode =>
+      requestId.hashCode ^
+      fromUid.hashCode ^
+      toUid.hashCode ^
+      reason.hashCode ^
+      createdAt.hashCode ^
+      remark.hashCode ^
+      nickname.hashCode;
 
-                
-        @override
-        int get hashCode => requestId.hashCode^fromUid.hashCode^toUid.hashCode^reason.hashCode^createdAt.hashCode^remark.hashCode^nickname.hashCode;
-        
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FriendRequestEvent &&
+          runtimeType == other.runtimeType &&
+          requestId == other.requestId &&
+          fromUid == other.fromUid &&
+          toUid == other.toUid &&
+          reason == other.reason &&
+          createdAt == other.createdAt &&
+          remark == other.remark &&
+          nickname == other.nickname;
+}
 
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is FriendRequestEvent &&
-                runtimeType == other.runtimeType
-                && requestId == other.requestId&& fromUid == other.fromUid&& toUid == other.toUid&& reason == other.reason&& createdAt == other.createdAt&& remark == other.remark&& nickname == other.nickname;
-        
-            }
+class SystemNoticeEvent {
+  final int businessType;
+  final String title;
+  final String detail;
 
-class SystemNoticeEvent  {
-                final int businessType;
-final String title;
-final String detail;
+  const SystemNoticeEvent({
+    required this.businessType,
+    required this.title,
+    required this.detail,
+  });
 
-                const SystemNoticeEvent({required this.businessType ,required this.title ,required this.detail ,});
+  @override
+  int get hashCode => businessType.hashCode ^ title.hashCode ^ detail.hashCode;
 
-                
-                
-
-                
-        @override
-        int get hashCode => businessType.hashCode^title.hashCode^detail.hashCode;
-        
-
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is SystemNoticeEvent &&
-                runtimeType == other.runtimeType
-                && businessType == other.businessType&& title == other.title&& detail == other.detail;
-        
-            }
-            
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SystemNoticeEvent &&
+          runtimeType == other.runtimeType &&
+          businessType == other.businessType &&
+          title == other.title &&
+          detail == other.detail;
+}

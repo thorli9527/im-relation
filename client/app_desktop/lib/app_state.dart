@@ -86,6 +86,7 @@ final friendsProvider =
 /// 好友申请数据
 class FriendRequest {
   FriendRequest({
+    required this.requestId,
     required this.name,
     required this.fromUid,
     this.nickname,
@@ -95,6 +96,7 @@ class FriendRequest {
     this.accepted = false,
   });
 
+  final int requestId;
   final String name;
   final int fromUid;
   final String? nickname;
@@ -102,6 +104,23 @@ class FriendRequest {
   final String? remark;
   final String? signature;
   final bool accepted;
+
+  FriendRequest copyWith({
+    String? nickname,
+    String? remark,
+    bool? accepted,
+  }) {
+    return FriendRequest(
+      requestId: requestId,
+      name: name,
+      fromUid: fromUid,
+      nickname: nickname ?? this.nickname,
+      avatarUrl: avatarUrl,
+      remark: remark ?? this.remark,
+      signature: signature,
+      accepted: accepted ?? this.accepted,
+    );
+  }
 }
 
 class FriendRequestNotifier extends StateNotifier<List<FriendRequest>> {
