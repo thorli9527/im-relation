@@ -1,4 +1,6 @@
-use crate::handler::{common_handler, login_handler, register_handler, user_handler};
+use crate::handler::{
+    common_handler, friends_handler, group_handler, login_handler, register_handler, user_handler,
+};
 use crate::service::auth_models;
 use utoipa::OpenApi;
 
@@ -10,14 +12,19 @@ use utoipa::OpenApi;
         login_handler::login,
         login_handler::validate_session,
         login_handler::logout,
+        friends_handler::get_friend_list,
+        friends_handler::add_friend,
+        friends_handler::list_friend_requests,
+        friends_handler::decide_friend_request,
+        friends_handler::search_user,
+        group_handler::get_group_members,
+        group_handler::get_group_member_detail,
+        group_handler::search_group,
+        group_handler::add_group,
         user_handler::change_password,
         user_handler::change_phone,
         user_handler::change_email,
         user_handler::update_profile,
-        user_handler::get_friend_list,
-        user_handler::get_group_members,
-        user_handler::get_group_member_detail,
-        user_handler::search_user,
         user_handler::get_recent_conversations,
         user_handler::update_name,
         common_handler::status,
@@ -38,6 +45,11 @@ use utoipa::OpenApi;
             user_handler::FriendListQuery,
             user_handler::FriendListResult,
             user_handler::FriendSummaryResult,
+            friends_handler::FriendRequestQuery,
+            friends_handler::FriendRequestListResult,
+            friends_handler::FriendRequestDecisionDto,
+            user_handler::AddFriendRequest,
+            user_handler::AddFriendResult,
             user_handler::GroupMembersQuery,
             user_handler::GroupMembersResult,
             user_handler::GroupMemberResult,

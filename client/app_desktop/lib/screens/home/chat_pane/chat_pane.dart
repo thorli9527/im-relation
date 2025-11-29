@@ -256,7 +256,7 @@ class _DecisionButtonsState extends State<_DecisionButtons> {
                         try {
                           if (accept) {
                             await friend_request_api.acceptFriendRequest(
-                              requestId: r.requestId,
+                              requestId: BigInt.from(r.requestId),
                               fromUid: r.fromUid,
                               remark: remarkCtrl.text.trim().isEmpty
                                   ? null
@@ -267,7 +267,7 @@ class _DecisionButtonsState extends State<_DecisionButtons> {
                             );
                           } else {
                             await friend_request_api.rejectFriendRequest(
-                              requestId: r.requestId,
+                              requestId: BigInt.from(r.requestId),
                               fromUid: r.fromUid,
                               remark: remarkCtrl.text.trim().isEmpty
                                   ? null
