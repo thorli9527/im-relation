@@ -49,6 +49,15 @@ class SidebarContactHeader extends ConsumerWidget {
     );
   }
 
+  String? _fallbackNickname(String input, UserProfile user) {
+    final trimmed = input.trim();
+    if (trimmed.isNotEmpty) {
+      return trimmed;
+    }
+    // 目标用户昵称必然非空，直接使用。
+    return user.nickname;
+  }
+
   /// 弹出“添加好友”对话框：
   /// 1) 校验输入非空，若是数字并已存在本地好友则提示已是好友。
   /// 2) 调用后端 searchUser（uid/email/phone/用户名自动判定）。
@@ -273,7 +282,7 @@ class SidebarContactHeader extends ConsumerWidget {
           targetUid: user.uid,
           reason: null,
           remark: null,
-          nickname: preferredNickname.isEmpty ? null : preferredNickname,
+          nickname: _fallbackNickname(preferredNickname, user),
         ),
       );
 
@@ -332,6 +341,9 @@ class SidebarContactHeader extends ConsumerWidget {
                       hint: l10n.nickname,
                       prefix: const Icon(Icons.emoji_emotions_outlined),
                       maxLines: 1,
+                      helperText: nicknameCtrl.text.trim().isEmpty
+                          ? l10n.nickname
+                          : null,
                     ),
                     const SizedBox(height: 10),
                     _roundField(
@@ -385,9 +397,10 @@ class SidebarContactHeader extends ConsumerWidget {
                                 remark: remarkCtrl.text.trim().isEmpty
                                     ? null
                                     : remarkCtrl.text.trim(),
-                                nickname: nicknameCtrl.text.trim().isEmpty
-                                    ? null
-                                    : nicknameCtrl.text.trim(),
+                                nickname: _fallbackNickname(
+                                  nicknameCtrl.text.trim(),
+                                  user,
+                                ),
                               ),
                             );
                             Navigator.of(dialogCtx).pop();
@@ -548,24 +561,25 @@ class SidebarContactHeader extends ConsumerWidget {
                   child: Text(l10n.cancel),
                 ),
                 FilledButton(
-                  onPressed: submitting
-                      ? null
-                      : () async {
-                          setState(() {
-                            submitting = true;
-                            error = null;
-                          });
-                          try {
-                            final res = await user_api.addFriend(
-                              payload: AddFriendPayload(
-                                targetUid: user.uid,
-                                reason: null,
-                                remark: null,
-                                nickname: preferredNickname.isEmpty
-                                    ? null
-                                    : preferredNickname,
-                              ),
-                            );
+                      onPressed: submitting
+                          ? null
+                          : () async {
+                              setState(() {
+                                submitting = true;
+                                error = null;
+                              });
+                              try {
+                                final res = await user_api.addFriend(
+                                  payload: AddFriendPayload(
+                                    targetUid: user.uid,
+                                    reason: null,
+                                    remark: null,
+                                    nickname: _fallbackNickname(
+                                      preferredNickname,
+                                      user,
+                                    ),
+                                  ),
+                                );
                             Navigator.of(dialogCtx).pop();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(

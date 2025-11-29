@@ -7,7 +7,7 @@ class Contact {
   Contact({
     required this.name,
     required this.subtitle,
-    this.nickname,
+    required this.nickname,
     this.friendId,
     this.color,
     this.avatarUrl,
@@ -16,7 +16,7 @@ class Contact {
 
   final String name;
   final String subtitle;
-  final String? nickname;
+  final String nickname;
   final int? friendId;
   final Color? color;
   final String? avatarUrl;

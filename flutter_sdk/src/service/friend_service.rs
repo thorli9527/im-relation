@@ -1,5 +1,5 @@
 use once_cell::sync::OnceCell;
-use rusqlite::{types::Value, Row};
+use rusqlite::{types::Value, Connection, Row};
 
 use crate::common::QueryType;
 use crate::{
@@ -148,6 +148,13 @@ impl FriendService {
         let conn = db::connection()?;
         let ddl = friend_table_def().create_table_sql();
         conn.execute(&ddl, []).map_err(|err| err.to_string())?;
+        // 迁移补齐缺失列，防止旧表缺列导致建索引失败。
+        ensure_column(
+            &conn,
+            friend_table_def().name,
+            "last_login_at",
+            "ALTER TABLE friend ADD COLUMN last_login_at INTEGER",
+        )?;
         for index_sql in friend_table_def().create_index_sqls() {
             conn.execute(&index_sql, [])
                 .map_err(|err| err.to_string())?;
@@ -178,4 +185,25 @@ fn normalize_optional(value: String) -> Option<String> {
     } else {
         Some(value)
     }
+}
+
+fn ensure_column(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    alter_sql: &str,
+) -> Result<(), String> {
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info({})", table))
+        .map_err(|err| err.to_string())?;
+    let mut rows = stmt.query([]).map_err(|err| err.to_string())?;
+    while let Some(row) = rows.next().map_err(|err| err.to_string())? {
+        let name: String = row.get("name").map_err(|err| err.to_string())?;
+        if name == column {
+            return Ok(());
+        }
+    }
+    conn.execute(alter_sql, [])
+        .map(|_| ())
+        .map_err(|err| err.to_string())
 }
