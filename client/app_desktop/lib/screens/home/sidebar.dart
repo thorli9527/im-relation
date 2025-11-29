@@ -53,10 +53,12 @@ class _SidebarState extends ConsumerState<Sidebar> {
   }
 
   Contact _toContact(FriendEntity f) {
+    final displayName =
+        (f.nickname?.isNotEmpty ?? false) ? f.nickname! : 'Friend ${f.friendId}';
     return Contact(
-      name: f.nickname ?? 'Friend ${f.friendId}',
+      name: displayName,
       subtitle: f.remark ?? '',
-      nickname: f.nickname,
+      nickname: displayName,
       friendId: f.friendId.toInt(),
       avatarUrl: f.avatar.isNotEmpty ? f.avatar : null,
       lastLoginAt: f.lastLoginAt?.toInt(),
@@ -129,7 +131,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
         Contact(
           name: 'New friends (${pendingRequests.length})',
           subtitle: 'Pending requests',
-          nickname: null,
+          nickname: 'New friends',
           friendId: -1,
           color: const Color(0xFFFF7043),
         ),

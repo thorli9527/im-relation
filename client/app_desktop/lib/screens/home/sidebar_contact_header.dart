@@ -652,6 +652,7 @@ class SidebarContactHeader extends ConsumerWidget {
     Widget? prefix,
     TextInputType? keyboardType,
     int maxLines = 1,
+    String? helperText,
   }) {
     return TextField(
       controller: controller,
@@ -660,6 +661,7 @@ class SidebarContactHeader extends ConsumerWidget {
       decoration: InputDecoration(
         prefixIcon: prefix,
         hintText: hint,
+        helperText: helperText,
         filled: true,
         fillColor: Colors.grey.shade100,
         contentPadding: const EdgeInsets.symmetric(
