@@ -668,24 +668,21 @@ async fn process_friend_business(
 
     match &biz.action {
         Some(Action::Request(payload)) => {
-            let remark = {
-                let trimmed = payload.remark.trim();
-                if trimmed.is_empty() {
-                    None
-                } else {
-                    Some(trimmed.to_string())
-                }
-            };
+            let remark = payload.remark.trim().to_string();
+            let nickname = payload.nickname.trim().to_string();
             let row = FriendRequestRow {
                 id: payload.request_id as i64,
                 from_uid: payload.from_uid,
                 to_uid: payload.to_uid,
                 reason: payload.reason.clone(),
                 source: payload.source as i32,
+                remark,
+                nickname,
+                peer_remark: String::new(),
+                peer_nickname: String::new(),
                 created_at: payload.created_at,
                 decided_at: None,
                 accepted: None,
-                remark,
                 notified_at: 0,
                 notify_retry: 0,
             };
@@ -742,20 +739,14 @@ async fn process_friend_business(
             } else {
                 Utc::now().timestamp_millis()
             };
-            let remark = {
-                let trimmed = payload.remark.trim();
-                if trimmed.is_empty() {
-                    None
-                } else {
-                    Some(trimmed.to_string())
-                }
-            };
             mark_friend_request_decision(
                 svc.pool(),
                 payload.request_id as i64,
                 decided_at,
                 payload.accepted,
-                remark.clone(),
+                payload.remark.clone(),
+                payload.nickname.clone(),
+                payload.nickname.clone(),
             )
             .await
             .map_err(|e| Status::internal(format!("update friend request decision failed: {e}")))?;
@@ -842,11 +833,11 @@ async fn retry_friend_business_notifications(services: &Services) -> Result<(), 
             let payload = msg_message::FriendRequestDecisionPayload {
                 request_id: row.id as u64,
                 accepted,
-                remark: row.remark.clone().unwrap_or_default(),
+                remark: row.peer_remark.clone(),
                 decided_at,
                 send_default_message: false,
                 default_message: String::new(),
-                nickname: String::new(),
+                nickname: row.peer_nickname.clone(),
             };
             msg_message::friend_business_content::Action::Decision(payload)
         } else {
@@ -859,8 +850,8 @@ async fn retry_friend_business_notifications(services: &Services) -> Result<(), 
                 reason: row.reason.clone(),
                 source: source as i32,
                 created_at: row.created_at,
-                remark: row.remark.clone().unwrap_or_default(),
-                nickname: String::new(),
+                remark: row.remark.clone(),
+                nickname: row.nickname.clone(),
             };
             msg_message::friend_business_content::Action::Request(payload)
         };

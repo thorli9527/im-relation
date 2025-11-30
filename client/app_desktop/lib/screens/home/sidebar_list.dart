@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app_desktop/app_state.dart';
 
 class SidebarList extends ConsumerWidget {
-  const SidebarList({super.key, required this.contacts});
+  const SidebarList({super.key, required this.contacts, required this.onTap});
 
   final List<Contact> contacts;
+  final void Function(Contact contact) onTap;
   static const List<Color> _palette = [
     Color(0xFFE57373),
     Color(0xFFF06292),
@@ -53,6 +54,7 @@ class SidebarList extends ConsumerWidget {
       itemBuilder: (context, index) {
         final c = contacts[index];
         final isSelected = c.friendId != null && c.friendId == selectedId;
+        final hasUnread = c.unreadCount > 0;
         return ListTile(
           leading: c.avatarUrl != null && c.avatarUrl!.isNotEmpty
               ? CircleAvatar(backgroundImage: NetworkImage(c.avatarUrl!))
@@ -74,7 +76,8 @@ class SidebarList extends ConsumerWidget {
             style: TextStyle(color: isSelected ? Colors.white70 : null),
           ),
           tileColor: isSelected ? const Color(0xFF4A90E2) : null,
-          onTap: () => ref.read(selectedFriendProvider.notifier).state = c.friendId,
+          trailing: hasUnread ? _UnreadDot(count: c.unreadCount) : null,
+          onTap: () => onTap(c),
         );
       },
     );
@@ -87,5 +90,32 @@ class SidebarList extends ConsumerWidget {
       return _palette[idx];
     }
     return Colors.blueGrey;
+  }
+}
+
+class _UnreadDot extends StatelessWidget {
+  const _UnreadDot({required this.count});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = count > 99 ? '99+' : count.toString();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.red,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      constraints: const BoxConstraints(minWidth: 20),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
   }
 }

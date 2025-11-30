@@ -127,29 +127,74 @@ class _SidebarState extends ConsumerState<Sidebar> {
   Widget build(BuildContext context) {
     final contacts = ref.watch(friendsProvider);
     final requests = ref.watch(friendRequestsProvider);
+    final convs = ref.watch(conversationsProvider);
+    final currentTab = ref.watch(sidebarTabProvider);
     final pendingRequests = requests.where((r) => !r.accepted).toList();
-    final List<Contact> list = [
-      if (pendingRequests.isNotEmpty)
-        Contact(
-          name: 'New friends (${pendingRequests.length})',
-          subtitle: 'Pending requests',
-          nickname: 'New friends',
-          friendId: -1,
-          color: const Color(0xFFFF7043),
-        ),
-      ...contacts,
-    ];
+    final List<Contact> list = currentTab == SidebarTab.chat
+        ? _buildConversations(convs, contacts)
+        : [
+            if (pendingRequests.isNotEmpty)
+              Contact(
+                name: 'New friends (${pendingRequests.length})',
+                subtitle: 'Pending requests',
+                nickname: 'New friends',
+                friendId: -1,
+                color: const Color(0xFFFF7043),
+              ),
+            ...contacts,
+          ];
     return SizedBox(
       width: 280,
       child: Column(
         children: [
           const SidebarContact(),
           const SizedBox(height: 12),
-          Expanded(child: SidebarList(contacts: list)),
+          Expanded(
+            child: SidebarList(
+              contacts: list,
+              onTap: (c) => _handleSelect(c),
+            ),
+          ),
           const Divider(height: 1),
           const SidebarActions(),
         ],
       ),
+    );
+  }
+
+  List<Contact> _buildConversations(
+      List<ConversationSummary> convs, List<Contact> friends) {
+    final friendName = {
+      for (final f in friends.where((f) => f.friendId != null)) f.friendId!: f
+    };
+    return convs
+        .map(
+          (c) => Contact(
+            name: friendName[c.targetId]?.nickname ?? 'Chat ${c.targetId}',
+            subtitle: c.lastMessageContent,
+            nickname: friendName[c.targetId]?.nickname ?? 'Chat ${c.targetId}',
+            friendId: c.targetId,
+            color: friendName[c.targetId]?.color,
+            avatarUrl: friendName[c.targetId]?.avatarUrl,
+            lastLoginAt: null,
+            unreadCount: c.unreadCount,
+            conversationType: c.conversationType,
+          ),
+        )
+        .toList();
+  }
+
+  void _handleSelect(Contact c) {
+    final id = c.friendId;
+    ref.read(selectedFriendProvider.notifier).state = id;
+    if (id == null || id == -1) {
+      ref.read(selectedChatProvider.notifier).state = null;
+      return;
+    }
+    ref.read(selectedChatProvider.notifier).state = SelectedChat(
+      conversationType: c.conversationType,
+      targetId: id,
+      title: c.nickname,
     );
   }
 }

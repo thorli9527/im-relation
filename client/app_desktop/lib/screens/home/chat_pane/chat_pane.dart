@@ -17,10 +17,12 @@ class ChatPane extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final selectedChat = ref.watch(selectedChatProvider);
     final selected = ref.watch(selectedFriendProvider);
     final requests = ref.watch(friendRequestsProvider);
     final pending = requests.where((r) => !r.accepted).toList();
     final showingRequests = selected == -1;
+    final hasSelection = selectedChat != null && !showingRequests;
     return Expanded(
       child: Container(
         decoration: const BoxDecoration(
@@ -32,7 +34,9 @@ class ChatPane extends ConsumerWidget {
         child: Column(
           children: [
             ChatHeader(
-              title: showingRequests ? 'New friends' : null,
+              title: showingRequests
+                  ? 'New friends'
+                  : (selectedChat?.title ?? 'Chat'),
               subtitle: showingRequests
                   ? '${pending.length} pending'
                   : null,
@@ -40,10 +44,12 @@ class ChatPane extends ConsumerWidget {
             const Divider(height: 1),
             if (showingRequests)
               FriendRequestPanel(requests: pending)
-            else ...const [
-              ChatMessages(),
-              Divider(height: 1),
-              ChatInputBar(),
+            else if (hasSelection) ...[
+              ChatMessages(chat: selectedChat!),
+              const Divider(height: 1),
+              const ChatInputBar(),
+            ] else ...const [
+              Expanded(child: Center(child: Text('Select a chat'))),
             ],
           ],
         ),

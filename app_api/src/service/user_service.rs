@@ -10,9 +10,7 @@ use common::infra::grpc::grpc_user::online_service::{
     SessionTokenStatus, UpdateUserReq, UpsertSessionTokenRequest, UserEntity, UserType,
     ValidateSessionTokenRequest,
 };
-use common::infra::grpc::message::{
-    self as msgpb, message_content::Content as MessageContentKind, MessageContent,
-};
+use common::infra::grpc::message::{self as msgpb};
 use common::infra::redis::redis_pool::RedisPoolTools;
 use common::support::util::common_utils::{build_md5_with_key, build_uuid};
 use common::UID;
@@ -188,16 +186,16 @@ impl UserService {
         // 归一化输入：去空格并转字符串，便于后续复用。
         let reason = reason.unwrap_or_default().trim().to_string();
         let remark = remark.unwrap_or_default().trim().to_string();
-        let prefer_nick = nickname.unwrap_or("").trim();
+        let prefer_nick = nickname.unwrap_or("").trim().to_string();
         let target_nick = if prefer_nick.is_empty() {
             target
                 .nickname
                 .clone()
                 .unwrap_or_else(|| target.name.clone())
         } else {
-            prefer_nick.to_string()
+            prefer_nick.clone()
         };
-        let nickname_for_user = (!prefer_nick.is_empty()).then_some(prefer_nick);
+        let nickname_for_user = (!prefer_nick.is_empty()).then_some(prefer_nick.as_str());
         let remark_ref = (!remark.is_empty()).then_some(remark.as_str());
 
         warn!(
@@ -216,28 +214,25 @@ impl UserService {
                     None,
                 )
                 .await?;
-                // 系统通道广播，确保多设备都能收到（双向各一条即可）
-                let sys_text = MessageContent {
-                    content: Some(MessageContentKind::Text(msgpb::TextContent {
-                        text: "We are now friends".to_string(),
-                        ..Default::default()
-                    })),
-                };
-                for (from, to) in [(active.uid, target_uid), (target_uid, active.uid)] {
-                    if let Err(err) =
-                        message_gateway::send_system_message(from, to, vec![sys_text.clone()]).await
-                    {
-                        warn!(
-                            "add_friend_http: system channel {} -> {} failed: {err}",
-                            from, to
-                        );
-                    } else {
-                        info!(
-                            "add_friend_http: system channel {} -> {} delivered",
-                            from, to
-                        );
-                    }
-                }
+                // 好友通道各发一条文本，便于会话展示。
+                let active_user = Self::get_user_by_id(&mut user_client, active.uid)
+                    .await
+                    .ok();
+                let active_lang = active_user.as_ref().and_then(|u| u.language.as_deref());
+                let text_for_target = Self::friend_welcome_text(target.language.as_deref());
+                let text_for_active = Self::friend_welcome_text(active_lang);
+                let _ = message_gateway::send_friend_system_message(
+                    active.uid,
+                    target_uid,
+                    text_for_target,
+                )
+                .await;
+                let _ = message_gateway::send_friend_system_message(
+                    target_uid,
+                    active.uid,
+                    text_for_active,
+                )
+                .await;
                 Ok(false)
             }
             AddFriendPolicy::RequireVerify | AddFriendPolicy::AddFriendUnspecified => {
@@ -291,6 +286,8 @@ impl UserService {
                 (!t.is_empty()).then_some(t.to_string())
             })
             .unwrap_or_else(|| requester.nickname.clone().unwrap_or_else(|| requester.name));
+        let requester_lang = requester.language.as_deref();
+        let approver_lang = approver.language.as_deref();
         let remark_clean = remark
             .and_then(|r| {
                 let t = r.trim();
@@ -299,6 +296,7 @@ impl UserService {
             .unwrap_or_default();
 
         if accepted && !already_friend {
+            // 从申请表抓取原申请侧的备注/昵称，供双向关系使用。
             // 为审批人侧写入好友关系（备注/昵称为审批人填的）。
             let _ = friend_gateway::add_friend(
                 approver_uid,
@@ -308,7 +306,7 @@ impl UserService {
                 None,
             )
             .await?;
-            // 为申请人侧写入好友关系，昵称默认用审批人昵称。
+            // 为申请人侧写入好友关系，备注/昵称取申请时填写的值。
             let _ = friend_gateway::add_friend(
                 requester_uid,
                 approver_uid,
@@ -318,6 +316,20 @@ impl UserService {
             )
             .await?;
             // 可选系统消息由后端发送，使用默认欢迎语。
+            let text_for_requester = Self::friend_welcome_text(requester_lang);
+            let text_for_approver = Self::friend_welcome_text(approver_lang);
+            let _ = message_gateway::send_friend_system_message(
+                approver_uid,
+                requester_uid,
+                text_for_requester,
+            )
+            .await;
+            let _ = message_gateway::send_friend_system_message(
+                requester_uid,
+                approver_uid,
+                text_for_approver,
+            )
+            .await;
         }
 
         // 发送好友业务决策消息（含默认欢迎语由 msg_friend 侧处理）。
@@ -328,7 +340,7 @@ impl UserService {
             decided_at: common::support::util::date_util::now(),
             send_default_message: accepted,
             default_message: if accepted {
-                "We are now friends".to_string()
+                Self::friend_welcome_text(requester_lang).to_string()
             } else {
                 String::new()
             },
@@ -608,6 +620,15 @@ pub async fn ensure_active_session(session_token: &str) -> Result<ActiveSession>
 }
 
 impl UserService {
+    /// 根据语言代码选择默认好友欢迎语。
+    fn friend_welcome_text(lang: Option<&str>) -> &'static str {
+        match lang.map(|s| s.to_lowercase()) {
+            Some(ref l) if l.starts_with("zh") => "我们已经是好友了",
+            Some(ref l) if l.starts_with("ja") => "私たちはすでに友達です",
+            _ => "We are now friends",
+        }
+    }
+
     /// 吊销指定 session token（调用 online_service.RevokeSessionToken）。
     pub async fn revoke_session_token(
         &self,

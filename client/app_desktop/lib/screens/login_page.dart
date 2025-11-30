@@ -59,7 +59,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     // 清空内存态
     ref.read(friendsProvider.notifier).setFriends(const []);
     ref.read(friendRequestsProvider.notifier).clear();
+    ref.read(conversationsProvider.notifier).clear();
     ref.read(selectedFriendProvider.notifier).state = null;
+    ref.read(selectedChatProvider.notifier).state = null;
   }
 
   Future<void> _openApiBaseDialog(BuildContext context) =>

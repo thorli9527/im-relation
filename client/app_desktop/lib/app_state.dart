@@ -12,6 +12,8 @@ class Contact {
     this.color,
     this.avatarUrl,
     this.lastLoginAt,
+    this.unreadCount = 0,
+    this.conversationType = 1,
   });
 
   final String name;
@@ -21,6 +23,9 @@ class Contact {
   final Color? color;
   final String? avatarUrl;
   final int? lastLoginAt;
+  final int unreadCount;
+  /// 会话类型（1=好友，2=群等），默认为好友。
+  final int conversationType;
 
   /// 根据 friendId 生成稳定的背景色（无头像时使用）。
   Color generatedColor() {
@@ -138,6 +143,61 @@ class FriendRequestNotifier extends StateNotifier<List<FriendRequest>> {
 final friendRequestsProvider =
     StateNotifierProvider<FriendRequestNotifier, List<FriendRequest>>(
         (_) => FriendRequestNotifier());
+
+/// 最近会话（好友/群）摘要。
+class ConversationSummary {
+  const ConversationSummary({
+    required this.conversationType,
+    required this.targetId,
+    required this.unreadCount,
+    required this.lastMessageTime,
+    required this.lastMessageContent,
+    this.id,
+  });
+
+  final int? id;
+  final int conversationType;
+  final int targetId;
+  final int unreadCount;
+  final int lastMessageTime;
+  final String lastMessageContent;
+}
+
+class ConversationsNotifier extends StateNotifier<List<ConversationSummary>> {
+  ConversationsNotifier() : super(const []);
+
+  void setConversations(List<ConversationSummary> list) {
+    state = list;
+  }
+
+  void clear() {
+    state = const [];
+  }
+}
+
+final conversationsProvider =
+    StateNotifierProvider<ConversationsNotifier, List<ConversationSummary>>(
+        (_) => ConversationsNotifier());
+
+/// 汇总未读总数（好友+群）。
+final unreadTotalProvider = Provider<int>((ref) {
+  final list = ref.watch(conversationsProvider);
+  return list.fold<int>(0, (sum, c) => sum + c.unreadCount);
+});
+
+/// 当前选中的会话。
+class SelectedChat {
+  const SelectedChat({
+    required this.conversationType,
+    required this.targetId,
+    required this.title,
+  });
+  final int conversationType;
+  final int targetId;
+  final String title;
+}
+
+final selectedChatProvider = StateProvider<SelectedChat?>((_) => null);
 
 /// 当前界面覆盖的语言。
 final localeOverrideProvider = StateProvider<Locale?>((_) => null);

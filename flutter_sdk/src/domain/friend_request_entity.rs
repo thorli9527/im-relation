@@ -23,6 +23,8 @@ pub struct FriendRequestEntity {
     pub source: i32,
     pub remark: Option<String>,
     pub nickname: Option<String>,
+    pub peer_remark: Option<String>,
+    pub peer_nickname: Option<String>,
     pub created_at: i64,
     pub decided_at: Option<i64>,
     pub accepted: Option<bool>,
@@ -40,6 +42,8 @@ impl FriendRequestEntity {
             source: 0,
             remark: None,
             nickname: None,
+            peer_remark: None,
+            peer_nickname: None,
             created_at,
             decided_at: None,
             accepted: None,
@@ -72,6 +76,14 @@ impl TableEntity for FriendRequestEntity {
         cols.push(ColumnValue::new(
             "nickname",
             Value::Text(self.nickname.clone().unwrap_or_default()),
+        ));
+        cols.push(ColumnValue::new(
+            "peer_remark",
+            Value::Text(self.peer_remark.clone().unwrap_or_default()),
+        ));
+        cols.push(ColumnValue::new(
+            "peer_nickname",
+            Value::Text(self.peer_nickname.clone().unwrap_or_default()),
         ));
         cols.push(ColumnValue::new(
             "created_at",
@@ -150,6 +162,18 @@ pub static FRIEND_REQUEST_TABLE_DEF: Lazy<TableDef> = Lazy::new(|| {
                 ColumnType::Text,
                 constraints = "NOT NULL DEFAULT ''",
                 comment = "展示昵称"
+            ),
+            column_def!(
+                "peer_remark",
+                ColumnType::Text,
+                constraints = "NOT NULL DEFAULT ''",
+                comment = "对端处理时的备注"
+            ),
+            column_def!(
+                "peer_nickname",
+                ColumnType::Text,
+                constraints = "NOT NULL DEFAULT ''",
+                comment = "对端处理时的昵称"
             ),
             column_def!(
                 "created_at",

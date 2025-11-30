@@ -15,6 +15,8 @@ class FriendRequestEntity {
   final int source;
   final String? remark;
   final String? nickname;
+  final String? peerRemark;
+  final String? peerNickname;
   final PlatformInt64 createdAt;
   final PlatformInt64? decidedAt;
   final bool? accepted;
@@ -29,6 +31,8 @@ class FriendRequestEntity {
     required this.source,
     this.remark,
     this.nickname,
+    this.peerRemark,
+    this.peerNickname,
     required this.createdAt,
     this.decidedAt,
     this.accepted,
@@ -45,6 +49,8 @@ class FriendRequestEntity {
       source.hashCode ^
       remark.hashCode ^
       nickname.hashCode ^
+      peerRemark.hashCode ^
+      peerNickname.hashCode ^
       createdAt.hashCode ^
       decidedAt.hashCode ^
       accepted.hashCode ^
@@ -63,6 +69,8 @@ class FriendRequestEntity {
           source == other.source &&
           remark == other.remark &&
           nickname == other.nickname &&
+          peerRemark == other.peerRemark &&
+          peerNickname == other.peerNickname &&
           createdAt == other.createdAt &&
           decidedAt == other.decidedAt &&
           accepted == other.accepted &&

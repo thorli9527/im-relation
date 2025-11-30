@@ -281,6 +281,7 @@ pub async fn send_friend_request_message(
         .handle_friend_message(domain)
         .await
         .map_err(|status| anyhow!("send friend request failed: {status}"))?;
+
     Ok(())
 }
 
@@ -317,6 +318,7 @@ pub async fn send_friend_decision_message(
         .handle_friend_message(domain)
         .await
         .map_err(|status| anyhow!("send friend decision failed: {status}"))?;
+
     Ok(())
 }
 

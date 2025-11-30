@@ -72,10 +72,10 @@ impl FriendRequestService {
         entity.decided_at = Some(decided_at);
         entity.accepted = Some(payload.accepted);
         if let Some(existing) = normalize_optional(&payload.remark) {
-            entity.remark = Some(existing);
+            entity.peer_remark = Some(existing);
         }
         if let Some(nick) = normalize_optional(&payload.nickname) {
-            entity.nickname = Some(nick);
+            entity.peer_nickname = Some(nick);
         }
         entity.updated_at = decided_at;
         self.upsert_entity(entity)
@@ -121,6 +121,13 @@ impl FriendRequestService {
         let conn = db::connection()?;
         let ddl = friend_request_table_def().create_table_sql();
         conn.execute(&ddl, []).map_err(|err| err.to_string())?;
+        // 迁移补齐对端备注/昵称列，兼容旧表。
+        for (col, alter) in [
+            ("peer_remark", "ALTER TABLE friend_request ADD COLUMN peer_remark TEXT NOT NULL DEFAULT ''"),
+            ("peer_nickname", "ALTER TABLE friend_request ADD COLUMN peer_nickname TEXT NOT NULL DEFAULT ''"),
+        ] {
+            ensure_column(&conn, friend_request_table_def().name, col, alter)?;
+        }
         for index_sql in friend_request_table_def().create_index_sqls() {
             conn.execute(&index_sql, [])
                 .map_err(|err| err.to_string())?;
@@ -131,6 +138,8 @@ impl FriendRequestService {
     fn map_row(row: &Row) -> Result<FriendRequestEntity, rusqlite::Error> {
         let remark: String = row.get("remark")?;
         let nickname: String = row.get("nickname")?;
+        let peer_remark: String = row.get("peer_remark")?;
+        let peer_nickname: String = row.get("peer_nickname")?;
         let source: i64 = row.get("source")?;
         Ok(FriendRequestEntity {
             id: Some(row.get("id")?),
@@ -141,6 +150,8 @@ impl FriendRequestService {
             source: source as i32,
             remark: normalize_optional(&remark),
             nickname: normalize_optional(&nickname),
+            peer_remark: normalize_optional(&peer_remark),
+            peer_nickname: normalize_optional(&peer_nickname),
             created_at: row.get("created_at")?,
             decided_at: row.get::<_, Option<i64>>("decided_at")?,
             accepted: row.get::<_, Option<i64>>("accepted")?.map(|v| v != 0),
@@ -156,4 +167,25 @@ fn normalize_optional(value: &str) -> Option<String> {
     } else {
         Some(trimmed.to_string())
     }
+}
+
+fn ensure_column(
+    conn: &rusqlite::Connection,
+    table: &str,
+    column: &str,
+    alter_sql: &str,
+) -> Result<(), String> {
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info({})", table))
+        .map_err(|err| err.to_string())?;
+    let mut rows = stmt.query([]).map_err(|err| err.to_string())?;
+    while let Some(row) = rows.next().map_err(|err| err.to_string())? {
+        let name: String = row.get("name").map_err(|err| err.to_string())?;
+        if name == column {
+            return Ok(());
+        }
+    }
+    conn.execute(alter_sql, [])
+        .map(|_| ())
+        .map_err(|err| err.to_string())
 }

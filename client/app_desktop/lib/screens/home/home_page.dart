@@ -9,9 +9,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:app_desktop/src/rust/api/chat_api.dart' as chat_api;
 import 'package:app_desktop/src/rust/api/login_api.dart' as login_api;
 import 'package:app_desktop/src/rust/api/socket_api.dart' as socket_api;
-import 'package:app_desktop/src/rust/api/socket_api.dart' show SystemNoticeEvent;
+import 'package:app_desktop/src/rust/api/socket_api.dart'
+    show SystemNoticeEvent, FriendRequestEvent;
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -22,17 +24,24 @@ class HomePage extends ConsumerStatefulWidget {
 
 class _HomePageState extends ConsumerState<HomePage> {
   StreamSubscription<SystemNoticeEvent>? _noticeSub;
+  StreamSubscription<FriendRequestEvent>? _friendReqSub;
+  Timer? _conversationTimer;
   bool _showingLogout = false;
 
   @override
   void initState() {
     super.initState();
     _noticeSub = socket_api.subscribeSystemNotice().listen(_handleSystemNotice);
+    _friendReqSub =
+        socket_api.subscribeFriendRequest().listen((_) => _loadConversations());
+    _startConversationSync();
   }
 
   @override
   void dispose() {
     _noticeSub?.cancel();
+    _friendReqSub?.cancel();
+    _conversationTimer?.cancel();
     super.dispose();
   }
 
@@ -130,7 +139,40 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
     ref.read(friendsProvider.notifier).setFriends(const []);
     ref.read(friendRequestsProvider.notifier).clear();
+    ref.read(conversationsProvider.notifier).clear();
     ref.read(selectedFriendProvider.notifier).state = null;
+    ref.read(selectedChatProvider.notifier).state = null;
+  }
+
+  void _startConversationSync() {
+    // 立即拉一次，后续低频兜底刷新；实时刷新由 socket 事件触发。
+    _loadConversations();
+    _conversationTimer?.cancel();
+    _conversationTimer = Timer.periodic(
+      const Duration(minutes: 2),
+      (_) => _loadConversations(),
+    );
+  }
+
+  Future<void> _loadConversations() async {
+    try {
+      final res = await chat_api.getRecentConversations(page: 1, pageSize: 200);
+      final mapped = res.items
+          .map(
+            (c) => ConversationSummary(
+              id: c.id?.toInt(),
+              conversationType: c.conversationType,
+              targetId: c.targetId.toInt(),
+              unreadCount: c.unreadCount,
+              lastMessageTime: c.lastMessageTime.toInt(),
+              lastMessageContent: c.lastMessageContent,
+            ),
+          )
+          .toList();
+      ref.read(conversationsProvider.notifier).setConversations(mapped);
+    } catch (e) {
+      debugPrint('load conversations failed: $e');
+    }
   }
 
   @override

@@ -2456,6 +2456,8 @@ impl SseDecode for crate::domain::friend_request_entity::FriendRequestEntity {
         let mut var_source = <i32>::sse_decode(deserializer);
         let mut var_remark = <Option<String>>::sse_decode(deserializer);
         let mut var_nickname = <Option<String>>::sse_decode(deserializer);
+        let mut var_peerRemark = <Option<String>>::sse_decode(deserializer);
+        let mut var_peerNickname = <Option<String>>::sse_decode(deserializer);
         let mut var_createdAt = <i64>::sse_decode(deserializer);
         let mut var_decidedAt = <Option<i64>>::sse_decode(deserializer);
         let mut var_accepted = <Option<bool>>::sse_decode(deserializer);
@@ -2469,6 +2471,8 @@ impl SseDecode for crate::domain::friend_request_entity::FriendRequestEntity {
             source: var_source,
             remark: var_remark,
             nickname: var_nickname,
+            peer_remark: var_peerRemark,
+            peer_nickname: var_peerNickname,
             created_at: var_createdAt,
             decided_at: var_decidedAt,
             accepted: var_accepted,
@@ -4123,6 +4127,8 @@ impl flutter_rust_bridge::IntoDart for crate::domain::friend_request_entity::Fri
             self.source.into_into_dart().into_dart(),
             self.remark.into_into_dart().into_dart(),
             self.nickname.into_into_dart().into_dart(),
+            self.peer_remark.into_into_dart().into_dart(),
+            self.peer_nickname.into_into_dart().into_dart(),
             self.created_at.into_into_dart().into_dart(),
             self.decided_at.into_into_dart().into_dart(),
             self.accepted.into_into_dart().into_dart(),
@@ -5255,6 +5261,8 @@ impl SseEncode for crate::domain::friend_request_entity::FriendRequestEntity {
         <i32>::sse_encode(self.source, serializer);
         <Option<String>>::sse_encode(self.remark, serializer);
         <Option<String>>::sse_encode(self.nickname, serializer);
+        <Option<String>>::sse_encode(self.peer_remark, serializer);
+        <Option<String>>::sse_encode(self.peer_nickname, serializer);
         <i64>::sse_encode(self.created_at, serializer);
         <Option<i64>>::sse_encode(self.decided_at, serializer);
         <Option<bool>>::sse_encode(self.accepted, serializer);

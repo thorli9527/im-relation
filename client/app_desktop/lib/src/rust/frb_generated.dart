@@ -2713,8 +2713,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   FriendRequestEntity dco_decode_friend_request_entity(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 12)
-      throw Exception('unexpected arr length: expect 12 but see ${arr.length}');
+    if (arr.length != 14)
+      throw Exception('unexpected arr length: expect 14 but see ${arr.length}');
     return FriendRequestEntity(
       id: dco_decode_opt_box_autoadd_i_64(arr[0]),
       requestId: dco_decode_i_64(arr[1]),
@@ -2724,10 +2724,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       source: dco_decode_i_32(arr[5]),
       remark: dco_decode_opt_String(arr[6]),
       nickname: dco_decode_opt_String(arr[7]),
-      createdAt: dco_decode_i_64(arr[8]),
-      decidedAt: dco_decode_opt_box_autoadd_i_64(arr[9]),
-      accepted: dco_decode_opt_box_autoadd_bool(arr[10]),
-      updatedAt: dco_decode_i_64(arr[11]),
+      peerRemark: dco_decode_opt_String(arr[8]),
+      peerNickname: dco_decode_opt_String(arr[9]),
+      createdAt: dco_decode_i_64(arr[10]),
+      decidedAt: dco_decode_opt_box_autoadd_i_64(arr[11]),
+      accepted: dco_decode_opt_box_autoadd_bool(arr[12]),
+      updatedAt: dco_decode_i_64(arr[13]),
     );
   }
 
@@ -4034,6 +4036,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_source = sse_decode_i_32(deserializer);
     var var_remark = sse_decode_opt_String(deserializer);
     var var_nickname = sse_decode_opt_String(deserializer);
+    var var_peerRemark = sse_decode_opt_String(deserializer);
+    var var_peerNickname = sse_decode_opt_String(deserializer);
     var var_createdAt = sse_decode_i_64(deserializer);
     var var_decidedAt = sse_decode_opt_box_autoadd_i_64(deserializer);
     var var_accepted = sse_decode_opt_box_autoadd_bool(deserializer);
@@ -4047,6 +4051,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       source: var_source,
       remark: var_remark,
       nickname: var_nickname,
+      peerRemark: var_peerRemark,
+      peerNickname: var_peerNickname,
       createdAt: var_createdAt,
       decidedAt: var_decidedAt,
       accepted: var_accepted,
@@ -5561,6 +5567,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.source, serializer);
     sse_encode_opt_String(self.remark, serializer);
     sse_encode_opt_String(self.nickname, serializer);
+    sse_encode_opt_String(self.peerRemark, serializer);
+    sse_encode_opt_String(self.peerNickname, serializer);
     sse_encode_i_64(self.createdAt, serializer);
     sse_encode_opt_box_autoadd_i_64(self.decidedAt, serializer);
     sse_encode_opt_box_autoadd_bool(self.accepted, serializer);

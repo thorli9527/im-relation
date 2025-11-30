@@ -16,6 +16,7 @@ class SidebarActions extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final current = ref.watch(sidebarTabProvider);
     final pendingRequests = ref.watch(friendRequestsProvider).length;
+    final unreadTotal = ref.watch(unreadTotalProvider);
     return SizedBox(
       height: _barHeight,
       child: Padding(
@@ -39,10 +40,15 @@ class SidebarActions extends ConsumerWidget {
               onPressed: () {},
               icon: const Icon(Icons.call_outlined),
             ),
-            IconButton(
-              tooltip: 'Chat',
-              onPressed: () {},
-              icon: const Icon(Icons.chat_bubble_outline),
+            _TabIcon(
+              label: 'Chat',
+              icon: Icons.chat_bubble_outline,
+              tab: SidebarTab.chat,
+              current: current,
+              badge: unreadTotal,
+              onTap: () {
+                ref.read(sidebarTabProvider.notifier).state = SidebarTab.chat;
+              },
             ),
             IconButton(
               tooltip: 'Settings',
