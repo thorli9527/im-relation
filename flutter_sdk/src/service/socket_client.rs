@@ -11,6 +11,7 @@ use std::{
 use crate::{
     api::config_api,
     domain::{MessageEntity, MessageScene, MessageSource},
+    domain::proto_adapter::content_to_json,
     generated::message::{self as msgpb, DeviceType as SocketDeviceType},
     generated::socket::{AuthMsg, ClientMsg, ServerMsg as SocketServerMsg},
     job::message_job,
@@ -29,6 +30,7 @@ use log::{debug, info, warn};
 use once_cell::sync::OnceCell;
 use parking_lot::{Mutex, MutexGuard};
 use prost::Message;
+use serde::Deserialize;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc::{self as tokio_mpsc, UnboundedReceiver, UnboundedSender};
 use tokio::{net::TcpStream, time::Duration as TokioDuration};
@@ -36,39 +38,51 @@ use tokio_stream::StreamExt;
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
 use uuid::Uuid;
 
+/// Socket 客户端配置，用于初始化连接。
 #[derive(Clone)]
 pub struct SocketConfig {
+    /// Socket 服务地址，如 127.0.0.1:50051
     pub socket_addr: String,
+    /// 当前用户 UID
     pub uid: i64,
+    /// 设备类型（MOBILE/WEB/PC）
     pub device_type: SocketDeviceType,
+    /// 设备唯一 ID
     pub device_id: String,
+    /// 会话 token
     pub token: String,
+    /// 心跳间隔（秒）
     pub heartbeat_secs: u64,
 }
 
+/// 用于线程间控制 socket 事件的内部命令。
 enum SocketCommand {
     Shutdown,
 }
 
+/// 封装 socket 后台线程的控制句柄和通道。
 struct SocketControl {
+    /// 发送控制命令（关机等）
     tx: UnboundedSender<SocketCommand>,
+    /// 发送业务内容
     content_tx: UnboundedSender<msgpb::Content>,
+    /// 后台线程句柄
     handle: thread::JoinHandle<()>,
 }
 
+/// Socket 客户端单例，对外暴露连接、发送、订阅等接口。
 pub struct SocketClient {
     inner: Mutex<Option<SocketControl>>,
 }
 
 impl SocketClient {
-    /// Returns the global SocketClient singleton.
-    /// Initialization happens via `init()` during startup.
+    /// 全局唯一实例。初始化通过 `init()`。
     pub fn get() -> &'static SocketClient {
         INSTANCE.get().expect("SocketClient not initialized")
     }
 
     pub fn init() -> Result<(), String> {
-        // Prepare waiters list, connection flag, and resender thread.
+        // 初始化等待者队列、鉴权标记、重发线程。
         SUCCESS_WAITERS.get_or_init(|| Mutex::new(Vec::new()));
         AUTH_SUCCESS.get_or_init(|| AtomicBool::new(false));
         PASSIVE_LOGOUT.get_or_init(|| AtomicBool::new(false));
@@ -85,6 +99,7 @@ impl SocketClient {
         self.inner.lock()
     }
 
+    /// 建立 socket 连接：若已有连接则先关闭旧连接，启动后台线程。
     pub fn connect(&self, config: SocketConfig) -> Result<(), String> {
         let mut guard = self.lock_inner();
         // Clean up previous loop if already connected.
@@ -123,8 +138,8 @@ impl SocketClient {
         rx
     }
 
+    /// 断开 socket 连接，停止后台线程。
     pub fn disconnect(&self) -> Result<(), String> {
-        // Gracefully stop the background thread and drop channels.
         let mut guard = self.lock_inner();
         if let Some(control) = guard.take() {
             let _ = control.tx.send(SocketCommand::Shutdown);
@@ -133,6 +148,7 @@ impl SocketClient {
         Ok(())
     }
 
+    /// 当前是否有活跃连接。
     pub fn status(&self) -> Result<bool, String> {
         let guard = self.lock_inner();
         Ok(guard.is_some())
@@ -155,7 +171,7 @@ impl SocketClient {
         }
     }
 
-    /// Return whether a passive logout notice was received; clears the flag.
+    /// 返回并清除被动下线标记。
     pub fn take_passive_logout_flag(&self) -> bool {
         PASSIVE_LOGOUT
             .get_or_init(|| AtomicBool::new(false))
@@ -163,12 +179,18 @@ impl SocketClient {
     }
 }
 
+/// 全局 SocketClient 单例。
 static INSTANCE: OnceCell<SocketClient> = OnceCell::new();
+/// 等待 socket 鉴权成功的订阅者列表（一次性唤醒）。
 static SUCCESS_WAITERS: OnceCell<Mutex<Vec<Sender<()>>>> = OnceCell::new();
+/// 鉴权成功标记。
 static AUTH_SUCCESS: OnceCell<AtomicBool> = OnceCell::new();
+/// 后台消息重发线程句柄。
 static MESSAGE_RESENDER: OnceCell<thread::JoinHandle<()>> = OnceCell::new();
+/// 是否收到被动下线通知的标记。
 static PASSIVE_LOGOUT: OnceCell<AtomicBool> = OnceCell::new();
 
+/// 消息重发的轮询间隔（秒）
 const RESEND_INTERVAL_SECS: u64 = 5;
 
 async fn run_socket_loop(
@@ -176,7 +198,8 @@ async fn run_socket_loop(
     mut rx: UnboundedReceiver<SocketCommand>,
     mut content_rx: UnboundedReceiver<msgpb::Content>,
 ) {
-    // Loop that tries to maintain an active socket connection, obeying reconnect limits.
+    // 主循环：负责维持连接、处理重连限制。
+    // limit：最大重连次数（由配置或默认值获取）
     let limit = config_api::ensure_socket_reconnect_limit()
         .unwrap_or(config_api::DEFAULT_SOCKET_RECONNECT_LIMIT);
     if test_mode_enabled() {
@@ -187,6 +210,7 @@ async fn run_socket_loop(
         if let Some(SocketCommand::Shutdown) = rx.recv().await {}
         return;
     }
+    // attempts：剩余可重连次数；exhausted：是否用尽，决定是否延时 60s 再试
     let mut attempts = config_api::get_or_init_attempts(limit).unwrap_or(limit);
     let mut exhausted = attempts == 0;
 
@@ -232,8 +256,11 @@ async fn run_socket_loop(
     }
 }
 
+/// 单次连接尝试的结果，用于决定循环行为。
 enum ConnectionOutcome {
+    /// 主动关闭
     Shutdown,
+    /// 被动断开：附带提示信息与是否曾成功鉴权
     Disconnected {
         message: Option<String>,
         had_success: bool,
@@ -244,9 +271,10 @@ enum ConnectionOutcome {
 /// 有命令或数据会通过 `rx`/`content_rx` 传入，任何错误将返回断开状态。
 async fn run_connection_attempt(
     config: &SocketConfig,
-    rx: &mut UnboundedReceiver<SocketCommand>,
-    content_rx: &mut UnboundedReceiver<msgpb::Content>,
+    rx: &mut UnboundedReceiver<SocketCommand>,       // 接收控制命令（Shutdown）
+    content_rx: &mut UnboundedReceiver<msgpb::Content>, // 接收业务消息待发送
 ) -> ConnectionOutcome {
+    // 1) 建立 TCP 连接
     let stream = match TcpStream::connect(&config.socket_addr).await {
         Ok(stream) => stream,
         Err(err) => {
@@ -257,7 +285,9 @@ async fn run_connection_attempt(
             };
         }
     };
+    // framed：长度定界编码的 TCP 流包装，负责收发 protobuf payload。
     let mut framed = Framed::new(stream, LengthDelimitedCodec::new());
+    // 2) 发送鉴权
     if let Err(err) = send_auth(&mut framed, config).await {
         warn!("socket auth failed: {}", err);
         return ConnectionOutcome::Disconnected {
@@ -266,16 +296,19 @@ async fn run_connection_attempt(
         };
     }
 
+    // 心跳定时器；authed 表示是否完成鉴权，未鉴权前仅接受 auth 响应
     let mut heartbeat = tokio::time::interval(TokioDuration::from_secs(config.heartbeat_secs));
     let mut authed = false;
 
     loop {
         tokio::select! {
+            // 后台控制命令：目前仅支持 Shutdown，收到即退出循环。
             cmd = rx.recv() => {
                 if let Some(SocketCommand::Shutdown) = cmd {
                     break;
                 }
             }
+            // 定时心跳：仅在鉴权成功后发送；失败则视为断开。
             _ = heartbeat.tick() => {
                 if authed {
                     if let Err(err) = send_heartbeat(&mut framed).await {
@@ -287,12 +320,14 @@ async fn run_connection_attempt(
                     }
                 }
             }
+            // 发送业务消息：鉴权前拒绝发送；写失败则触发重连。
             outbound = content_rx.recv() => {
                 if let Some(content) = outbound {
                     if !authed {
                         warn!("socket send blocked: auth not completed");
                         continue;
                     }
+                    // 业务消息写入，下游报错时触发重连
                     if let Err(err) = send_outbound_content(&mut framed, content).await {
                         warn!("socket write failed: {}", err);
                         return ConnectionOutcome::Disconnected {
@@ -304,9 +339,11 @@ async fn run_connection_attempt(
             }
             frame = framed.next() => {
                 match frame {
+                    // 下行帧：解码 ServerMsg，处理 auth/payload。
                     Some(Ok(bytes)) => {
-                        let read_len = bytes.len();
+                        let read_len = bytes.len(); // 收到的字节数（记录调试）
                         if let Ok(pb) = SocketServerMsg::decode(bytes.freeze()) {
+                            // 处理鉴权响应：首次收到 auth 即视为鉴权成功，重置重连计数并通知订阅者。
                             if let Some(auth) = pb.auth.as_ref() {
                                 info!(
                                     "socket recv auth_ok uid={} device={} id={}",
@@ -323,6 +360,7 @@ async fn run_connection_attempt(
                                     notify_connection_success();
                                 }
                             }
+                            // 处理业务 payload：Content 解码、ACK 更新、本地落库、回送送达 ACK。
                             if !pb.payload.is_empty() {
                                 let current_uid = UserService::get()
                                     .latest_user()
@@ -377,9 +415,16 @@ async fn run_connection_attempt(
 }
 
 fn handle_inbound_content(content: &msgpb::Content, current_uid: Option<i64>) {
+    // 打印解码后的 Content，便于调试；失败时仅提示。
+    if let Ok(json) = serde_json::to_string_pretty(&content_to_json(content)) {
+        info!("socket inbound decoded: {}", json);
+    } else {
+        info!("socket inbound received (decode pretty failed)");
+    }
     if let Err(err) = persist_inbound_content(content, current_uid) {
         warn!("persist inbound content failed: {}", err);
     }
+    // 系统业务：推送到 UI，并处理被动下线。
     if let Some(system) = content.system_business.as_ref() {
         crate::api::socket_api::notify_system_notice(crate::api::socket_api::SystemNoticeEvent {
             business_type: system.business_type,
@@ -397,6 +442,7 @@ fn handle_inbound_content(content: &msgpb::Content, current_uid: Option<i64>) {
             }
         }
     }
+    // Profile 更新事件：同步到用户/好友/群成员。
     for item in &content.contents {
         if let Some(msgpb::message_content::Content::ProfileUpdate(event)) = &item.content {
             if let Err(err) = apply_profile_update_event(content.sender_id, event) {
@@ -406,12 +452,14 @@ fn handle_inbound_content(content: &msgpb::Content, current_uid: Option<i64>) {
     }
 }
 
+/// 顺序处理业务并落库：群/好友/系统，消息实体，会话快照。
 fn persist_inbound_content(
     content: &msgpb::Content,
     current_uid: Option<i64>,
 ) -> Result<(), String> {
     handle_group_business(content);
     handle_friend_business(content, current_uid);
+    handle_system_business(content, current_uid)?;
     persist_message_entity(content, current_uid)?;
     update_conversation_snapshot(content, current_uid)?;
     Ok(())
@@ -454,6 +502,7 @@ fn update_conversation_snapshot(
     content: &msgpb::Content,
     current_uid: Option<i64>,
 ) -> Result<(), String> {
+    // 场景决定会话类型与目标 ID
     let scene = MessageScene::from(content.scene as i64);
     let target_id = resolve_conversation_target(content, current_uid);
     let conv_type = scene as i32;
@@ -476,6 +525,7 @@ fn update_conversation_snapshot(
     svc.upsert(entity)
 }
 
+/// 根据 content 填充最近消息文案，用于会话列表。
 fn summarize_content(content: &msgpb::Content) -> String {
     for item in &content.contents {
         match &item.content {
@@ -498,6 +548,12 @@ fn summarize_content(content: &msgpb::Content) -> String {
     }
     if content.ack.is_some() {
         return "[ACK]".into();
+    }
+    if let Some(system) = content.system_business.as_ref() {
+        if system.business_type == msgpb::SystemBusinessType::SystemFriendAdd as i32 {
+            return "[friend added]".into();
+        }
+        return "[system]".into();
     }
     "[message]".into()
 }
@@ -536,6 +592,7 @@ fn apply_profile_update_event(
         _ => (None, None),
     };
 
+    // 若无变更则跳过
     if nickname.is_none() && avatar.is_none() {
         return Ok(());
     }
@@ -556,6 +613,51 @@ fn apply_profile_update_event(
     GroupMemberService::get()
         .apply_profile_update(sender_id, nickname, avatar, updated_at, version)?;
     Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+struct FriendAddDetail {
+    from_uid: i64,
+    to_uid: i64,
+}
+
+fn handle_system_business(
+    content: &msgpb::Content,
+    current_uid: Option<i64>,
+) -> Result<(), String> {
+    let Some(system) = content.system_business.as_ref() else {
+        return Ok(());
+    };
+    if system.business_type != msgpb::SystemBusinessType::SystemFriendAdd as i32 {
+        return Ok(());
+    }
+    let detail: FriendAddDetail = serde_json::from_str(&system.detail)
+        .map_err(|err| format!("parse friend add detail failed: {err}"))?;
+    persist_friend_add_message(content, &detail, current_uid)
+}
+
+fn persist_friend_add_message(
+    content: &msgpb::Content,
+    detail: &FriendAddDetail,
+    current_uid: Option<i64>,
+) -> Result<(), String> {
+    let uid = match current_uid {
+        Some(id) => id,
+        None => return Ok(()),
+    };
+    let friend_id = if uid == detail.from_uid {
+        detail.to_uid
+    } else if uid == detail.to_uid {
+        detail.from_uid
+    } else {
+        return Ok(());
+    };
+    let mut synthetic = content.clone();
+    synthetic.scene = msgpb::ChatScene::Single as i32;
+    synthetic.receiver_id = uid;
+    synthetic.sender_id = friend_id;
+    persist_message_entity(&synthetic, current_uid)?;
+    update_conversation_snapshot(&synthetic, current_uid)
 }
 
 fn handle_friend_business(content: &msgpb::Content, current_uid: Option<i64>) {
@@ -691,6 +793,7 @@ async fn send_auth(
     framed: &mut Framed<TcpStream, LengthDelimitedCodec>,
     config: &SocketConfig,
 ) -> Result<(), String> {
+    // 构造鉴权消息：包含 uid/设备信息/token/时间戳/nonce。
     let auth = AuthMsg {
         uid: config.uid,
         device_type: config.device_type as i32,
@@ -732,6 +835,7 @@ async fn send_outbound_content(
     framed: &mut Framed<TcpStream, LengthDelimitedCodec>,
     content: msgpb::Content,
 ) -> Result<(), String> {
+    // 客户端主动发送普通业务内容（非心跳/鉴权）
     let payload = encode_message(content)?;
     let client_msg = ClientMsg {
         ack: None,
@@ -791,6 +895,7 @@ fn start_resend_thread() {
         thread::Builder::new()
             .name("message-resender".into())
             .spawn(|| loop {
+                // 定期重发发送失败的消息，提升可靠性
                 if let Err(err) = message_job::resend_pending() {
                     warn!("message_resender error: {}", err);
                 }

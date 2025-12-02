@@ -589,6 +589,8 @@ enum SystemBusinessType {
   SYSTEM_BUSINESS_NOTIFICATION = 1;
   // 账户在其它设备/地点上线，被动下线通知
   SYSTEM_BUSINESS_PASSIVE_LOGOUT = 5;
+  // 成为好友成功通知
+  SYSTEM_FRIEND_ADD = 6;
 }
 
 // ===============================
@@ -929,6 +931,7 @@ message DomainMessage {
   repeated MessageContent contents = 9;
   FriendBusinessContent friend_business = 10;
   GroupBusinessContent group_business = 11;
+  SystemBusinessContent system_business = 12;
 }
 
 // =====================

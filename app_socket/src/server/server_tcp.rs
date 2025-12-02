@@ -331,6 +331,7 @@ fn build_domain_message(content: &msgpb::Content) -> msgpb::DomainMessage {
         contents: content.contents.clone(),
         friend_business: content.friend_business.clone(),
         group_business: content.group_business.clone(),
+        system_business: content.system_business.clone(),
     }
 }
 

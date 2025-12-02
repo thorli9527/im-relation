@@ -99,7 +99,7 @@ pub struct MessageEntity {
     #[serde(default)]
     pub ack_status: bool,
     /// 客户端发送次数
-    #[serde(default)]
+    #[serde(default)]   
     pub send_count: i32,
 }
 

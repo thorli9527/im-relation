@@ -53,6 +53,7 @@ pub struct FriendRequestDecisionDto {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct FriendRequestListResult {
     pub requests: Vec<String>,
     pub decisions: Vec<String>,
@@ -238,6 +239,22 @@ pub async fn decide_friend_request(
     if active.uid == query.from_uid {
         return Err(AppError::Validation("cannot decide self request".into()));
     }
+    let nickname_opt = if let Some(nick) = query.nickname.as_deref() {
+        Some(nick.to_string())
+    } else {
+        let mut client = user_gateway::get_user_rpc_client()
+            .await
+            .map_err(map_internal_error)?;
+        client
+            .find_user_by_id(GetUserReq { id: query.from_uid })
+            .await
+            .map(|resp| {
+                let user = resp.into_inner();
+                user.nickname.or_else(|| Some(user.name))
+            })
+            .map_err(map_internal_error)?
+    };
+
     user_service::UserService::get()
         .decide_friend_request(
             active.uid,
@@ -245,7 +262,7 @@ pub async fn decide_friend_request(
             query.request_id as i64,
             query.accepted,
             query.remark.as_deref(),
-            query.nickname.as_deref(),
+            nickname_opt.as_deref(),
         )
         .await
         .map_err(map_internal_error)?;

@@ -226,6 +226,28 @@ pub struct BroadcastProfileUpdatesReq {
     #[prost(bool, optional, tag = "5")]
     pub require_ack: ::core::option::Option<bool>,
 }
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetFriendRequestRequest {
+    #[prost(uint64, tag = "1")]
+    pub request_id: u64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetFriendRequestResponse {
+    #[prost(uint64, tag = "1")]
+    pub request_id: u64,
+    #[prost(int64, tag = "2")]
+    pub from_uid: i64,
+    #[prost(int64, tag = "3")]
+    pub to_uid: i64,
+    #[prost(string, tag = "4")]
+    pub remark: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub nickname: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub peer_remark: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub peer_nickname: ::prost::alloc::string::String,
+}
 /// Generated client implementations.
 pub mod friend_msg_service_client {
     #![allow(
@@ -522,6 +544,36 @@ pub mod friend_msg_service_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// 查询好友申请详情
+        pub async fn get_friend_request(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetFriendRequestRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFriendRequestResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/msg_friend_service.FriendMsgService/GetFriendRequest",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "msg_friend_service.FriendMsgService",
+                        "GetFriendRequest",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -583,6 +635,14 @@ pub mod friend_msg_service_server {
             &self,
             request: tonic::Request<super::BroadcastProfileUpdatesReq>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
+        /// 查询好友申请详情
+        async fn get_friend_request(
+            &self,
+            request: tonic::Request<super::GetFriendRequestRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFriendRequestResponse>,
+            tonic::Status,
+        >;
     }
     /// 好友消息服务（非群聊）
     #[derive(Debug)]
@@ -1007,6 +1067,52 @@ pub mod friend_msg_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = BroadcastProfileUpdatesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/msg_friend_service.FriendMsgService/GetFriendRequest" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetFriendRequestSvc<T: FriendMsgService>(pub Arc<T>);
+                    impl<
+                        T: FriendMsgService,
+                    > tonic::server::UnaryService<super::GetFriendRequestRequest>
+                    for GetFriendRequestSvc<T> {
+                        type Response = super::GetFriendRequestResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetFriendRequestRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as FriendMsgService>::get_friend_request(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetFriendRequestSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

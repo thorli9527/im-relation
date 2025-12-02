@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app_desktop/app_state.dart';
-
-enum SidebarTab { friends, voice, chat, settings }
-
-final sidebarTabProvider = StateProvider<SidebarTab>((_) => SidebarTab.friends);
+import 'package:app_desktop/screens/home/sidebar_state.dart';
 
 class SidebarActions extends ConsumerWidget {
   const SidebarActions({super.key});
@@ -14,7 +10,7 @@ class SidebarActions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final current = ref.watch(sidebarTabProvider);
+    final current = ref.watch(sidebarActionProvider);
     final pendingRequests = ref.watch(friendRequestsProvider).length;
     final unreadTotal = ref.watch(unreadTotalProvider);
     return SizedBox(
@@ -27,11 +23,11 @@ class SidebarActions extends ConsumerWidget {
             _TabIcon(
               label: 'Friends',
               icon: Icons.people_outline,
-              tab: SidebarTab.friends,
+              tab: SidebarAction.friends,
               current: current,
               badge: pendingRequests,
               onTap: () {
-                ref.read(sidebarTabProvider.notifier).state = SidebarTab.friends;
+                ref.read(sidebarActionProvider.notifier).state = SidebarAction.friends;
                 _loadFriends(ref);
               },
             ),
@@ -43,17 +39,21 @@ class SidebarActions extends ConsumerWidget {
             _TabIcon(
               label: 'Chat',
               icon: Icons.chat_bubble_outline,
-              tab: SidebarTab.chat,
+              tab: SidebarAction.chat,
               current: current,
               badge: unreadTotal,
               onTap: () {
-                ref.read(sidebarTabProvider.notifier).state = SidebarTab.chat;
+                ref.read(sidebarActionProvider.notifier).state = SidebarAction.chat;
               },
             ),
-            IconButton(
-              tooltip: 'Settings',
-              onPressed: () => context.go('/login'),
-              icon: const Icon(Icons.settings_outlined),
+            _TabIcon(
+              label: 'Settings',
+              icon: Icons.settings_outlined,
+              tab: SidebarAction.settings,
+              current: current,
+              onTap: () {
+                ref.read(sidebarActionProvider.notifier).state = SidebarAction.settings;
+              },
             ),
           ],
         ),
@@ -74,8 +74,8 @@ class _TabIcon extends StatelessWidget {
 
   final String label;
   final IconData icon;
-  final SidebarTab tab;
-  final SidebarTab current;
+  final SidebarAction tab;
+  final SidebarAction current;
   final int badge;
   final VoidCallback onTap;
 

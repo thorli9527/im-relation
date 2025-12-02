@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app_desktop/app_state.dart';
 import 'package:app_desktop/screens/home/sidebar_actions.dart';
 import 'package:app_desktop/screens/home/sidebar_list.dart';
+import 'package:app_desktop/screens/home/sidebar_state.dart';
 import 'package:app_desktop/src/rust/api/chat_api.dart' as chat_api;
 import 'package:app_desktop/src/rust/api/friend_request_api.dart'
     as friend_request_api;
@@ -128,9 +129,9 @@ class _SidebarState extends ConsumerState<Sidebar> {
     final contacts = ref.watch(friendsProvider);
     final requests = ref.watch(friendRequestsProvider);
     final convs = ref.watch(conversationsProvider);
-    final currentTab = ref.watch(sidebarTabProvider);
+    final currentTab = ref.watch(sidebarActionProvider);
     final pendingRequests = requests.where((r) => !r.accepted).toList();
-    final List<Contact> list = currentTab == SidebarTab.chat
+    final List<Contact> list = currentTab == SidebarAction.chat
         ? _buildConversations(convs, contacts)
         : [
             if (pendingRequests.isNotEmpty)

@@ -22,6 +22,7 @@ pub fn handle_login(payload: &LoginRequest, result: &LoginResult) -> Result<i64,
     //     return Err("session validation failed".into());
     // }
 
+    // Socket 鉴权所需的设备类型，默认 Unknown 防御。
     let device_type =
         SocketDeviceType::from_i32(payload.device_type).unwrap_or(SocketDeviceType::Unknown);
 
@@ -34,7 +35,7 @@ pub fn handle_login(payload: &LoginRequest, result: &LoginResult) -> Result<i64,
 
     // 缓存当前用户资料到本地 user_info 表，便于会话/好友展示。
     LocalUserService::get().upsert_from_login(result)?;
-    // 拉取增量消息并更新游标
+    // 拉取增量消息并更新游标（仅更新游标，不在此落库）
     if let Ok(state) = SyncStateService::fetch() {
         let req = SyncRequest {
             session_token: result.token.clone(),
@@ -65,6 +66,7 @@ pub fn handle_login(payload: &LoginRequest, result: &LoginResult) -> Result<i64,
         token: result.token.clone(),
         heartbeat_secs: 60,
     };
+    // 建立 socket 连接，后续消息实时同步。
     SocketClient::get().connect(socket_config)?;
 
     // 同步增量消息并更新游标
@@ -72,6 +74,7 @@ pub fn handle_login(payload: &LoginRequest, result: &LoginResult) -> Result<i64,
     Ok(0)
 }
 
+/// 主动断开 socket 并返回。
 pub fn logout() -> Result<(), String> {
     SocketClient::get().disconnect()?;
     Ok(())
@@ -85,6 +88,7 @@ fn current_secs() -> i64 {
 }
 
 fn persist_message(content: &crate::generated::message::Content) -> Result<(), String> {
+    // 将服务端下发的消息按原 protobuf base64 落库，留给上层解码展示。
     let svc = MessageService::get();
     let entity = MessageEntity {
         id: None,

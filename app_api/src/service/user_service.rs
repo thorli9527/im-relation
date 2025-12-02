@@ -187,15 +187,21 @@ impl UserService {
         let reason = reason.unwrap_or_default().trim().to_string();
         let remark = remark.unwrap_or_default().trim().to_string();
         let prefer_nick = nickname.unwrap_or("").trim().to_string();
+        let target_default_nick = target
+            .nickname
+            .clone()
+            .unwrap_or_else(|| target.name.clone());
         let target_nick = if prefer_nick.is_empty() {
-            target
-                .nickname
-                .clone()
-                .unwrap_or_else(|| target.name.clone())
+            target_default_nick.clone()
         } else {
             prefer_nick.clone()
         };
-        let nickname_for_user = (!prefer_nick.is_empty()).then_some(prefer_nick.as_str());
+        let nickname_for_user_owned = if !prefer_nick.is_empty() {
+            Some(prefer_nick.clone())
+        } else {
+            Some(target_default_nick.clone())
+        };
+        let nickname_for_user = nickname_for_user_owned.as_deref();
         let remark_ref = (!remark.is_empty()).then_some(remark.as_str());
 
         warn!(
@@ -205,19 +211,25 @@ impl UserService {
 
         match policy {
             AddFriendPolicy::Anyone => {
+                // 好友通道各发一条文本，便于会话展示。
+                let active_user = Self::get_user_by_id(&mut user_client, active.uid)
+                    .await
+                    .ok();
+                let active_nick_owned = active_user
+                    .as_ref()
+                    .and_then(|u| u.nickname.clone().or_else(|| Some(u.name.clone())));
+                let nickname_for_friend = active_nick_owned.as_deref();
+
                 // 对方允许任何人添加：直接建立好友关系。
                 let _ = friend_gateway::add_friend(
                     active.uid,
                     target_uid,
                     remark_ref,
                     nickname_for_user,
-                    None,
+                    nickname_for_friend,
                 )
                 .await?;
-                // 好友通道各发一条文本，便于会话展示。
-                let active_user = Self::get_user_by_id(&mut user_client, active.uid)
-                    .await
-                    .ok();
+             
                 let active_lang = active_user.as_ref().and_then(|u| u.language.as_deref());
                 let text_for_target = Self::friend_welcome_text(target.language.as_deref());
                 let text_for_active = Self::friend_welcome_text(active_lang);
@@ -233,6 +245,8 @@ impl UserService {
                     text_for_active,
                 )
                 .await;
+                let _ =
+                    message_gateway::send_friend_add_system_business(active.uid, target_uid).await;
                 Ok(false)
             }
             AddFriendPolicy::RequireVerify | AddFriendPolicy::AddFriendUnspecified => {
@@ -275,11 +289,17 @@ impl UserService {
         let mut user_client = user_gateway::get_user_rpc_client().await?;
         let requester = Self::get_user_by_id(&mut user_client, requester_uid).await?;
         let approver = Self::get_user_by_id(&mut user_client, approver_uid).await?;
+        let request_detail =
+            message_gateway::get_friend_request(requester_uid, request_id as u64).await.ok();
 
         let approver_nick = approver
             .nickname
             .clone()
             .unwrap_or_else(|| approver.name.clone());
+        let requester_nick_default = requester
+            .nickname
+            .clone()
+            .unwrap_or_else(|| requester.name.clone());
         let preferred_nick = nickname
             .and_then(|n| {
                 let t = n.trim();
@@ -298,20 +318,58 @@ impl UserService {
         if accepted && !already_friend {
             // 从申请表抓取原申请侧的备注/昵称，供双向关系使用。
             // 为审批人侧写入好友关系（备注/昵称为审批人填的）。
+            let request_nickname = request_detail
+                .as_ref()
+                .and_then(|d| {
+                    let t = d.nickname.trim();
+                    (!t.is_empty()).then_some(t.to_string())
+                });
+            let peer_nickname = request_detail
+                .as_ref()
+                .and_then(|d| {
+                    let t = d.peer_nickname.trim();
+                    (!t.is_empty()).then_some(t.to_string())
+                });
+            let remark_for_approver = (!remark_clean.is_empty())
+                .then_some(remark_clean.as_str())
+                .or_else(|| {
+                    request_detail
+                        .as_ref()
+                        .and_then(|d| {
+                            let t = d.peer_remark.trim();
+                            (!t.is_empty()).then_some(t)
+                        })
+                });
+            let nickname_for_approver = if !preferred_nick.is_empty() {
+                preferred_nick.clone()
+            } else {
+                request_nickname
+                    .clone()
+                    .unwrap_or_else(|| requester_nick_default.clone())
+            };
             let _ = friend_gateway::add_friend(
                 approver_uid,
                 requester_uid,
-                (!remark_clean.is_empty()).then_some(remark_clean.as_str()),
-                Some(preferred_nick.as_str()),
+                remark_for_approver,
+                Some(nickname_for_approver.as_str()),
                 None,
             )
             .await?;
             // 为申请人侧写入好友关系，备注/昵称取申请时填写的值。
+            let remark_for_requester = request_detail
+                .as_ref()
+                .and_then(|d| {
+                    let t = d.remark.trim();
+                    (!t.is_empty()).then_some(t)
+                });
+            let nickname_for_requester = peer_nickname
+                .as_deref()
+                .unwrap_or_else(|| approver_nick.as_str());
             let _ = friend_gateway::add_friend(
                 requester_uid,
                 approver_uid,
-                None,
-                Some(approver_nick.as_str()),
+                remark_for_requester,
+                Some(nickname_for_requester),
                 None,
             )
             .await?;
@@ -330,6 +388,8 @@ impl UserService {
                 text_for_approver,
             )
             .await;
+            let _ = message_gateway::send_friend_add_system_business(approver_uid, requester_uid)
+                .await;
         }
 
         // 发送好友业务决策消息（含默认欢迎语由 msg_friend 侧处理）。
@@ -453,6 +513,7 @@ pub mod auth_models {
     use validator::{Validate, ValidationError};
 
     #[derive(Debug, Deserialize, Serialize, ToSchema, Validate, Clone)]
+    #[serde(rename_all = "camelCase")]
     #[validate(schema(function = "validate_register_request"))]
     pub struct RegisterRequest {
         #[validate(length(min = 8, message = "密码至少8位"))]
@@ -472,6 +533,7 @@ pub mod auth_models {
     }
 
     #[derive(Debug, Deserialize, Validate, ToSchema, Clone)]
+    #[serde(rename_all = "camelCase")]
     pub struct RegisterVerifyRequest {
         #[validate(custom(function = "validate_verify_code"))]
         pub code: String,
@@ -753,6 +815,7 @@ pub trait UserServiceAuthOpt: Send + Sync {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct VerifySession {
     pub password_hash: String,
     pub reg_type: UserRegType,

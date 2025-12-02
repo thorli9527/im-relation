@@ -1,5 +1,6 @@
 use crate::handler::{
-    common_handler, friends_handler, group_handler, login_handler, register_handler, user_handler,
+    common_handler, friends_handler, group_handler, login_handler, register_handler, sync_handler,
+    user_handler,
 };
 use crate::service::auth_models;
 use utoipa::OpenApi;
@@ -21,6 +22,7 @@ use utoipa::OpenApi;
         group_handler::get_group_member_detail,
         group_handler::search_group,
         group_handler::add_group,
+        sync_handler::sync_messages,
         user_handler::change_password,
         user_handler::change_phone,
         user_handler::change_email,
@@ -63,6 +65,7 @@ use utoipa::OpenApi;
             user_handler::RecentConversationResult,
             user_handler::UpdateNameRequest,
             user_handler::UpdateNameResult,
+            sync_handler::SyncQuery,
             auth_models::ChangePasswordRequestDto,
             auth_models::ChangePhoneRequestDto,
             auth_models::ChangeEmailRequestDto,

@@ -5,6 +5,8 @@ import 'package:app_desktop/app_state.dart';
 import 'package:app_desktop/l10n/app_localizations.dart';
 import 'package:app_desktop/screens/home/chat_pane/chat_pane.dart';
 import 'package:app_desktop/screens/home/sidebar.dart';
+import 'package:app_desktop/screens/home/settings_panel.dart';
+import 'package:app_desktop/screens/home/sidebar_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -177,11 +179,36 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final action = ref.watch(sidebarActionProvider);
+    if (action == SidebarAction.settings) {
+      return Scaffold(
+        body: SettingsPanel(onLogout: _logout),
+      );
+    }
     return Scaffold(
       body: Row(
         children: const [Sidebar(), VerticalDivider(width: 1), ChatPane()],
       ),
       // bottomNavigationBar: BottomTabs(), // 如需底部 Tab 可启用
     );
+  }
+
+  Future<void> _logout() async {
+    try {
+      await login_api.logout();
+    } catch (e) {
+      debugPrint('logout failed: $e');
+    }
+    final prefs = await SharedPreferences.getInstance();
+    try {
+      await _clearUserCache(prefs);
+    } catch (e) {
+      debugPrint('logout cleanup failed: $e');
+    }
+    if (!mounted) return;
+    ref.read(sidebarActionProvider.notifier).state = SidebarAction.friends;
+    if (context.mounted) {
+      context.go('/login');
+    }
   }
 }

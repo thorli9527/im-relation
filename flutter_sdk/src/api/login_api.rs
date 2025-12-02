@@ -10,6 +10,9 @@ use crate::service::{auth_service, socket_client::SocketClient, user_service::Us
 
 #[frb]
 /// 登录并等待 socket 连接及鉴权完成，超时可配置。
+/// - 入参：登录请求与可选超时时间（秒）
+/// - 流程：HTTP /login -> 本地落库 -> 等待 socket 鉴权成功
+/// - 返回：登录结果（token、用户信息等）
 pub fn login(payload: LoginRequest, timeout_secs: Option<u64>) -> Result<LoginResult, String> {
     let (result, _) = perform_login(&payload).map_err(|err| {
         error!("login_and_wait_for_socket: login failed: {}", err);
@@ -26,6 +29,8 @@ pub fn login(payload: LoginRequest, timeout_secs: Option<u64>) -> Result<LoginRe
 
 #[frb]
 /// 登出并清理登录态。
+/// - 若未被动下线，先请求后端 /logout
+/// - 断开 socket，清理本地状态
 pub fn logout() -> Result<(), String> {
     // 若已收到被动下线通知，跳过远程 /logout，避免重复调用。
     let passive_logout = SocketClient::get().take_passive_logout_flag();
@@ -64,6 +69,7 @@ pub fn validate_session(
 }
 
 /// 调用登录接口并写入本地登录状态。
+/// 返回登录结果以及 auth 消息 id（待用）
 fn perform_login(payload: &LoginRequest) -> Result<(LoginResult, i64), String> {
     let login_result = post_request::<LoginRequest, LoginResult>("/login", payload)?;
     let auth_message_id = auth_service::handle_login(payload, &login_result)

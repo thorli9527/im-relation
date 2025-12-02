@@ -26,6 +26,7 @@ use crate::dao::{
     list_friend_requests_pending_notify, mark_friend_request_decision,
     mark_friend_request_notified, upsert_friend_conversation_snapshot, upsert_friend_request,
     EncryptedMessageRecord, FriendConversationSnapshot, FriendRequestRow,
+    get_friend_request_by_id,
 };
 use crate::server::Services;
 use common::infra::grpc::grpc_friend::friend_service::{
@@ -113,6 +114,7 @@ async fn send_friend_business_system_notify(
         contents: Vec::new(),
         friend_business: Some(biz),
         group_business: None,
+        system_business: None,
     };
 
     let mut client = client.as_ref().clone();
@@ -413,6 +415,7 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
                         contents: contents.clone(),
                         friend_business: None,
                         group_business: None,
+                        system_business: None,
                     };
 
                     let res = async {
@@ -472,6 +475,29 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
         }
 
         Ok(Response::new(()))
+    }
+
+    async fn get_friend_request(
+        &self,
+        request: Request<msgpb::GetFriendRequestRequest>,
+    ) -> Result<Response<msgpb::GetFriendRequestResponse>, Status> {
+        let req = request.into_inner();
+        let Some(row) = get_friend_request_by_id(self.pool(), req.request_id as i64)
+            .await
+            .map_err(|e| Status::internal(format!("get friend request failed: {e}")))?
+        else {
+            return Err(Status::not_found("friend request not found"));
+        };
+        let resp = msgpb::GetFriendRequestResponse {
+            request_id: row.id as u64,
+            from_uid: row.from_uid,
+            to_uid: row.to_uid,
+            remark: row.remark,
+            nickname: row.nickname,
+            peer_remark: row.peer_remark,
+            peer_nickname: row.peer_nickname,
+        };
+        Ok(Response::new(resp))
     }
 }
 
@@ -739,13 +765,20 @@ async fn process_friend_business(
             } else {
                 Utc::now().timestamp_millis()
             };
+            let stored = get_friend_request_by_id(svc.pool(), payload.request_id as i64)
+                .await
+                .map_err(|e| Status::internal(format!("fetch friend request failed: {e}")))?;
+            let remark = stored
+                .as_ref()
+                .map(|r| r.remark.clone())
+                .unwrap_or_else(|| payload.remark.clone());
             mark_friend_request_decision(
                 svc.pool(),
                 payload.request_id as i64,
                 decided_at,
                 payload.accepted,
+                remark,
                 payload.remark.clone(),
-                payload.nickname.clone(),
                 payload.nickname.clone(),
             )
             .await

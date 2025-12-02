@@ -2,11 +2,13 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct VerifyRegisterResult {
     pub ok: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct OperationStatus {
     pub ok: bool,
 }
@@ -21,11 +23,13 @@ pub struct GenerateNicknamePayload {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct GenerateNicknameResult {
     pub names: Vec<String>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ChangePhoneResult {
     pub ok: bool,
     pub phone: String,
@@ -46,6 +50,7 @@ pub struct UpdateNameRequest {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateNameResult {
     pub ok: bool,
 }

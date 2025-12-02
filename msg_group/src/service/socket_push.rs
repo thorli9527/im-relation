@@ -62,6 +62,7 @@ pub async fn push_socket_message<M: Message>(
         }],
         friend_business: None,
         group_business: None,
+        system_business: None,
     };
 
     let mut domain_bytes = Vec::with_capacity(domain.encoded_len());

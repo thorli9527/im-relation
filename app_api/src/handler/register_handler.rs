@@ -42,6 +42,7 @@ pub struct VerifyRegisterPayload {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct VerifyRegisterResult {
     ok: bool,
 }

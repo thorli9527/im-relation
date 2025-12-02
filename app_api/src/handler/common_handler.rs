@@ -30,6 +30,7 @@ pub fn random_english_nickname(gender: Option<&str>) -> String {
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct RandomNicknameQuery {
     /// gender 可选：male/female，其他值随机
     gender: Option<String>,

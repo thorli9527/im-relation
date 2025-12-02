@@ -71,23 +71,29 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
             .map(|v| v.contains(&fid))
             .map_err(|e| internal_error(format!("add_friend/get_friends: {e}")))?;
 
-        // 双向建立关系（事务在存储层）
-        if let Err(e) = self
+        // 双向建立关系（事务在存储层）；失败时写入补偿任务。
+        match self
             .facade
             .add_friend_both(uid, fid, nickname_for_user, nickname_for_friend)
             .await
         {
-            // 补偿：写入 job 表
-            let msg = format!("{}", e);
-            if let Err(job_err) =
-                enqueue_friend_add_job(uid, fid, nickname_for_user, nickname_for_friend, &msg).await
-            {
-                eprintln!("friend add compensation enqueue failed: {}", job_err);
+            Ok(()) => Ok(Response::new(AddFriendResp { added: !already })),
+            Err(err) => {
+                let msg = err.to_string();
+                if let Err(job_err) = enqueue_friend_add_job(
+                    uid,
+                    fid,
+                    nickname_for_user,
+                    nickname_for_friend,
+                    &msg,
+                )
+                .await
+                {
+                    eprintln!("friend add compensation enqueue failed: {}", job_err);
+                }
+                Err(internal_error(format!("add_friend/write: {msg}")))
             }
-            return Err(internal_error(format!("add_friend/write: {e}")));
         }
-
-        Ok(Response::new(AddFriendResp { added: !already }))
     }
 
     async fn remove_friend(

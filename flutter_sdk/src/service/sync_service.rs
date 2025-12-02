@@ -2,11 +2,13 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
 use log::warn;
 use prost::Message as ProstMessage;
+use serde::Deserialize;
 
 use crate::{
     api::sync_api::{sync_messages, SyncRequest},
     domain::{ConversationEntity, MessageEntity, MessageScene, MessageSource},
     generated::message::{friend_business_content::Action as FriendAction, Content},
+    generated::message as msgpb,
     service::{
         conversation_service::ConversationService,
         friend_request_service::FriendRequestService, friend_service::FriendService,
@@ -18,6 +20,7 @@ use crate::{
 
 /// 增量同步好友/群/系统消息并落库、更新游标。
 pub fn sync_incremental(session_token: &str) -> Result<(), String> {
+    // 确保同步游标存在，若缺失则初始化。
     let state = SyncStateService::fetch().unwrap_or_else(|_| {
         SyncStateService::ensure_row()
             .and_then(|_| SyncStateService::fetch())
@@ -36,6 +39,7 @@ pub fn sync_incremental(session_token: &str) -> Result<(), String> {
     let mut friend_max = state.friend_last_seq;
     let mut group_max = state.group_last_seq;
     let mut system_max = state.system_last_seq;
+    // 当前用户 UID（判定会话方向与未读）
     let current_uid = UserService::get()
         .latest_user()
         .ok()
@@ -49,8 +53,10 @@ pub fn sync_incremental(session_token: &str) -> Result<(), String> {
                     let _ = MessageService::get().mark_ack(ref_id as i64);
                 }
             }
+            // 先处理业务，再落库
             handle_friend_business(&content, current_uid);
             handle_group_business(&content);
+            handle_system_business(&content, current_uid);
             friend_max = friend_max.max(content.timestamp);
             let _ = persist_message(&content, current_uid);
             let _ = update_conversation_snapshot(&content, current_uid);
@@ -63,8 +69,10 @@ pub fn sync_incremental(session_token: &str) -> Result<(), String> {
                     let _ = MessageService::get().mark_ack(ref_id as i64);
                 }
             }
+            // 先处理业务，再落库
             handle_friend_business(&content, current_uid);
             handle_group_business(&content);
+            handle_system_business(&content, current_uid);
             group_max = group_max.max(content.timestamp);
             let _ = persist_message(&content, current_uid);
             let _ = update_conversation_snapshot(&content, current_uid);
@@ -77,8 +85,10 @@ pub fn sync_incremental(session_token: &str) -> Result<(), String> {
                     let _ = MessageService::get().mark_ack(ref_id as i64);
                 }
             }
+            // 先处理业务，再落库
             handle_friend_business(&content, current_uid);
             handle_group_business(&content);
+            handle_system_business(&content, current_uid);
             if let Some(mid) = content.message_id {
                 system_max = system_max.max(mid as i64);
             }
@@ -100,6 +110,7 @@ fn update_conversation_snapshot(
     content: &Content,
     current_uid: Option<i64>,
 ) -> Result<(), String> {
+    // 根据会话场景确定会话 key
     let scene = MessageScene::from(content.scene as i64);
     let target_id = resolve_conversation_target(content, current_uid);
     let conv_type = scene as i32;
@@ -155,6 +166,12 @@ fn summarize_content(content: &Content) -> String {
     if content.ack.is_some() {
         return "[ACK]".into();
     }
+    if let Some(system) = content.system_business.as_ref() {
+        if system.business_type == msgpb::SystemBusinessType::SystemFriendAdd as i32 {
+            return "[friend added]".into();
+        }
+        return "[system]".into();
+    }
     "[message]".into()
 }
 
@@ -177,6 +194,7 @@ fn resolve_conversation_target(content: &Content, current_uid: Option<i64>) -> i
     }
 }
 
+/// 处理好友业务载体：申请/决策，落库并触发通知。
 fn handle_friend_business(content: &Content, current_uid: Option<i64>) {
     let Some(biz) = content.friend_business.as_ref() else {
         return;
@@ -249,6 +267,56 @@ fn handle_group_business(content: &Content) {
         }
         _ => {}
     }
+}
+
+#[derive(Debug, Deserialize)]
+struct FriendAddDetail {
+    from_uid: i64,
+    to_uid: i64,
+}
+
+/// 处理系统业务：当前仅关注好友添加成功的系统通知。
+fn handle_system_business(content: &Content, current_uid: Option<i64>) {
+    let Some(system) = content.system_business.as_ref() else {
+        return;
+    };
+    if system.business_type != msgpb::SystemBusinessType::SystemFriendAdd as i32 {
+        return;
+    }
+    let detail: FriendAddDetail = match serde_json::from_str(&system.detail) {
+        Ok(value) => value,
+        Err(err) => {
+            warn!("parse friend add detail failed: {}", err);
+            return;
+        }
+    };
+    if let Err(err) = persist_friend_add_message(content, &detail, current_uid) {
+        warn!("persist friend add message failed: {}", err);
+    }
+}
+
+fn persist_friend_add_message(
+    content: &Content,
+    detail: &FriendAddDetail,
+    current_uid: Option<i64>,
+) -> Result<(), String> {
+    let uid = match current_uid {
+        Some(id) => id,
+        None => return Ok(()),
+    };
+    let friend_id = if uid == detail.from_uid {
+        detail.to_uid
+    } else if uid == detail.to_uid {
+        detail.from_uid
+    } else {
+        return Ok(());
+    };
+    let mut synthetic = content.clone();
+    synthetic.scene = msgpb::ChatScene::Single as i32;
+    synthetic.receiver_id = uid;
+    synthetic.sender_id = friend_id;
+    persist_message(&synthetic, current_uid)?;
+    update_conversation_snapshot(&synthetic, current_uid)
 }
 
 fn apply_friend_acceptance(

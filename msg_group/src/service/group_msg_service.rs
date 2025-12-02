@@ -208,6 +208,7 @@ impl GroupMsgService for GroupMsgServiceImpl {
                         contents: contents.clone(),
                         friend_business: None,
                         group_business: None,
+                        system_business: None,
                     };
 
                     let res = async {

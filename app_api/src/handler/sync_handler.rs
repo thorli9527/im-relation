@@ -1,10 +1,12 @@
 use axum::{routing::post, Json, Router};
 use serde::Deserialize;
+use utoipa::ToSchema;
 
 use crate::service::{message_gateway, user_service};
 use common::core::{errors::AppError, result::ApiResponse};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct SyncQuery {
     pub session_token: String,
     #[serde(default)]
@@ -17,13 +19,30 @@ pub struct SyncQuery {
     pub limit: Option<u32>,
 }
 
+#[derive(Debug, serde::Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncPayload {
+    pub friend_messages: Vec<String>,
+    pub group_messages: Vec<String>,
+    pub system_messages: Vec<String>,
+}
+
 pub fn router() -> Router {
     Router::new().route("/api/sync/messages", post(sync_messages))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/sync/messages",
+    request_body = SyncQuery,
+    responses(
+        (status = 200, description = "增量同步好友/群/系统消息", body = ApiResponse<SyncPayload>)
+    ),
+    tag = "app_api/sync"
+)]
 async fn sync_messages(
     Json(q): Json<SyncQuery>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+) -> Result<Json<ApiResponse<SyncPayload>>, AppError> {
     if q.session_token.trim().is_empty() {
         return Err(AppError::Validation("session_token is required".into()));
     }
@@ -64,9 +83,9 @@ async fn sync_messages(
         Vec::new()
     };
 
-    Ok(Json(ApiResponse::success(serde_json::json!({
-        "friend_messages": message_gateway::encode_messages(friend_msgs),
-        "group_messages": message_gateway::encode_messages(group_msgs),
-        "system_messages": message_gateway::encode_messages(system_msgs)
-    }))))
+    Ok(Json(ApiResponse::success(SyncPayload {
+        friend_messages: message_gateway::encode_messages(friend_msgs),
+        group_messages: message_gateway::encode_messages(group_msgs),
+        system_messages: message_gateway::encode_messages(system_msgs),
+    })))
 }

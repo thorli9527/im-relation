@@ -154,6 +154,20 @@ message BroadcastProfileUpdatesReq {
   optional bool require_ack = 5;
 }
 
+message GetFriendRequestRequest {
+  uint64 request_id = 1;
+}
+
+message GetFriendRequestResponse {
+  uint64 request_id = 1;
+  int64 from_uid = 2;
+  int64 to_uid = 3;
+  string remark = 4;
+  string nickname = 5;
+  string peer_remark = 6;
+  string peer_nickname = 7;
+}
+
 // 好友消息服务（非群聊）
 service FriendMsgService {
   // 分页查询好友间的历史消息
@@ -170,4 +184,6 @@ service FriendMsgService {
   rpc HandleFriendMessage(message.DomainMessage) returns (google.protobuf.Empty);
   // 批量广播 ProfileUpdate 事件给好友
   rpc BroadcastProfileUpdates(BroadcastProfileUpdatesReq) returns (google.protobuf.Empty);
+  // 查询好友申请详情
+  rpc GetFriendRequest(GetFriendRequestRequest) returns (GetFriendRequestResponse);
 }

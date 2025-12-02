@@ -14,16 +14,6 @@ pub const DEFAULT_SOCKET_RECONNECT_LIMIT: u32 = 10;
 pub(crate) const SOCKET_RECONNECT_LIMIT_KEY: &str = "socket_reconnect_limit";
 pub(crate) const SOCKET_RECONNECT_ATTEMPTS_KEY: &str = "socket_reconnect_attempts";
 pub(crate) const SOCKET_RECONNECT_MESSAGE_KEY: &str = "socket_reconnect_message";
-const TOKEN_KEY: &str = "session_token";
-const TOKEN_EXPIRE_AT_KEY: &str = "session_token_expire_at";
-const UID_KEY: &str = "session_uid";
-const USERNAME_KEY: &str = "session_username";
-const LOGIN_NAME_KEY: &str = "session_login_name";
-const EMAIL_KEY: &str = "session_email";
-const PHONE_KEY: &str = "session_phone";
-const AVATAR_KEY: &str = "session_avatar";
-const LAST_LOGIN_AT_KEY: &str = "session_last_login_at";
-const LAST_ALIVE_AT_KEY: &str = "session_last_alive_at";
 const LANGUAGE_KEY: &str = "language";
 
 fn map_config_err(err: String) -> String {

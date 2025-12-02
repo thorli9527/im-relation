@@ -1283,6 +1283,8 @@ pub struct DomainMessage {
     pub friend_business: ::core::option::Option<FriendBusinessContent>,
     #[prost(message, optional, tag = "11")]
     pub group_business: ::core::option::Option<GroupBusinessContent>,
+    #[prost(message, optional, tag = "12")]
+    pub system_business: ::core::option::Option<SystemBusinessContent>,
 }
 /// 发起呼叫（带 SDP offer）
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -1895,6 +1897,8 @@ pub enum SystemBusinessType {
     SystemBusinessNotification = 1,
     /// 账户在其它设备/地点上线，被动下线通知
     SystemBusinessPassiveLogout = 5,
+    /// 成为好友成功通知
+    SystemFriendAdd = 6,
 }
 impl SystemBusinessType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1906,6 +1910,7 @@ impl SystemBusinessType {
             Self::SystemBusinessUnknown => "SYSTEM_BUSINESS_UNKNOWN",
             Self::SystemBusinessNotification => "SYSTEM_BUSINESS_NOTIFICATION",
             Self::SystemBusinessPassiveLogout => "SYSTEM_BUSINESS_PASSIVE_LOGOUT",
+            Self::SystemFriendAdd => "SYSTEM_FRIEND_ADD",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1914,6 +1919,7 @@ impl SystemBusinessType {
             "SYSTEM_BUSINESS_UNKNOWN" => Some(Self::SystemBusinessUnknown),
             "SYSTEM_BUSINESS_NOTIFICATION" => Some(Self::SystemBusinessNotification),
             "SYSTEM_BUSINESS_PASSIVE_LOGOUT" => Some(Self::SystemBusinessPassiveLogout),
+            "SYSTEM_FRIEND_ADD" => Some(Self::SystemFriendAdd),
             _ => None,
         }
     }

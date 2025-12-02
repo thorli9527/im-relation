@@ -15,14 +15,16 @@ use crate::{
 };
 use once_cell::sync::OnceCell;
 
-/// FRB 导出：把 Content 的 JSON 结构编码为 pb 字节；需传入 proto_adapter 生成的 JSON（包含 raw）。
+/// FRB 导出：把 Content 的 JSON 结构编码为 protobuf 字节。
+/// - 入参：proto_adapter::content_to_json 生成的 JSON（含 raw/base64）。
+/// - 返回：可直接作为 socket payload 的二进制。
 #[frb]
 pub fn encode_content(content: JsonValue) -> Result<Vec<u8>, String> {
     let payload = content_from_json(&content)?;
     encode(payload)
 }
 
-/// FRB 导出：解码 pb 字节为 JSON（经 proto_adapter），Flutter 收消息应调用此方法。
+/// FRB 导出：解码 protobuf 字节为 JSON（结构与 proto_adapter 对齐），用于 Flutter 收到 socket 消息后解析。
 #[frb]
 pub fn decode_content(bytes: Vec<u8>) -> Result<JsonValue, String> {
     let content = msgpb::Content::decode(bytes.as_slice())
@@ -30,7 +32,9 @@ pub fn decode_content(bytes: Vec<u8>) -> Result<JsonValue, String> {
     Ok(content_to_json(&content))
 }
 
-/// 打包客户端上行 JSON 为 socket ClientMsg，ack/client_id 保持显式字段，payload 转换为 msgpb::Content。
+/// 打包客户端上行 JSON 为 socket ClientMsg。
+/// - payload：消息内容 JSON
+/// - ack/client_id：显式传入，保持上层控制
 #[frb]
 pub fn pack_client_msg(
     payload: JsonValue,
@@ -47,7 +51,7 @@ pub fn pack_client_msg(
     encode(pb)
 }
 
-/// 解包下行原始字节为 JSON，含消息 ID/时间戳/base64 载荷。
+/// 解包下行原始字节为 JSON，包含消息 id、时间戳、payload（base64）。
 #[frb]
 pub fn unpack_server_msg(bytes: Vec<u8>) -> Result<JsonValue, String> {
     let msg = socket_proto::ServerMsg::decode(bytes.as_slice())
@@ -83,12 +87,19 @@ fn server_msg_to_json(msg: socket_proto::ServerMsg) -> JsonValue {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FriendRequestEvent {
+    /// 申请 ID（雪花）
     pub request_id: u64,
+    /// 申请人 UID
     pub from_uid: i64,
+    /// 接收方 UID
     pub to_uid: i64,
+    /// 申请理由
     pub reason: String,
+    /// 创建时间（毫秒）
     pub created_at: i64,
+    /// 申请方填写的备注
     pub remark: Option<String>,
+    /// 申请方期望展示的昵称
     pub nickname: Option<String>,
 }
 
@@ -98,8 +109,11 @@ static FRIEND_REQUEST_SUBSCRIBERS: OnceCell<Mutex<Vec<StreamSink<FriendRequestEv
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SystemNoticeEvent {
+    /// 系统业务类型（如被动下线等）
     pub business_type: i32,
+    /// 标题
     pub title: String,
+    /// 详情（通常为 JSON 字符串）
     pub detail: String,
 }
 

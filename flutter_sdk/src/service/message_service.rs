@@ -15,6 +15,7 @@ pub struct MessageService {
 }
 
 impl MessageService {
+    /// 初始化消息服务（建表、建索引）。
     pub fn init() -> Result<(), String> {
         let service = MessageService {
             repo: Repository::new(message_table_def()),
@@ -29,6 +30,7 @@ impl MessageService {
         INSTANCE.get().expect("MessageService is not initialized")
     }
 
+    /// 按会话分页查询消息（按 created_at 降序）。
     pub fn list_by_conversation(
         &self,
         conversation_id: i64,
@@ -60,6 +62,7 @@ impl MessageService {
         Ok(())
     }
 
+    /// 将查询结果行映射为 MessageEntity。
     fn map_row(row: &Row) -> Result<MessageEntity, rusqlite::Error> {
         Ok(MessageEntity {
             id: Some(row.get("id")?),
@@ -81,6 +84,7 @@ impl MessageService {
         })
     }
 
+    /// 根据 ID 查询单条消息。
     pub fn find_by_id(&self, id: i64) -> Result<Option<MessageEntity>, String> {
         let conditions = vec![QueryCondition::new(
             "id",
@@ -111,6 +115,7 @@ impl MessageService {
 }
 
 impl MessageService {
+    /// 插入一条消息记录，返回自增 ID。
     pub fn insert(&self, entity: &MessageEntity) -> Result<i64, String> {
         let columns = [
             "conversation_id",
@@ -160,6 +165,7 @@ impl MessageService {
         Ok(id)
     }
 
+    /// 发送次数加一（用于重发逻辑）。
     pub fn increment_send_count(&self, message_id: i64) -> Result<(), String> {
         let conn = db::connection()?;
         conn.execute(

@@ -2,14 +2,14 @@ use anyhow::{anyhow, Result};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use common::config::AppConfig;
-use common::infra::grpc::grpc_msg_friend::msg_friend_service::ListUserFriendMessagesRequest;
-use common::infra::grpc::grpc_msg_friend::msg_friend_service::{
-    friend_msg_service_client::FriendMsgServiceClient, BroadcastProfileUpdatesReq,
-    FriendConversationSnapshot, ListFriendConversationsRequest,
-};
 use common::infra::grpc::grpc_msg_group::msg_group_service::{
     group_msg_service_client::GroupMsgServiceClient, BroadcastGroupProfileUpdatesReq,
     GroupConversationSnapshot, ListGroupConversationsRequest,
+};
+use common::infra::grpc::grpc_msg_friend::msg_friend_service::{
+    friend_msg_service_client::FriendMsgServiceClient, BroadcastProfileUpdatesReq,
+    FriendConversationSnapshot, GetFriendRequestRequest, GetFriendRequestResponse,
+    ListFriendConversationsRequest, ListUserFriendMessagesRequest,
 };
 use common::infra::grpc::grpc_msg_system::msg_system_service::{
     system_msg_service_client::SystemMsgServiceClient, QuerySystemMessagesRequest,
@@ -18,6 +18,7 @@ use common::infra::grpc::message::{
     self as msgpb, friend_business_content::Action as FriendAction, group_business_content::Action,
     message_content::Content as MessageContentKind, ChatScene, DeliveryOptions, DomainMessage,
     FriendBusinessContent, GroupBusinessContent, MessageContent, MsgCategory,
+    SystemBusinessContent, SystemBusinessType,
 };
 use common::infra::grpc::GrpcClientManager;
 use common::support::node::{NodeType, NodeUtil};
@@ -26,6 +27,7 @@ use common::support::util::common_utils::hash_index;
 use common::support::util::date_util::now;
 use once_cell::sync::OnceCell;
 use prost::Message as ProstMessage;
+use serde_json::json;
 use tonic::transport::{Channel, Error as TransportError};
 
 pub struct ConversationPage<T> {
@@ -154,6 +156,21 @@ pub async fn list_friend_conversations(
     })
 }
 
+/// 查询好友申请详情，供受理时引用原始 remark/nickname。
+pub async fn get_friend_request(
+    requester_uid: i64,
+    request_id: u64,
+) -> Result<GetFriendRequestResponse> {
+    let addr = resolve_addr(NodeType::MsgFriend, requester_uid).await?;
+    let mut client = connect_friend_msg(&addr).await?;
+    let resp = client
+        .get_friend_request(GetFriendRequestRequest { request_id })
+        .await
+        .map_err(|status| anyhow!("get friend request failed: {status}"))?
+        .into_inner();
+    Ok(resp)
+}
+
 pub async fn list_group_conversations(
     uid: i64,
     limit: u32,
@@ -276,6 +293,7 @@ pub async fn send_friend_request_message(
         contents: Vec::new(),
         friend_business: Some(friend_business),
         group_business: None,
+        system_business: None,
     };
     client
         .handle_friend_message(domain)
@@ -313,6 +331,7 @@ pub async fn send_friend_decision_message(
         contents: Vec::new(),
         friend_business: Some(friend_business),
         group_business: None,
+        system_business: None,
     };
     client
         .handle_friend_message(domain)
@@ -358,6 +377,7 @@ pub async fn send_group_join_request_message(
         contents: Vec::new(),
         friend_business: None,
         group_business: Some(group_business),
+        system_business: None,
     };
     client
         .handle_group_message(domain)
@@ -396,6 +416,7 @@ pub async fn send_friend_system_message(sender_id: i64, peer_id: i64, text: &str
         contents: vec![content],
         friend_business: None,
         group_business: None,
+        system_business: None,
     };
     client
         .handle_friend_message(domain)
@@ -410,7 +431,35 @@ pub async fn send_system_message(
     receiver_id: i64,
     contents: Vec<MessageContent>,
 ) -> Result<()> {
-    if contents.is_empty() {
+    send_system_payload(sender_id, receiver_id, contents, None).await
+}
+
+/// 发送好友添加成功的系统业务通知，各向双方各推一条。
+pub async fn send_friend_add_system_business(from_uid: i64, to_uid: i64) -> Result<()> {
+    let business = build_friend_add_business(from_uid, to_uid);
+    send_system_payload(from_uid, to_uid, Vec::new(), Some(business.clone())).await?;
+    send_system_payload(to_uid, from_uid, Vec::new(), Some(business)).await
+}
+
+fn build_friend_add_business(from_uid: i64, to_uid: i64) -> SystemBusinessContent {
+    SystemBusinessContent {
+        business_type: SystemBusinessType::SystemFriendAdd as i32,
+        title: "system.friend.add".to_string(),
+        detail: json!({
+            "from_uid": from_uid,
+            "to_uid": to_uid
+        })
+        .to_string(),
+    }
+}
+
+async fn send_system_payload(
+    sender_id: i64,
+    receiver_id: i64,
+    contents: Vec<MessageContent>,
+    system_business: Option<SystemBusinessContent>,
+) -> Result<()> {
+    if contents.is_empty() && system_business.is_none() {
         return Ok(());
     }
     let addr = resolve_addr(NodeType::MsgSystem, receiver_id).await?;
@@ -430,14 +479,9 @@ pub async fn send_system_message(
         scene: ChatScene::Profile as i32,
         category: MsgCategory::System as i32,
         contents,
-        friend_business: Some(FriendBusinessContent {
-            action: None,
-            ..Default::default()
-        }),
-        group_business: Some(GroupBusinessContent {
-            action: None,
-            ..Default::default()
-        }),
+        friend_business: None,
+        group_business: None,
+        system_business,
     };
 
     client
@@ -560,6 +604,7 @@ pub async fn send_group_system_message(operator_id: i64, group_id: i64, text: &s
         contents: vec![content],
         friend_business: None,
         group_business: None,
+        system_business: None,
     };
     client
         .handle_group_message(domain)

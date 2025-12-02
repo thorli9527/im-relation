@@ -48,6 +48,7 @@ impl SystemMsgService for SystemMsgServiceImpl {
         let contents = domain.contents.clone();
         let friend_business = domain.friend_business.clone();
         let group_business = domain.group_business.clone();
+        let system_business = domain.system_business.clone();
 
         let ts_ms = if domain.ts_ms > 0 {
             domain.ts_ms
@@ -66,7 +67,7 @@ impl SystemMsgService for SystemMsgServiceImpl {
             group_business: group_business.clone(),
             heartbeat: None,
             ack: None,
-            system_business: None,
+            system_business: system_business.clone(),
         };
 
         let mut buf = Vec::with_capacity(content.encoded_len());
@@ -93,17 +94,18 @@ impl SystemMsgService for SystemMsgServiceImpl {
         if let Some(kafka) = self.services.kafka() {
             let mut dom_for_kafka = DomainMessage {
                 message_id: Some(msg_id),
-            sender_id: content.sender_id,
-            receiver_id: content.receiver_id,
-            timestamp: content.timestamp,
-            ts_ms,
-            delivery: domain.delivery.clone(),
-            scene: content.scene,
-            category: msg_message::MsgCategory::System as i32,
-            contents,
-            friend_business,
-            group_business,
-        };
+                sender_id: content.sender_id,
+                receiver_id: content.receiver_id,
+                timestamp: content.timestamp,
+                ts_ms,
+                delivery: domain.delivery.clone(),
+                scene: content.scene,
+                category: msg_message::MsgCategory::System as i32,
+                contents,
+                friend_business,
+                group_business,
+                system_business,
+            };
             // 系统消息默认要求 ACK，设置默认投递策略。
             if dom_for_kafka.delivery.is_none() {
                 dom_for_kafka.delivery = Some(msg_message::DeliveryOptions {
