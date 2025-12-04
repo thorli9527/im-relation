@@ -5,7 +5,7 @@ use prost::Message as ProstMessage;
 use serde::Deserialize;
 
 use crate::{
-    api::sync_api::{sync_messages, SyncRequest},
+    api::sync_api::{build_sync_request_from_state, sync_messages},
     domain::{ConversationEntity, MessageEntity, MessageScene, MessageSource},
     generated::message::{friend_business_content::Action as FriendAction, Content},
     generated::message as msgpb,
@@ -19,22 +19,9 @@ use crate::{
 };
 
 /// 增量同步好友/群/系统消息并落库、更新游标。
-pub fn sync_incremental(session_token: &str) -> Result<(), String> {
-    // 确保同步游标存在，若缺失则初始化。
-    let state = SyncStateService::fetch().unwrap_or_else(|_| {
-        SyncStateService::ensure_row()
-            .and_then(|_| SyncStateService::fetch())
-            .unwrap_or_else(|_| crate::domain::sync_state_entity::SyncStateEntity::new())
-    });
-
-    let req = SyncRequest {
-        session_token: session_token.to_string(),
-        friend_last_seq: Some(state.friend_last_seq),
-        group_last_seq: Some(state.group_last_seq),
-        system_last_seq: Some(state.system_last_seq as u64),
-        limit: Some(200),
-    };
-
+pub fn sync_incremental() -> Result<(), String> {
+    // 依据本地游标和 session_token 构造同步请求；若缺失 token 则直接返回。
+    let (req, state) = build_sync_request_from_state(Some(200))?;
     let resp = sync_messages(&req)?;
     let mut friend_max = state.friend_last_seq;
     let mut group_max = state.group_last_seq;
@@ -115,9 +102,13 @@ fn update_conversation_snapshot(
     let target_id = resolve_conversation_target(content, current_uid);
     let conv_type = scene as i32;
     let svc = ConversationService::get();
+    let owner_uid = match current_uid {
+        Some(uid) => uid,
+        None => return Ok(()), // 无当前用户上下文，不记录会话，避免混入其他账号数据。
+    };
     let mut entity = svc
-        .get_by_type_and_target(conv_type, target_id)?
-        .unwrap_or_else(|| ConversationEntity::new(conv_type, target_id));
+        .get_by_type_and_target(owner_uid, conv_type, target_id)?
+        .unwrap_or_else(|| ConversationEntity::new(owner_uid, conv_type, target_id));
 
     let should_increase_unread = current_uid
         .map(|uid| uid != content.sender_id)
@@ -290,6 +281,23 @@ fn handle_system_business(content: &Content, current_uid: Option<i64>) {
             return;
         }
     };
+    // 落库好友关系，确保本地 friend 表同步。
+    if let Some(uid) = current_uid {
+        let friend_id = if uid == detail.from_uid {
+            detail.to_uid
+        } else if uid == detail.to_uid {
+            detail.from_uid
+        } else {
+            0
+        };
+        if friend_id > 0 {
+            if let Err(err) =
+                FriendService::get().ensure_friend(friend_id, None, None, content.timestamp)
+            {
+                warn!("ensure_friend on system business failed: {}", err);
+            }
+        }
+    }
     if let Err(err) = persist_friend_add_message(content, &detail, current_uid) {
         warn!("persist friend add message failed: {}", err);
     }

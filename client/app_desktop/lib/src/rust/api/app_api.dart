@@ -14,7 +14,3 @@ Future<void> syncOnWake({
   sessionToken: sessionToken,
   resetCursor: resetCursor,
 );
-
-/// 清理本地用户缓存（消息/好友/会话等），仅保留设备 ID。
-Future<void> resetLocalDataPreserveDevice() =>
-    RustLib.instance.api.crateApiAppApiResetLocalDataPreserveDevice();

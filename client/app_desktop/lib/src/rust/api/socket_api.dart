@@ -11,15 +11,19 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 // These functions are ignored because they are not marked as `pub`: `content_from_json`, `encode`, `normalize_optional`, `server_msg_to_json`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
 
-/// FRB 导出：把 Content 的 JSON 结构编码为 pb 字节；需传入 proto_adapter 生成的 JSON（包含 raw）。
+/// FRB 导出：把 Content 的 JSON 结构编码为 protobuf 字节。
+/// - 入参：proto_adapter::content_to_json 生成的 JSON（含 raw/base64）。
+/// - 返回：可直接作为 socket payload 的二进制。
 Future<Uint8List> encodeContent({required JsonValue content}) =>
     RustLib.instance.api.crateApiSocketApiEncodeContent(content: content);
 
-/// FRB 导出：解码 pb 字节为 JSON（经 proto_adapter），Flutter 收消息应调用此方法。
+/// FRB 导出：解码 protobuf 字节为 JSON（结构与 proto_adapter 对齐），用于 Flutter 收到 socket 消息后解析。
 Future<JsonValue> decodeContent({required List<int> bytes}) =>
     RustLib.instance.api.crateApiSocketApiDecodeContent(bytes: bytes);
 
-/// 打包客户端上行 JSON 为 socket ClientMsg，ack/client_id 保持显式字段，payload 转换为 msgpb::Content。
+/// 打包客户端上行 JSON 为 socket ClientMsg。
+/// - payload：消息内容 JSON
+/// - ack/client_id：显式传入，保持上层控制
 Future<Uint8List> packClientMsg({
   required JsonValue payload,
   PlatformInt64? ack,
@@ -30,7 +34,7 @@ Future<Uint8List> packClientMsg({
   clientId: clientId,
 );
 
-/// 解包下行原始字节为 JSON，含消息 ID/时间戳/base64 载荷。
+/// 解包下行原始字节为 JSON，包含消息 id、时间戳、payload（base64）。
 Future<JsonValue> unpackServerMsg({required List<int> bytes}) =>
     RustLib.instance.api.crateApiSocketApiUnpackServerMsg(bytes: bytes);
 
@@ -50,12 +54,25 @@ Future<void> notifySystemNotice({required SystemNoticeEvent event}) =>
 
 /// 好友申请监听事件载体，直接复用 proto 字段并保留 remark/nickname。
 class FriendRequestEvent {
+  /// 申请 ID（雪花）
   final BigInt requestId;
+
+  /// 申请人 UID
   final PlatformInt64 fromUid;
+
+  /// 接收方 UID
   final PlatformInt64 toUid;
+
+  /// 申请理由
   final String reason;
+
+  /// 创建时间（毫秒）
   final PlatformInt64 createdAt;
+
+  /// 申请方填写的备注
   final String? remark;
+
+  /// 申请方期望展示的昵称
   final String? nickname;
 
   const FriendRequestEvent({
@@ -93,8 +110,13 @@ class FriendRequestEvent {
 }
 
 class SystemNoticeEvent {
+  /// 系统业务类型（如被动下线等）
   final int businessType;
+
+  /// 标题
   final String title;
+
+  /// 详情（通常为 JSON 字符串）
   final String detail;
 
   const SystemNoticeEvent({

@@ -28,6 +28,7 @@ import 'domain/friend_request_entity.dart';
 import 'domain/group_entity.dart';
 import 'domain/group_request_entity.dart';
 import 'domain/message_entity.dart';
+import 'domain/sync_state_entity.dart';
 import 'frb_generated.dart';
 import 'generated/message.dart';
 import 'lib.dart';
@@ -412,6 +413,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RecentConversationsResult dco_decode_recent_conversations_result(dynamic raw);
 
   @protected
+  (SyncRequest, SyncStateEntity)
+  dco_decode_record_sync_request_sync_state_entity(dynamic raw);
+
+  @protected
   RefreshGroupMembersQuery dco_decode_refresh_group_members_query(dynamic raw);
 
   @protected
@@ -431,6 +436,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SyncResponse dco_decode_sync_response(dynamic raw);
+
+  @protected
+  SyncStateEntity dco_decode_sync_state_entity(dynamic raw);
 
   @protected
   SystemNoticeEvent dco_decode_system_notice_event(dynamic raw);
@@ -920,6 +928,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  (SyncRequest, SyncStateEntity)
+  sse_decode_record_sync_request_sync_state_entity(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RefreshGroupMembersQuery sse_decode_refresh_group_members_query(
     SseDeserializer deserializer,
   );
@@ -945,6 +959,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SyncResponse sse_decode_sync_response(SseDeserializer deserializer);
+
+  @protected
+  SyncStateEntity sse_decode_sync_state_entity(SseDeserializer deserializer);
 
   @protected
   SystemNoticeEvent sse_decode_system_notice_event(
@@ -1558,6 +1575,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_record_sync_request_sync_state_entity(
+    (SyncRequest, SyncStateEntity) self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_refresh_group_members_query(
     RefreshGroupMembersQuery self,
     SseSerializer serializer,
@@ -1592,6 +1615,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_sync_response(SyncResponse self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_sync_state_entity(
+    SyncStateEntity self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_system_notice_event(

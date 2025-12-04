@@ -48,14 +48,31 @@ class AddFriendPayload {
 }
 
 class UserInfoResult {
+  /// UID
   final PlatformInt64 uid;
+
+  /// 用户名
   final String name;
+
+  /// 头像
   final String avatar;
+
+  /// 昵称
   final String? nickname;
+
+  /// 性别枚举
   final int gender;
+
+  /// 国家/地区
   final String? country;
+
+  /// 语言
   final String? language;
+
+  /// 邮箱
   final String? email;
+
+  /// 手机
   final String? phone;
 
   const UserInfoResult({

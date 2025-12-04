@@ -10,9 +10,16 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
 class LoginRequest {
+  /// 登录密码
   final String password;
+
+  /// 目标（邮箱/手机号/用户名）
   final String target;
+
+  /// 设备类型枚举值
   final int deviceType;
+
+  /// 设备唯一 ID
   final String deviceId;
 
   const LoginRequest({
@@ -41,18 +48,43 @@ class LoginRequest {
 }
 
 class LoginResult {
+  /// 会话 token
   final String token;
+
+  /// token 过期时间（秒）
   final BigInt expiresAt;
+
+  /// socket 服务地址
   final String socketAddr;
+
+  /// 头像 URL
   final String avatar;
+
+  /// 邮箱
   final String? email;
+
+  /// 手机号
   final String? phone;
+
+  /// 用户名
   final String name;
+
+  /// UID
   final PlatformInt64 uid;
+
+  /// 语言
   final String? language;
+
+  /// 国家/地区
   final String? country;
+
+  /// 昵称
   final String? nickname;
+
+  /// 性别枚举
   final int gender;
+
+  /// 资料版本
   final int version;
 
   const LoginResult({
@@ -108,6 +140,7 @@ class LoginResult {
 }
 
 class SessionValidateRequest {
+  /// 会话 token
   final String sessionToken;
 
   const SessionValidateRequest({required this.sessionToken});
@@ -124,9 +157,16 @@ class SessionValidateRequest {
 }
 
 class SessionValidationResult {
+  /// 是否有效
   final bool ok;
+
+  /// UID
   final PlatformInt64 uid;
+
+  /// 过期时间（秒）
   final BigInt expiresAt;
+
+  /// token（可能与入参一致）
   final String token;
 
   const SessionValidationResult({

@@ -90,7 +90,7 @@ pub async fn list_conversation_messages(
     qb.push(")");
 
     if let Some(ts) = since_timestamp {
-        qb.push(" AND created_at >= ");
+        qb.push(" AND created_at > ");
         qb.push_bind(ts);
     }
     if let Some(ts) = before_timestamp {

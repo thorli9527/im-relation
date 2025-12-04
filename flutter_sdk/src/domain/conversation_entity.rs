@@ -17,6 +17,8 @@ pub fn init() {
 pub struct ConversationEntity {
     /// 主键 ID，自增。
     pub id: Option<i64>,
+    /// 会话所属用户 UID（用于多账号隔离）。
+    pub owner_uid: i64,
     /// 会话类型：如私聊、群聊、系统等。
     pub conversation_type: i32,
     /// 会话目标 ID（好友 ID 或群 ID 等）。
@@ -30,9 +32,10 @@ pub struct ConversationEntity {
 }
 
 impl ConversationEntity {
-    pub fn new(conversation_type: i32, target_id: i64) -> Self {
+    pub fn new(owner_uid: i64, conversation_type: i32, target_id: i64) -> Self {
         Self {
             id: None,
+            owner_uid,
             conversation_type,
             target_id,
             unread_count: 0,
@@ -48,6 +51,10 @@ impl TableEntity for ConversationEntity {
         if let Some(id) = self.id {
             cols.push(ColumnValue::new("id", Value::Integer(id)));
         }
+        cols.push(ColumnValue::new(
+            "owner_uid",
+            Value::Integer(self.owner_uid),
+        ));
         cols.push(ColumnValue::new(
             "conversation_type",
             Value::Integer(self.conversation_type as i64),
@@ -88,6 +95,12 @@ pub static CONVERSATION_TABLE_DEF: Lazy<TableDef> = Lazy::new(|| {
                 comment = "主键 ID"
             ),
             column_def!(
+                "owner_uid",
+                ColumnType::Integer,
+                constraints = "NOT NULL DEFAULT 0",
+                comment = "会话所属用户 UID"
+            ),
+            column_def!(
                 "conversation_type",
                 ColumnType::Integer,
                 constraints = "NOT NULL",
@@ -119,7 +132,7 @@ pub static CONVERSATION_TABLE_DEF: Lazy<TableDef> = Lazy::new(|| {
             )
         ],
         indexes = [
-            unique_index!("idx_default", ["conversation_type", "target_id"])
+            unique_index!("idx_conversation_owner_type_target", ["owner_uid", "conversation_type", "target_id"])
         ]
     }
 });

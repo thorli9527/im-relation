@@ -6,7 +6,7 @@ use crate::{
     domain::{message_table_def, MessageEntity, MessageScene, MessageSource},
 };
 use once_cell::sync::OnceCell;
-use rusqlite::{params, types::Value, Row, ToSql};
+use rusqlite::{params, types::Value, Connection, Row, ToSql};
 
 static INSTANCE: OnceCell<MessageService> = OnceCell::new();
 
@@ -56,6 +56,12 @@ impl MessageService {
         let conn = db::connection()?;
         let ddl = message_table_def().create_table_sql();
         conn.execute(&ddl, []).map_err(|err| err.to_string())?;
+        ensure_column(
+            &conn,
+            message_table_def().name,
+            "receiver_id",
+            "ALTER TABLE message ADD COLUMN receiver_id INTEGER",
+        )?;
         for sql in message_table_def().create_index_sqls() {
             conn.execute(&sql, []).map_err(|err| err.to_string())?;
         }
@@ -213,4 +219,25 @@ impl MessageService {
         }
         Ok(result)
     }
+}
+
+fn ensure_column(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    alter_sql: &str,
+) -> Result<(), String> {
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info({})", table))
+        .map_err(|err| err.to_string())?;
+    let mut rows = stmt.query([]).map_err(|err| err.to_string())?;
+    while let Some(row) = rows.next().map_err(|err| err.to_string())? {
+        let name: String = row.get("name").map_err(|err| err.to_string())?;
+        if name == column {
+            return Ok(());
+        }
+    }
+    conn.execute(alter_sql, [])
+        .map(|_| ())
+        .map_err(|err| err.to_string())
 }

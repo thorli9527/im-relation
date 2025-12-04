@@ -391,13 +391,12 @@ impl SessionTokenRepo for SessionRepoSqlx {
             r#"
                 SELECT session_token
                 FROM user_session
-                WHERE uid = ? AND device_type = ? AND device_id = ?
+                WHERE uid = ? AND device_type = ?
                 FOR UPDATE
             "#,
         )
         .bind(uid)
         .bind(device_type as i32)
-        .bind(&device_id)
         .fetch_optional(&mut *tx)
         .await?;
 
@@ -419,6 +418,7 @@ impl SessionTokenRepo for SessionRepoSqlx {
                 VALUES
                     (?, ?, ?, ?, 1, NOW(3), ?, NOW(3), ?, ?)
                 ON DUPLICATE KEY UPDATE
+                    device_id = VALUES(device_id),
                     session_token = VALUES(session_token),
                     status = 1,
                     issued_at = NOW(3),

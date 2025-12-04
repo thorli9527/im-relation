@@ -3,19 +3,36 @@
 
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
+import '../domain/sync_state_entity.dart';
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
 
+/// 调用后端同步接口，返回增量消息（Base64 编码的 Content）。
 Future<SyncResponse> syncMessages({required SyncRequest req}) =>
     RustLib.instance.api.crateApiSyncApiSyncMessages(req: req);
 
+/// 基于本地游标和当前用户 session 构造同步请求；返回请求体与游标状态。
+Future<(SyncRequest, SyncStateEntity)> buildSyncRequestFromState({
+  int? limit,
+}) =>
+    RustLib.instance.api.crateApiSyncApiBuildSyncRequestFromState(limit: limit);
+
 class SyncRequest {
+  /// 会话 token，用于鉴权
   final String sessionToken;
+
+  /// 好友消息游标（毫秒时间戳）
   final PlatformInt64? friendLastSeq;
+
+  /// 群消息游标（毫秒时间戳）
   final PlatformInt64? groupLastSeq;
+
+  /// 系统消息游标（message_id）
   final BigInt? systemLastSeq;
+
+  /// 拉取条数上限
   final int? limit;
 
   const SyncRequest({
@@ -47,8 +64,13 @@ class SyncRequest {
 }
 
 class SyncResponse {
+  /// Base64 编码的好友消息列表
   final List<String> friendMessages;
+
+  /// Base64 编码的群消息列表
   final List<String> groupMessages;
+
+  /// Base64 编码的系统消息列表
   final List<String> systemMessages;
 
   const SyncResponse({

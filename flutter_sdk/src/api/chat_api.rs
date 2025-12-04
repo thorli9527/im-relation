@@ -5,8 +5,10 @@ use crate::api::{
 };
 use crate::service::{
     conversation_service::ConversationService, friend_service::FriendService,
-    group_service::GroupService, message_service::MessageService,
+    group_service::GroupService, message_service::MessageService, user_service::UserService,
 };
+use crate::common::{repository::QueryCondition, QueryType};
+use rusqlite::types::Value;
 
 /// 分页获取好友列表（按创建时间倒序）。
 #[frb]
@@ -23,8 +25,23 @@ pub fn get_recent_conversations(
     page: u32,
     page_size: u32,
 ) -> Result<ConversationPageResult, String> {
+    let current_uid = UserService::get()
+        .latest_user()
+        .map_err(|err| ApiError::system(err.clone()).into_string())?;
+    let Some(user) = current_uid else {
+        return Ok(ConversationPageResult {
+            items: Vec::new(),
+            has_next: false,
+            has_prev: false,
+        });
+    };
+    let conditions = vec![QueryCondition::new(
+        "owner_uid",
+        QueryType::Equal,
+        vec![Value::Integer(user.uid)],
+    )];
     ConversationService::get()
-        .list(&[], page, page_size)
+        .list(&conditions, page, page_size)
         .map(ConversationPageResult::from)
         .map_err(|err| ApiError::system(err).into_string())
 }

@@ -6,7 +6,6 @@ import 'package:app_desktop/l10n/app_localizations.dart';
 import 'package:app_desktop/screens/home/chat_pane/chat_pane.dart';
 import 'package:app_desktop/screens/home/sidebar.dart';
 import 'package:app_desktop/screens/home/settings_panel.dart';
-import 'package:app_desktop/screens/home/sidebar_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';

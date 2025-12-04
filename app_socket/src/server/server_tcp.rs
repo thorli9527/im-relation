@@ -106,8 +106,8 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
         Ok(Some(exp)) => exp,
         Ok(None) => {
             warn!(
-                "{} auth failed: uid={} device={} ",
-                peer, auth.uid, auth.device_id
+                "{} auth failed: uid={} device={},token:{} ",
+                peer, auth.uid, auth.device_id, auth.token
             );
             return Ok(());
         }
@@ -591,15 +591,36 @@ pub(super) async fn validate_auth(auth: &PbAuthMsg) -> anyhow::Result<Option<i64
         .into_inner();
 
     if resp.status != SessionTokenStatus::StsActive as i32 {
+        log::warn!(
+            "validate_auth: inactive token (status={}), uid={}, device={}",
+            resp.status,
+            resp.uid,
+            resp.device_id
+        );
         return Ok(None);
     }
     if resp.uid != auth.uid {
+        log::warn!(
+            "validate_auth: uid mismatch token_uid={} auth_uid={}",
+            resp.uid,
+            auth.uid
+        );
         return Ok(None);
     }
     if resp.device_type != auth.device_type {
+        log::warn!(
+            "validate_auth: device_type mismatch token_type={} auth_type={}",
+            resp.device_type,
+            auth.device_type
+        );
         return Ok(None);
     }
     if resp.device_id != auth.device_id {
+        log::warn!(
+            "validate_auth: device_id mismatch token_device={} auth_device={}",
+            resp.device_id,
+            auth.device_id
+        );
         return Ok(None);
     }
 

@@ -9,7 +9,10 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
 
 class BuildRegisterCodeRequest {
+  /// 注册密码
   final String password;
+
+  /// 目标（邮箱/手机号）
   final String target;
 
   /// 可选语言
@@ -56,7 +59,10 @@ class BuildRegisterCodeRequest {
 }
 
 class BuildRegisterCodeResponse {
+  /// 注册 ID
   final String regId;
+
+  /// 用户 UID
   final PlatformInt64 uid;
 
   const BuildRegisterCodeResponse({required this.regId, required this.uid});
@@ -74,7 +80,10 @@ class BuildRegisterCodeResponse {
 }
 
 class VerifyRegisterCodeRequest {
+  /// 注册 ID（生成注册码时返回）
   final String regId;
+
+  /// 验证码
   final String code;
 
   const VerifyRegisterCodeRequest({required this.regId, required this.code});

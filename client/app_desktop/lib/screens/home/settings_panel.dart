@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:app_desktop/screens/home/sidebar_state.dart';
+import 'package:app_desktop/screens/home/sidebar.dart';
 
 class SettingsPanel extends ConsumerStatefulWidget {
   const SettingsPanel({super.key, required this.onLogout});

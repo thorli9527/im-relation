@@ -15,6 +15,15 @@ use common::infra::grpc::grpc_user::online_service::{
     ValidateSessionTokenResponse,
 };
 use std::convert::TryFrom;
+use log::{error, info, warn};
+
+fn mask_token(token: &str) -> String {
+    let len = token.len();
+    if len <= 8 {
+        return "***".to_string();
+    }
+    format!("{}***{}", &token[..4], &token[len - 4..])
+}
 
 #[derive(Clone)]
 pub struct OnLineServiceImpl<R>
@@ -118,11 +127,22 @@ where
         request: Request<ValidateSessionTokenRequest>,
     ) -> Result<Response<ValidateSessionTokenResponse>, Status> {
         let req = request.into_inner();
-        let record_opt = self
+        info!(
+            "validate_session_token: token_len={} masked={}",
+            req.session_token.len(),
+            mask_token(&req.session_token)
+        );
+        let record_opt = match self
             .session_repo
             .validate_session_token(&req.session_token)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+        {
+            Ok(res) => res,
+            Err(e) => {
+                error!("validate_session_token: repo error: {}", e);
+                return Err(Status::internal(e.to_string()));
+            }
+        };
 
         if let Some(rec) = record_opt {
             let expires_at_ms = (rec.expires_at.unix_timestamp_nanos() / 1_000_000) as u64;
@@ -132,6 +152,10 @@ where
                 3 => SessionTokenStatus::StsExpired,
                 _ => SessionTokenStatus::StsUnknown,
             } as i32;
+            info!(
+                "validate_session_token: found uid={} device_type={:?} device_id={} status={} expires_at_ms={}",
+                rec.uid, rec.device_type, rec.device_id, status, expires_at_ms
+            );
             return Ok(Response::new(ValidateSessionTokenResponse {
                 status,
                 uid: rec.uid,
@@ -141,6 +165,7 @@ where
             }));
         }
 
+        warn!("validate_session_token: token not found or revoked");
         Ok(Response::new(ValidateSessionTokenResponse {
             status: SessionTokenStatus::StsRevoked as i32,
             uid: 0,
@@ -156,21 +181,69 @@ where
     ) -> Result<Response<RevokeSessionTokenResponse>, Status> {
         let req = request.into_inner();
         let revoked = match req.target {
-            Some(revoke_session_token_request::Target::SessionToken(token)) => self
-                .session_repo
-                .revoke_session_token_by_token(&token)
-                .await
-                .map_err(|e| Status::internal(e.to_string()))?,
-            Some(revoke_session_token_request::Target::Device(device)) => self
-                .session_repo
-                .revoke_session_token_by_device(
-                    device.uid,
-                    PbDeviceType::try_from(device.device_type).unwrap_or(PbDeviceType::Unknown),
-                    &device.device_id,
-                )
-                .await
-                .map_err(|e| Status::internal(e.to_string()))?,
-            None => None,
+            Some(revoke_session_token_request::Target::SessionToken(token)) => {
+                info!(
+                    "revoke_session_token: target=token token_len={} masked={}",
+                    token.len(),
+                    mask_token(&token)
+                );
+                match self.session_repo.revoke_session_token_by_token(&token).await {
+                    Ok(res) => {
+                        if res.is_some() {
+                            info!("revoke_session_token: token revoked");
+                        } else {
+                            warn!("revoke_session_token: token not found in repo");
+                        }
+                        res
+                    }
+                    Err(e) => {
+                        error!(
+                            "revoke_session_token: revoke_session_token_by_token failed: {}",
+                            e
+                        );
+                        return Err(Status::internal(e.to_string()));
+                    }
+                }
+            }
+            Some(revoke_session_token_request::Target::Device(device)) => {
+                let device_type =
+                    PbDeviceType::try_from(device.device_type).unwrap_or(PbDeviceType::Unknown);
+                info!(
+                    "revoke_session_token: target=device uid={} device_type={:?} device_id={}",
+                    device.uid, device_type, device.device_id
+                );
+                match self
+                    .session_repo
+                    .revoke_session_token_by_device(device.uid, device_type, &device.device_id)
+                    .await
+                {
+                    Ok(res) => {
+                        if res.is_some() {
+                            info!(
+                                "revoke_session_token: device session revoked uid={} device_id={}",
+                                device.uid, device.device_id
+                            );
+                        } else {
+                            warn!(
+                                "revoke_session_token: no session token found for uid={} device_id={}",
+                                device.uid, device.device_id
+                            );
+                        }
+                        res
+                    }
+                    Err(e) => {
+                        error!(
+                            "revoke_session_token: revoke_session_token_by_device failed uid={} device_id={} err={}",
+                            device.uid, device.device_id, e
+                        );
+                        return Err(Status::internal(e.to_string()));
+                    }
+                }
+            }
+            None => {
+                warn!("revoke_session_token: missing target");
+                None
+            }
         };
 
         Ok(Response::new(RevokeSessionTokenResponse {

@@ -110,6 +110,7 @@ pub async fn start_socket_pipeline() -> anyhow::Result<()> {
                     raw_payload: raw.clone(),
                     ts_ms,
                 };
+                let payload_len = raw.len();
 
                 // `SendOpts` 决定 ACK 行为：expire, max_retry 等都由生产端决定，默认更稳妥的 10 次最大重试。
                 let proto_delivery = domain.delivery.unwrap_or(msg_message::DeliveryOptions {
@@ -127,6 +128,17 @@ pub async fn start_socket_pipeline() -> anyhow::Result<()> {
                 };
 
                 let owned = Arc::new(owned);
+
+                info!(
+                    "kafka consume topic={} partition={} offset={} msg_id={} require_ack={} receiver={} bytes={}",
+                    owned.topic(),
+                    owned.partition(),
+                    owned.offset(),
+                    id,
+                    require_ack,
+                    domain.receiver_id,
+                    payload_len
+                );
 
                 if require_ack {
                     // 客户端确认后需要提交 Kafka offset，因此设置 ack/drop 两类回调。
@@ -149,6 +161,14 @@ pub async fn start_socket_pipeline() -> anyhow::Result<()> {
                                 warn!(
                                     "commit kafka offset on ack failed: {} (msg_id={})",
                                     err, msg_id
+                                );
+                            } else {
+                                info!(
+                                    "commit kafka offset on ack ok topic={} partition={} offset={} msg_id={}",
+                                    owned.topic(),
+                                    owned.partition(),
+                                    owned.offset(),
+                                    msg_id
                                 );
                             }
                         });
@@ -177,8 +197,11 @@ pub async fn start_socket_pipeline() -> anyhow::Result<()> {
                                 );
                             } else {
                                 warn!(
-                                    "message {:?} exceeded retry limit; committed offset",
-                                    msg_id
+                                    "message {:?} exceeded retry limit; committed offset topic={} partition={} offset={}",
+                                    msg_id,
+                                    owned.topic(),
+                                    owned.partition(),
+                                    owned.offset()
                                 );
                             }
                         });
@@ -190,9 +213,19 @@ pub async fn start_socket_pipeline() -> anyhow::Result<()> {
 
                 let enqueue_ok = dispatcher.enqueue(domain.receiver_id as UID, msg, opts);
                 if enqueue_ok {
+                    if !require_ack {
+                        info!(
+                            "kafka consume delivered without ack requirement msg_id={} receiver={}",
+                            id, domain.receiver_id
+                        );
+                    }
                     // 返回值决定是否立即提交 offset。需要 ACK 的交由回调提交。
                     Ok(!require_ack)
                 } else {
+                    warn!(
+                        "kafka consume enqueue failed: dispatch queue full msg_id={} receiver={}",
+                        id, domain.receiver_id
+                    );
                     Err(anyhow!("dispatch queue full"))
                 }
             }

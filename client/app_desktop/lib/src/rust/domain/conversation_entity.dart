@@ -10,6 +10,9 @@ class ConversationEntity {
   /// 主键 ID，自增。
   final PlatformInt64? id;
 
+  /// 会话所属用户 UID（用于多账号隔离）。
+  final PlatformInt64 ownerUid;
+
   /// 会话类型：如私聊、群聊、系统等。
   final int conversationType;
 
@@ -27,6 +30,7 @@ class ConversationEntity {
 
   const ConversationEntity({
     this.id,
+    required this.ownerUid,
     required this.conversationType,
     required this.targetId,
     required this.unreadCount,
@@ -37,6 +41,7 @@ class ConversationEntity {
   @override
   int get hashCode =>
       id.hashCode ^
+      ownerUid.hashCode ^
       conversationType.hashCode ^
       targetId.hashCode ^
       unreadCount.hashCode ^
@@ -49,6 +54,7 @@ class ConversationEntity {
       other is ConversationEntity &&
           runtimeType == other.runtimeType &&
           id == other.id &&
+          ownerUid == other.ownerUid &&
           conversationType == other.conversationType &&
           targetId == other.targetId &&
           unreadCount == other.unreadCount &&

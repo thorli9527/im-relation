@@ -7,9 +7,12 @@ import '../frb_generated.dart';
 import 'login_api_types.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `perform_login`
+// These functions are ignored because they are not marked as `pub`: `perform_login`, `reset_local_data_preserve_device`
 
 /// 登录并等待 socket 连接及鉴权完成，超时可配置。
+/// - 入参：登录请求与可选超时时间（秒）
+/// - 流程：HTTP /login -> 本地落库 -> 等待 socket 鉴权成功
+/// - 返回：登录结果（token、用户信息等）
 Future<LoginResult> login({
   required LoginRequest payload,
   BigInt? timeoutSecs,
@@ -19,6 +22,8 @@ Future<LoginResult> login({
 );
 
 /// 登出并清理登录态。
+/// - 若未被动下线，先请求后端 /logout
+/// - 断开 socket，清理本地状态
 Future<void> logout() => RustLib.instance.api.crateApiLoginApiLogout();
 
 /// 校验会话 token 是否有效。

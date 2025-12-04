@@ -47,7 +47,7 @@ async fn sync_messages(
         return Err(AppError::Validation("session_token is required".into()));
     }
     let limit = q.limit.unwrap_or(200);
-    let active = user_service::ensure_active_session(&q.session_token)
+    let active: user_service::ActiveSession = user_service::ensure_active_session(&q.session_token)
         .await
         .map_err(|e| AppError::Validation(e.to_string()))?;
     let uid = active.uid;

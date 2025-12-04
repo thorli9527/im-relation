@@ -34,6 +34,7 @@ impl Db {
     pub fn init_with_config(config: &DatabaseConfig) -> Result<()> {
         let path = resolve_db_path(config)?;
         let conn = open_connection(&path)?;
+        log::info!("config db path: {}", path);
         INSTANCE
             .set(Db::new(conn, path))
             .map_err(|_| anyhow!("config database already initialized"))

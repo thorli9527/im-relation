@@ -16,7 +16,7 @@ fn login_and_wait_for_socket_resets_reconnect_and_receives_heartbeat() -> Result
     // db_path: 测试用 SQLite 文件路径（相对路径，写到当前目录），用于持久化认证/会话状态。
     let db_path = "database.sqlite";
     // db_config: 数据库配置对象，包裹路径，供 db::ensure_initialized 初始化使用。
-    let db_config = DatabaseConfig {
+    let db_config = DatabaseConfig{
         path: Some(db_path.to_string()),
     };
     // 初始化数据库文件（若不存在则创建，并创建必要表结构）。
@@ -35,9 +35,9 @@ fn login_and_wait_for_socket_resets_reconnect_and_receives_heartbeat() -> Result
     // login_req: 登录请求体，包含账号、设备类型/ID 与密码，驱动真实登录流程以触发 socket 建连与心跳。
     let login_req = app_api::LoginRequest {
         // 固定的测试密码。
-        password: "12345678a".into(),
+            password: "12345678a".into(),
         // 测试账号邮箱。
-        target: "thorli9527@gmail.com".into(),
+        target: "thorli9528@gmail.com".into(),
         // 设备类型，4 为测试端定义的类型值。
         device_type: 4,
         // 设备唯一标识，确保服务端能区分不同设备会话。

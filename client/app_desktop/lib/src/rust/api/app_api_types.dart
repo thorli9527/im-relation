@@ -9,7 +9,9 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `AddFriendRequest`, `FriendRequestDecisionRequest`, `RandomNicknameQuery`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
+/// 添加好友的结果。
 class AddFriendResult {
+  /// 是否成功
   final bool ok;
 
   /// true 表示提交了申请，false 表示已直接成为好友
@@ -30,8 +32,13 @@ class AddFriendResult {
 }
 
 class CachedGroupMembersQuery {
+  /// 群 ID
   final PlatformInt64 groupId;
+
+  /// 页码
   final int? page;
+
+  /// 每页大小
   final int? pageSize;
 
   const CachedGroupMembersQuery({
@@ -53,10 +60,18 @@ class CachedGroupMembersQuery {
           pageSize == other.pageSize;
 }
 
+/// 修改邮箱请求。
 class ChangeEmailRequest {
+  /// 会话 token
   final String sessionToken;
+
+  /// 新邮箱
   final String newEmail;
+
+  /// 旧邮箱验证码
   final String? oldEmailCode;
+
+  /// 新邮箱验证码
   final String newEmailCode;
 
   const ChangeEmailRequest({
@@ -84,8 +99,12 @@ class ChangeEmailRequest {
           newEmailCode == other.newEmailCode;
 }
 
+/// 修改邮箱结果。
 class ChangeEmailResult {
+  /// 是否成功
   final bool ok;
+
+  /// 修改后的邮箱
   final String email;
 
   const ChangeEmailResult({required this.ok, required this.email});
@@ -102,9 +121,15 @@ class ChangeEmailResult {
           email == other.email;
 }
 
+/// 修改密码请求。
 class ChangePasswordRequest {
+  /// 会话 token
   final String sessionToken;
+
+  /// 旧密码
   final String oldPassword;
+
+  /// 新密码
   final String newPassword;
 
   const ChangePasswordRequest({
@@ -127,10 +152,18 @@ class ChangePasswordRequest {
           newPassword == other.newPassword;
 }
 
+/// 修改手机号请求。
 class ChangePhoneRequest {
+  /// 会话 token
   final String sessionToken;
+
+  /// 新手机号
   final String newPhone;
+
+  /// 旧手机号验证码
   final String? oldPhoneCode;
+
+  /// 新手机号验证码
   final String newPhoneCode;
 
   const ChangePhoneRequest({
@@ -158,8 +191,12 @@ class ChangePhoneRequest {
           newPhoneCode == other.newPhoneCode;
 }
 
+/// 修改手机号结果。
 class ChangePhoneResult {
+  /// 是否成功
   final bool ok;
+
+  /// 修改后的手机号
   final String phone;
 
   const ChangePhoneResult({required this.ok, required this.phone});
@@ -177,7 +214,10 @@ class ChangePhoneResult {
 }
 
 class CheckOnlineBatchQuery {
+  /// 会话 token
   final String sessionToken;
+
+  /// 待检查的 UID 列表
   final Int64List uids;
 
   const CheckOnlineBatchQuery({required this.sessionToken, required this.uids});
@@ -195,6 +235,7 @@ class CheckOnlineBatchQuery {
 }
 
 class CheckOnlineBatchResult {
+  /// 在线状态结果
   final List<OnlineStatusEntry> items;
 
   const CheckOnlineBatchResult({required this.items});
@@ -210,9 +251,15 @@ class CheckOnlineBatchResult {
           items == other.items;
 }
 
+/// 查询好友列表参数。
 class FriendListQuery {
+  /// 会话 token
   final String sessionToken;
+
+  /// 页码
   final int? page;
+
+  /// 每页大小
   final int? pageSize;
 
   const FriendListQuery({required this.sessionToken, this.page, this.pageSize});
@@ -230,10 +277,18 @@ class FriendListQuery {
           pageSize == other.pageSize;
 }
 
+/// 好友列表返回。
 class FriendListResult {
+  /// 好友列表
   final List<FriendSummary> friends;
+
+  /// 页码
   final int page;
+
+  /// 每页大小
   final int pageSize;
+
+  /// 是否有更多
   final bool hasMore;
 
   const FriendListResult({
@@ -258,10 +313,18 @@ class FriendListResult {
           hasMore == other.hasMore;
 }
 
+/// 好友列表中的概要信息。
 class FriendSummary {
+  /// 好友 UID
   final PlatformInt64 friendId;
+
+  /// 昵称
   final String nickname;
+
+  /// 头像 URL
   final String avatar;
+
+  /// 备注
   final String? remark;
 
   const FriendSummary({
@@ -286,11 +349,21 @@ class FriendSummary {
           remark == other.remark;
 }
 
+/// 群成员概要信息。
 class GroupMember {
+  /// 群 ID
   final PlatformInt64 groupId;
+
+  /// 成员 UID
   final PlatformInt64 memberId;
+
+  /// 昵称
   final String nickname;
+
+  /// 头像
   final String avatar;
+
+  /// 角色枚举值
   final int role;
 
   const GroupMember({
@@ -321,9 +394,15 @@ class GroupMember {
           role == other.role;
 }
 
+/// 查询群成员详情参数。
 class GroupMemberDetailQuery {
+  /// 会话 token
   final String sessionToken;
+
+  /// 群 ID
   final PlatformInt64 groupId;
+
+  /// 成员 UID
   final PlatformInt64 memberId;
 
   const GroupMemberDetailQuery({
@@ -346,8 +425,12 @@ class GroupMemberDetailQuery {
           memberId == other.memberId;
 }
 
+/// 群成员详情结果。
 class GroupMemberDetailResult {
+  /// 成员信息（可能为空）
   final GroupMember? member;
+
+  /// 是否是我的好友
   final bool isFriend;
 
   const GroupMemberDetailResult({this.member, required this.isFriend});
@@ -365,9 +448,16 @@ class GroupMemberDetailResult {
 }
 
 class GroupMembersQuery {
+  /// 会话 token
   final String sessionToken;
+
+  /// 群 ID
   final PlatformInt64 groupId;
+
+  /// 页码
   final int? page;
+
+  /// 每页大小
   final int? pageSize;
 
   const GroupMembersQuery({
@@ -396,9 +486,16 @@ class GroupMembersQuery {
 }
 
 class GroupMembersResult {
+  /// 成员列表
   final List<GroupMember> members;
+
+  /// 页码
   final int page;
+
+  /// 每页大小
   final int pageSize;
+
+  /// 是否有更多
   final bool hasMore;
 
   const GroupMembersResult({
@@ -424,6 +521,7 @@ class GroupMembersResult {
 }
 
 class GroupMembersSnapshot {
+  /// 成员快照
   final List<GroupMember> members;
 
   /// 是否直接使用了本地缓存
@@ -452,8 +550,13 @@ class GroupMembersSnapshot {
 }
 
 class OnlineStatusEntry {
+  /// 用户 UID
   final PlatformInt64 uid;
+
+  /// 是否在线
   final bool online;
+
+  /// 拉取时间（毫秒）
   final PlatformInt64 fetchedAt;
 
   const OnlineStatusEntry({
@@ -476,7 +579,10 @@ class OnlineStatusEntry {
 }
 
 class OnlineStatusSnapshot {
+  /// 在线状态列表
   final List<OnlineStatusEntry> items;
+
+  /// 是否可能存在过期（例如网络失败回退）
   final bool stale;
 
   const OnlineStatusSnapshot({required this.items, required this.stale});
@@ -493,7 +599,9 @@ class OnlineStatusSnapshot {
           stale == other.stale;
 }
 
+/// 通用操作结果。
 class OperationStatus {
+  /// 是否成功
   final bool ok;
 
   const OperationStatus({required this.ok});
@@ -617,8 +725,13 @@ class RecentConversationsResult {
 }
 
 class RefreshGroupMembersQuery {
+  /// 会话 token
   final String sessionToken;
+
+  /// 群 ID
   final PlatformInt64 groupId;
+
+  /// 是否强制刷新
   final bool forceRefresh;
 
   const RefreshGroupMembersQuery({
@@ -673,12 +786,24 @@ class SearchUserResult {
           user == other.user;
 }
 
+/// 更新个人资料请求。
 class UpdateProfileRequest {
+  /// 会话 token
   final String sessionToken;
+
+  /// 头像 URL
   final String? avatar;
+
+  /// 性别枚举值
   final int? gender;
+
+  /// 国家/地区
   final String? country;
+
+  /// 语言
   final String? language;
+
+  /// 昵称
   final String? nickname;
 
   const UpdateProfileRequest({
@@ -712,15 +837,33 @@ class UpdateProfileRequest {
           nickname == other.nickname;
 }
 
+/// 用户资料视图。
 class UserProfile {
+  /// UID
   final PlatformInt64 uid;
+
+  /// 登录用户名
   final String username;
+
+  /// 头像 URL
   final String avatar;
+
+  /// 邮箱
   final String? email;
+
+  /// 手机
   final String? phone;
+
+  /// 昵称
   final String nickname;
+
+  /// 个性签名
   final String? signature;
+
+  /// 地区
   final String? region;
+
+  /// 加好友策略枚举值
   final int addFriendPolicy;
 
   const UserProfile({

@@ -359,6 +359,8 @@ async fn run_connection_attempt(
                                     );
                                     notify_connection_success();
                                 }
+                                // 鉴权帧处理完成，继续下个循环
+                                continue;
                             }
                             // 处理业务 payload：Content 解码、ACK 更新、本地落库、回送送达 ACK。
                             if !pb.payload.is_empty() {
@@ -507,9 +509,13 @@ fn update_conversation_snapshot(
     let target_id = resolve_conversation_target(content, current_uid);
     let conv_type = scene as i32;
     let svc = ConversationService::get();
+    let owner_uid = match current_uid {
+        Some(uid) => uid,
+        None => return Ok(()),
+    };
     let mut entity = svc
-        .get_by_type_and_target(conv_type, target_id)?
-        .unwrap_or_else(|| crate::domain::ConversationEntity::new(conv_type, target_id));
+        .get_by_type_and_target(owner_uid, conv_type, target_id)?
+        .unwrap_or_else(|| crate::domain::ConversationEntity::new(owner_uid, conv_type, target_id));
 
     let should_increase_unread = current_uid
         .map(|uid| uid != content.sender_id)
@@ -633,6 +639,19 @@ fn handle_system_business(
     }
     let detail: FriendAddDetail = serde_json::from_str(&system.detail)
         .map_err(|err| format!("parse friend add detail failed: {err}"))?;
+    // 确保好友关系写入本地（无备注/昵称场景默认空）。
+    if let Some(uid) = current_uid {
+        let friend_id = if uid == detail.from_uid {
+            detail.to_uid
+        } else if uid == detail.to_uid {
+            detail.from_uid
+        } else {
+            0
+        };
+        if friend_id > 0 {
+            let _ = FriendService::get().ensure_friend(friend_id, None, None, content.timestamp);
+        }
+    }
     persist_friend_add_message(content, &detail, current_uid)
 }
 

@@ -152,6 +152,18 @@ impl FriendService {
         ensure_column(
             &conn,
             friend_table_def().name,
+            "email",
+            "ALTER TABLE friend ADD COLUMN email TEXT NOT NULL DEFAULT ''",
+        )?;
+        ensure_column(
+            &conn,
+            friend_table_def().name,
+            "phone",
+            "ALTER TABLE friend ADD COLUMN phone TEXT NOT NULL DEFAULT ''",
+        )?;
+        ensure_column(
+            &conn,
+            friend_table_def().name,
             "last_login_at",
             "ALTER TABLE friend ADD COLUMN last_login_at INTEGER",
         )?;
