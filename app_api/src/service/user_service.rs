@@ -158,6 +158,7 @@ impl UserService {
         reason: Option<&str>,
         remark: Option<&str>,
         nickname: Option<&str>,
+        source: i32,
     ) -> anyhow::Result<bool> {
         // 会话校验，获取主动方 UID。
         let active = ensure_active_session(session_token)
@@ -184,29 +185,38 @@ impl UserService {
             .unwrap_or(AddFriendPolicy::RequireVerify);
 
         // 归一化输入：去空格并转字符串，便于后续复用。
-        let reason = reason.unwrap_or_default().trim().to_string();
-        let remark = remark.unwrap_or_default().trim().to_string();
-        let prefer_nick = nickname.unwrap_or("").trim().to_string();
-        let target_default_nick = target
-            .nickname
-            .clone()
-            .unwrap_or_else(|| target.name.clone());
-        let target_nick = if prefer_nick.is_empty() {
-            target_default_nick.clone()
+        let normalize = |s: Option<&str>| s.unwrap_or_default().trim().to_string();
+        let reason = normalize(reason);
+        let remark = normalize(remark);
+        let mut prefer_nick = normalize(nickname);
+
+        // 如果未指定昵称，尝试读取最新昵称（保持与服务端存量一致）。
+        if prefer_nick.is_empty() {
+            if let Ok(latest) = Self::get_user_by_id(&mut user_client, target_uid).await {
+                if let Some(db_nick) = latest.nickname.as_ref() {
+                    if !db_nick.is_empty() {
+                        prefer_nick = db_nick.clone();
+                    }
+                }
+            }
+        }
+
+        let target_display_nick = if prefer_nick.is_empty() {
+            target
+                .nickname
+                .clone()
+                .unwrap_or_else(|| target.name.clone())
         } else {
             prefer_nick.clone()
         };
-        let nickname_for_user_owned = if !prefer_nick.is_empty() {
-            Some(prefer_nick.clone())
-        } else {
-            Some(target_default_nick.clone())
-        };
+        let nickname_for_user_owned = Some(target_display_nick.clone());
         let nickname_for_user = nickname_for_user_owned.as_deref();
+        let target_nick = target_display_nick.clone();
         let remark_ref = (!remark.is_empty()).then_some(remark.as_str());
 
         warn!(
-            "add_friend_http: {} -> {} policy={:?} reason='{}' remark='{}' prefer_nick='{}'",
-            active.uid, target_uid, policy, reason, remark, prefer_nick
+            "add_friend_http: {} -> {} policy={:?} source={} reason='{}' remark='{}' prefer_nick='{}'",
+            active.uid, target_uid, policy, source, reason, remark, prefer_nick
         );
 
         match policy {
@@ -227,9 +237,10 @@ impl UserService {
                     remark_ref,
                     nickname_for_user,
                     nickname_for_friend,
+                    source,
                 )
                 .await?;
-             
+
                 let active_lang = active_user.as_ref().and_then(|u| u.language.as_deref());
                 let text_for_target = Self::friend_welcome_text(target.language.as_deref());
                 let text_for_active = Self::friend_welcome_text(active_lang);
@@ -257,6 +268,7 @@ impl UserService {
                     reason.as_str(),
                     remark.as_str(),
                     target_nick.as_str(),
+                    source,
                 )
                 .await?;
                 info!(
@@ -289,8 +301,16 @@ impl UserService {
         let mut user_client = user_gateway::get_user_rpc_client().await?;
         let requester = Self::get_user_by_id(&mut user_client, requester_uid).await?;
         let approver = Self::get_user_by_id(&mut user_client, approver_uid).await?;
-        let request_detail =
-            message_gateway::get_friend_request(requester_uid, request_id as u64).await.ok();
+        let request_detail = message_gateway::get_friend_request(requester_uid, request_id as u64)
+            .await
+            .ok();
+
+        let trim_non_empty = |s: Option<&str>| {
+            s.and_then(|v| {
+                let t = v.trim();
+                (!t.is_empty()).then_some(t.to_string())
+            })
+        };
 
         let approver_nick = approver
             .nickname
@@ -300,46 +320,48 @@ impl UserService {
             .nickname
             .clone()
             .unwrap_or_else(|| requester.name.clone());
-        let preferred_nick = nickname
-            .and_then(|n| {
-                let t = n.trim();
-                (!t.is_empty()).then_some(t.to_string())
-            })
-            .unwrap_or_else(|| requester.nickname.clone().unwrap_or_else(|| requester.name));
+        let mut preferred_nick = trim_non_empty(nickname).unwrap_or_else(|| {
+            requester
+                .nickname
+                .clone()
+                .unwrap_or_else(|| requester.name.clone())
+        });
+        // 如果 nickname 参数为空，重新从数据库读取最新昵称以兜底。
+        if preferred_nick == requester.name {
+            if let Ok(latest) = Self::get_user_by_id(&mut user_client, requester_uid).await {
+                if let Some(db_nick) = latest.nickname.filter(|n| !n.is_empty()) {
+                    preferred_nick = db_nick;
+                }
+            }
+        }
         let requester_lang = requester.language.as_deref();
         let approver_lang = approver.language.as_deref();
-        let remark_clean = remark
-            .and_then(|r| {
-                let t = r.trim();
-                (!t.is_empty()).then_some(t.to_string())
-            })
-            .unwrap_or_default();
+        let remark_clean = trim_non_empty(remark).unwrap_or_default();
+        let request_nickname = request_detail
+            .as_ref()
+            .and_then(|d| trim_non_empty(Some(d.nickname.as_str())));
+        let request_source = request_detail
+            .as_ref()
+            .map(|d| d.source)
+            .unwrap_or(common::infra::grpc::message::FriendRequestSource::FrsUnknown as i32);
+        let peer_nickname = request_detail
+            .as_ref()
+            .and_then(|d| trim_non_empty(Some(d.peer_nickname.as_str())));
+        let peer_remark = request_detail
+            .as_ref()
+            .and_then(|d| trim_non_empty(Some(d.peer_remark.as_str())));
+        let requester_remark = request_detail
+            .as_ref()
+            .and_then(|d| trim_non_empty(Some(d.remark.as_str())));
 
         if accepted && !already_friend {
             // 从申请表抓取原申请侧的备注/昵称，供双向关系使用。
             // 为审批人侧写入好友关系（备注/昵称为审批人填的）。
-            let request_nickname = request_detail
-                .as_ref()
-                .and_then(|d| {
-                    let t = d.nickname.trim();
-                    (!t.is_empty()).then_some(t.to_string())
-                });
-            let peer_nickname = request_detail
-                .as_ref()
-                .and_then(|d| {
-                    let t = d.peer_nickname.trim();
-                    (!t.is_empty()).then_some(t.to_string())
-                });
-            let remark_for_approver = (!remark_clean.is_empty())
-                .then_some(remark_clean.as_str())
-                .or_else(|| {
-                    request_detail
-                        .as_ref()
-                        .and_then(|d| {
-                            let t = d.peer_remark.trim();
-                            (!t.is_empty()).then_some(t)
-                        })
-                });
+            let remark_for_approver_owned = if !remark_clean.is_empty() {
+                Some(remark_clean.clone())
+            } else {
+                peer_remark.clone()
+            };
             let nickname_for_approver = if !preferred_nick.is_empty() {
                 preferred_nick.clone()
             } else {
@@ -350,18 +372,14 @@ impl UserService {
             let _ = friend_gateway::add_friend(
                 approver_uid,
                 requester_uid,
-                remark_for_approver,
+                remark_for_approver_owned.as_deref(),
                 Some(nickname_for_approver.as_str()),
                 None,
+                request_source,
             )
             .await?;
             // 为申请人侧写入好友关系，备注/昵称取申请时填写的值。
-            let remark_for_requester = request_detail
-                .as_ref()
-                .and_then(|d| {
-                    let t = d.remark.trim();
-                    (!t.is_empty()).then_some(t)
-                });
+            let remark_for_requester = requester_remark.as_deref();
             let nickname_for_requester = peer_nickname
                 .as_deref()
                 .unwrap_or_else(|| approver_nick.as_str());
@@ -371,6 +389,7 @@ impl UserService {
                 remark_for_requester,
                 Some(nickname_for_requester),
                 None,
+                request_source,
             )
             .await?;
             // 可选系统消息由后端发送，使用默认欢迎语。
@@ -388,8 +407,8 @@ impl UserService {
                 text_for_approver,
             )
             .await;
-            let _ = message_gateway::send_friend_add_system_business(approver_uid, requester_uid)
-                .await;
+            let _ =
+                message_gateway::send_friend_add_system_business(approver_uid, requester_uid).await;
         }
 
         // 发送好友业务决策消息（含默认欢迎语由 msg_friend 侧处理）。
@@ -406,7 +425,8 @@ impl UserService {
             },
             nickname: preferred_nick.clone(),
         };
-        message_gateway::send_friend_decision_message(approver_uid, requester_uid, decision).await?;
+        message_gateway::send_friend_decision_message(approver_uid, requester_uid, decision)
+            .await?;
         Ok(())
     }
 

@@ -628,7 +628,8 @@ impl GroupMsgServiceImpl {
         let msg_no = domain.message_id.unwrap_or(msg_id as u64) as i64;
 
         let content = Content {
-            message_id: domain.message_id,
+            // 持久化生成的 msg_id 回填到 message_id，便于同步游标。
+            message_id: Some(msg_id as u64),
             sender_id: domain.sender_id,
             receiver_id: domain.receiver_id,
             timestamp: domain.timestamp,

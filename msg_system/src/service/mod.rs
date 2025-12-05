@@ -2,11 +2,11 @@ use chrono::Utc;
 use prost::Message as _;
 use tonic::{Request, Response, Status};
 
-use common::infra::grpc::message::DomainMessage;
 use common::infra::grpc::grpc_msg_system::msg_system_service::{
     system_msg_service_server::SystemMsgService, QuerySystemMessagesRequest,
 };
 use common::infra::grpc::message as msg_message;
+use common::infra::grpc::message::DomainMessage;
 use common::infra::kafka::topic_info::SYS_MSG_TOPIC_INFO;
 use common::support::util::common_utils::build_snow_id;
 use log::{info, warn};
@@ -24,7 +24,9 @@ impl SystemMsgServiceImpl {
         Self { services }
     }
 
-    fn map_record_to_content(rec: dao::SystemMessageRecord) -> Result<msg_message::Content, Status> {
+    fn map_record_to_content(
+        rec: dao::SystemMessageRecord,
+    ) -> Result<msg_message::Content, Status> {
         msg_message::Content::decode(rec.content.as_slice())
             .map_err(|e| Status::internal(format!("decode system message failed: {e}")))
     }
@@ -37,9 +39,7 @@ impl SystemMsgService for SystemMsgServiceImpl {
         request: Request<msg_message::DomainMessage>,
     ) -> Result<Response<()>, Status> {
         let mut domain = request.into_inner();
-        let msg_id = domain
-            .message_id
-            .unwrap_or_else(|| build_snow_id() as u64);
+        let msg_id = domain.message_id.unwrap_or_else(|| build_snow_id() as u64);
         domain.message_id = Some(msg_id);
         if domain.category == 0 {
             domain.category = msg_message::MsgCategory::System as i32;
@@ -114,8 +114,13 @@ impl SystemMsgService for SystemMsgServiceImpl {
                     max_retry: Some(5),
                 });
             }
-            if let Err(err) =
-                kafka.send_message(&dom_for_kafka, &msg_id.to_string(), &SYS_MSG_TOPIC_INFO.topic_name).await
+            if let Err(err) = kafka
+                .send_message(
+                    &dom_for_kafka,
+                    &msg_id.to_string(),
+                    &SYS_MSG_TOPIC_INFO.topic_name,
+                )
+                .await
             {
                 warn!("msg_system: kafka produce failed: {err}");
             }

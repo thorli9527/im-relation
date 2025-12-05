@@ -6,8 +6,7 @@ use log::{error, info, warn};
 use crate::api::errors::ApiError;
 use crate::api::login_api_types::*;
 use crate::api::utils::post_request;
-use crate::common::Db;
-use crate::service;
+use crate::common::db;
 use crate::service::{auth_service, socket_client::SocketClient, user_service::UserService};
 
 #[frb]
@@ -30,14 +29,12 @@ pub fn login(payload: LoginRequest, timeout_secs: Option<u64>) -> Result<LoginRe
 }
 
 fn reset_local_data_preserve_device() -> Result<(), String> {
-    use crate::common::db;
     use rusqlite::params;
+    use std::time::Instant;
 
     let device_id = crate::api::config_api::get_device_id()?;
     let conn = db::connection()?;
-    // 调试：输出当前配置数据库路径，便于确认使用的 SQLite 文件。
-    info!("login: config db path={}", db::Db::get().path());
-
+    let start = Instant::now();
     let tables = [
         "friend",
         "friend_request",
@@ -45,24 +42,26 @@ fn reset_local_data_preserve_device() -> Result<(), String> {
         "group_member",
         "message",
         "conversation",
-        "sync_state",
+        // "sync_state",
         "read_cursor",
         "user_info",
         "group_request",
     ];
     for table in tables {
-        warn!("table {} ",table );
+        if let Err(err) = conn.execute(&format!("DELETE FROM {} ", table), params![]) {
+            error!(
+                "reset_local_data_preserve_device: clear table {} failed: {}",
+                table, err
+            );
+            return Err(err.to_string());
+        }
     }
-    for table in tables {
-        let _ = conn
-            .execute(&format!("DELETE FROM {} ", table), params![])
-            .map_err(|e| e.to_string())?;
-    }
+    warn!("del all table ok");
     // 重置自增计数，避免旧的会话/消息 ID 残留。
     let seq_reset_tables = [
         "friend",
         "friend_request",
-        "group",
+        "chat_group",
         "group_member",
         "message",
         "conversation",
@@ -70,23 +69,41 @@ fn reset_local_data_preserve_device() -> Result<(), String> {
         "user_info",
     ];
     for table in seq_reset_tables {
-        let _ = conn
-            .execute(
-                "DELETE FROM sqlite_sequence WHERE name = ?1",
-                params![table],
-            )
-            .map_err(|e| e.to_string())?;
+        if let Err(err) = conn.execute(
+            "DELETE FROM sqlite_sequence WHERE name = ?1",
+            params![table],
+        ) {
+            error!(
+                "reset_local_data_preserve_device: reset sequence {} failed: {}",
+                table, err
+            );
+            return Err(err.to_string());
+        }
     }
-    conn.execute("DELETE FROM config WHERE code != 'device_id'", params![])
-        .map_err(|e| e.to_string())?;
-    // 确保必要的初始行存在，并重置游标/会话数据。
-    let _ = service::sync_state_service::SyncStateService::ensure_row();
-    let _ = service::sync_state_service::SyncStateService::update_seqs(0, 0, 0);
+    warn!("reset sqlite_sequence ok");
+    if let Err(err) = conn.execute("DELETE FROM config WHERE code != 'device_id'", params![]) {
+        error!(
+            "reset_local_data_preserve_device: clear config failed: {}",
+            err
+        );
+        return Err(err.to_string());
+    }
+    if let Err(err) = conn.execute("UPDATE sync_state SET friend_last_seq = 0, group_last_seq = 0, system_last_seq = 0 WHERE id = 1", params![]) {
+        error!(
+            "reset_local_data_preserve_device: clear config failed: {}",
+            err
+        );
+        return Err(err.to_string());
+    }
+
     // 触发 device_id 生成/校验
-    let _ = crate::api::config_api::get_device_id();
+    // let _ = crate::api::config_api::get_device_id();
+    // info!(
+    //     "reset_local_data_preserve_device: done in {:?}",
+    //     start.elapsed()
+    // );
     Ok(())
 }
-
 
 #[frb]
 /// 登出并清理登录态。
@@ -101,7 +118,9 @@ pub fn logout() -> Result<(), String> {
                 if !token.trim().is_empty() {
                     match post_request::<LogoutRequest, LogoutResult>(
                         "/logout",
-                        &LogoutRequest { session_token: token },
+                        &LogoutRequest {
+                            session_token: token,
+                        },
                     ) {
                         Ok(resp) => {
                             if !resp.ok {
@@ -139,20 +158,14 @@ fn perform_login(payload: &LoginRequest) -> Result<(LoginResult, i64), String> {
         .flatten()
         .map(|u| u.uid);
 
-    // 调试：输出当前配置数据库路径，便于确认使用的 SQLite 文件。
-    info!("login: config db path={}", crate::common::db::Db::get().path());
-
     let login_result = post_request::<LoginRequest, LoginResult>("/login", payload)?;
 
     // 登录成功后，如与本机已登录用户 uid 不同，则清理本地缓存数据（保留 device_id）。
     if let Some(uid) = previous_uid {
-        if uid != login_result.uid {
-            info!(
-                "perform_login: uid changed on same device, clearing local cache prev_uid={} new_uid={}",
-                uid, login_result.uid
-            );
-            let _ = reset_local_data_preserve_device();
-        }
+        // if uid != login_result.uid {
+
+        let _ = reset_local_data_preserve_device();
+        // }
     }
 
     let auth_message_id = auth_service::handle_login(payload, &login_result)

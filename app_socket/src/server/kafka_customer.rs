@@ -140,87 +140,10 @@ pub async fn start_socket_pipeline() -> anyhow::Result<()> {
                     payload_len
                 );
 
-                if require_ack {
-                    // 客户端确认后需要提交 Kafka offset，因此设置 ack/drop 两类回调。
-                    let consumer_for_ack = consumer.clone();
-                    let owned_for_ack = owned.clone();
-                    let ack_cb = Arc::new(move |msg_id| {
-                        let consumer = consumer_for_ack.clone();
-                        let owned = owned_for_ack.clone();
-                        tokio::spawn(async move {
-                            let mut tpl = TopicPartitionList::new();
-                            if let Err(err) = tpl.add_partition_offset(
-                                owned.topic(),
-                                owned.partition(),
-                                Offset::Offset(owned.offset()),
-                            ) {
-                                warn!("prepare kafka commit failed: {} (msg_id={})", err, msg_id);
-                                return;
-                            }
-                            if let Err(err) = consumer.commit(&tpl, CommitMode::Async) {
-                                warn!(
-                                    "commit kafka offset on ack failed: {} (msg_id={})",
-                                    err, msg_id
-                                );
-                            } else {
-                                info!(
-                                    "commit kafka offset on ack ok topic={} partition={} offset={} msg_id={}",
-                                    owned.topic(),
-                                    owned.partition(),
-                                    owned.offset(),
-                                    msg_id
-                                );
-                            }
-                        });
-                    });
-
-                    let consumer_for_drop = consumer.clone();
-                    let owned_for_drop = owned.clone();
-                    // 当消息超过重试次数依旧未确认时，也提交 offset，避免永久阻塞进度，同时进行告警。
-                    let drop_cb = Arc::new(move |msg_id| {
-                        let consumer = consumer_for_drop.clone();
-                        let owned = owned_for_drop.clone();
-                        tokio::spawn(async move {
-                            let mut tpl = TopicPartitionList::new();
-                            if let Err(err) = tpl.add_partition_offset(
-                                owned.topic(),
-                                owned.partition(),
-                                Offset::Offset(owned.offset()),
-                            ) {
-                                warn!("prepare kafka commit failed: {} (msg_id={})", err, msg_id);
-                                return;
-                            }
-                            if let Err(err) = consumer.commit(&tpl, CommitMode::Async) {
-                                warn!(
-                                    "commit kafka offset on drop failed: {} (msg_id={})",
-                                    err, msg_id
-                                );
-                            } else {
-                                warn!(
-                                    "message {:?} exceeded retry limit; committed offset topic={} partition={} offset={}",
-                                    msg_id,
-                                    owned.topic(),
-                                    owned.partition(),
-                                    owned.offset()
-                                );
-                            }
-                        });
-                    });
-
-                    opts.ack_hook = Some(ack_cb);
-                    opts.drop_hook = Some(drop_cb);
-                }
-
                 let enqueue_ok = dispatcher.enqueue(domain.receiver_id as UID, msg, opts);
                 if enqueue_ok {
-                    if !require_ack {
-                        info!(
-                            "kafka consume delivered without ack requirement msg_id={} receiver={}",
-                            id, domain.receiver_id
-                        );
-                    }
-                    // 返回值决定是否立即提交 offset。需要 ACK 的交由回调提交。
-                    Ok(!require_ack)
+                    // 立即提交 Kafka offset，避免因为客户端 ACK 未达导致堆积。
+                    Ok(true)
                 } else {
                     warn!(
                         "kafka consume enqueue failed: dispatch queue full msg_id={} receiver={}",

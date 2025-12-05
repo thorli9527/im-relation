@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS friend_edge (
                              uid BIGINT UNSIGNED NOT NULL,
                              friend_id BIGINT UNSIGNED NOT NULL,
                              nickname VARCHAR ( 64 ) NULL,-- NULL/空串 表示无昵称
+                             apply_source INT NOT NULL, -- 好友来源，必填
                              remark VARCHAR(256) NULL DEFAULT NULL,-- 好友备注
                              blacklisted TINYINT(1) NOT NULL DEFAULT 0,-- 黑名单标记
                              created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -25,6 +26,9 @@ CREATE TABLE IF NOT EXISTS friend_add_jobs (
   friend_uid BIGINT UNSIGNED NOT NULL,
   nickname_for_user VARCHAR(64) NULL,
   nickname_for_friend VARCHAR(64) NULL,
+  apply_source INT NOT NULL,
+  remark_for_user VARCHAR(256) NULL DEFAULT NULL,
+  remark_for_friend VARCHAR(256) NULL DEFAULT NULL,
   error_msg VARCHAR(512) NULL,
   retry_count INT NOT NULL DEFAULT 0,
   status TINYINT NOT NULL DEFAULT 0, -- 0=pending,1=done,2=failed

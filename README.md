@@ -1,89 +1,63 @@
-# 项目总览
+# im-relation
 
-本仓库是一个 Rust 工作区（Cargo workspace），包含多项服务（online、group、friend 等），并在 `group` 相关模块中集成了 `HashShardMap / MemberListWrapper / SimpleMemberList / ShardedMemberList` 等结构。
+基于 Rust 的即时通讯后端（多服务工作区）与 Flutter 桌面端。包含用户/好友/群组/消息等服务、Socket 网关，以及桌面客户端与 FFI SDK。
 
-主要技术栈：Actix-Web、Tokio、SQLx、Tonic(gRPC)、Kafka、Redis 等。
+## 仓库结构
+- Rust 工作区（`Cargo.toml`）：`common`(配置/工具/Kafka/Redis)、`user_service`、`friend_service`、`group_service`、`msg_friend`、`msg_group`、`msg_system`、`app_api`(HTTP/gRPC 网关)、`app_socket`(TCP+Kafka 分发)。
+- 客户端：`client/app_desktop`(Flutter 桌面应用)，`flutter_sdk`(供 Flutter FFI 的 Rust 库)。
+- 配置样例：`config-*.toml`（API、Socket、User/Friend/Group、Msg-Friend/Group/System）。
+- 其他：`docker/`(支撑脚本)、`logs/`(默认日志输出)。
 
-## 工作区成员
+## 环境要求
+- Rust 工具链：`rust-toolchain.toml` 固定为 1.90.0（含 `clippy`/`rustfmt`）。
+- 运行依赖：MySQL、Redis、Kafka；路径在各 `config-*.toml` 中可调。
+- Flutter（桌面端）：建议使用与本机一致的 Flutter SDK，并确保 Dart/Flutter 具备 macOS 桌面支持。
 
-以下为 `Cargo.toml` 中声明的成员（部分为二进制服务，部分为公共库）：
-
-- `common`：公共工具与抽象（配置、Kafka、Redis、工具函数等）
-- `user_service`：在线状态服务（gRPC/REST）
-- `group_service`：群组服务（使用分片与成员列表封装）
-- `friend_service`：好友服务
-- `arb_service`：仲裁/桥接服务
-- `app_api`：对外 API 服务
-- `app_socket`：Socket 客户端/服务相关
-- `msg_gateway`：消息网关（如有）
-- `msg_friend`：好友消息模块
-
-## 快速开始
-
-仓库固定使用 Rust `1.90.0`（见 `rust-toolchain.toml`），请确保本地安装对应工具链。已提供 `Makefile`，推荐通过 `make` 快速操作：
-
+## 快速构建
 ```bash
-# 构建（debug 模式）
-make build
+# 后端（检查/调试构建）
+cargo check
+cargo build
 
-# 构建（release 模式）
-make release
-
-# 代码格式化 & 静态检查
-make fmt
-make clippy
+# 发布构建
+cargo build --release
 ```
 
-## 运行各服务
-
-可直接使用 `make`，也可 `cargo run -p <crate>`：
-
+## 运行主要服务
+各服务默认从当前目录加载对应配置，可通过环境变量 `APP_CONFIG` 覆盖。
 ```bash
-# Online（默认端口 8081，若代码中有配置请以实际为准）
-APP_CONFIG=configs/config-online.toml make run-online
+# API 网关（HTTP+gRPC）
+RUST_LOG=info APP_CONFIG=./config-api.toml cargo run -p app_api
 
-# Group（默认分片数，可通过环境变量覆盖）
-APP_CONFIG=configs/config-group.toml GROUP_SHARDS=64 make run-group
+# Socket 网关（TCP + Kafka 拉取并分发）
+RUST_LOG=info APP_CONFIG=./config-socket.toml cargo run -p app_socket
 
-# Friend（依赖 Online 服务地址）
-APP_CONFIG=configs/config-friend.toml ONLINE_BASE_URL=http://127.0.0.1:8081 make run-friend
+# 领域服务
+RUST_LOG=info APP_CONFIG=./config-user.toml cargo run -p user_service
+RUST_LOG=info APP_CONFIG=./config-friend.toml cargo run -p friend_service
+RUST_LOG=info APP_CONFIG=./config-group.toml cargo run -p group_service
 
-# 其他服务
-APP_CONFIG=configs/config-api.toml make run-api
-APP_CONFIG=configs/config-arb.toml make run-arb
-make run-socket
-make run-main
+# 消息服务
+RUST_LOG=info APP_CONFIG=./config-msg-friend.toml cargo run -p msg_friend
+RUST_LOG=info APP_CONFIG=./config-msg-group.toml  cargo run -p msg_group
+RUST_LOG=info APP_CONFIG=./config-msg-system.toml cargo run -p msg_system
 ```
+> 首次启动前请确认 MySQL 已建库、Redis/Kafka 可连通，必要时按配置文件修改地址/账号。
 
-## 配置文件
+## Flutter 桌面端
+```bash
+cd client/app_desktop
+flutter pub get
+# 如需先编译 FFI 库：cargo build -p flutter_sdk --release
+flutter run -d macos
+```
+日志默认写入仓库根目录的 `logs/`。
 
-根目录下提供了多份示例配置：
+## 代码规范与开发提示
+- 格式化：`cargo fmt`；静态检查：`cargo clippy --workspace --all-targets`.
+- gRPC/Proto 生成代码已存在于 `common/src/infra/grpc`，修改 proto 后需重新生成。
+- Socket 侧实现“收件即 ACK”并接 Kafka，消息去重与游标增量拉取由各消息服务负责；客户端上线/前台后通过会话游标增量拉取。
 
-- `config-api.toml`
-- `config-group.toml`
-- `config-online.toml`
-- `config-friend.toml`
-- `config-arb.toml`
-
-如需要，请在运行前根据实际环境拷贝/调整对应配置。
-
-## 代码规范
-
-- 格式化：`make fmt`（使用 `rustfmt`）
-- 静态检查：`make clippy`（开启 `-D warnings`）
-
-## Typing 状态接入说明
-
-- Socket 层现已支持好友与群聊的 `Typing` 状态。
-- 服务端在接收到 `Typing` 消息后，会在 5 秒 TTL 内保持状态并广播给目标用户/群在线会话，无需客户端 ACK。
-- 若 5 秒内未再收到更新，会自动下发 `TYPING_NONE` 状态，客户端需据此清理 UI。
-- 客户端应至多每秒上报 5 次 `Typing`，超出频率会被限流丢弃。
-- 群聊需在 `notify_user_ids` 中包含需通知的成员 ID，服务端会自动补齐发送者自身。
-
-## 忽略文件
-
-已完善 `.gitignore`：
-
-- 忽略 `target/`、系统/编辑器文件（`.DS_Store`、`.idea/`、`.vscode/`）、本地 `.env`、`*.log` 等
-
-如果仓库中曾经提交过上述文件，请自行执行 `git rm --cached` 清理历史追踪。
+## 问题排查
+- 编译失败多因 Flutter 缓存或权限：在具备写权限的环境下执行 `flutter clean && flutter pub get`。
+- 若 Kafka/MySQL/Redis 未就绪，相关服务会在启动时报错；可检查 `config-*.toml` 的地址与凭证。

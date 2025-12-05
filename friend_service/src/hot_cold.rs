@@ -92,11 +92,11 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
         Ok(())
     }
 
-    /// 添加好友（若已存在则忽略昵称变化，这里 nickname=None）。
-    pub async fn add_friend(&self, uid: UID, fid: UID) -> Result<()> {
+    /// 添加好友（若已存在则忽略昵称变化，这里 nickname/remark=None）。
+    pub async fn add_friend(&self, uid: UID, fid: UID, remark: Option<&str>) -> Result<()> {
         let _outcome = self
             .storage
-            .add_friend(uid, fid, None)
+            .add_friend(uid, fid, None, remark)
             .await
             .with_context(|| format!("add_friend: repo.add_friend failed, uid={uid}, fid={fid}"))?;
 
@@ -123,9 +123,20 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
         b: UID,
         nickname_for_a: Option<&str>,
         nickname_for_b: Option<&str>,
+        remark_for_a: Option<&str>,
+        remark_for_b: Option<&str>,
+        apply_source: i32,
     ) -> Result<()> {
         self.storage
-            .add_friend_both(a, b, nickname_for_a, nickname_for_b)
+            .add_friend_both(
+                a,
+                b,
+                nickname_for_a,
+                nickname_for_b,
+                remark_for_a,
+                remark_for_b,
+                apply_source,
+            )
             .await
             .with_context(|| {
                 format!("add_friend_both: repo.add_friend_both failed a={a}, b={b}")

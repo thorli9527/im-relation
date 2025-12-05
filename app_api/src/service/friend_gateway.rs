@@ -1,9 +1,11 @@
+use crate::service::user_gateway;
 use anyhow::{anyhow, Result};
 use common::config::AppConfig;
 use common::infra::grpc::grpc_friend::friend_service::friend_service_client::FriendServiceClient;
 use common::infra::grpc::grpc_friend::friend_service::{
     AddFriendReq, FriendEntry, GetFriendsPageDetailedReq, IsFriendReq,
 };
+use common::infra::grpc::grpc_user::online_service::GetUserReq;
 use common::infra::grpc::GrpcClientManager;
 use common::support::node::{NodeType, NodeUtil};
 use common::support::util::common_utils::hash_index;
@@ -102,20 +104,48 @@ pub async fn add_friend(
     remark: Option<&str>,
     nickname_for_user: Option<&str>,
     nickname_for_friend: Option<&str>,
+    source: i32,
 ) -> Result<bool> {
+    let normalize = |s: Option<&str>| {
+        s.and_then(|v| {
+            let t = v.trim();
+            (!t.is_empty()).then_some(t.to_string())
+        })
+    };
+    let remark_clean = normalize(remark);
+    let mut nickname_for_user = normalize(nickname_for_user);
+    let mut nickname_for_friend = normalize(nickname_for_friend);
+
+    // 若未提供昵称，尝试从用户资料中获取。
+    if nickname_for_user.is_none() {
+        nickname_for_user = fetch_nickname(friend_id).await?;
+    }
+    if nickname_for_friend.is_none() {
+        nickname_for_friend = fetch_nickname(uid).await?;
+    }
     let addr = resolve_friend_addr(uid).await?;
     let mut client = connect_friend_service(&addr).await?;
     let resp = client
         .add_friend(AddFriendReq {
             uid,
             friend_id,
-            remark: Some(remark.unwrap_or_default().to_string()),
-            nickname_for_user: nickname_for_user.map(|s| s.to_string()),
-            nickname_for_friend: nickname_for_friend.map(|s| s.to_string()),
-            source: common::infra::grpc::message::FriendRequestSource::FrsUnknown as i32,
+            remark: remark_clean,
+            nickname_for_user,
+            nickname_for_friend,
+            source,
         })
         .await
         .map_err(|status| anyhow!("friend service add_friend failed: {status}"))?
         .into_inner();
     Ok(resp.added)
+}
+
+async fn fetch_nickname(uid: i64) -> Result<Option<String>> {
+    let mut client = user_gateway::get_user_rpc_client().await?;
+    let resp = client
+        .find_user_by_id(GetUserReq { id: uid })
+        .await
+        .map_err(|status| anyhow!("user_service find_user_by_id failed: {status}"))?
+        .into_inner();
+    Ok(resp.nickname.filter(|n| !n.trim().is_empty()))
 }

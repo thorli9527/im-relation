@@ -90,6 +90,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AddFriendPayload dco_decode_add_friend_payload(dynamic raw);
+  AddFriendPayload dco_decode_add_friend_payload_legacy(dynamic raw);
+
 
   @protected
   AddFriendResult dco_decode_add_friend_result(dynamic raw);

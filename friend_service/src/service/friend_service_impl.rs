@@ -34,6 +34,7 @@ impl<R: FriendRepo> FriendServiceImpl<R> {
         let RepoFriendEntry {
             friend_id,
             nickname,
+            apply_source,
             remark,
             blacklisted,
             ..
@@ -41,7 +42,7 @@ impl<R: FriendRepo> FriendServiceImpl<R> {
         FriendEntry {
             friend_id: friend_id as i64,
             nickname: if include_nickname { nickname } else { None },
-            apply_source: None,
+            apply_source: Some(apply_source.to_string()),
             avatar: None,
             remark,
             blacklisted,
@@ -58,10 +59,21 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         let req = request.into_inner();
         let uid = Self::cast_uid(req.uid, "uid")?;
         let fid = Self::cast_uid(req.friend_id, "friend_id")?;
+        if uid == fid {
+            return Err(Status::invalid_argument("cannot add yourself"));
+        }
+        let normalize = |s: Option<&str>| {
+            s.and_then(|v| {
+                let t = v.trim();
+                (!t.is_empty()).then_some(t.to_string())
+            })
+        };
         // 备注字段兼容逻辑：若 nickname_for_user 未提供，则使用 remark
-        let remark = req.remark.as_deref();
-        let nickname_for_user = req.nickname_for_user.as_deref().or(remark);
-        let nickname_for_friend = req.nickname_for_friend.as_deref();
+        let remark_clean = normalize(req.remark.as_deref());
+        let remark_for_user = remark_clean.as_deref();
+        let remark_for_friend = remark_clean.as_deref();
+        let nickname_for_user = normalize(req.nickname_for_user.as_deref());
+        let nickname_for_friend = normalize(req.nickname_for_friend.as_deref());
 
         // 判断是否已存在（决定返回布尔）
         let already = self
@@ -74,7 +86,16 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         // 双向建立关系（事务在存储层）；失败时写入补偿任务。
         match self
             .facade
-            .add_friend_both(uid, fid, nickname_for_user, nickname_for_friend)
+            .add_friend_both(
+                uid,
+                fid,
+                nickname_for_user.as_deref(),
+                nickname_for_friend.as_deref(),
+                remark_clean.as_deref(),
+                remark_for_user,
+                remark_for_friend,
+                req.source,
+            )
             .await
         {
             Ok(()) => Ok(Response::new(AddFriendResp { added: !already })),
@@ -83,13 +104,16 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
                 if let Err(job_err) = enqueue_friend_add_job(
                     uid,
                     fid,
-                    nickname_for_user,
-                    nickname_for_friend,
+                    nickname_for_user.as_deref(),
+                    nickname_for_friend.as_deref(),
+                    req.source,
+                    remark_for_user,
+                    remark_for_friend,
                     &msg,
                 )
-                .await
-                {
-                    eprintln!("friend add compensation enqueue failed: {}", job_err);
+            .await
+            {
+                eprintln!("friend add compensation enqueue failed: {}", job_err);
                 }
                 Err(internal_error(format!("add_friend/write: {msg}")))
             }
@@ -290,6 +314,9 @@ async fn enqueue_friend_add_job(
     b: UID,
     nickname_for_a: Option<&str>,
     nickname_for_b: Option<&str>,
+    apply_source: i32,
+    remark_for_a: Option<&str>,
+    remark_for_b: Option<&str>,
     error_msg: &str,
 ) -> anyhow::Result<()> {
     let pool = get_db();
@@ -298,13 +325,16 @@ async fn enqueue_friend_add_job(
         msg.truncate(500);
     }
     sqlx::query(
-        r#"INSERT INTO friend_add_jobs (uid, friend_id, nickname_for_user, nickname_for_friend, error_msg, status)
-           VALUES (?, ?, ?, ?, ?, 0)"#,
+        r#"INSERT INTO friend_add_jobs (uid, friend_uid, nickname_for_user, nickname_for_friend, apply_source, remark_for_user, remark_for_friend, error_msg, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)"#,
     )
         .bind(a as i64)
         .bind(b as i64)
         .bind(nickname_for_a)
         .bind(nickname_for_b)
+        .bind(apply_source)
+        .bind(remark_for_a)
+        .bind(remark_for_b)
         .bind(msg)
         .execute(&*pool)
         .await?;

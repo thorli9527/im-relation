@@ -64,6 +64,7 @@ pub fn add_friend(payload: AddFriendPayload) -> Result<AddFriendResult, String> 
         reason: payload.reason,
         remark: payload.remark,
         nickname: payload.nickname,
+        source: payload.source,
     };
     post_request("/friends/add", &request)
 }

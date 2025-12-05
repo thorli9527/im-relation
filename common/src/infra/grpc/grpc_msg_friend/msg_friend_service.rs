@@ -15,7 +15,10 @@ pub struct FriendRequest {
     #[prost(string, tag = "4")]
     pub reason: ::prost::alloc::string::String,
     /// 申请来源
-    #[prost(enumeration = "crate::infra::grpc::message::FriendRequestSource", tag = "5")]
+    #[prost(
+        enumeration = "crate::infra::grpc::message::FriendRequestSource",
+        tag = "5"
+    )]
     pub source: i32,
     /// 申请创建时间
     #[prost(int64, tag = "6")]
@@ -255,10 +258,10 @@ pub mod friend_msg_service_client {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
-    use tonic::codegen::*;
     use tonic::codegen::http::Uri;
+    use tonic::codegen::*;
     /// 好友消息服务（非群聊）
     #[derive(Debug, Clone)]
     pub struct FriendMsgServiceClient<T> {
@@ -303,9 +306,8 @@ pub mod friend_msg_service_client {
                     <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::Body>,
-            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+            <T as tonic::codegen::Service<http::Request<tonic::body::Body>>>::Error:
+                Into<StdError> + std::marker::Send + std::marker::Sync,
         {
             FriendMsgServiceClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -343,33 +345,23 @@ pub mod friend_msg_service_client {
         /// 分页查询好友间的历史消息
         pub async fn list_friend_messages(
             &mut self,
-            request: impl tonic::IntoRequest<
-                crate::infra::grpc::message::QueryFriendMessagesRequest,
-            >,
+            request: impl tonic::IntoRequest<crate::infra::grpc::message::QueryFriendMessagesRequest>,
         ) -> std::result::Result<
             tonic::Response<crate::infra::grpc::message::QueryMessagesResponse>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_friend_service.FriendMsgService/ListFriendMessages",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "msg_friend_service.FriendMsgService",
-                        "ListFriendMessages",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_friend_service.FriendMsgService",
+                "ListFriendMessages",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 聚合查询用户的好友消息
@@ -380,26 +372,18 @@ pub mod friend_msg_service_client {
             tonic::Response<crate::infra::grpc::message::QueryMessagesResponse>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_friend_service.FriendMsgService/ListUserFriendMessages",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "msg_friend_service.FriendMsgService",
-                        "ListUserFriendMessages",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_friend_service.FriendMsgService",
+                "ListUserFriendMessages",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 获取最近好友会话列表
@@ -410,84 +394,56 @@ pub mod friend_msg_service_client {
             tonic::Response<super::ListFriendConversationsResponse>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_friend_service.FriendMsgService/ListFriendConversations",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "msg_friend_service.FriendMsgService",
-                        "ListFriendConversations",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_friend_service.FriendMsgService",
+                "ListFriendConversations",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 更新或新增好友会话快照
         pub async fn upsert_friend_conversation_snapshot(
             &mut self,
-            request: impl tonic::IntoRequest<
-                super::UpsertFriendConversationSnapshotRequest,
-            >,
+            request: impl tonic::IntoRequest<super::UpsertFriendConversationSnapshotRequest>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_friend_service.FriendMsgService/UpsertFriendConversationSnapshot",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "msg_friend_service.FriendMsgService",
-                        "UpsertFriendConversationSnapshot",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_friend_service.FriendMsgService",
+                "UpsertFriendConversationSnapshot",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 删除好友会话快照
         pub async fn delete_friend_conversation_snapshot(
             &mut self,
-            request: impl tonic::IntoRequest<
-                super::DeleteFriendConversationSnapshotRequest,
-            >,
+            request: impl tonic::IntoRequest<super::DeleteFriendConversationSnapshotRequest>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_friend_service.FriendMsgService/DeleteFriendConversationSnapshot",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "msg_friend_service.FriendMsgService",
-                        "DeleteFriendConversationSnapshot",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_friend_service.FriendMsgService",
+                "DeleteFriendConversationSnapshot",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 处理通用的好友消息域结构
@@ -495,26 +451,18 @@ pub mod friend_msg_service_client {
             &mut self,
             request: impl tonic::IntoRequest<crate::infra::grpc::message::DomainMessage>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_friend_service.FriendMsgService/HandleFriendMessage",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "msg_friend_service.FriendMsgService",
-                        "HandleFriendMessage",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_friend_service.FriendMsgService",
+                "HandleFriendMessage",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 批量广播 ProfileUpdate 事件给好友
@@ -522,56 +470,38 @@ pub mod friend_msg_service_client {
             &mut self,
             request: impl tonic::IntoRequest<super::BroadcastProfileUpdatesReq>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_friend_service.FriendMsgService/BroadcastProfileUpdates",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "msg_friend_service.FriendMsgService",
-                        "BroadcastProfileUpdates",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_friend_service.FriendMsgService",
+                "BroadcastProfileUpdates",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// 查询好友申请详情
         pub async fn get_friend_request(
             &mut self,
             request: impl tonic::IntoRequest<super::GetFriendRequestRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::GetFriendRequestResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::GetFriendRequestResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/msg_friend_service.FriendMsgService/GetFriendRequest",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "msg_friend_service.FriendMsgService",
-                        "GetFriendRequest",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "msg_friend_service.FriendMsgService",
+                "GetFriendRequest",
+            ));
             self.inner.unary(req, path, codec).await
         }
     }
@@ -583,7 +513,7 @@ pub mod friend_msg_service_server {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
     use tonic::codegen::*;
     /// Generated trait containing gRPC methods that should be implemented for use with FriendMsgServiceServer.
@@ -592,9 +522,7 @@ pub mod friend_msg_service_server {
         /// 分页查询好友间的历史消息
         async fn list_friend_messages(
             &self,
-            request: tonic::Request<
-                crate::infra::grpc::message::QueryFriendMessagesRequest,
-            >,
+            request: tonic::Request<crate::infra::grpc::message::QueryFriendMessagesRequest>,
         ) -> std::result::Result<
             tonic::Response<crate::infra::grpc::message::QueryMessagesResponse>,
             tonic::Status,
@@ -639,10 +567,7 @@ pub mod friend_msg_service_server {
         async fn get_friend_request(
             &self,
             request: tonic::Request<super::GetFriendRequestRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::GetFriendRequestResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::GetFriendRequestResponse>, tonic::Status>;
     }
     /// 好友消息服务（非群聊）
     #[derive(Debug)]
@@ -666,10 +591,7 @@ pub mod friend_msg_service_server {
                 max_encoding_message_size: None,
             }
         }
-        pub fn with_interceptor<F>(
-            inner: T,
-            interceptor: F,
-        ) -> InterceptedService<Self, F>
+        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
         where
             F: tonic::service::Interceptor,
         {
@@ -724,16 +646,13 @@ pub mod friend_msg_service_server {
                 "/msg_friend_service.FriendMsgService/ListFriendMessages" => {
                     #[allow(non_camel_case_types)]
                     struct ListFriendMessagesSvc<T: FriendMsgService>(pub Arc<T>);
-                    impl<
-                        T: FriendMsgService,
-                    > tonic::server::UnaryService<
-                        crate::infra::grpc::message::QueryFriendMessagesRequest,
-                    > for ListFriendMessagesSvc<T> {
+                    impl<T: FriendMsgService>
+                        tonic::server::UnaryService<
+                            crate::infra::grpc::message::QueryFriendMessagesRequest,
+                        > for ListFriendMessagesSvc<T>
+                    {
                         type Response = crate::infra::grpc::message::QueryMessagesResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<
@@ -742,11 +661,7 @@ pub mod friend_msg_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as FriendMsgService>::list_friend_messages(
-                                        &inner,
-                                        request,
-                                    )
-                                    .await
+                                <T as FriendMsgService>::list_friend_messages(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -776,25 +691,19 @@ pub mod friend_msg_service_server {
                 "/msg_friend_service.FriendMsgService/ListUserFriendMessages" => {
                     #[allow(non_camel_case_types)]
                     struct ListUserFriendMessagesSvc<T: FriendMsgService>(pub Arc<T>);
-                    impl<
-                        T: FriendMsgService,
-                    > tonic::server::UnaryService<super::ListUserFriendMessagesRequest>
-                    for ListUserFriendMessagesSvc<T> {
+                    impl<T: FriendMsgService>
+                        tonic::server::UnaryService<super::ListUserFriendMessagesRequest>
+                        for ListUserFriendMessagesSvc<T>
+                    {
                         type Response = crate::infra::grpc::message::QueryMessagesResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::ListUserFriendMessagesRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as FriendMsgService>::list_user_friend_messages(
-                                        &inner,
-                                        request,
-                                    )
+                                <T as FriendMsgService>::list_user_friend_messages(&inner, request)
                                     .await
                             };
                             Box::pin(fut)
@@ -825,27 +734,19 @@ pub mod friend_msg_service_server {
                 "/msg_friend_service.FriendMsgService/ListFriendConversations" => {
                     #[allow(non_camel_case_types)]
                     struct ListFriendConversationsSvc<T: FriendMsgService>(pub Arc<T>);
-                    impl<
-                        T: FriendMsgService,
-                    > tonic::server::UnaryService<super::ListFriendConversationsRequest>
-                    for ListFriendConversationsSvc<T> {
+                    impl<T: FriendMsgService>
+                        tonic::server::UnaryService<super::ListFriendConversationsRequest>
+                        for ListFriendConversationsSvc<T>
+                    {
                         type Response = super::ListFriendConversationsResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<
-                                super::ListFriendConversationsRequest,
-                            >,
+                            request: tonic::Request<super::ListFriendConversationsRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as FriendMsgService>::list_friend_conversations(
-                                        &inner,
-                                        request,
-                                    )
+                                <T as FriendMsgService>::list_friend_conversations(&inner, request)
                                     .await
                             };
                             Box::pin(fut)
@@ -875,32 +776,23 @@ pub mod friend_msg_service_server {
                 }
                 "/msg_friend_service.FriendMsgService/UpsertFriendConversationSnapshot" => {
                     #[allow(non_camel_case_types)]
-                    struct UpsertFriendConversationSnapshotSvc<T: FriendMsgService>(
-                        pub Arc<T>,
-                    );
-                    impl<
-                        T: FriendMsgService,
-                    > tonic::server::UnaryService<
-                        super::UpsertFriendConversationSnapshotRequest,
-                    > for UpsertFriendConversationSnapshotSvc<T> {
+                    struct UpsertFriendConversationSnapshotSvc<T: FriendMsgService>(pub Arc<T>);
+                    impl<T: FriendMsgService>
+                        tonic::server::UnaryService<super::UpsertFriendConversationSnapshotRequest>
+                        for UpsertFriendConversationSnapshotSvc<T>
+                    {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<
-                                super::UpsertFriendConversationSnapshotRequest,
-                            >,
+                            request: tonic::Request<super::UpsertFriendConversationSnapshotRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
                                 <T as FriendMsgService>::upsert_friend_conversation_snapshot(
-                                        &inner,
-                                        request,
-                                    )
-                                    .await
+                                    &inner, request,
+                                )
+                                .await
                             };
                             Box::pin(fut)
                         }
@@ -929,32 +821,23 @@ pub mod friend_msg_service_server {
                 }
                 "/msg_friend_service.FriendMsgService/DeleteFriendConversationSnapshot" => {
                     #[allow(non_camel_case_types)]
-                    struct DeleteFriendConversationSnapshotSvc<T: FriendMsgService>(
-                        pub Arc<T>,
-                    );
-                    impl<
-                        T: FriendMsgService,
-                    > tonic::server::UnaryService<
-                        super::DeleteFriendConversationSnapshotRequest,
-                    > for DeleteFriendConversationSnapshotSvc<T> {
+                    struct DeleteFriendConversationSnapshotSvc<T: FriendMsgService>(pub Arc<T>);
+                    impl<T: FriendMsgService>
+                        tonic::server::UnaryService<super::DeleteFriendConversationSnapshotRequest>
+                        for DeleteFriendConversationSnapshotSvc<T>
+                    {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<
-                                super::DeleteFriendConversationSnapshotRequest,
-                            >,
+                            request: tonic::Request<super::DeleteFriendConversationSnapshotRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
                                 <T as FriendMsgService>::delete_friend_conversation_snapshot(
-                                        &inner,
-                                        request,
-                                    )
-                                    .await
+                                    &inner, request,
+                                )
+                                .await
                             };
                             Box::pin(fut)
                         }
@@ -984,28 +867,19 @@ pub mod friend_msg_service_server {
                 "/msg_friend_service.FriendMsgService/HandleFriendMessage" => {
                     #[allow(non_camel_case_types)]
                     struct HandleFriendMessageSvc<T: FriendMsgService>(pub Arc<T>);
-                    impl<
-                        T: FriendMsgService,
-                    > tonic::server::UnaryService<
-                        crate::infra::grpc::message::DomainMessage,
-                    > for HandleFriendMessageSvc<T> {
+                    impl<T: FriendMsgService>
+                        tonic::server::UnaryService<crate::infra::grpc::message::DomainMessage>
+                        for HandleFriendMessageSvc<T>
+                    {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<
-                                crate::infra::grpc::message::DomainMessage,
-                            >,
+                            request: tonic::Request<crate::infra::grpc::message::DomainMessage>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as FriendMsgService>::handle_friend_message(
-                                        &inner,
-                                        request,
-                                    )
+                                <T as FriendMsgService>::handle_friend_message(&inner, request)
                                     .await
                             };
                             Box::pin(fut)
@@ -1036,25 +910,19 @@ pub mod friend_msg_service_server {
                 "/msg_friend_service.FriendMsgService/BroadcastProfileUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct BroadcastProfileUpdatesSvc<T: FriendMsgService>(pub Arc<T>);
-                    impl<
-                        T: FriendMsgService,
-                    > tonic::server::UnaryService<super::BroadcastProfileUpdatesReq>
-                    for BroadcastProfileUpdatesSvc<T> {
+                    impl<T: FriendMsgService>
+                        tonic::server::UnaryService<super::BroadcastProfileUpdatesReq>
+                        for BroadcastProfileUpdatesSvc<T>
+                    {
                         type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::BroadcastProfileUpdatesReq>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as FriendMsgService>::broadcast_profile_updates(
-                                        &inner,
-                                        request,
-                                    )
+                                <T as FriendMsgService>::broadcast_profile_updates(&inner, request)
                                     .await
                             };
                             Box::pin(fut)
@@ -1085,23 +953,19 @@ pub mod friend_msg_service_server {
                 "/msg_friend_service.FriendMsgService/GetFriendRequest" => {
                     #[allow(non_camel_case_types)]
                     struct GetFriendRequestSvc<T: FriendMsgService>(pub Arc<T>);
-                    impl<
-                        T: FriendMsgService,
-                    > tonic::server::UnaryService<super::GetFriendRequestRequest>
-                    for GetFriendRequestSvc<T> {
+                    impl<T: FriendMsgService>
+                        tonic::server::UnaryService<super::GetFriendRequestRequest>
+                        for GetFriendRequestSvc<T>
+                    {
                         type Response = super::GetFriendRequestResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::GetFriendRequestRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as FriendMsgService>::get_friend_request(&inner, request)
-                                    .await
+                                <T as FriendMsgService>::get_friend_request(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1128,25 +992,19 @@ pub mod friend_msg_service_server {
                     };
                     Box::pin(fut)
                 }
-                _ => {
-                    Box::pin(async move {
-                        let mut response = http::Response::new(
-                            tonic::body::Body::default(),
-                        );
-                        let headers = response.headers_mut();
-                        headers
-                            .insert(
-                                tonic::Status::GRPC_STATUS,
-                                (tonic::Code::Unimplemented as i32).into(),
-                            );
-                        headers
-                            .insert(
-                                http::header::CONTENT_TYPE,
-                                tonic::metadata::GRPC_CONTENT_TYPE,
-                            );
-                        Ok(response)
-                    })
-                }
+                _ => Box::pin(async move {
+                    let mut response = http::Response::new(tonic::body::Body::default());
+                    let headers = response.headers_mut();
+                    headers.insert(
+                        tonic::Status::GRPC_STATUS,
+                        (tonic::Code::Unimplemented as i32).into(),
+                    );
+                    headers.insert(
+                        http::header::CONTENT_TYPE,
+                        tonic::metadata::GRPC_CONTENT_TYPE,
+                    );
+                    Ok(response)
+                }),
             }
         }
     }

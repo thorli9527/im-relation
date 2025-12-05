@@ -22,11 +22,15 @@ class AddFriendPayload {
   /// 我方期望的好友昵称（可选）
   final String? nickname;
 
+  /// 好友来源（参考 FriendRequestSource 枚举），必传
+  final int source;
+
   const AddFriendPayload({
     required this.targetUid,
     this.reason,
     this.remark,
     this.nickname,
+    required this.source,
   });
 
   @override
@@ -34,7 +38,8 @@ class AddFriendPayload {
       targetUid.hashCode ^
       reason.hashCode ^
       remark.hashCode ^
-      nickname.hashCode;
+      nickname.hashCode ^
+      source.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -44,7 +49,8 @@ class AddFriendPayload {
           targetUid == other.targetUid &&
           reason == other.reason &&
           remark == other.remark &&
-          nickname == other.nickname;
+          nickname == other.nickname &&
+          source == other.source;
 }
 
 class UserInfoResult {

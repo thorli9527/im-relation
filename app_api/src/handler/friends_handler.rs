@@ -1,9 +1,7 @@
 use axum::{routing::post, Json, Router};
 use common::core::errors::AppError;
 use common::core::result::ApiResponse;
-use common::infra::grpc::grpc_user::online_service::{
-    FindByContentReq, GetUserReq, UserEntity,
-};
+use common::infra::grpc::grpc_user::online_service::{FindByContentReq, GetUserReq, UserEntity};
 use serde::{Deserialize, Serialize};
 use tonic::Code;
 use utoipa::ToSchema;
@@ -77,7 +75,9 @@ pub fn router() -> Router {
     ),
     tag = "app_api/friends"
 )]
-pub async fn get_friend_list(Json(params): Json<FriendListQuery>) -> HandlerResult<FriendListResult> {
+pub async fn get_friend_list(
+    Json(params): Json<FriendListQuery>,
+) -> HandlerResult<FriendListResult> {
     let page = params.page.unwrap_or(1).max(1);
     let page_size = params.page_size.unwrap_or(20).max(1);
     if params.session_token.trim().is_empty() {
@@ -156,6 +156,8 @@ pub async fn add_friend(Json(payload): Json<AddFriendRequest>) -> HandlerResult<
     if payload.target_uid <= 0 {
         return Err(AppError::Validation("target_uid must be positive".into()));
     }
+    let source = msgpb::FriendRequestSource::from_i32(payload.source)
+        .ok_or_else(|| AppError::Validation("invalid source".into()))?;
     let applied = UserService::get()
         .add_friend_http(
             &payload.session_token,
@@ -163,13 +165,11 @@ pub async fn add_friend(Json(payload): Json<AddFriendRequest>) -> HandlerResult<
             payload.reason.as_deref(),
             payload.remark.as_deref(),
             payload.nickname.as_deref(),
+            source as i32,
         )
         .await
         .map_err(map_internal_error)?;
-    success(AddFriendResult {
-        ok: true,
-        applied,
-    })
+    success(AddFriendResult { ok: true, applied })
 }
 
 #[utoipa::path(

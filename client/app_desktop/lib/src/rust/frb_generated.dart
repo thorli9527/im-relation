@@ -2250,13 +2250,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   AddFriendPayload dco_decode_add_friend_payload(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 4)
-      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
     return AddFriendPayload(
       targetUid: dco_decode_i_64(arr[0]),
       reason: dco_decode_opt_String(arr[1]),
       remark: dco_decode_opt_String(arr[2]),
       nickname: dco_decode_opt_String(arr[3]),
+      source: dco_decode_i_32(arr[4]),
     );
   }
 
@@ -3555,11 +3556,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_reason = sse_decode_opt_String(deserializer);
     var var_remark = sse_decode_opt_String(deserializer);
     var var_nickname = sse_decode_opt_String(deserializer);
+    var var_source = sse_decode_i_32(deserializer);
     return AddFriendPayload(
       targetUid: var_targetUid,
       reason: var_reason,
       remark: var_remark,
       nickname: var_nickname,
+      source: var_source,
     );
   }
 

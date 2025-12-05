@@ -16,6 +16,7 @@ class SettingsPanel extends ConsumerStatefulWidget {
 class _SettingsPanelState extends ConsumerState<SettingsPanel> {
   static const String _defaultLogPath = 'logs/app.log';
   late Future<String> _logFuture;
+  bool _logoutTriggered = false;
 
   @override
   void initState() {
@@ -50,6 +51,12 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
   @override
   Widget build(BuildContext context) {
     final current = ref.watch(settingsMenuProvider);
+    if (current == SettingsMenu.logout && !_logoutTriggered) {
+      _logoutTriggered = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onLogout();
+      });
+    }
     return Row(
       children: [
         Container(

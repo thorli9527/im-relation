@@ -14,8 +14,8 @@ use common::infra::grpc::grpc_user::online_service::{
     UpsertSessionTokenRequest, UpsertSessionTokenResponse, ValidateSessionTokenRequest,
     ValidateSessionTokenResponse,
 };
-use std::convert::TryFrom;
 use log::{error, info, warn};
+use std::convert::TryFrom;
 
 fn mask_token(token: &str) -> String {
     let len = token.len();
@@ -187,7 +187,11 @@ where
                     token.len(),
                     mask_token(&token)
                 );
-                match self.session_repo.revoke_session_token_by_token(&token).await {
+                match self
+                    .session_repo
+                    .revoke_session_token_by_token(&token)
+                    .await
+                {
                     Ok(res) => {
                         if res.is_some() {
                             info!("revoke_session_token: token revoked");

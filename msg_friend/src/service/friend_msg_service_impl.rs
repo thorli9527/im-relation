@@ -21,12 +21,12 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 use crate::dao::{
-    delete_friend_conversation_snapshot, increment_friend_request_notify_retry,
-    insert_encrypted_message, list_conversation_messages, list_friend_conversation_snapshots,
-    list_friend_requests_pending_notify, mark_friend_request_decision,
-    mark_friend_request_notified, upsert_friend_conversation_snapshot, upsert_friend_request,
-    EncryptedMessageRecord, FriendConversationSnapshot, FriendRequestRow,
-    get_friend_request_by_id,
+    delete_friend_conversation_snapshot, get_friend_request_by_id,
+    increment_friend_request_notify_retry, insert_encrypted_message, list_conversation_messages,
+    list_friend_conversation_snapshots, list_friend_requests_pending_notify,
+    mark_friend_request_decision, mark_friend_request_notified,
+    upsert_friend_conversation_snapshot, upsert_friend_request, EncryptedMessageRecord,
+    FriendConversationSnapshot, FriendRequestRow,
 };
 use crate::server::Services;
 use common::infra::grpc::grpc_friend::friend_service::{
@@ -511,7 +511,8 @@ impl Services {
         let msg_no = domain.message_id.unwrap_or(msg_id as u64) as i64;
 
         let content = msg_message::Content {
-            message_id: domain.message_id,
+            // 确保下游拉取能拿到 message_id，用持久化后的 msg_id 回填。
+            message_id: Some(msg_id as u64),
             sender_id: domain.sender_id,
             receiver_id: domain.receiver_id,
             timestamp: domain.timestamp,

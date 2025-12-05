@@ -8,8 +8,8 @@ use common::infra::kafka::kafka_producer::KafkaInstanceService;
 use common::infra::kafka::topic_info::SYS_MSG_TOPIC_INFO;
 use log::info;
 use sqlx::{MySql, Pool};
-use tokio::signal;
 use tokio::net::TcpListener;
+use tokio::signal;
 use tokio_util::sync::CancellationToken;
 
 use common::infra::grpc::grpc_msg_system::msg_system_service::system_msg_service_server::SystemMsgServiceServer;
@@ -70,10 +70,7 @@ pub async fn run_server() -> Result<()> {
         _ => None,
     };
 
-    let services = Services {
-        pool,
-        kafka,
-    };
+    let services = Services { pool, kafka };
 
     let http_router = Router::new().route(
         "/healthz",

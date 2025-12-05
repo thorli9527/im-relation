@@ -2,14 +2,14 @@ use anyhow::{anyhow, Result};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use common::config::AppConfig;
-use common::infra::grpc::grpc_msg_group::msg_group_service::{
-    group_msg_service_client::GroupMsgServiceClient, BroadcastGroupProfileUpdatesReq,
-    GroupConversationSnapshot, ListGroupConversationsRequest,
-};
 use common::infra::grpc::grpc_msg_friend::msg_friend_service::{
     friend_msg_service_client::FriendMsgServiceClient, BroadcastProfileUpdatesReq,
     FriendConversationSnapshot, GetFriendRequestRequest, GetFriendRequestResponse,
     ListFriendConversationsRequest, ListUserFriendMessagesRequest,
+};
+use common::infra::grpc::grpc_msg_group::msg_group_service::{
+    group_msg_service_client::GroupMsgServiceClient, BroadcastGroupProfileUpdatesReq,
+    GroupConversationSnapshot, ListGroupConversationsRequest,
 };
 use common::infra::grpc::grpc_msg_system::msg_system_service::{
     system_msg_service_client::SystemMsgServiceClient, QuerySystemMessagesRequest,
@@ -260,6 +260,7 @@ pub async fn send_friend_request_message(
     reason: &str,
     remark: &str,
     nickname: &str,
+    source: i32,
 ) -> Result<()> {
     let addr = resolve_addr(NodeType::MsgFriend, from_uid).await?;
     let mut client = connect_friend_msg(&addr).await?;
@@ -271,7 +272,7 @@ pub async fn send_friend_request_message(
             from_uid,
             to_uid,
             reason: reason.to_string(),
-            source: msgpb::FriendRequestSource::FrsUnknown as i32,
+            source,
             created_at: ts,
             remark: remark.to_string(),
             nickname: nickname.to_string(),

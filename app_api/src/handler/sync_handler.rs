@@ -54,31 +54,35 @@ async fn sync_messages(
 
     // Friend incremental：使用 msg_friend 的 since_timestamp 能力，last_seq 按时间戳传入。
     let friend_msgs = if let Some(seq) = q.friend_last_seq {
-        message_gateway::list_user_friend_messages(uid, Some(seq), limit)
+        let mut msgs = message_gateway::list_user_friend_messages(uid, Some(seq), limit)
             .await
-            .unwrap_or_default()
+            .unwrap_or_default();
+        // 双重防护：若下游按时间过滤失效，仍按 message_id 去重，避免重复计数。
+        msgs.retain(|m| m.message_id.unwrap_or(0) as i64 > seq);
+        msgs
     } else {
         Vec::new()
     };
 
     // Group incremental：当前接口不支持 after 拉取，退化为近期窗口过滤。
     let group_msgs = if let Some(seq) = q.group_last_seq {
-        message_gateway::list_group_messages(uid, seq, limit)
+        let mut msgs = message_gateway::list_group_messages(uid, seq, limit)
             .await
-            .unwrap_or_default()
+            .unwrap_or_default();
+        msgs.retain(|m| m.message_id.unwrap_or(0) as i64 > seq);
+        msgs
     } else {
         Vec::new()
     };
 
     // System incremental：按 message_id 过滤，取较大的 window。
     let system_msgs = if let Some(seq) = q.system_last_seq {
-        message_gateway::list_system_messages(uid, None, None, limit * 2)
+        let mut msgs = message_gateway::list_system_messages(uid, None, None, limit * 2)
             .await
             .unwrap_or_default()
-            .messages
-            .into_iter()
-            .filter(|m| m.message_id.unwrap_or(0) > seq)
-            .collect()
+            .messages;
+        msgs.retain(|m| m.message_id.unwrap_or(0) > seq);
+        msgs
     } else {
         Vec::new()
     };

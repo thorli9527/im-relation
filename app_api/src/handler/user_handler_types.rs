@@ -90,6 +90,8 @@ pub struct AddFriendRequest {
     pub remark: Option<String>,
     /// 我方期望的好友昵称（可选）
     pub nickname: Option<String>,
+    /// 好友来源（参考 FriendRequestSource 枚举），必传
+    pub source: i32,
 }
 
 #[derive(Debug, Serialize, ToSchema)]

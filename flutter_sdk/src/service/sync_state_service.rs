@@ -13,30 +13,24 @@ impl SyncStateService {
 
     /// 确保单行存在，若不存在则插入默认游标。
     pub fn ensure_row() -> Result<(), String> {
+        use std::time::Duration;
         let db = db::connection()?;
-        let mut stmt = db
-            .prepare("SELECT COUNT(1) FROM sync_state WHERE id = 1")
+        db.busy_timeout(Duration::from_secs(5))
             .map_err(|e| e.to_string())?;
-        let count: i64 = stmt
-            .query_row([], |row| row.get(0))
+
+        // 先检查是否已存在，避免重复写入。
+        let count: i64 = db
+            .query_row("SELECT COUNT(1) FROM sync_state WHERE id = 1", [], |row| {
+                row.get(0)
+            })
             .map_err(|e| e.to_string())?;
         if count == 0 {
-            let entity = SyncStateEntity::new();
-            let mut cols = entity.column_values();
-            let fields: Vec<String> = cols.iter().map(|c| c.name.to_string()).collect();
-            let placeholders: Vec<String> = (0..cols.len()).map(|_| "?".to_string()).collect();
-            let values: Vec<rusqlite::types::Value> = cols.drain(..).map(|c| c.value).collect();
-            let sql = format!(
-                "INSERT INTO sync_state ({}) VALUES ({})",
-                fields.join(", "),
-                placeholders.join(", ")
-            );
-            let mut insert_stmt = db.prepare(&sql).map_err(|e| e.to_string())?;
-            let params: Vec<&dyn rusqlite::ToSql> =
-                values.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
-            insert_stmt
-                .execute(rusqlite::params_from_iter(params))
-                .map_err(|e| e.to_string())?;
+            // 直接插入固定默认值，避免动态拼装带来的复杂度/潜在阻塞。
+            db.execute(
+                "INSERT INTO sync_state (id, friend_last_seq, group_last_seq, system_last_seq) VALUES (1, 0, 0, 0)",
+                [],
+            )
+            .map_err(|e| e.to_string())?;
         }
         Ok(())
     }
