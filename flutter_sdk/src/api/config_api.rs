@@ -132,7 +132,7 @@ pub(crate) fn normalize_app_api_base_url(input: &str) -> Result<String, String> 
     };
     let parsed = Url::parse(&candidate)
         .map_err(|err| ApiError::invalid_input(format!("invalid base url: {err}")).into_string())?;
-    Ok(parsed.into_string().trim_end_matches('/').to_string())
+    Ok(parsed.to_string().trim_end_matches('/').to_string())
 }
 
 fn ensure_limit_inner(limit: u32) -> Result<u32, String> {

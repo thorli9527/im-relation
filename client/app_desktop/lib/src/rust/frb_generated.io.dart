@@ -9,8 +9,8 @@ import 'api/chat_api.dart';
 import 'api/config_api.dart';
 import 'api/errors.dart';
 import 'api/frb_types.dart';
-import 'api/friend_request_api.dart';
-import 'api/group_request_api.dart';
+import 'api/friend_api.dart';
+import 'api/group_api.dart';
 import 'api/login_api.dart';
 import 'api/login_api_types.dart';
 import 'api/reg_api.dart';
@@ -90,8 +90,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AddFriendPayload dco_decode_add_friend_payload(dynamic raw);
-  AddFriendPayload dco_decode_add_friend_payload_legacy(dynamic raw);
-
 
   @protected
   AddFriendResult dco_decode_add_friend_result(dynamic raw);

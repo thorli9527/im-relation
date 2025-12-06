@@ -96,7 +96,7 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
     pub async fn add_friend(&self, uid: UID, fid: UID, remark: Option<&str>) -> Result<()> {
         let _outcome = self
             .storage
-            .add_friend(uid, fid, None, remark)
+            .add_friend(uid, fid, None, 0, remark)
             .await
             .with_context(|| format!("add_friend: repo.add_friend failed, uid={uid}, fid={fid}"))?;
 

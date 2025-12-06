@@ -3,9 +3,10 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use common::config::AppConfig;
 use common::infra::grpc::grpc_msg_friend::msg_friend_service::{
-    friend_msg_service_client::FriendMsgServiceClient, BroadcastProfileUpdatesReq,
-    FriendConversationSnapshot, GetFriendRequestRequest, GetFriendRequestResponse,
-    ListFriendConversationsRequest, ListUserFriendMessagesRequest,
+    friend_msg_service_client::FriendMsgServiceClient, AddFriendAnyoneRequest,
+    AddFriendAnyoneResponse, AddFriendRequestCommand, BroadcastProfileUpdatesReq,
+    DecideFriendRequestCommand, FriendConversationSnapshot, GetFriendRequestRequest,
+    GetFriendRequestResponse, ListFriendConversationsRequest, ListUserFriendMessagesRequest,
 };
 use common::infra::grpc::grpc_msg_group::msg_group_service::{
     group_msg_service_client::GroupMsgServiceClient, BroadcastGroupProfileUpdatesReq,
@@ -15,9 +16,8 @@ use common::infra::grpc::grpc_msg_system::msg_system_service::{
     system_msg_service_client::SystemMsgServiceClient, QuerySystemMessagesRequest,
 };
 use common::infra::grpc::message::{
-    self as msgpb, friend_business_content::Action as FriendAction, group_business_content::Action,
-    message_content::Content as MessageContentKind, ChatScene, DeliveryOptions, DomainMessage,
-    FriendBusinessContent, GroupBusinessContent, MessageContent, MsgCategory,
+    self as msgpb, group_business_content::Action, message_content::Content as MessageContentKind,
+    ChatScene, DeliveryOptions, DomainMessage, GroupBusinessContent, MessageContent, MsgCategory,
     SystemBusinessContent, SystemBusinessType,
 };
 use common::infra::grpc::GrpcClientManager;
@@ -254,91 +254,79 @@ pub async fn send_batch_profile_update_to_groups(
 }
 
 /// 提交好友申请，落到好友消息域。
-pub async fn send_friend_request_message(
+pub async fn submit_friend_request(
     from_uid: i64,
     to_uid: i64,
     reason: &str,
     remark: &str,
     nickname: &str,
     source: i32,
-) -> Result<()> {
+) -> Result<u64> {
     let addr = resolve_addr(NodeType::MsgFriend, from_uid).await?;
     let mut client = connect_friend_msg(&addr).await?;
-    let req_id = build_snow_id() as u64;
-    let ts = now();
-    let friend_business = FriendBusinessContent {
-        action: Some(FriendAction::Request(msgpb::FriendRequestPayload {
-            request_id: req_id,
+    let resp = client
+        .submit_friend_request(AddFriendRequestCommand {
             from_uid,
             to_uid,
             reason: reason.to_string(),
-            source,
-            created_at: ts,
             remark: remark.to_string(),
             nickname: nickname.to_string(),
-        })),
-    };
-    let domain = DomainMessage {
-        message_id: Some(req_id),
-        sender_id: from_uid,
-        receiver_id: to_uid,
-        timestamp: ts,
-        ts_ms: ts,
-        delivery: Some(DeliveryOptions {
-            require_ack: false,
-            expire_ms: None,
-            max_retry: None,
-        }),
-        scene: ChatScene::Single as i32,
-        category: MsgCategory::Friend as i32,
-        contents: Vec::new(),
-        friend_business: Some(friend_business),
-        group_business: None,
-        system_business: None,
+            source,
+        })
+        .await
+        .map_err(|status| anyhow!("submit_friend_request failed: {status}"))?
+        .into_inner();
+    Ok(resp.request_id)
+}
+
+/// 对允许任何人添加的场景：创建申请、自动通过并推送业务通知。
+pub async fn add_friend_anyone(
+    from_uid: i64,
+    to_uid: i64,
+    reason: &str,
+    remark: &str,
+    nickname: &str,
+    source: i32,
+) -> Result<AddFriendAnyoneResponse> {
+    let addr = resolve_addr(NodeType::MsgFriend, from_uid).await?;
+    let mut client = connect_friend_msg(&addr).await?;
+    let req = AddFriendAnyoneRequest {
+        from_uid,
+        to_uid,
+        reason: reason.to_string(),
+        remark: remark.to_string(),
+        nickname: nickname.to_string(),
+        source,
     };
     client
-        .handle_friend_message(domain)
+        .add_friend_anyone(req)
         .await
-        .map_err(|status| anyhow!("send friend request failed: {status}"))?;
-
-    Ok(())
+        .map(|resp| resp.into_inner())
+        .map_err(|status| anyhow!("add_friend_anyone failed: {status}"))
 }
 
 /// 处理好友申请的决策（同意/拒绝），落到好友消息域。
-pub async fn send_friend_decision_message(
+pub async fn decide_friend_request(
     approver_uid: i64,
-    requester_uid: i64,
+    _requester_uid: i64,
     payload: msgpb::FriendRequestDecisionPayload,
 ) -> Result<()> {
     let addr = resolve_addr(NodeType::MsgFriend, approver_uid).await?;
     let mut client = connect_friend_msg(&addr).await?;
-    let ts = now();
-    let friend_business = FriendBusinessContent {
-        action: Some(FriendAction::Decision(payload)),
-    };
-    let domain = DomainMessage {
-        message_id: Some(build_snow_id() as u64),
-        sender_id: approver_uid,
-        receiver_id: requester_uid,
-        timestamp: ts,
-        ts_ms: ts,
-        delivery: Some(DeliveryOptions {
-            require_ack: false,
-            expire_ms: None,
-            max_retry: None,
-        }),
-        scene: ChatScene::Single as i32,
-        category: MsgCategory::Friend as i32,
-        contents: Vec::new(),
-        friend_business: Some(friend_business),
-        group_business: None,
-        system_business: None,
-    };
+    let remark = payload.remark.clone();
+    let nickname = payload.nickname.clone();
+    let req_id = payload.request_id;
+    let accept = payload.accepted;
     client
-        .handle_friend_message(domain)
+        .decide_friend_request(DecideFriendRequestCommand {
+            request_id: req_id,
+            approver_uid,
+            accept,
+            remark,
+            nickname,
+        })
         .await
-        .map_err(|status| anyhow!("send friend decision failed: {status}"))?;
-
+        .map_err(|status| anyhow!("decide_friend_request failed: {status}"))?;
     Ok(())
 }
 

@@ -3,6 +3,7 @@ use common::core::errors::AppError;
 use common::core::result::ApiResponse;
 use common::infra::grpc::grpc_user::online_service::{FindByContentReq, GetUserReq, UserEntity};
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 use tonic::Code;
 use utoipa::ToSchema;
 
@@ -156,8 +157,8 @@ pub async fn add_friend(Json(payload): Json<AddFriendRequest>) -> HandlerResult<
     if payload.target_uid <= 0 {
         return Err(AppError::Validation("target_uid must be positive".into()));
     }
-    let source = msgpb::FriendRequestSource::from_i32(payload.source)
-        .ok_or_else(|| AppError::Validation("invalid source".into()))?;
+    let source = msgpb::FriendRequestSource::try_from(payload.source)
+        .map_err(|_| AppError::Validation("invalid source".into()))?;
     let applied = UserService::get()
         .add_friend_http(
             &payload.session_token,
@@ -168,7 +169,11 @@ pub async fn add_friend(Json(payload): Json<AddFriendRequest>) -> HandlerResult<
             source as i32,
         )
         .await
-        .map_err(map_internal_error)?;
+        .map_err(|e| {
+            // 记录堆栈，便于排查
+            log::error!("add_friend error: {:?}", e);
+            map_internal_error(e)
+        })?;
     success(AddFriendResult { ok: true, applied })
 }
 
@@ -245,14 +250,15 @@ pub async fn decide_friend_request(
         let mut client = user_gateway::get_user_rpc_client()
             .await
             .map_err(map_internal_error)?;
-        client
+        let user = client
             .find_user_by_id(GetUserReq { id: query.from_uid })
             .await
-            .map(|resp| {
-                let user = resp.into_inner();
-                user.nickname.or_else(|| Some(user.name))
-            })
             .map_err(map_internal_error)?
+            .into_inner();
+        let nick = user.nickname;
+        (!nick.is_empty())
+            .then_some(nick)
+            .or_else(|| Some(user.name))
     };
 
     user_service::UserService::get()
@@ -352,7 +358,7 @@ fn user_entity_to_profile(entity: UserEntity) -> UserProfileResult {
         avatar: entity.avatar,
         email: entity.email,
         phone: entity.phone,
-        nickname: entity.nickname.unwrap_or_default(),
+        nickname: entity.nickname,
         signature,
         region,
         add_friend_policy: entity.allow_add_friend,

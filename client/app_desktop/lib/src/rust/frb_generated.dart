@@ -9,8 +9,8 @@ import 'api/chat_api.dart';
 import 'api/config_api.dart';
 import 'api/errors.dart';
 import 'api/frb_types.dart';
-import 'api/friend_request_api.dart';
-import 'api/group_request_api.dart';
+import 'api/friend_api.dart';
+import 'api/group_api.dart';
 import 'api/login_api.dart';
 import 'api/login_api_types.dart';
 import 'api/reg_api.dart';
@@ -90,7 +90,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => -1453777679;
+  int get rustContentHash => -670548756;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -101,14 +101,14 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
-  Future<OperationStatus> crateApiFriendRequestApiAcceptFriendRequest({
+  Future<OperationStatus> crateApiFriendApiAcceptFriendRequest({
     required BigInt requestId,
     required PlatformInt64 fromUid,
     String? remark,
     String? nickname,
   });
 
-  Future<AddFriendResult> crateApiUserApiAddFriend({
+  Future<AddFriendResult> crateApiFriendApiAddFriend({
     required AddFriendPayload payload,
   });
 
@@ -159,7 +159,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<String> crateApiConfigApiGetDeviceId();
 
-  Future<FriendListResult> crateApiUserApiGetFriendList({
+  Future<FriendListResult> crateApiFriendApiGetFriendList({
     required FriendListQuery query,
   });
 
@@ -168,7 +168,7 @@ abstract class RustLibApi extends BaseApi {
     required int pageSize,
   });
 
-  Future<FriendRequestPageResult> crateApiFriendRequestApiGetFriendRequestPage({
+  Future<FriendRequestPageResult> crateApiFriendApiGetFriendRequestPage({
     required int page,
     required int pageSize,
   });
@@ -186,7 +186,7 @@ abstract class RustLibApi extends BaseApi {
     required int pageSize,
   });
 
-  Future<GroupRequestPageResult> crateApiGroupRequestApiGetGroupRequestPage({
+  Future<GroupRequestPageResult> crateApiGroupApiGetGroupRequestPage({
     required int page,
     required int pageSize,
   });
@@ -252,13 +252,13 @@ abstract class RustLibApi extends BaseApi {
     required RefreshGroupMembersQuery query,
   });
 
-  Future<OperationStatus> crateApiFriendRequestApiRejectFriendRequest({
+  Future<OperationStatus> crateApiFriendApiRejectFriendRequest({
     required BigInt requestId,
     required PlatformInt64 fromUid,
     String? remark,
   });
 
-  Future<SearchUserResult> crateApiUserApiSearchUser({
+  Future<SearchUserResult> crateApiFriendApiSearchUser({
     required SearchUserQuery query,
   });
 
@@ -332,7 +332,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
-  Future<OperationStatus> crateApiFriendRequestApiAcceptFriendRequest({
+  Future<OperationStatus> crateApiFriendApiAcceptFriendRequest({
     required BigInt requestId,
     required PlatformInt64 fromUid,
     String? remark,
@@ -357,21 +357,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_operation_status,
           decodeErrorData: sse_decode_String,
         ),
-        constMeta: kCrateApiFriendRequestApiAcceptFriendRequestConstMeta,
+        constMeta: kCrateApiFriendApiAcceptFriendRequestConstMeta,
         argValues: [requestId, fromUid, remark, nickname],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiFriendRequestApiAcceptFriendRequestConstMeta =>
+  TaskConstMeta get kCrateApiFriendApiAcceptFriendRequestConstMeta =>
       const TaskConstMeta(
         debugName: "accept_friend_request",
         argNames: ["requestId", "fromUid", "remark", "nickname"],
       );
 
   @override
-  Future<AddFriendResult> crateApiUserApiAddFriend({
+  Future<AddFriendResult> crateApiFriendApiAddFriend({
     required AddFriendPayload payload,
   }) {
     return handler.executeNormal(
@@ -390,14 +390,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_add_friend_result,
           decodeErrorData: sse_decode_String,
         ),
-        constMeta: kCrateApiUserApiAddFriendConstMeta,
+        constMeta: kCrateApiFriendApiAddFriendConstMeta,
         argValues: [payload],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiUserApiAddFriendConstMeta =>
+  TaskConstMeta get kCrateApiFriendApiAddFriendConstMeta =>
       const TaskConstMeta(debugName: "add_friend", argNames: ["payload"]);
 
   @override
@@ -859,7 +859,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "get_device_id", argNames: []);
 
   @override
-  Future<FriendListResult> crateApiUserApiGetFriendList({
+  Future<FriendListResult> crateApiFriendApiGetFriendList({
     required FriendListQuery query,
   }) {
     return handler.executeNormal(
@@ -878,14 +878,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_friend_list_result,
           decodeErrorData: sse_decode_String,
         ),
-        constMeta: kCrateApiUserApiGetFriendListConstMeta,
+        constMeta: kCrateApiFriendApiGetFriendListConstMeta,
         argValues: [query],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiUserApiGetFriendListConstMeta =>
+  TaskConstMeta get kCrateApiFriendApiGetFriendListConstMeta =>
       const TaskConstMeta(debugName: "get_friend_list", argNames: ["query"]);
 
   @override
@@ -924,7 +924,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<FriendRequestPageResult> crateApiFriendRequestApiGetFriendRequestPage({
+  Future<FriendRequestPageResult> crateApiFriendApiGetFriendRequestPage({
     required int page,
     required int pageSize,
   }) {
@@ -945,14 +945,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_friend_request_page_result,
           decodeErrorData: sse_decode_String,
         ),
-        constMeta: kCrateApiFriendRequestApiGetFriendRequestPageConstMeta,
+        constMeta: kCrateApiFriendApiGetFriendRequestPageConstMeta,
         argValues: [page, pageSize],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiFriendRequestApiGetFriendRequestPageConstMeta =>
+  TaskConstMeta get kCrateApiFriendApiGetFriendRequestPageConstMeta =>
       const TaskConstMeta(
         debugName: "get_friend_request_page",
         argNames: ["page", "pageSize"],
@@ -1057,7 +1057,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<GroupRequestPageResult> crateApiGroupRequestApiGetGroupRequestPage({
+  Future<GroupRequestPageResult> crateApiGroupApiGetGroupRequestPage({
     required int page,
     required int pageSize,
   }) {
@@ -1078,14 +1078,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_group_request_page_result,
           decodeErrorData: sse_decode_String,
         ),
-        constMeta: kCrateApiGroupRequestApiGetGroupRequestPageConstMeta,
+        constMeta: kCrateApiGroupApiGetGroupRequestPageConstMeta,
         argValues: [page, pageSize],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiGroupRequestApiGetGroupRequestPageConstMeta =>
+  TaskConstMeta get kCrateApiGroupApiGetGroupRequestPageConstMeta =>
       const TaskConstMeta(
         debugName: "get_group_request_page",
         argNames: ["page", "pageSize"],
@@ -1659,7 +1659,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<OperationStatus> crateApiFriendRequestApiRejectFriendRequest({
+  Future<OperationStatus> crateApiFriendApiRejectFriendRequest({
     required BigInt requestId,
     required PlatformInt64 fromUid,
     String? remark,
@@ -1682,21 +1682,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_operation_status,
           decodeErrorData: sse_decode_String,
         ),
-        constMeta: kCrateApiFriendRequestApiRejectFriendRequestConstMeta,
+        constMeta: kCrateApiFriendApiRejectFriendRequestConstMeta,
         argValues: [requestId, fromUid, remark],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiFriendRequestApiRejectFriendRequestConstMeta =>
+  TaskConstMeta get kCrateApiFriendApiRejectFriendRequestConstMeta =>
       const TaskConstMeta(
         debugName: "reject_friend_request",
         argNames: ["requestId", "fromUid", "remark"],
       );
 
   @override
-  Future<SearchUserResult> crateApiUserApiSearchUser({
+  Future<SearchUserResult> crateApiFriendApiSearchUser({
     required SearchUserQuery query,
   }) {
     return handler.executeNormal(
@@ -1715,14 +1715,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_search_user_result,
           decodeErrorData: sse_decode_String,
         ),
-        constMeta: kCrateApiUserApiSearchUserConstMeta,
+        constMeta: kCrateApiFriendApiSearchUserConstMeta,
         argValues: [query],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiUserApiSearchUserConstMeta =>
+  TaskConstMeta get kCrateApiFriendApiSearchUserConstMeta =>
       const TaskConstMeta(debugName: "search_user", argNames: ["query"]);
 
   @override
@@ -5156,6 +5156,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_String(self.reason, serializer);
     sse_encode_opt_String(self.remark, serializer);
     sse_encode_opt_String(self.nickname, serializer);
+    sse_encode_i_32(self.source, serializer);
   }
 
   @protected

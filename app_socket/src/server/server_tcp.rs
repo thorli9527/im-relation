@@ -491,7 +491,7 @@ fn build_profile_user_patch(user_id: UID) -> UserEntity {
         phone: None,
         language: None,
         country: None,
-        nickname: None,
+        nickname: String::new(),
         avatar: String::new(),
         allow_add_friend: 0,
         gender: 0,

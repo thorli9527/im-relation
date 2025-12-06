@@ -9,7 +9,6 @@ use tonic::{
 
 use chrono::Utc;
 use common::config::AppConfig;
-use common::infra::grpc::grpc_msg_system::msg_system_service::system_msg_service_client::SystemMsgServiceClient;
 use common::infra::grpc::{
     grpc_msg_friend::msg_friend_service as msgpb, message as msg_message, GrpcClientManager,
 };
@@ -18,6 +17,7 @@ use futures::{stream::FuturesUnordered, StreamExt};
 use log::{info, warn};
 use once_cell::sync::OnceCell;
 use std::time::Duration;
+use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 use crate::dao::{
@@ -30,8 +30,15 @@ use crate::dao::{
 };
 use crate::server::Services;
 use common::infra::grpc::grpc_friend::friend_service::{
-    GetFriendsDetailedReq, UpdateFriendBlacklistReq, UpdateFriendNicknameReq, UpdateFriendRemarkReq,
+    AddFriendReq, GetFriendsDetailedReq, UpdateFriendBlacklistReq, UpdateFriendNicknameReq,
+    UpdateFriendRemarkReq,
 };
+use common::infra::grpc::grpc_msg_friend::msg_friend_service::friend_msg_service_server::FriendMsgService;
+use common::infra::grpc::grpc_msg_system::msg_system_service::system_msg_service_client::SystemMsgServiceClient;
+use common::infra::grpc::grpc_user::online_service::{
+    user_rpc_service_client::UserRpcServiceClient, GetUserReq,
+};
+use common::support::util::date_util::now;
 
 fn make_conversation_id(a: i64, b: i64) -> i64 {
     let (min_id, max_id) = if a <= b { (a, b) } else { (b, a) };
@@ -44,6 +51,10 @@ fn make_conversation_id(a: i64, b: i64) -> i64 {
 static SYSTEM_MSG_MANAGER: OnceCell<
     GrpcClientManager<SystemMsgServiceClient<Channel>, TransportError>,
 > = OnceCell::new();
+static USER_RPC_MANAGER: OnceCell<
+    GrpcClientManager<UserRpcServiceClient<Channel>, TransportError>,
+> = OnceCell::new();
+static USER_LANG_CACHE: OnceCell<Mutex<HashMap<i64, (String, i64)>>> = OnceCell::new();
 
 fn system_msg_manager(
 ) -> &'static GrpcClientManager<SystemMsgServiceClient<Channel>, TransportError> {
@@ -52,6 +63,18 @@ fn system_msg_manager(
             SystemMsgServiceClient::connect(endpoint).await
         })
     })
+}
+
+fn user_rpc_manager() -> &'static GrpcClientManager<UserRpcServiceClient<Channel>, TransportError> {
+    USER_RPC_MANAGER.get_or_init(|| {
+        GrpcClientManager::new(|endpoint: String| async move {
+            UserRpcServiceClient::connect(endpoint).await
+        })
+    })
+}
+
+fn user_lang_cache() -> &'static Mutex<HashMap<i64, (String, i64)>> {
+    USER_LANG_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 /// 后台重试好友业务系统通知的简单 worker。
@@ -496,8 +519,324 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
             nickname: row.nickname,
             peer_remark: row.peer_remark,
             peer_nickname: row.peer_nickname,
+            source: row.source,
         };
         Ok(Response::new(resp))
+    }
+
+    async fn submit_friend_request(
+        &self,
+        request: Request<msgpb::AddFriendRequestCommand>,
+    ) -> Result<Response<msgpb::AddFriendRequestResponse>, Status> {
+        let req = request.into_inner();
+        if req.from_uid <= 0 || req.to_uid <= 0 {
+            return Err(Status::invalid_argument("from_uid/to_uid must be positive"));
+        }
+        let ts_ms = Utc::now().timestamp_millis();
+        let req_id = build_snow_id();
+        let remark = req.remark.trim().to_string();
+        let nickname = req.nickname.trim().to_string();
+        let source = msg_message::FriendRequestSource::try_from(req.source)
+            .unwrap_or(msg_message::FriendRequestSource::FrsUnknown);
+
+        let row = FriendRequestRow {
+            id: req_id,
+            from_uid: req.from_uid,
+            to_uid: req.to_uid,
+            reason: req.reason,
+            source: source as i32,
+            remark: remark.clone(),
+            nickname: nickname.clone(),
+            peer_remark: String::new(),
+            peer_nickname: String::new(),
+            created_at: ts_ms,
+            decided_at: None,
+            accepted: None,
+            notified_at: 0,
+            notify_retry: 0,
+        };
+        upsert_friend_request(self.pool(), &row)
+            .await
+            .map_err(|e| Status::internal(format!("persist friend request failed: {e}")))?;
+
+        let payload = msg_message::FriendRequestPayload {
+            request_id: req_id as u64,
+            from_uid: row.from_uid,
+            to_uid: row.to_uid,
+            reason: row.reason.clone(),
+            source: row.source,
+            created_at: row.created_at,
+            remark: row.remark.clone(),
+            nickname: row.nickname.clone(),
+        };
+        let biz = msg_message::FriendBusinessContent {
+            action: Some(msg_message::friend_business_content::Action::Request(
+                payload,
+            )),
+        };
+        match send_friend_business_system_notify(biz, row.from_uid, row.to_uid).await {
+            Ok(_) => {
+                if let Err(err) = mark_friend_request_notified(self.pool(), row.id, ts_ms).await {
+                    warn!(
+                        "submit_friend_request: mark notified failed req_id={} err={}",
+                        row.id, err
+                    );
+                }
+            }
+            Err(err) => {
+                warn!(
+                    "submit_friend_request: send notify failed req_id={} err={}",
+                    row.id, err
+                );
+                let _ = increment_friend_request_notify_retry(self.pool(), row.id).await;
+            }
+        }
+
+        Ok(Response::new(msgpb::AddFriendRequestResponse {
+            request_id: req_id as u64,
+        }))
+    }
+
+    async fn decide_friend_request(
+        &self,
+        request: Request<msgpb::DecideFriendRequestCommand>,
+    ) -> Result<Response<msgpb::DecideFriendRequestResponse>, Status> {
+        let req = request.into_inner();
+        if req.request_id == 0 {
+            return Err(Status::invalid_argument("request_id required"));
+        }
+        let mut friend_client = self
+            .friend_client()
+            .cloned()
+            .ok_or_else(|| Status::failed_precondition("friend_service client unavailable"))?;
+
+        let Some(stored) = get_friend_request_by_id(self.pool(), req.request_id as i64)
+            .await
+            .map_err(|e| Status::internal(format!("fetch friend request failed: {e}")))?
+        else {
+            return Err(Status::not_found("friend request not found"));
+        };
+        if req.approver_uid != 0 && req.approver_uid != stored.to_uid {
+            return Err(Status::permission_denied("approver not match"));
+        }
+        let decided_at = Utc::now().timestamp_millis();
+        let peer_remark = req.remark.trim().to_string();
+        let peer_nickname = req.nickname.trim().to_string();
+
+        mark_friend_request_decision(
+            self.pool(),
+            req.request_id as i64,
+            decided_at,
+            req.accept,
+            stored.remark.clone(),
+            peer_remark.clone(),
+            peer_nickname.clone(),
+        )
+        .await
+        .map_err(|e| Status::internal(format!("update friend request decision failed: {e}")))?;
+
+        if req.accept {
+            let mut req_approver = AddFriendReq {
+                uid: stored.to_uid,
+                friend_id: stored.from_uid,
+                remark: (!peer_remark.is_empty()).then_some(peer_remark.clone()),
+                nickname_for_user: (!peer_nickname.is_empty()).then_some(peer_nickname.clone()),
+                nickname_for_friend: None,
+                source: stored.source,
+            };
+            let mut req_requester = AddFriendReq {
+                uid: stored.from_uid,
+                friend_id: stored.to_uid,
+                remark: (!stored.remark.is_empty()).then_some(stored.remark.clone()),
+                nickname_for_user: (!stored.peer_nickname.is_empty())
+                    .then_some(stored.peer_nickname.clone()),
+                nickname_for_friend: None,
+                source: stored.source,
+            };
+            if let Err(err) = friend_client.add_friend(req_approver).await {
+                warn!(
+                    "decide_friend_request: add_friend approver failed req_id={} err={}",
+                    req.request_id, err
+                );
+            }
+            if let Err(err) = friend_client.add_friend(req_requester).await {
+                warn!(
+                    "decide_friend_request: add_friend requester failed req_id={} err={}",
+                    req.request_id, err
+                );
+            }
+        }
+
+        let biz = msg_message::FriendBusinessContent {
+            action: Some(msg_message::friend_business_content::Action::Decision(
+                msg_message::FriendRequestDecisionPayload {
+                    request_id: req.request_id,
+                    accepted: req.accept,
+                    remark: peer_remark.clone(),
+                    decided_at,
+                    nickname: peer_nickname.clone(),
+                },
+            )),
+        };
+        match send_friend_business_system_notify(biz, stored.to_uid, stored.from_uid).await {
+            Ok(_) => {
+                if let Err(err) =
+                    mark_friend_request_notified(self.pool(), req.request_id as i64, decided_at)
+                        .await
+                {
+                    warn!(
+                        "decide_friend_request: mark notified failed req_id={} err={}",
+                        req.request_id, err
+                    );
+                }
+            }
+            Err(err) => {
+                warn!(
+                    "decide_friend_request: send notify failed req_id={} err={}",
+                    req.request_id, err
+                );
+                let _ =
+                    increment_friend_request_notify_retry(self.pool(), req.request_id as i64).await;
+            }
+        }
+
+        Ok(Response::new(msgpb::DecideFriendRequestResponse {
+            ok: true,
+        }))
+    }
+
+    async fn add_friend_anyone(
+        &self,
+        request: Request<msgpb::AddFriendAnyoneRequest>,
+    ) -> Result<Response<msgpb::AddFriendAnyoneResponse>, Status> {
+        let req = request.into_inner();
+        if req.from_uid <= 0 || req.to_uid <= 0 {
+            return Err(Status::invalid_argument("from_uid/to_uid must be positive"));
+        }
+        let mut friend_client = self
+            .friend_client()
+            .cloned()
+            .ok_or_else(|| Status::failed_precondition("friend_service client unavailable"))?;
+        let ts_ms = Utc::now().timestamp_millis();
+        let req_id = build_snow_id();
+        let remark = req.remark.trim().to_string();
+        let nickname = req.nickname.trim().to_string();
+        let source = msg_message::FriendRequestSource::try_from(req.source)
+            .unwrap_or(msg_message::FriendRequestSource::FrsUnknown);
+
+        let row = FriendRequestRow {
+            id: req_id,
+            from_uid: req.from_uid,
+            to_uid: req.to_uid,
+            reason: req.reason,
+            source: source as i32,
+            remark: remark.clone(),
+            nickname: nickname.clone(),
+            peer_remark: String::new(),
+            peer_nickname: String::new(),
+            created_at: ts_ms,
+            decided_at: Some(ts_ms),
+            accepted: Some(true),
+            notified_at: 0,
+            notify_retry: 0,
+        };
+        upsert_friend_request(self.pool(), &row)
+            .await
+            .map_err(|e| Status::internal(format!("persist friend request failed: {e}")))?;
+
+        // 下发请求通知（用于记录/展示）
+        let request_payload = msg_message::FriendRequestPayload {
+            request_id: req_id as u64,
+            from_uid: row.from_uid,
+            to_uid: row.to_uid,
+            reason: row.reason.clone(),
+            source: row.source,
+            created_at: row.created_at,
+            remark: row.remark.clone(),
+            nickname: row.nickname.clone(),
+        };
+        let request_biz = msg_message::FriendBusinessContent {
+            action: Some(msg_message::friend_business_content::Action::Request(
+                request_payload,
+            )),
+        };
+        let mut notify_ok = true;
+        if let Err(err) =
+            send_friend_business_system_notify(request_biz, row.from_uid, row.to_uid).await
+        {
+            warn!(
+                "add_friend_anyone: send request notify failed req_id={} err={}",
+                row.id, err
+            );
+            notify_ok = false;
+        }
+
+        // 下发自动通过的决策通知。
+        let decision_biz = msg_message::FriendBusinessContent {
+            action: Some(msg_message::friend_business_content::Action::Decision(
+                msg_message::FriendRequestDecisionPayload {
+                    request_id: req_id as u64,
+                    accepted: true,
+                    remark: String::new(),
+                    decided_at: ts_ms,
+                    nickname: String::new(),
+                },
+            )),
+        };
+        if let Err(err) =
+            send_friend_business_system_notify(decision_biz, row.to_uid, row.from_uid).await
+        {
+            warn!(
+                "add_friend_anyone: send decision notify failed req_id={} err={}",
+                row.id, err
+            );
+            notify_ok = false;
+        }
+
+        // 落好友关系（双向）
+        let remark_for_target = (!remark.is_empty()).then_some(remark.clone());
+        let nickname_for_target = (!nickname.is_empty()).then_some(nickname.clone());
+        let req_target = AddFriendReq {
+            uid: row.to_uid,
+            friend_id: row.from_uid,
+            remark: remark_for_target.clone(),
+            nickname_for_user: nickname_for_target.clone(),
+            nickname_for_friend: None,
+            source: row.source,
+        };
+        friend_client
+            .add_friend(req_target)
+            .await
+            .map_err(|e| Status::internal(format!("add_friend target failed: {e}")))?;
+
+        let req_requester = AddFriendReq {
+            uid: row.from_uid,
+            friend_id: row.to_uid,
+            remark: None,
+            nickname_for_user: None,
+            nickname_for_friend: None,
+            source: row.source,
+        };
+        friend_client
+            .add_friend(req_requester)
+            .await
+            .map_err(|e| Status::internal(format!("add_friend requester failed: {e}")))?;
+
+        if notify_ok {
+            if let Err(err) = mark_friend_request_notified(self.pool(), row.id, ts_ms).await {
+                warn!(
+                    "add_friend_anyone: mark notified failed req_id={} err={}",
+                    row.id, err
+                );
+            }
+        } else if let Err(err) = increment_friend_request_notify_retry(self.pool(), row.id).await {
+            warn!(
+                "add_friend_anyone: mark notify retry failed req_id={} err={}",
+                row.id, err
+            );
+        }
+
+        Ok(Response::new(msgpb::AddFriendAnyoneResponse { ok: true }))
     }
 }
 
@@ -785,6 +1124,98 @@ async fn process_friend_business(
             .await
             .map_err(|e| Status::internal(format!("update friend request decision failed: {e}")))?;
 
+            if payload.accepted {
+                if let Some(friend_client) = svc.friend_client() {
+                    let mut friend_client = friend_client.clone();
+                    let (
+                        from_uid,
+                        to_uid,
+                        source_val,
+                        req_remark,
+                        req_nick,
+                        req_peer_remark,
+                        req_peer_nick,
+                    ) = if let Some(r) = stored.as_ref() {
+                        (
+                            r.from_uid,
+                            r.to_uid,
+                            r.source,
+                            r.remark.clone(),
+                            r.nickname.clone(),
+                            r.peer_remark.clone(),
+                            r.peer_nickname.clone(),
+                        )
+                    } else {
+                        (
+                            0,
+                            0,
+                            0,
+                            String::new(),
+                            String::new(),
+                            String::new(),
+                            String::new(),
+                        )
+                    };
+                    let peer_remark = if !payload.remark.trim().is_empty() {
+                        payload.remark.clone()
+                    } else {
+                        req_peer_remark.clone()
+                    };
+                    let approver_nick = if !payload.nickname.trim().is_empty() {
+                        payload.nickname.clone()
+                    } else {
+                        req_nick.clone()
+                    };
+                    let requester_remark = req_remark;
+                    let requester_nick = req_peer_nick;
+
+                    let mut req_approver = AddFriendReq {
+                        uid: to_uid,
+                        friend_id: from_uid,
+                        remark: None,
+                        nickname_for_user: None,
+                        nickname_for_friend: None,
+                        source: source_val,
+                    };
+                    req_approver.remark =
+                        (!peer_remark.trim().is_empty()).then_some(peer_remark.clone());
+                    req_approver.nickname_for_user =
+                        (!approver_nick.trim().is_empty()).then_some(approver_nick.clone());
+
+                    let mut req_requester = AddFriendReq {
+                        uid: from_uid,
+                        friend_id: to_uid,
+                        remark: None,
+                        nickname_for_user: None,
+                        nickname_for_friend: None,
+                        source: source_val,
+                    };
+                    req_requester.remark =
+                        (!requester_remark.trim().is_empty()).then_some(requester_remark.clone());
+                    req_requester.nickname_for_user =
+                        (!requester_nick.trim().is_empty()).then_some(requester_nick.clone());
+
+                    if req_approver.uid > 0 && req_approver.friend_id > 0 {
+                        if let Err(err) = friend_client.add_friend(req_approver).await {
+                            warn!(
+                                "friend_business: add_friend approver failed req_id={} err={}",
+                                payload.request_id, err
+                            );
+                        }
+                    }
+                    if req_requester.uid > 0 && req_requester.friend_id > 0 {
+                        if let Err(err) = friend_client.add_friend(req_requester).await {
+                            warn!(
+                                "friend_business: add_friend requester failed req_id={} err={}",
+                                payload.request_id, err
+                            );
+                        }
+                    }
+                } else {
+                    warn!("friend_business: friend_client unavailable, skip relation add");
+                }
+            }
+
             let notify = msg_message::FriendBusinessContent {
                 action: Some(Action::Decision(payload.clone())),
             };
@@ -829,6 +1260,18 @@ async fn process_friend_business(
                     }
                 }
             }
+
+            // 受理通过后补发欢迎文本（各自根据语言生成）。
+            if payload.accepted {
+                if let Err(err) =
+                    send_default_welcome_pair(svc, domain.sender_id, domain.receiver_id).await
+                {
+                    warn!(
+                        "friend_business: send welcome text failed sender={} receiver={} err={}",
+                        domain.sender_id, domain.receiver_id, err
+                    );
+                }
+            }
         }
         _ => {
             warn!("friend_business: unknown action");
@@ -836,6 +1279,142 @@ async fn process_friend_business(
     }
 
     Ok(())
+}
+
+async fn send_friend_text_message(
+    svc: &Services,
+    sender: i64,
+    receiver: i64,
+    text: &str,
+) -> Result<(), Status> {
+    if text.is_empty() {
+        return Ok(());
+    }
+    let ts = now();
+    let content = msg_message::MessageContent {
+        content: Some(msg_message::message_content::Content::Text(
+            msg_message::TextContent {
+                text: text.to_string(),
+                ..Default::default()
+            },
+        )),
+    };
+    let domain = msg_message::DomainMessage {
+        message_id: Some(build_snow_id() as u64),
+        sender_id: sender,
+        receiver_id: receiver,
+        timestamp: ts,
+        ts_ms: ts,
+        delivery: Some(msg_message::DeliveryOptions {
+            require_ack: false,
+            expire_ms: None,
+            max_retry: None,
+        }),
+        scene: msg_message::ChatScene::Single as i32,
+        category: msg_message::MsgCategory::Friend as i32,
+        contents: vec![content],
+        friend_business: None,
+        group_business: None,
+        system_business: None,
+    };
+    svc.handle_friend_message(Request::new(domain))
+        .await
+        .map(|_| ())
+        .map_err(|e| Status::internal(format!("send friend text failed: {e}")))
+}
+
+async fn send_default_welcome_pair(
+    svc: &Services,
+    sender: i64,
+    receiver: i64,
+) -> Result<(), String> {
+    if sender <= 0 || receiver <= 0 {
+        return Ok(());
+    }
+    let sender_lang = fetch_user_language(sender).await;
+    let receiver_lang = fetch_user_language(receiver).await;
+    let text_for_receiver = friend_welcome_text(receiver_lang.as_deref());
+    let text_for_sender = friend_welcome_text(sender_lang.as_deref());
+
+    send_friend_text_message(svc, sender, receiver, text_for_receiver)
+        .await
+        .map_err(|e| e.to_string())?;
+    send_friend_text_message(svc, receiver, sender, text_for_sender)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+async fn fetch_user_language(uid: i64) -> Option<String> {
+    let cfg = AppConfig::get();
+    let now_ms = Utc::now().timestamp_millis();
+    let ttl_ms: i64 = 5 * 60 * 1000;
+    {
+        let cache = user_lang_cache().lock().await;
+        if let Some((lang, ts)) = cache.get(&uid) {
+            if now_ms - *ts < ttl_ms {
+                return Some(lang.clone());
+            }
+        }
+    }
+
+    let endpoint = match cfg
+        .user_service_endpoints()
+        .iter()
+        .filter_map(|e| e.resolved_url())
+        .next()
+    {
+        Some(ep) => ep,
+        None => {
+            warn!("user_service endpoint not configured; fallback to default language");
+            return None;
+        }
+    };
+    let endpoint = if endpoint.starts_with("http://") || endpoint.starts_with("https://") {
+        endpoint
+    } else {
+        format!("http://{}", endpoint)
+    };
+    let client = match user_rpc_manager().get(&endpoint).await {
+        Ok(c) => c,
+        Err(err) => {
+            warn!("user_service client unavailable: {err}");
+            return None;
+        }
+    };
+    let mut client = client.as_ref().clone();
+    match client
+        .find_user_by_id(Request::new(GetUserReq { id: uid }))
+        .await
+    {
+        Ok(resp) => {
+            let lang = resp.into_inner().language.unwrap_or_default();
+            {
+                let mut cache = user_lang_cache().lock().await;
+                cache.insert(uid, (lang.clone(), now_ms));
+            }
+            if lang.is_empty() {
+                None
+            } else {
+                Some(lang)
+            }
+        }
+        Err(err) => {
+            warn!(
+                "user_service find_user_by_id failed uid={} err={}",
+                uid, err
+            );
+            None
+        }
+    }
+}
+
+fn friend_welcome_text(lang: Option<&str>) -> &'static str {
+    match lang.map(|s| s.to_lowercase()) {
+        Some(ref l) if l.starts_with("zh") => "我们已经是好友了",
+        Some(ref l) if l.starts_with("ja") => "私たちはすでに友達です",
+        _ => "We are now friends",
+    }
 }
 
 fn parse_metadata_flag(metadata: &HashMap<String, String>, key: &str) -> Option<bool> {
@@ -869,13 +1448,11 @@ async fn retry_friend_business_notifications(services: &Services) -> Result<(), 
                 accepted,
                 remark: row.peer_remark.clone(),
                 decided_at,
-                send_default_message: false,
-                default_message: String::new(),
                 nickname: row.peer_nickname.clone(),
             };
             msg_message::friend_business_content::Action::Decision(payload)
         } else {
-            let source = msg_message::FriendRequestSource::from_i32(row.source)
+            let source = msg_message::FriendRequestSource::try_from(row.source)
                 .unwrap_or(msg_message::FriendRequestSource::FrsUnknown);
             let payload = msg_message::FriendRequestPayload {
                 request_id: row.id as u64,

@@ -8,6 +8,7 @@ import '../frb_generated.dart';
 import 'app_api_types.dart';
 import 'frb_types.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+import 'user_api_types.dart';
 
 // These functions are ignored because they are not marked as `pub`: `current_millis`, `decide_friend_request`
 
@@ -15,7 +16,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 Future<FriendRequestPageResult> getFriendRequestPage({
   required int page,
   required int pageSize,
-}) => RustLib.instance.api.crateApiFriendRequestApiGetFriendRequestPage(
+}) => RustLib.instance.api.crateApiFriendApiGetFriendRequestPage(
   page: page,
   pageSize: pageSize,
 );
@@ -26,7 +27,7 @@ Future<OperationStatus> acceptFriendRequest({
   required PlatformInt64 fromUid,
   String? remark,
   String? nickname,
-}) => RustLib.instance.api.crateApiFriendRequestApiAcceptFriendRequest(
+}) => RustLib.instance.api.crateApiFriendApiAcceptFriendRequest(
   requestId: requestId,
   fromUid: fromUid,
   remark: remark,
@@ -38,8 +39,17 @@ Future<OperationStatus> rejectFriendRequest({
   required BigInt requestId,
   required PlatformInt64 fromUid,
   String? remark,
-}) => RustLib.instance.api.crateApiFriendRequestApiRejectFriendRequest(
+}) => RustLib.instance.api.crateApiFriendApiRejectFriendRequest(
   requestId: requestId,
   fromUid: fromUid,
   remark: remark,
 );
+
+Future<FriendListResult> getFriendList({required FriendListQuery query}) =>
+    RustLib.instance.api.crateApiFriendApiGetFriendList(query: query);
+
+Future<SearchUserResult> searchUser({required SearchUserQuery query}) =>
+    RustLib.instance.api.crateApiFriendApiSearchUser(query: query);
+
+Future<AddFriendResult> addFriend({required AddFriendPayload payload}) =>
+    RustLib.instance.api.crateApiFriendApiAddFriend(payload: payload);

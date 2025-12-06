@@ -166,6 +166,49 @@ message GetFriendRequestResponse {
   string nickname = 5;
   string peer_remark = 6;
   string peer_nickname = 7;
+  // 来源枚举，兼容老版本缺省值
+  int32 source = 8;
+}
+
+// 直接接受好友（允许任何人添加）专用：创建申请并立即决策为通过。
+message AddFriendAnyoneRequest {
+  int64 from_uid = 1;
+  int64 to_uid = 2;
+  string reason = 3;
+  string remark = 4;
+  string nickname = 5;
+  int32 source = 6;
+}
+
+message AddFriendAnyoneResponse {
+  bool ok = 1;
+}
+
+// 创建好友申请。
+message AddFriendRequestCommand {
+  int64 from_uid = 1;
+  int64 to_uid = 2;
+  string reason = 3;
+  string remark = 4;
+  string nickname = 5;
+  int32 source = 6;
+}
+
+message AddFriendRequestResponse {
+  uint64 request_id = 1;
+}
+
+// 审批好友申请。
+message DecideFriendRequestCommand {
+  uint64 request_id = 1;
+  int64 approver_uid = 2;
+  bool accept = 3;
+  string remark = 4;
+  string nickname = 5;
+}
+
+message DecideFriendRequestResponse {
+  bool ok = 1;
 }
 
 // 好友消息服务（非群聊）
@@ -186,4 +229,10 @@ service FriendMsgService {
   rpc BroadcastProfileUpdates(BroadcastProfileUpdatesReq) returns (google.protobuf.Empty);
   // 查询好友申请详情
   rpc GetFriendRequest(GetFriendRequestRequest) returns (GetFriendRequestResponse);
+  // 允许任何人添加：创建申请并立即决策为通过（落库并推送业务通知）。
+  rpc AddFriendAnyone(AddFriendAnyoneRequest) returns (AddFriendAnyoneResponse);
+  // 创建好友申请。
+  rpc SubmitFriendRequest(AddFriendRequestCommand) returns (AddFriendRequestResponse);
+  // 审批好友申请。
+  rpc DecideFriendRequest(DecideFriendRequestCommand) returns (DecideFriendRequestResponse);
 }

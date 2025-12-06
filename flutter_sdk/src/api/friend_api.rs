@@ -2,7 +2,11 @@ use flutter_rust_bridge::frb;
 
 use crate::{
     api::FriendRequestPageResult,
-    api::app_api_types::{FriendRequestDecisionRequest, OperationStatus},
+    api::app_api_types::{
+        AddFriendRequest, AddFriendResult, FriendListQuery, FriendListResult,
+        FriendRequestDecisionRequest, OperationStatus, SearchUserQuery, SearchUserResult,
+    },
+    api::user_api_types::AddFriendPayload,
     api::utils::post_request,
     generated::message::FriendRequestDecisionPayload,
     service::{
@@ -87,6 +91,54 @@ fn decide_friend_request(
     // 同步标记 socket 连接成功，避免等待心跳。
     let _ = SocketClient::get().status();
     Ok(resp)
+}
+
+#[frb]
+pub fn get_friend_list(query: FriendListQuery) -> Result<FriendListResult, String> {
+    let token = if query.session_token.trim().is_empty() {
+        UserService::get()
+            .latest_user()?
+            .and_then(|u| u.session_token)
+            .filter(|t| !t.trim().is_empty())
+            .ok_or_else(|| "missing session_token".to_string())?
+    } else {
+        query.session_token
+    };
+    let params = FriendListQuery {
+        session_token: token,
+        page: query.page,
+        page_size: query.page_size,
+    };
+    post_request("/friends", &params)
+}
+
+#[frb]
+pub fn search_user(query: SearchUserQuery) -> Result<SearchUserResult, String> {
+    post_request("/users/search", &query)
+}
+
+#[frb]
+pub fn add_friend(payload: AddFriendPayload) -> Result<AddFriendResult, String> {
+    let user = UserService::get()
+        .latest_user()?
+        .ok_or_else(|| "no cached user".to_string())?;
+    if payload.target_uid == user.uid {
+        return Err("cannot add yourself as friend".to_string());
+    }
+    let token = user
+        .session_token
+        .as_ref()
+        .filter(|token| !token.trim().is_empty())
+        .ok_or_else(|| "missing session_token".to_string())?;
+    let request = AddFriendRequest {
+        session_token: token.clone(),
+        target_uid: payload.target_uid,
+        reason: payload.reason,
+        remark: payload.remark,
+        nickname: payload.nickname,
+        source: payload.source,
+    };
+    post_request("/friends/add", &request)
 }
 
 fn current_millis() -> i64 {

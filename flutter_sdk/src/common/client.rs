@@ -131,11 +131,12 @@ impl AppApiHttpClient {
     where
         TResp: DeserializeOwned,
     {
+        let req_headers = request.headers().clone();
         let response = self
             .client
             .execute(request)
             .map_err(|err| map_reqwest_error(err, method, url))?;
-        parse_api_response(response, method, url)
+        parse_api_response(response, method, url, req_headers)
     }
 }
 
@@ -143,6 +144,7 @@ fn parse_api_response<T: DeserializeOwned>(
     resp: Response,
     method: &str,
     url: &str,
+    req_headers: reqwest::header::HeaderMap,
 ) -> Result<T, ApiError> {
     let status = resp.status();
     let headers = resp.headers().clone();
@@ -155,8 +157,8 @@ fn parse_api_response<T: DeserializeOwned>(
     );
     if !status.is_success() {
         let err_msg = format!(
-            "http {} {} failed with status={} body={}",
-            method, url, status, body
+            "http {} {} failed with status={} body={} req_headers={:?}",
+            method, url, status, body, req_headers
         );
         error!("{err_msg}");
         return Err(ApiError::http_status(status.as_u16(), err_msg));
@@ -166,8 +168,8 @@ fn parse_api_response<T: DeserializeOwned>(
     })?;
     if api_response.code != 0 {
         let err_msg = format!(
-            "http {} {} responded failure code={} message=\"{}\" status={} body={}",
-            method, url, api_response.code, api_response.message, status, body
+            "http {} {} responded failure code={} message=\"{}\" status={} body={} req_headers={:?}",
+            method, url, api_response.code, api_response.message, status, body, req_headers
         );
         error!("{err_msg}");
         return Err(ApiError::backend(

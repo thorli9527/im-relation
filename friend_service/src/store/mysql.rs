@@ -161,6 +161,7 @@ impl FriendRepo for FriendStorage {
         nickname_for_b: Option<&str>,
         remark_for_a: Option<&str>,
         remark_for_b: Option<&str>,
+        apply_source: i32,
     ) -> Result<()> {
         let mut tx = self
             .db()
@@ -465,8 +466,9 @@ impl FriendRepo for FriendStorage {
             .with_context(|| "upsert_bulk: begin tx")?;
 
         for chunk in items.chunks(self.chunk) {
-            let mut qb: QueryBuilder<MySql> =
-                QueryBuilder::new("INSERT INTO friend_edge (uid, friend_id, nickname, apply_source, remark) ");
+            let mut qb: QueryBuilder<MySql> = QueryBuilder::new(
+                "INSERT INTO friend_edge (uid, friend_id, nickname, apply_source, remark) ",
+            );
             qb.push_values(chunk, |mut b, (fid, nickname)| {
                 b.push_bind(user as u64)
                     .push_bind(*fid as u64)

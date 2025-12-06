@@ -1,5 +1,6 @@
 use anyhow::Result;
 use sqlx::{MySql, Pool, Row};
+use std::convert::TryFrom;
 
 /// 加群申请状态。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -10,15 +11,19 @@ pub enum JoinRequestStatus {
     Cancelled = 3,
 }
 
-impl JoinRequestStatus {
+impl TryFrom<i32> for JoinRequestStatus {
+    type Error = ();
+
     /// 将数据库中的整型状态转换为枚举。
-    pub fn from_i32(v: i32) -> Self {
-        match v {
+    fn try_from(v: i32) -> Result<Self, Self::Error> {
+        let status = match v {
             1 => Self::Approved,
             2 => Self::Rejected,
             3 => Self::Cancelled,
-            _ => Self::Pending,
-        }
+            0 => Self::Pending,
+            _ => return Err(()),
+        };
+        Ok(status)
     }
 }
 
@@ -61,9 +66,10 @@ impl GroupJoinRequestRow {
                 .try_get::<Option<String>, _>("inviter_join_source")
                 .unwrap_or(None),
             join_time_ms: row.try_get::<i64, _>("join_time_ms").unwrap_or_default(),
-            status: JoinRequestStatus::from_i32(
+            status: JoinRequestStatus::try_from(
                 row.try_get::<i32, _>("status").unwrap_or_default(),
-            ),
+            )
+            .unwrap_or(JoinRequestStatus::Pending),
             remark: row.try_get::<Option<String>, _>("remark").unwrap_or(None),
             decided_by: row.try_get::<Option<i64>, _>("decided_by").unwrap_or(None),
             decided_at: row.try_get::<Option<i64>, _>("decided_at").unwrap_or(None),

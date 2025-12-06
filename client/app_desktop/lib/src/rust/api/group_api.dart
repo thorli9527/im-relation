@@ -12,7 +12,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 Future<GroupRequestPageResult> getGroupRequestPage({
   required int page,
   required int pageSize,
-}) => RustLib.instance.api.crateApiGroupRequestApiGetGroupRequestPage(
+}) => RustLib.instance.api.crateApiGroupApiGetGroupRequestPage(
   page: page,
   pageSize: pageSize,
 );

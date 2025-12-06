@@ -49,8 +49,7 @@ fn row_to_entity(r: &MySqlRow) -> Result<UserEntity> {
 
     let language: Option<String> = r.try_get("language").ok();
     let country: Option<String> = r.try_get("country").ok();
-    let nickname: Option<String> = r.try_get("nickname").ok();
-    let country: Option<String> = r.try_get("country").ok();
+    let nickname: String = r.try_get("nickname").unwrap_or_default();
     let avatar: String = r.try_get("avatar").context("missing 'avatar'")?;
 
     // TINYINT/SMALLINT 兼容为 i32

@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1453777679;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -670548756;
 
 // Section: executor
 
@@ -47,7 +47,7 @@ flutter_rust_bridge::frb_generated_default_handler!();
 
 // Section: wire_funcs
 
-fn wire__crate__api__friend_request_api__accept_friend_request_impl(
+fn wire__crate__api__friend_api__accept_friend_request_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -76,7 +76,7 @@ fn wire__crate__api__friend_request_api__accept_friend_request_impl(
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::friend_request_api::accept_friend_request(
+                    let output_ok = crate::api::friend_api::accept_friend_request(
                         api_request_id,
                         api_from_uid,
                         api_remark,
@@ -88,7 +88,7 @@ fn wire__crate__api__friend_request_api__accept_friend_request_impl(
         },
     )
 }
-fn wire__crate__api__user_api__add_friend_impl(
+fn wire__crate__api__friend_api__add_friend_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -115,7 +115,7 @@ fn wire__crate__api__user_api__add_friend_impl(
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::user_api::add_friend(api_payload)?;
+                    let output_ok = crate::api::friend_api::add_friend(api_payload)?;
                     Ok(output_ok)
                 })())
             }
@@ -623,7 +623,7 @@ fn wire__crate__api__config_api__get_device_id_impl(
         },
     )
 }
-fn wire__crate__api__user_api__get_friend_list_impl(
+fn wire__crate__api__friend_api__get_friend_list_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -650,7 +650,7 @@ fn wire__crate__api__user_api__get_friend_list_impl(
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::user_api::get_friend_list(api_query)?;
+                    let output_ok = crate::api::friend_api::get_friend_list(api_query)?;
                     Ok(output_ok)
                 })())
             }
@@ -691,7 +691,7 @@ fn wire__crate__api__chat_api__get_friend_page_impl(
         },
     )
 }
-fn wire__crate__api__friend_request_api__get_friend_request_page_impl(
+fn wire__crate__api__friend_api__get_friend_request_page_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -718,10 +718,8 @@ fn wire__crate__api__friend_request_api__get_friend_request_page_impl(
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::friend_request_api::get_friend_request_page(
-                        api_page,
-                        api_page_size,
-                    )?;
+                    let output_ok =
+                        crate::api::friend_api::get_friend_request_page(api_page, api_page_size)?;
                     Ok(output_ok)
                 })())
             }
@@ -830,7 +828,7 @@ fn wire__crate__api__chat_api__get_group_page_impl(
         },
     )
 }
-fn wire__crate__api__group_request_api__get_group_request_page_impl(
+fn wire__crate__api__group_api__get_group_request_page_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -857,10 +855,8 @@ fn wire__crate__api__group_request_api__get_group_request_page_impl(
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::group_request_api::get_group_request_page(
-                        api_page,
-                        api_page_size,
-                    )?;
+                    let output_ok =
+                        crate::api::group_api::get_group_request_page(api_page, api_page_size)?;
                     Ok(output_ok)
                 })())
             }
@@ -1483,7 +1479,7 @@ fn wire__crate__api__user_api__refresh_group_members_impl(
         },
     )
 }
-fn wire__crate__api__friend_request_api__reject_friend_request_impl(
+fn wire__crate__api__friend_api__reject_friend_request_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -1511,7 +1507,7 @@ fn wire__crate__api__friend_request_api__reject_friend_request_impl(
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::friend_request_api::reject_friend_request(
+                    let output_ok = crate::api::friend_api::reject_friend_request(
                         api_request_id,
                         api_from_uid,
                         api_remark,
@@ -1522,7 +1518,7 @@ fn wire__crate__api__friend_request_api__reject_friend_request_impl(
         },
     )
 }
-fn wire__crate__api__user_api__search_user_impl(
+fn wire__crate__api__friend_api__search_user_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -1549,7 +1545,7 @@ fn wire__crate__api__user_api__search_user_impl(
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::user_api::search_user(api_query)?;
+                    let output_ok = crate::api::friend_api::search_user(api_query)?;
                     Ok(output_ok)
                 })())
             }
@@ -2138,11 +2134,13 @@ impl SseDecode for crate::api::user_api_types::AddFriendPayload {
         let mut var_reason = <Option<String>>::sse_decode(deserializer);
         let mut var_remark = <Option<String>>::sse_decode(deserializer);
         let mut var_nickname = <Option<String>>::sse_decode(deserializer);
+        let mut var_source = <i32>::sse_decode(deserializer);
         return crate::api::user_api_types::AddFriendPayload {
             target_uid: var_targetUid,
             reason: var_reason,
             remark: var_remark,
             nickname: var_nickname,
+            source: var_source,
         };
     }
 }
@@ -3464,13 +3462,13 @@ fn pde_ffi_dispatcher_primary_impl(
 ) {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        1 => wire__crate__api__friend_request_api__accept_friend_request_impl(
+        1 => wire__crate__api__friend_api__accept_friend_request_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        2 => wire__crate__api__user_api__add_friend_impl(port, ptr, rust_vec_len, data_len),
+        2 => wire__crate__api__friend_api__add_friend_impl(port, ptr, rust_vec_len, data_len),
         3 => wire__crate__api__errors__api_error_from_serialized_impl(
             port,
             ptr,
@@ -3515,9 +3513,9 @@ fn pde_ffi_dispatcher_primary_impl(
             data_len,
         ),
         17 => wire__crate__api__config_api__get_device_id_impl(port, ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__user_api__get_friend_list_impl(port, ptr, rust_vec_len, data_len),
+        18 => wire__crate__api__friend_api__get_friend_list_impl(port, ptr, rust_vec_len, data_len),
         19 => wire__crate__api__chat_api__get_friend_page_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__friend_request_api__get_friend_request_page_impl(
+        20 => wire__crate__api__friend_api__get_friend_request_page_impl(
             port,
             ptr,
             rust_vec_len,
@@ -3531,7 +3529,7 @@ fn pde_ffi_dispatcher_primary_impl(
         ),
         22 => wire__crate__api__user_api__get_group_members_impl(port, ptr, rust_vec_len, data_len),
         23 => wire__crate__api__chat_api__get_group_page_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__group_request_api__get_group_request_page_impl(
+        24 => wire__crate__api__group_api__get_group_request_page_impl(
             port,
             ptr,
             rust_vec_len,
@@ -3597,13 +3595,13 @@ fn pde_ffi_dispatcher_primary_impl(
             rust_vec_len,
             data_len,
         ),
-        43 => wire__crate__api__friend_request_api__reject_friend_request_impl(
+        43 => wire__crate__api__friend_api__reject_friend_request_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        44 => wire__crate__api__user_api__search_user_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__friend_api__search_user_impl(port, ptr, rust_vec_len, data_len),
         45 => wire__crate__api__config_api__set_app_api_base_url_impl(
             port,
             ptr,
@@ -3708,6 +3706,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::user_api_types::AddFriendPayl
             self.reason.into_into_dart().into_dart(),
             self.remark.into_into_dart().into_dart(),
             self.nickname.into_into_dart().into_dart(),
+            self.source.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -5103,6 +5102,7 @@ impl SseEncode for crate::api::user_api_types::AddFriendPayload {
         <Option<String>>::sse_encode(self.reason, serializer);
         <Option<String>>::sse_encode(self.remark, serializer);
         <Option<String>>::sse_encode(self.nickname, serializer);
+        <i32>::sse_encode(self.source, serializer);
     }
 }
 

@@ -243,7 +243,7 @@ message UserEntity {
   optional string phone = 5;
   optional string language = 6;
   optional string country = 16;
-  optional string nickname = 17;
+  string nickname = 17;
   string avatar = 7;
   AddFriendPolicy allow_add_friend = 8;
   Gender gender = 9;

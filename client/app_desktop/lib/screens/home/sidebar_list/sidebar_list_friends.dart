@@ -3,11 +3,9 @@ import 'dart:async';
 import 'package:app_desktop/app_state.dart';
 import 'package:app_desktop/l10n/app_localizations.dart';
 import 'package:app_desktop/src/rust/api/chat_api.dart' as chat_api;
-import 'package:app_desktop/src/rust/api/friend_request_api.dart'
-    as friend_request_api;
+import 'package:app_desktop/src/rust/api/friend_api.dart' as friend_api;
 import 'package:app_desktop/src/rust/api/socket_api.dart' as socket_api;
 import 'package:app_desktop/src/rust/api/socket_api.dart' show FriendRequestEvent;
-import 'package:app_desktop/src/rust/api/user_api.dart' as user_api;
 import 'package:app_desktop/src/rust/api/app_api_types.dart';
 import 'package:app_desktop/src/rust/api/user_api_types.dart';
 import 'package:app_desktop/src/rust/domain/friend_entity.dart';
@@ -118,7 +116,7 @@ class _SidebarListFriendsState extends ConsumerState<SidebarListFriends> {
   Future<void> _loadFriendRequests() async {
     try {
       final page =
-          await friend_request_api.getFriendRequestPage(page: 1, pageSize: 200);
+          await friend_api.getFriendRequestPage(page: 1, pageSize: 200);
       final mapped = page.items.map(_toFriendRequest).toList();
       if (mapped.isNotEmpty) {
         ref.read(friendRequestsProvider.notifier).setRequests(mapped);
@@ -237,7 +235,7 @@ class _SidebarListFriendsState extends ConsumerState<SidebarListFriends> {
                 return;
               }
               try {
-                final res = await user_api.searchUser(
+                final res = await friend_api.searchUser(
                   query: SearchUserQuery(query: input),
                 );
                 if (res.user == null) {
@@ -347,7 +345,7 @@ class _SidebarListFriendsState extends ConsumerState<SidebarListFriends> {
                                       dialogError = null;
                                     });
                                     try {
-                                      final res = await user_api.addFriend(
+                                      final res = await friend_api.addFriend(
                                         payload: AddFriendPayload(
                                           targetUid: user.uid,
                                           reason: remarkCtrl.text.isNotEmpty
@@ -360,6 +358,8 @@ class _SidebarListFriendsState extends ConsumerState<SidebarListFriends> {
                                             preferredNickname,
                                             user,
                                           ),
+                                          // 添加好友来源：用户ID添加
+                                          source: 3,
                                         ),
                                       );
                                       Navigator.of(dialogCtx).pop();

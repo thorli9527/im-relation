@@ -86,7 +86,14 @@ pub async fn get_group_members(
         let nickname = member
             .nickname
             .and_then(normalize_optional_string)
-            .unwrap_or_else(|| user.nickname.clone().unwrap_or(user.name.clone()));
+            .unwrap_or_else(|| {
+                let nick = user.nickname.clone();
+                if nick.is_empty() {
+                    user.name.clone()
+                } else {
+                    nick
+                }
+            });
 
         let summary = GroupMemberResult {
             group_id: path.group_id,
@@ -160,7 +167,14 @@ pub async fn get_group_member_detail(
         nickname: member
             .nickname
             .and_then(normalize_optional_string)
-            .unwrap_or_else(|| user.nickname.clone().unwrap_or(user.name.clone())),
+            .unwrap_or_else(|| {
+                let nick = user.nickname.clone();
+                if nick.is_empty() {
+                    user.name.clone()
+                } else {
+                    nick
+                }
+            }),
         avatar: user.avatar,
         role: member.role,
     };

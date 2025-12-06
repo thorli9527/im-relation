@@ -91,7 +91,6 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
                 fid,
                 nickname_for_user.as_deref(),
                 nickname_for_friend.as_deref(),
-                remark_clean.as_deref(),
                 remark_for_user,
                 remark_for_friend,
                 req.source,
@@ -111,9 +110,9 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
                     remark_for_friend,
                     &msg,
                 )
-            .await
-            {
-                eprintln!("friend add compensation enqueue failed: {}", job_err);
+                .await
+                {
+                    eprintln!("friend add compensation enqueue failed: {}", job_err);
                 }
                 Err(internal_error(format!("add_friend/write: {msg}")))
             }

@@ -224,8 +224,8 @@ message FriendRequestDecisionPayload {
   bool accepted = 2;
   string remark = 3;
   int64 decided_at = 4;
-  bool send_default_message = 5;
-  string default_message = 6;
+  reserved 5;
+  reserved 6;
   // 审批人希望展示给申请人的昵称/称呼
   string nickname = 7;
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
 echo "Compiling Rust workspace (release build)..."
@@ -15,7 +15,7 @@ services=(
   msg_group
   msg_system
   app_socket
-  app_api
+ # app_api
 )
 
 mkdir -p logs

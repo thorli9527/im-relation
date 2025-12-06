@@ -8,9 +8,7 @@ import 'package:app_desktop/screens/home/chat_pane/header.dart';
 import 'package:app_desktop/screens/home/chat_pane/messages.dart';
 import 'package:app_desktop/screens/home/chat_pane/input_bar.dart';
 import 'package:app_desktop/src/rust/api/app_api_types.dart' show SearchUserQuery;
-import 'package:app_desktop/src/rust/api/friend_request_api.dart'
-    as friend_request_api;
-import 'package:app_desktop/src/rust/api/user_api.dart' as user_api;
+import 'package:app_desktop/src/rust/api/friend_api.dart' as friend_api;
 import 'package:app_desktop/theme/palette.dart';
 
 class ChatPane extends ConsumerWidget {
@@ -75,7 +73,7 @@ class FriendRequestPanel extends ConsumerWidget {
     if (_profileCache.containsKey(r.fromUid)) {
       return _profileCache[r.fromUid]!;
     }
-    final fut = user_api
+    final fut = friend_api
         .searchUser(query: SearchUserQuery(query: r.fromUid.toString()))
         .then((res) {
           final user = res.user;
@@ -228,7 +226,7 @@ class _DecisionButtonsState extends State<_DecisionButtons> {
                         setState(() => _busy = true);
                         try {
                           if (accept) {
-                            await friend_request_api.acceptFriendRequest(
+                            await friend_api.acceptFriendRequest(
                               requestId: BigInt.from(r.requestId),
                               fromUid: r.fromUid,
                               remark: remarkCtrl.text.trim().isEmpty
@@ -239,7 +237,7 @@ class _DecisionButtonsState extends State<_DecisionButtons> {
                                   : nicknameCtrl.text.trim(),
                             );
                           } else {
-                            await friend_request_api.rejectFriendRequest(
+                            await friend_api.rejectFriendRequest(
                               requestId: BigInt.from(r.requestId),
                               fromUid: r.fromUid,
                               remark: remarkCtrl.text.trim().isEmpty

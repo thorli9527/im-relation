@@ -147,5 +147,5 @@ async fn fetch_nickname(uid: i64) -> Result<Option<String>> {
         .await
         .map_err(|status| anyhow!("user_service find_user_by_id failed: {status}"))?
         .into_inner();
-    Ok(resp.nickname.filter(|n| !n.trim().is_empty()))
+    Ok((!resp.nickname.trim().is_empty()).then_some(resp.nickname))
 }

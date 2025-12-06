@@ -1,5 +1,6 @@
 use crate::{handler, swagger};
 use anyhow::{anyhow, Context, Result};
+use axum::http;
 use axum::{
     body::Body as AxumBody,
     http::{Request, StatusCode},
@@ -9,10 +10,12 @@ use axum::{
     Json, Router,
 };
 use common::config::AppConfig;
-use log::warn;
+use log::{error, warn};
 use serde_json::json;
+use std::backtrace::Backtrace;
 use tokio::net::TcpListener;
-use tower_http::trace::TraceLayer;
+use tower_http::classify::ServerErrorsFailureClass;
+use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use utoipa::{openapi::OpenApi as OpenApiSpec, OpenApi};
 
 const SWAGGER_UI_HTML: &str = r##"<!doctype html>
@@ -51,9 +54,33 @@ pub async fn start() -> Result<()> {
         .context("server.http missing host/port")?;
     warn!("HTTP server listening on {}", address_and_port);
 
+    let trace_layer = TraceLayer::new_for_http()
+        .make_span_with(DefaultMakeSpan::new().level(tracing::Level::INFO))
+        .on_response(
+            |res: &http::Response<_>, latency: std::time::Duration, _span: &tracing::Span| {
+                let status = res.status();
+                if status.is_server_error() {
+                    error!("http response status={} latency={:?}", status, latency);
+                } else if status.is_client_error() {
+                    warn!("http response status={} latency={:?}", status, latency);
+                }
+            },
+        )
+        .on_failure(
+            |error: ServerErrorsFailureClass,
+             latency: std::time::Duration,
+             _span: &tracing::Span| {
+                let backtrace = Backtrace::force_capture();
+                error!(
+                    "http failure error={:?} latency={:?} backtrace={}",
+                    error, latency, backtrace
+                );
+            },
+        );
+
     let api_router: Router = handler::router()
         .route("/healthz", post(healthz))
-        .layer(TraceLayer::new_for_http())
+        .layer(trace_layer)
         .layer(from_fn(auth_middleware));
 
     let swagger_routes = Router::new()

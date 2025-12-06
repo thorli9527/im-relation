@@ -1,4 +1,4 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{convert::TryFrom, time::{SystemTime, UNIX_EPOCH}};
 
 use crate::{
     api::app_api::{LoginRequest, LoginResult},
@@ -22,7 +22,7 @@ pub fn handle_login(payload: &LoginRequest, result: &LoginResult) -> Result<i64,
 
     // Socket 鉴权所需的设备类型，默认 Unknown 防御。
     let device_type =
-        SocketDeviceType::from_i32(payload.device_type).unwrap_or(SocketDeviceType::Unknown);
+        SocketDeviceType::try_from(payload.device_type).unwrap_or(SocketDeviceType::Unknown);
 
     // 缓存当前用户资料到本地 user_info 表，便于会话/好友展示。
     LocalUserService::get().upsert_from_login(result)?;

@@ -1,4 +1,4 @@
-use crate::common::{db, repository::TableEntity};
+use crate::common::db;
 use crate::domain::sync_state_entity::SyncStateEntity;
 
 pub struct SyncStateService;

@@ -151,6 +151,8 @@ dependencies = [
  "tokio",
  "tonic",
  "tower-http 0.5.2",
+ "tracing",
+ "tracing-subscriber",
  "utoipa",
  "validator",
 ]
