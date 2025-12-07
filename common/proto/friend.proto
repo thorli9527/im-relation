@@ -25,6 +25,20 @@ message AddFriendReq {
   .message.FriendRequestSource source = 6;
 }
 
+// 双向添加好友：一次请求写入双方关系，可分别携带昵称/备注。
+message AddFriendBothReq {
+  int64 uid_a = 1;
+  int64 uid_b = 2;
+  // uid_a 对 uid_b 的昵称/备注
+  optional string nickname_for_a = 3;
+  optional string remark_for_a = 4;
+  // uid_b 对 uid_a 的昵称/备注
+  optional string nickname_for_b = 5;
+  optional string remark_for_b = 6;
+  // 申请来源
+  .message.FriendRequestSource source = 7;
+}
+
 message AddFriendResp {
   // true 表示新增，false 可能表示已存在
   bool added = 1;
@@ -138,7 +152,7 @@ message ClearFriendsResp {
 // ==== gRPC 服务定义 ====
 
 service FriendService {
-  rpc AddFriend               (AddFriendReq)               returns (AddFriendResp);
+  rpc AddFriendBoth           (AddFriendBothReq)           returns (AddFriendResp);
   rpc RemoveFriend            (RemoveFriendReq)            returns (RemoveFriendResp);
   rpc IsFriend                (IsFriendReq)                returns (IsFriendResp);
 

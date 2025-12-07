@@ -179,9 +179,23 @@ message DeleteContent {
 // 将申请与审核组织在同一个业务载体内，便于 socket 推送和前端统一渲染
 message FriendBusinessContent {
   oneof action {
+    //好友申请信息
     FriendRequestPayload request = 1;
+    // 好友申请处理（接受/拒绝）
     FriendRequestDecisionPayload decision = 2;
+    // 好友关系已建立（双方均已写入好友关系），客户端可据此入库好友、更新会话提示。
+    FriendEstablishedPayload established = 3;
   }
+}
+
+// 好友关系已建立的提示，用于客户端自动标记
+message FriendEstablishedPayload {
+  // 参与方 A 的用户 ID（与 uid_b 组成好友对）
+  int64 uid_a = 1;
+  // 参与方 B 的用户 ID
+  int64 uid_b = 2;
+  // 建立好友关系的时间戳（毫秒）
+  int64 at_ms = 3;
 }
 
 // 好友申请来源

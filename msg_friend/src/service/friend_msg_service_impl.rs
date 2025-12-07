@@ -30,8 +30,8 @@ use crate::dao::{
 };
 use crate::server::Services;
 use common::infra::grpc::grpc_friend::friend_service::{
-    AddFriendReq, GetFriendsDetailedReq, UpdateFriendBlacklistReq, UpdateFriendNicknameReq,
-    UpdateFriendRemarkReq,
+    friend_service_client::FriendServiceClient, AddFriendBothReq, GetFriendsDetailedReq,
+    UpdateFriendBlacklistReq, UpdateFriendNicknameReq, UpdateFriendRemarkReq,
 };
 use common::infra::grpc::grpc_msg_friend::msg_friend_service::friend_msg_service_server::FriendMsgService;
 use common::infra::grpc::grpc_msg_system::msg_system_service::system_msg_service_client::SystemMsgServiceClient;
@@ -146,6 +146,130 @@ async fn send_friend_business_system_notify(
         .await
         .map(|_| ())
         .map_err(|e| format!("send to msg_system failed: {e}"))
+}
+
+fn build_add_friend_both_req(
+    uid_a: i64,
+    uid_b: i64,
+    nickname_for_a: Option<String>,
+    remark_for_a: Option<String>,
+    nickname_for_b: Option<String>,
+    remark_for_b: Option<String>,
+    source: i32,
+) -> AddFriendBothReq {
+    AddFriendBothReq {
+        uid_a,
+        uid_b,
+        nickname_for_a,
+        remark_for_a,
+        nickname_for_b,
+        remark_for_b,
+        source,
+    }
+}
+
+#[inline]
+fn clean_string(input: &str) -> String {
+    input.trim().to_string()
+}
+
+#[inline]
+fn non_empty_owned(input: &str) -> Option<String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+struct FriendBothContext {
+    from_uid: i64,
+    to_uid: i64,
+    source: i32,
+    nickname_for_from: Option<String>,
+    remark_for_from: Option<String>,
+    nickname_for_to: Option<String>,
+    remark_for_to: Option<String>,
+}
+
+impl FriendBothContext {
+    fn from_decision(stored: &FriendRequestRow, remark: &str, nickname: &str) -> Self {
+        let peer_remark = non_empty_owned(remark).or_else(|| non_empty_owned(&stored.peer_remark));
+        let peer_nick = non_empty_owned(nickname).or_else(|| non_empty_owned(&stored.nickname));
+        let requester_remark = non_empty_owned(&stored.remark);
+        let requester_nick = non_empty_owned(&stored.peer_nickname);
+
+        FriendBothContext {
+            from_uid: stored.from_uid,
+            to_uid: stored.to_uid,
+            source: stored.source,
+            nickname_for_from: requester_nick,
+            remark_for_from: requester_remark,
+            nickname_for_to: peer_nick,
+            remark_for_to: peer_remark,
+        }
+    }
+
+    fn for_anyone(req: &msgpb::AddFriendAnyoneRequest) -> Self {
+        FriendBothContext {
+            from_uid: req.from_uid,
+            to_uid: req.to_uid,
+            source: req.source,
+            nickname_for_from: None,
+            remark_for_from: None,
+            nickname_for_to: non_empty_owned(&req.nickname),
+            remark_for_to: non_empty_owned(&req.remark),
+        }
+    }
+
+    fn into_req(self) -> AddFriendBothReq {
+        build_add_friend_both_req(
+            self.from_uid,
+            self.to_uid,
+            self.nickname_for_from,
+            self.remark_for_from,
+            self.nickname_for_to,
+            self.remark_for_to,
+            self.source,
+        )
+    }
+}
+
+async fn add_friend_both_once(
+    client: &mut FriendServiceClient<Channel>,
+    req: AddFriendBothReq,
+    req_id: i64,
+    ctx: &str,
+) -> Result<(), Status> {
+    client.add_friend_both(req).await.map(|_| ()).map_err(|e| {
+        let level = if e.code() == tonic::Code::Unavailable {
+            "retryable"
+        } else {
+            "error"
+        };
+        warn!(
+            "{}: add_friend_both failed req_id={} level={} err={}",
+            ctx, req_id, level, e
+        );
+        Status::internal(format!(
+            "{ctx}: add_friend_both failed req_id={} err={e}",
+            req_id
+        ))
+    })
+}
+
+async fn send_established_notify(from_uid: i64, to_uid: i64, at_ms: i64) -> Result<(), String> {
+    let biz = msg_message::FriendBusinessContent {
+        action: Some(msg_message::friend_business_content::Action::Established(
+            msg_message::FriendEstablishedPayload {
+                uid_a: from_uid,
+                uid_b: to_uid,
+                at_ms,
+            },
+        )),
+    };
+    send_friend_business_system_notify(biz, from_uid, to_uid).await
 }
 
 #[tonic::async_trait]
@@ -597,11 +721,13 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
         }))
     }
 
+    //受理好友申请
     async fn decide_friend_request(
         &self,
         request: Request<msgpb::DecideFriendRequestCommand>,
     ) -> Result<Response<msgpb::DecideFriendRequestResponse>, Status> {
         let req = request.into_inner();
+        // 基本校验：请求 ID 必填，批准人与存档的 to_uid 需一致（若提供）。
         if req.request_id == 0 {
             return Err(Status::invalid_argument("request_id required"));
         }
@@ -620,9 +746,10 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
             return Err(Status::permission_denied("approver not match"));
         }
         let decided_at = Utc::now().timestamp_millis();
-        let peer_remark = req.remark.trim().to_string();
-        let peer_nickname = req.nickname.trim().to_string();
+        let peer_remark = clean_string(&req.remark);
+        let peer_nickname = clean_string(&req.nickname);
 
+        // 落库受理结果，保持 remark/nickname 以便 UI 展示。
         mark_friend_request_decision(
             self.pool(),
             req.request_id as i64,
@@ -636,32 +763,30 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
         .map_err(|e| Status::internal(format!("update friend request decision failed: {e}")))?;
 
         if req.accept {
-            let mut req_approver = AddFriendReq {
-                uid: stored.to_uid,
-                friend_id: stored.from_uid,
-                remark: (!peer_remark.is_empty()).then_some(peer_remark.clone()),
-                nickname_for_user: (!peer_nickname.is_empty()).then_some(peer_nickname.clone()),
-                nickname_for_friend: None,
-                source: stored.source,
-            };
-            let mut req_requester = AddFriendReq {
-                uid: stored.from_uid,
-                friend_id: stored.to_uid,
-                remark: (!stored.remark.is_empty()).then_some(stored.remark.clone()),
-                nickname_for_user: (!stored.peer_nickname.is_empty())
-                    .then_some(stored.peer_nickname.clone()),
-                nickname_for_friend: None,
-                source: stored.source,
-            };
-            if let Err(err) = friend_client.add_friend(req_approver).await {
+            // 已通过：为审批方与申请方各写一条好友关系（双向）。
+            let ctx =
+                FriendBothContext::from_decision(&stored, peer_remark.as_str(), peer_nickname.as_str());
+            let req_both = ctx.into_req();
+            if let Err(err) = add_friend_both_once(
+                &mut friend_client,
+                req_both,
+                req.request_id as i64,
+                "decide_friend_request",
+            )
+            .await
+            {
                 warn!(
-                    "decide_friend_request: add_friend approver failed req_id={} err={}",
+                    "decide_friend_request: add_friend_both failed req_id={} err={}",
                     req.request_id, err
                 );
             }
-            if let Err(err) = friend_client.add_friend(req_requester).await {
+
+            // 同步“已建立好友关系”业务事件，驱动客户端入库好友。
+            if let Err(err) =
+                send_established_notify(stored.from_uid, stored.to_uid, decided_at).await
+            {
                 warn!(
-                    "decide_friend_request: add_friend requester failed req_id={} err={}",
+                    "decide_friend_request: send established failed req_id={} err={}",
                     req.request_id, err
                 );
             }
@@ -710,6 +835,7 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
         request: Request<msgpb::AddFriendAnyoneRequest>,
     ) -> Result<Response<msgpb::AddFriendAnyoneResponse>, Status> {
         let req = request.into_inner();
+        // Anyone 策略：收到即落申请、自动同意，保持与普通流程一致（请求+决策+建立）。
         if req.from_uid <= 0 || req.to_uid <= 0 {
             return Err(Status::invalid_argument("from_uid/to_uid must be positive"));
         }
@@ -719,8 +845,9 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
             .ok_or_else(|| Status::failed_precondition("friend_service client unavailable"))?;
         let ts_ms = Utc::now().timestamp_millis();
         let req_id = build_snow_id();
-        let remark = req.remark.trim().to_string();
-        let nickname = req.nickname.trim().to_string();
+        let remark = clean_string(&req.remark);
+        let nickname = clean_string(&req.nickname);
+        let reason = req.reason.clone();
         let source = msg_message::FriendRequestSource::try_from(req.source)
             .unwrap_or(msg_message::FriendRequestSource::FrsUnknown);
 
@@ -728,7 +855,7 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
             id: req_id,
             from_uid: req.from_uid,
             to_uid: req.to_uid,
-            reason: req.reason,
+            reason,
             source: source as i32,
             remark: remark.clone(),
             nickname: nickname.clone(),
@@ -743,6 +870,15 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
         upsert_friend_request(self.pool(), &row)
             .await
             .map_err(|e| Status::internal(format!("persist friend request failed: {e}")))?;
+
+        // 先双向写入好友关系（幂等），保障通知与落库一致。
+        let ctx = FriendBothContext::for_anyone(&req);
+        let req_both = ctx.into_req();
+        add_friend_both_once(&mut friend_client, req_both, row.id, "add_friend_anyone")
+            .await
+            .map_err(|e| {
+                Status::internal(format!("add_friend_anyone: relation add failed: {e}"))
+            })?;
 
         // 下发请求通知（用于记录/展示）
         let request_payload = msg_message::FriendRequestPayload {
@@ -771,7 +907,7 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
             notify_ok = false;
         }
 
-        // 下发自动通过的决策通知。
+        // 自动通过：下发决策通知，复用客户端处理逻辑。
         let decision_biz = msg_message::FriendBusinessContent {
             action: Some(msg_message::friend_business_content::Action::Decision(
                 msg_message::FriendRequestDecisionPayload {
@@ -792,35 +928,13 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
             );
             notify_ok = false;
         }
-
-        // 落好友关系（双向）
-        let remark_for_target = (!remark.is_empty()).then_some(remark.clone());
-        let nickname_for_target = (!nickname.is_empty()).then_some(nickname.clone());
-        let req_target = AddFriendReq {
-            uid: row.to_uid,
-            friend_id: row.from_uid,
-            remark: remark_for_target.clone(),
-            nickname_for_user: nickname_for_target.clone(),
-            nickname_for_friend: None,
-            source: row.source,
-        };
-        friend_client
-            .add_friend(req_target)
-            .await
-            .map_err(|e| Status::internal(format!("add_friend target failed: {e}")))?;
-
-        let req_requester = AddFriendReq {
-            uid: row.from_uid,
-            friend_id: row.to_uid,
-            remark: None,
-            nickname_for_user: None,
-            nickname_for_friend: None,
-            source: row.source,
-        };
-        friend_client
-            .add_friend(req_requester)
-            .await
-            .map_err(|e| Status::internal(format!("add_friend requester failed: {e}")))?;
+        if let Err(err) = send_established_notify(row.from_uid, row.to_uid, ts_ms).await {
+            warn!(
+                "add_friend_anyone: send established notify failed req_id={} err={}",
+                row.id, err
+            );
+            notify_ok = false;
+        }
 
         if notify_ok {
             if let Err(err) = mark_friend_request_notified(self.pool(), row.id, ts_ms).await {
@@ -1169,44 +1283,27 @@ async fn process_friend_business(
                     let requester_remark = req_remark;
                     let requester_nick = req_peer_nick;
 
-                    let mut req_approver = AddFriendReq {
-                        uid: to_uid,
-                        friend_id: from_uid,
-                        remark: None,
-                        nickname_for_user: None,
-                        nickname_for_friend: None,
-                        source: source_val,
-                    };
-                    req_approver.remark =
-                        (!peer_remark.trim().is_empty()).then_some(peer_remark.clone());
-                    req_approver.nickname_for_user =
-                        (!approver_nick.trim().is_empty()).then_some(approver_nick.clone());
-
-                    let mut req_requester = AddFriendReq {
-                        uid: from_uid,
-                        friend_id: to_uid,
-                        remark: None,
-                        nickname_for_user: None,
-                        nickname_for_friend: None,
-                        source: source_val,
-                    };
-                    req_requester.remark =
-                        (!requester_remark.trim().is_empty()).then_some(requester_remark.clone());
-                    req_requester.nickname_for_user =
-                        (!requester_nick.trim().is_empty()).then_some(requester_nick.clone());
-
-                    if req_approver.uid > 0 && req_approver.friend_id > 0 {
-                        if let Err(err) = friend_client.add_friend(req_approver).await {
+                    if from_uid > 0 && to_uid > 0 {
+                        let req_both = build_add_friend_both_req(
+                            to_uid,
+                            from_uid,
+                            (!approver_nick.trim().is_empty()).then_some(approver_nick.clone()),
+                            (!peer_remark.trim().is_empty()).then_some(peer_remark.clone()),
+                            (!requester_nick.trim().is_empty()).then_some(requester_nick.clone()),
+                            (!requester_remark.trim().is_empty())
+                                .then_some(requester_remark.clone()),
+                            source_val,
+                        );
+                        if let Err(err) = add_friend_both_once(
+                            &mut friend_client,
+                            req_both,
+                            payload.request_id as i64,
+                            "friend_business",
+                        )
+                        .await
+                        {
                             warn!(
-                                "friend_business: add_friend approver failed req_id={} err={}",
-                                payload.request_id, err
-                            );
-                        }
-                    }
-                    if req_requester.uid > 0 && req_requester.friend_id > 0 {
-                        if let Err(err) = friend_client.add_friend(req_requester).await {
-                            warn!(
-                                "friend_business: add_friend requester failed req_id={} err={}",
+                                "friend_business: add_friend_both failed req_id={} err={}",
                                 payload.request_id, err
                             );
                         }

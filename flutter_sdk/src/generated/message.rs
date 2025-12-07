@@ -136,18 +136,36 @@ pub struct DeleteContent {
 /// 将申请与审核组织在同一个业务载体内，便于 socket 推送和前端统一渲染
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FriendBusinessContent {
-    #[prost(oneof = "friend_business_content::Action", tags = "1, 2")]
+    #[prost(oneof = "friend_business_content::Action", tags = "1, 2, 3")]
     pub action: ::core::option::Option<friend_business_content::Action>,
 }
 /// Nested message and enum types in `FriendBusinessContent`.
 pub mod friend_business_content {
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Action {
+        /// 好友申请信息
         #[prost(message, tag = "1")]
         Request(super::FriendRequestPayload),
+        /// 好友申请处理（接受/拒绝）
         #[prost(message, tag = "2")]
         Decision(super::FriendRequestDecisionPayload),
+        /// 好友关系已建立（双方均已写入好友关系），客户端可据此入库好友、更新会话提示。
+        #[prost(message, tag = "3")]
+        Established(super::FriendEstablishedPayload),
     }
+}
+/// 好友关系已建立的提示，用于客户端自动标记
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct FriendEstablishedPayload {
+    /// 参与方 A 的用户 ID（与 uid_b 组成好友对）
+    #[prost(int64, tag = "1")]
+    pub uid_a: i64,
+    /// 参与方 B 的用户 ID
+    #[prost(int64, tag = "2")]
+    pub uid_b: i64,
+    /// 建立好友关系的时间戳（毫秒）
+    #[prost(int64, tag = "3")]
+    pub at_ms: i64,
 }
 /// 好友申请信息
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -188,10 +206,6 @@ pub struct FriendRequestDecisionPayload {
     pub remark: ::prost::alloc::string::String,
     #[prost(int64, tag = "4")]
     pub decided_at: i64,
-    #[prost(bool, tag = "5")]
-    pub send_default_message: bool,
-    #[prost(string, tag = "6")]
-    pub default_message: ::prost::alloc::string::String,
     /// 审批人希望展示给申请人的昵称/称呼
     #[prost(string, tag = "7")]
     pub nickname: ::prost::alloc::string::String,

@@ -23,6 +23,27 @@ pub struct AddFriendReq {
     #[prost(enumeration = "super::message::FriendRequestSource", tag = "6")]
     pub source: i32,
 }
+/// 双向添加好友：一次请求写入双方关系，可分别携带昵称/备注。
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AddFriendBothReq {
+    #[prost(int64, tag = "1")]
+    pub uid_a: i64,
+    #[prost(int64, tag = "2")]
+    pub uid_b: i64,
+    /// uid_a 对 uid_b 的昵称/备注
+    #[prost(string, optional, tag = "3")]
+    pub nickname_for_a: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "4")]
+    pub remark_for_a: ::core::option::Option<::prost::alloc::string::String>,
+    /// uid_b 对 uid_a 的昵称/备注
+    #[prost(string, optional, tag = "5")]
+    pub nickname_for_b: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "6")]
+    pub remark_for_b: ::core::option::Option<::prost::alloc::string::String>,
+    /// 申请来源
+    #[prost(enumeration = "super::message::FriendRequestSource", tag = "7")]
+    pub source: i32,
+}
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct AddFriendResp {
     /// true 表示新增，false 可能表示已存在
@@ -253,9 +274,9 @@ pub mod friend_service_client {
             self.inner = self.inner.max_encoding_message_size(limit);
             self
         }
-        pub async fn add_friend(
+        pub async fn add_friend_both(
             &mut self,
-            request: impl tonic::IntoRequest<super::AddFriendReq>,
+            request: impl tonic::IntoRequest<super::AddFriendBothReq>,
         ) -> std::result::Result<tonic::Response<super::AddFriendResp>, tonic::Status> {
             self.inner
                 .ready()
@@ -267,11 +288,13 @@ pub mod friend_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/friend_service.FriendService/AddFriend",
+                "/friend_service.FriendService/AddFriendBoth",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("friend_service.FriendService", "AddFriend"));
+                .insert(
+                    GrpcMethod::new("friend_service.FriendService", "AddFriendBoth"),
+                );
             self.inner.unary(req, path, codec).await
         }
         pub async fn remove_friend(
@@ -499,9 +522,9 @@ pub mod friend_service_server {
     /// Generated trait containing gRPC methods that should be implemented for use with FriendServiceServer.
     #[async_trait]
     pub trait FriendService: std::marker::Send + std::marker::Sync + 'static {
-        async fn add_friend(
+        async fn add_friend_both(
             &self,
-            request: tonic::Request<super::AddFriendReq>,
+            request: tonic::Request<super::AddFriendBothReq>,
         ) -> std::result::Result<tonic::Response<super::AddFriendResp>, tonic::Status>;
         async fn remove_friend(
             &self,
@@ -635,13 +658,13 @@ pub mod friend_service_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
-                "/friend_service.FriendService/AddFriend" => {
+                "/friend_service.FriendService/AddFriendBoth" => {
                     #[allow(non_camel_case_types)]
-                    struct AddFriendSvc<T: FriendService>(pub Arc<T>);
+                    struct AddFriendBothSvc<T: FriendService>(pub Arc<T>);
                     impl<
                         T: FriendService,
-                    > tonic::server::UnaryService<super::AddFriendReq>
-                    for AddFriendSvc<T> {
+                    > tonic::server::UnaryService<super::AddFriendBothReq>
+                    for AddFriendBothSvc<T> {
                         type Response = super::AddFriendResp;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
@@ -649,11 +672,11 @@ pub mod friend_service_server {
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::AddFriendReq>,
+                            request: tonic::Request<super::AddFriendBothReq>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as FriendService>::add_friend(&inner, request).await
+                                <T as FriendService>::add_friend_both(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -664,7 +687,7 @@ pub mod friend_service_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = AddFriendSvc(inner);
+                        let method = AddFriendBothSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

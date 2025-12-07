@@ -78,8 +78,6 @@ fn decide_friend_request(
         accepted,
         remark: remark.unwrap_or_default(),
         decided_at,
-        send_default_message: accepted,
-        default_message: String::new(),
         nickname: nickname.unwrap_or_default(),
     };
     FriendRequestService::get().apply_decision(

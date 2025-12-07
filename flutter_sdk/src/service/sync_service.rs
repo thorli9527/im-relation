@@ -5,7 +5,11 @@ use prost::Message as ProstMessage;
 use serde::Deserialize;
 
 use crate::{
-    api::sync_api::{build_sync_request_from_state, sync_messages},
+    api::{
+        app_api_types::SearchUserQuery,
+        friend_api,
+        sync_api::{build_sync_request_from_state, sync_messages},
+    },
     domain::{ConversationEntity, MessageEntity, MessageScene, MessageSource},
     generated::message::{friend_business_content::Action as FriendAction, Content},
     generated::message as msgpb,
@@ -225,7 +229,82 @@ fn handle_friend_business(content: &Content, current_uid: Option<i64>) {
                 }
             }
         }
+        Some(FriendAction::Established(payload)) => {
+            handle_friend_established(current_uid, content, payload);
+        }
         _ => {}
+    }
+}
+
+fn handle_friend_established(
+    current_uid: Option<i64>,
+    content: &Content,
+    payload: &crate::generated::message::FriendEstablishedPayload,
+) {
+    let uid = match current_uid {
+        Some(id) => id,
+        None => return,
+    };
+    let friend_id = if uid == payload.uid_a {
+        payload.uid_b
+    } else if uid == payload.uid_b {
+        payload.uid_a
+    } else {
+        return;
+    };
+    let established_at = if payload.at_ms > 0 {
+        payload.at_ms
+    } else {
+        content.timestamp
+    };
+    let svc = FriendService::get();
+    match svc.get_by_friend_id(friend_id) {
+        Ok(Some(_)) => return,
+        Ok(None) => {}
+        Err(err) => {
+            warn!(
+                "query friend {} from established message failed: {}",
+                friend_id, err
+            );
+        }
+    }
+
+    let mut nickname = None;
+    let mut avatar = None;
+    match friend_api::search_user(SearchUserQuery {
+        query: friend_id.to_string(),
+    }) {
+        Ok(resp) => {
+            if let Some(user) = resp.user {
+                if !user.nickname.trim().is_empty() {
+                    nickname = Some(user.nickname.clone());
+                }
+                if !user.avatar.trim().is_empty() {
+                    avatar = Some(user.avatar.clone());
+                }
+            }
+        }
+        Err(err) => {
+            warn!(
+                "fetch profile for established friend {} failed: {}",
+                friend_id, err
+            );
+        }
+    }
+
+    if let Err(err) = svc.ensure_friend(friend_id, None, nickname.clone(), established_at) {
+        warn!(
+            "ensure_friend {} from established message failed: {}",
+            friend_id, err
+        );
+    }
+    if avatar.is_some() || nickname.is_some() {
+        if let Err(err) = svc.apply_profile_update(friend_id, nickname, avatar, established_at) {
+            warn!(
+                "apply_profile_update {} from established message failed: {}",
+                friend_id, err
+            );
+        }
     }
 }
 

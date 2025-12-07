@@ -11,11 +11,11 @@ services=(
   user_service
   friend_service
   group_service
-  msg_friend
+  # msg_friend
   msg_group
   msg_system
   app_socket
- # app_api
+  app_api
 )
 
 mkdir -p logs

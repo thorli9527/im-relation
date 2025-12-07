@@ -48,33 +48,41 @@ impl<R: FriendRepo> FriendServiceImpl<R> {
             blacklisted,
         }
     }
-}
 
-#[async_trait]
-impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<R> {
-    async fn add_friend(
-        &self,
-        request: Request<AddFriendReq>,
-    ) -> Result<Response<AddFriendResp>, Status> {
-        let req = request.into_inner();
-        let uid = Self::cast_uid(req.uid, "uid")?;
-        let fid = Self::cast_uid(req.friend_id, "friend_id")?;
+    fn normalize(input: Option<&str>) -> Option<String> {
+        input.and_then(|v| {
+            let t = v.trim();
+            (!t.is_empty()).then_some(t.to_string())
+        })
+    }
+
+    fn parse_add_friend_both(req: AddFriendBothReq) -> Result<AddFriendBothInput, Status> {
+        let uid = Self::cast_uid(req.uid_a, "uid_a")?;
+        let fid = Self::cast_uid(req.uid_b, "uid_b")?;
         if uid == fid {
             return Err(Status::invalid_argument("cannot add yourself"));
         }
-        let normalize = |s: Option<&str>| {
-            s.and_then(|v| {
-                let t = v.trim();
-                (!t.is_empty()).then_some(t.to_string())
-            })
-        };
-        // 备注字段兼容逻辑：若 nickname_for_user 未提供，则使用 remark
-        let remark_clean = normalize(req.remark.as_deref());
-        let remark_for_user = remark_clean.as_deref();
-        let remark_for_friend = remark_clean.as_deref();
-        let nickname_for_user = normalize(req.nickname_for_user.as_deref());
-        let nickname_for_friend = normalize(req.nickname_for_friend.as_deref());
+        Ok(AddFriendBothInput {
+            uid,
+            fid,
+            nickname_for_user: Self::normalize(req.nickname_for_a.as_deref()),
+            nickname_for_friend: Self::normalize(req.nickname_for_b.as_deref()),
+            remark_for_user: Self::normalize(req.remark_for_a.as_deref()),
+            remark_for_friend: Self::normalize(req.remark_for_b.as_deref()),
+            source: req.source,
+        })
+    }
 
+    async fn add_friend_both_inner(
+        &self,
+        uid: UID,
+        fid: UID,
+        nickname_for_user: Option<String>,
+        nickname_for_friend: Option<String>,
+        remark_for_user: Option<String>,
+        remark_for_friend: Option<String>,
+        source: i32,
+    ) -> Result<bool, Status> {
         // 判断是否已存在（决定返回布尔）
         let already = self
             .facade
@@ -83,7 +91,6 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
             .map(|v| v.contains(&fid))
             .map_err(|e| internal_error(format!("add_friend/get_friends: {e}")))?;
 
-        // 双向建立关系（事务在存储层）；失败时写入补偿任务。
         match self
             .facade
             .add_friend_both(
@@ -91,13 +98,13 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
                 fid,
                 nickname_for_user.as_deref(),
                 nickname_for_friend.as_deref(),
-                remark_for_user,
-                remark_for_friend,
-                req.source,
+                remark_for_user.as_deref(),
+                remark_for_friend.as_deref(),
+                source,
             )
             .await
         {
-            Ok(()) => Ok(Response::new(AddFriendResp { added: !already })),
+            Ok(()) => Ok(!already),
             Err(err) => {
                 let msg = err.to_string();
                 if let Err(job_err) = enqueue_friend_add_job(
@@ -105,9 +112,9 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
                     fid,
                     nickname_for_user.as_deref(),
                     nickname_for_friend.as_deref(),
-                    req.source,
-                    remark_for_user,
-                    remark_for_friend,
+                    source,
+                    remark_for_user.as_deref(),
+                    remark_for_friend.as_deref(),
                     &msg,
                 )
                 .await
@@ -117,6 +124,40 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
                 Err(internal_error(format!("add_friend/write: {msg}")))
             }
         }
+    }
+}
+
+struct AddFriendBothInput {
+    uid: UID,
+    fid: UID,
+    nickname_for_user: Option<String>,
+    nickname_for_friend: Option<String>,
+    remark_for_user: Option<String>,
+    remark_for_friend: Option<String>,
+    source: i32,
+}
+
+#[async_trait]
+impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<R> {
+    async fn add_friend_both(
+        &self,
+        request: Request<AddFriendBothReq>,
+    ) -> Result<Response<AddFriendResp>, Status> {
+        let input = Self::parse_add_friend_both(request.into_inner())?;
+
+        let added = self
+            .add_friend_both_inner(
+                input.uid,
+                input.fid,
+                input.nickname_for_user,
+                input.nickname_for_friend,
+                input.remark_for_user,
+                input.remark_for_friend,
+                input.source,
+            )
+            .await?;
+
+        Ok(Response::new(AddFriendResp { added }))
     }
 
     async fn remove_friend(

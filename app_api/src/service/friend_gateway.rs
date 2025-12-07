@@ -3,7 +3,7 @@ use anyhow::{anyhow, Result};
 use common::config::AppConfig;
 use common::infra::grpc::grpc_friend::friend_service::friend_service_client::FriendServiceClient;
 use common::infra::grpc::grpc_friend::friend_service::{
-    AddFriendReq, FriendEntry, GetFriendsPageDetailedReq, IsFriendReq,
+    AddFriendBothReq, FriendEntry, GetFriendsPageDetailedReq, IsFriendReq,
 };
 use common::infra::grpc::grpc_user::online_service::GetUserReq;
 use common::infra::grpc::GrpcClientManager;
@@ -126,12 +126,13 @@ pub async fn add_friend(
     let addr = resolve_friend_addr(uid).await?;
     let mut client = connect_friend_service(&addr).await?;
     let resp = client
-        .add_friend(AddFriendReq {
-            uid,
-            friend_id,
-            remark: remark_clean,
-            nickname_for_user,
-            nickname_for_friend,
+        .add_friend_both(AddFriendBothReq {
+            uid_a: uid,
+            uid_b: friend_id,
+            nickname_for_a: nickname_for_user,
+            remark_for_a: remark_clean.clone(),
+            nickname_for_b: nickname_for_friend,
+            remark_for_b: remark_clean,
             source,
         })
         .await

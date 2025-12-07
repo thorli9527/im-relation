@@ -212,6 +212,9 @@ pub async fn list_friend_requests(
                     msgpb::friend_business_content::Action::Decision(_) => {
                         decision_msgs.push(m.clone())
                     }
+                    msgpb::friend_business_content::Action::Established(_) => {
+                        // no-op for history query; client handles this marker.
+                    }
                 }
             }
         }
