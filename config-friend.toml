@@ -7,7 +7,7 @@ port = 8002
 host = "127.0.0.1"
 port = 8202
 [sys]
-log_leve = "sqlx::query=debug,debug"  # env_logger filter; enables sqlx with args
+log_leve = "info"  #sqlx::query=debug
 
 [hot_friend]
 avg_value_bytes = 256
