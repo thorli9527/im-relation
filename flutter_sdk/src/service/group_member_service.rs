@@ -64,7 +64,7 @@ impl GroupMemberService {
                     group_id: m.group_id,
                     member_id: m.member_id,
                     nickname: m.nickname,
-                    avatar: m.avatar,
+                    avatar: m.avatar.unwrap_or_default(),
                     role: m.role,
                 })
                 .collect(),
@@ -98,12 +98,12 @@ impl GroupMemberService {
     pub fn apply_profile_update(
         &self,
         member_id: i64,
-        nickname: Option<String>,
+        nickname: String,
         avatar: Option<String>,
         updated_at: i64,
         version: Option<i64>,
     ) -> Result<(), String> {
-        if nickname.is_none() && avatar.is_none() && version.is_none() {
+        if nickname.is_empty() && avatar.is_none() && version.is_none() {
             return Ok(());
         }
         let conditions = vec![QueryCondition::new(
@@ -125,11 +125,11 @@ impl GroupMemberService {
                 }
                 m.version = ver;
             }
-            if let Some(nick) = nickname.clone() {
-                m.nickname = nick;
+            if !nickname.is_empty() {
+                m.nickname = nickname.clone();
             }
             if let Some(av) = avatar.clone() {
-                m.avatar = av;
+                m.avatar = Some(av);
             }
             m.updated_at = updated_at;
             self.repo.update(m)?;
@@ -209,7 +209,7 @@ impl GroupMemberService {
                 group_id,
                 member_id: member.member_id,
                 nickname: member.nickname.clone(),
-                avatar: member.avatar.clone(),
+                avatar: Some(member.avatar.clone()),
                 role: member.role,
                 muted: false,
                 join_time: 0,
@@ -238,7 +238,7 @@ impl GroupMemberService {
                 group_id: m.group_id,
                 member_id: m.member_id,
                 nickname: m.nickname,
-                avatar: m.avatar,
+                avatar: m.avatar.unwrap_or_default(),
                 role: m.role,
             })
             .collect())
@@ -275,7 +275,7 @@ impl GroupMemberService {
             group_id: row.get("group_id")?,
             member_id: row.get("member_id")?,
             nickname: row.get("nickname")?,
-            avatar: row.get("avatar")?,
+            avatar: normalize_optional(row.get("avatar")?),
             role: row.get("role")?,
             muted: row.get::<_, i64>("muted")? != 0,
             join_time: row.get("join_time")?,
@@ -285,6 +285,13 @@ impl GroupMemberService {
     }
 }
 
+fn normalize_optional(value: String) -> Option<String> {
+    if value.is_empty() {
+        None
+    } else {
+        Some(value)
+    }
+}
 impl GroupMemberService {
     fn insert_with_tx(
         &self,

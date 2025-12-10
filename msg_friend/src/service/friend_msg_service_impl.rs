@@ -1,3 +1,4 @@
+// 消息侧好友服务的实现：封装好友请求、自动通过、系统通知重试等逻辑。
 use prost::Message as _;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -77,7 +78,7 @@ fn user_lang_cache() -> &'static Mutex<HashMap<i64, (String, i64)>> {
     USER_LANG_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// 后台重试好友业务系统通知的简单 worker。
+/// 后台重试好友业务系统通知的简单 worker：每 30 秒触发一次，处理尚未通知成功的记录。
 pub async fn spawn_friend_business_notify_retry_task(services: Services) {
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(Duration::from_secs(30));
@@ -90,6 +91,7 @@ pub async fn spawn_friend_business_notify_retry_task(services: Services) {
     });
 }
 
+/// 发送好友业务系统通知（依赖 msg_system），仅包装 gRPC 调用。
 async fn send_friend_business_system_notify(
     biz: msg_message::FriendBusinessContent,
     sender_id: i64,
@@ -195,10 +197,11 @@ struct FriendBothContext {
 
 impl FriendBothContext {
     fn from_decision(stored: &FriendRequestRow, remark: &str, nickname: &str) -> Self {
-        let peer_remark = non_empty_owned(remark).or_else(|| non_empty_owned(&stored.peer_remark));
-        let peer_nick = non_empty_owned(nickname).or_else(|| non_empty_owned(&stored.nickname));
-        let requester_remark = non_empty_owned(&stored.remark);
-        let requester_nick = non_empty_owned(&stored.peer_nickname);
+        let peer_remark = non_empty_owned(remark).or_else(|| non_empty_owned(&stored.to_remark));
+        let peer_nick =
+            non_empty_owned(nickname).or_else(|| non_empty_owned(&stored.from_nickname));
+        let requester_remark = non_empty_owned(&stored.from_remark);
+        let requester_nick = non_empty_owned(&stored.to_nickname);
 
         FriendBothContext {
             from_uid: stored.from_uid,
@@ -212,14 +215,16 @@ impl FriendBothContext {
     }
 
     fn for_anyone(req: &msgpb::AddFriendAnyoneRequest) -> Self {
+        let peer_nick = non_empty_owned(&req.to_nickname);
+        let nick = non_empty_owned(&req.from_nickname);
         FriendBothContext {
             from_uid: req.from_uid,
             to_uid: req.to_uid,
             source: req.source,
-            nickname_for_from: None,
-            remark_for_from: None,
-            nickname_for_to: non_empty_owned(&req.nickname),
-            remark_for_to: non_empty_owned(&req.remark),
+            nickname_for_from: peer_nick.clone().or_else(|| nick.clone()),
+            remark_for_from: non_empty_owned(&req.to_remark),
+            nickname_for_to: nick,
+            remark_for_to: non_empty_owned(&req.from_remark),
         }
     }
 
@@ -639,10 +644,10 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
             request_id: row.id as u64,
             from_uid: row.from_uid,
             to_uid: row.to_uid,
-            remark: row.remark,
-            nickname: row.nickname,
-            peer_remark: row.peer_remark,
-            peer_nickname: row.peer_nickname,
+            remark: row.from_remark,
+            nickname: row.from_nickname,
+            peer_remark: row.to_remark,
+            peer_nickname: row.to_nickname,
             source: row.source,
         };
         Ok(Response::new(resp))
@@ -667,12 +672,12 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
             id: req_id,
             from_uid: req.from_uid,
             to_uid: req.to_uid,
-            reason: req.reason,
+            from_reason: req.reason,
             source: source as i32,
-            remark: remark.clone(),
-            nickname: nickname.clone(),
-            peer_remark: String::new(),
-            peer_nickname: String::new(),
+            from_remark: remark.clone(),
+            from_nickname: nickname.clone(),
+            to_remark: String::new(),
+            to_nickname: String::new(),
             created_at: ts_ms,
             decided_at: None,
             accepted: None,
@@ -687,11 +692,11 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
             request_id: req_id as u64,
             from_uid: row.from_uid,
             to_uid: row.to_uid,
-            reason: row.reason.clone(),
+            reason: row.from_reason.clone(),
             source: row.source,
             created_at: row.created_at,
-            remark: row.remark.clone(),
-            nickname: row.nickname.clone(),
+            remark: row.from_remark.clone(),
+            nickname: row.from_nickname.clone(),
         };
         let biz = msg_message::FriendBusinessContent {
             action: Some(msg_message::friend_business_content::Action::Request(
@@ -731,10 +736,6 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
         if req.request_id == 0 {
             return Err(Status::invalid_argument("request_id required"));
         }
-        let mut friend_client = self
-            .friend_client()
-            .cloned()
-            .ok_or_else(|| Status::failed_precondition("friend_service client unavailable"))?;
 
         let Some(stored) = get_friend_request_by_id(self.pool(), req.request_id as i64)
             .await
@@ -746,8 +747,8 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
             return Err(Status::permission_denied("approver not match"));
         }
         let decided_at = Utc::now().timestamp_millis();
-        let peer_remark = clean_string(&req.remark);
-        let peer_nickname = clean_string(&req.nickname);
+        let from_remark = clean_string(&req.remark);
+        let from_nickname = clean_string(&req.nickname);
 
         // 落库受理结果，保持 remark/nickname 以便 UI 展示。
         mark_friend_request_decision(
@@ -755,33 +756,44 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
             req.request_id as i64,
             decided_at,
             req.accept,
-            stored.remark.clone(),
-            peer_remark.clone(),
-            peer_nickname.clone(),
+            stored.from_remark.clone(),
+            from_remark.clone(),
+            from_nickname.clone(),
         )
         .await
         .map_err(|e| Status::internal(format!("update friend request decision failed: {e}")))?;
 
         if req.accept {
             // 已通过：为审批方与申请方各写一条好友关系（双向）。
-            let ctx =
-                FriendBothContext::from_decision(&stored, peer_remark.as_str(), peer_nickname.as_str());
+            let ctx = FriendBothContext::from_decision(
+                &stored,
+                from_remark.as_str(),
+                from_nickname.as_str(),
+            );
             let req_both = ctx.into_req();
-            if let Err(err) = add_friend_both_once(
-                &mut friend_client,
-                req_both,
-                req.request_id as i64,
-                "decide_friend_request",
-            )
-            .await
-            {
+            if let Some(mut friend_client) = self.friend_client().cloned() {
+                if let Err(err) = add_friend_both_once(
+                    &mut friend_client,
+                    req_both,
+                    req.request_id as i64,
+                    "decide_friend_request",
+                )
+                .await
+                {
+                    warn!(
+                        "decide_friend_request: add_friend_both failed req_id={} err={}",
+                        req.request_id, err
+                    );
+                }
+            } else {
                 warn!(
-                    "decide_friend_request: add_friend_both failed req_id={} err={}",
-                    req.request_id, err
+                    "decide_friend_request: friend_service client unavailable req_id={}",
+                    req.request_id
                 );
             }
 
             // 同步“已建立好友关系”业务事件，驱动客户端入库好友。
+            let mut notify_ok = true;
             if let Err(err) =
                 send_established_notify(stored.from_uid, stored.to_uid, decided_at).await
             {
@@ -789,22 +801,11 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
                     "decide_friend_request: send established failed req_id={} err={}",
                     req.request_id, err
                 );
+                notify_ok = false;
             }
-        }
 
-        let biz = msg_message::FriendBusinessContent {
-            action: Some(msg_message::friend_business_content::Action::Decision(
-                msg_message::FriendRequestDecisionPayload {
-                    request_id: req.request_id,
-                    accepted: req.accept,
-                    remark: peer_remark.clone(),
-                    decided_at,
-                    nickname: peer_nickname.clone(),
-                },
-            )),
-        };
-        match send_friend_business_system_notify(biz, stored.to_uid, stored.from_uid).await {
-            Ok(_) => {
+            // 仅根据建立通知结果更新重试计数
+            if notify_ok {
                 if let Err(err) =
                     mark_friend_request_notified(self.pool(), req.request_id as i64, decided_at)
                         .await
@@ -813,41 +814,41 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
                         "decide_friend_request: mark notified failed req_id={} err={}",
                         req.request_id, err
                     );
+                    let _ = increment_friend_request_notify_retry(self.pool(), req.request_id as i64)
+                        .await;
                 }
-            }
-            Err(err) => {
+            } else if let Err(err) =
+                increment_friend_request_notify_retry(self.pool(), req.request_id as i64).await
+            {
                 warn!(
-                    "decide_friend_request: send notify failed req_id={} err={}",
+                    "decide_friend_request: mark notify retry failed req_id={} err={}",
                     req.request_id, err
                 );
-                let _ =
-                    increment_friend_request_notify_retry(self.pool(), req.request_id as i64).await;
             }
         }
 
-        Ok(Response::new(msgpb::DecideFriendRequestResponse {
-            ok: true,
-        }))
+        Ok(Response::new(msgpb::DecideFriendRequestResponse { ok: true }))
     }
 
-    async fn add_friend_anyone(
-        &self,
-        request: Request<msgpb::AddFriendAnyoneRequest>,
-    ) -> Result<Response<msgpb::AddFriendAnyoneResponse>, Status> {
-        let req = request.into_inner();
-        // Anyone 策略：收到即落申请、自动同意，保持与普通流程一致（请求+决策+建立）。
-        if req.from_uid <= 0 || req.to_uid <= 0 {
-            return Err(Status::invalid_argument("from_uid/to_uid must be positive"));
-        }
+async fn add_friend_anyone(
+    &self,
+    request: Request<msgpb::AddFriendAnyoneRequest>,
+) -> Result<Response<msgpb::AddFriendAnyoneResponse>, Status> {
+    let req = request.into_inner();
+    // Anyone 策略：收到即落申请、自动同意，保持与普通流程一致（请求+决策+建立）。
+    if req.from_uid <= 0 || req.to_uid <= 0 {
+        return Err(Status::invalid_argument("from_uid/to_uid must be positive"));
+    }
         let mut friend_client = self
             .friend_client()
             .cloned()
             .ok_or_else(|| Status::failed_precondition("friend_service client unavailable"))?;
         let ts_ms = Utc::now().timestamp_millis();
         let req_id = build_snow_id();
-        let remark = clean_string(&req.remark);
-        let nickname = clean_string(&req.nickname);
-        let reason = req.reason.clone();
+        let from_remark = clean_string(&req.from_remark);
+        let from_nickname = clean_string(&req.from_nickname);
+        let to_remark = clean_string(&req.to_remark);
+        let to_nickname = clean_string(&req.to_nickname);
         let source = msg_message::FriendRequestSource::try_from(req.source)
             .unwrap_or(msg_message::FriendRequestSource::FrsUnknown);
 
@@ -855,23 +856,24 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
             id: req_id,
             from_uid: req.from_uid,
             to_uid: req.to_uid,
-            reason,
+            from_reason: req.from_reason.clone(),
             source: source as i32,
-            remark: remark.clone(),
-            nickname: nickname.clone(),
-            peer_remark: String::new(),
-            peer_nickname: String::new(),
+            from_remark: from_remark.to_string(),
+            from_nickname: from_nickname.clone(),
+            to_remark: to_remark.to_string(),
+            to_nickname: to_nickname.clone(),
             created_at: ts_ms,
             decided_at: Some(ts_ms),
             accepted: Some(true),
             notified_at: 0,
             notify_retry: 0,
         };
+        // 1) 先把好友请求落库（用于重试/展示）
         upsert_friend_request(self.pool(), &row)
             .await
             .map_err(|e| Status::internal(format!("persist friend request failed: {e}")))?;
 
-        // 先双向写入好友关系（幂等），保障通知与落库一致。
+        // 2) 双向写入好友关系（幂等），保障通知与落库一致。
         let ctx = FriendBothContext::for_anyone(&req);
         let req_both = ctx.into_req();
         add_friend_both_once(&mut friend_client, req_both, row.id, "add_friend_anyone")
@@ -880,54 +882,10 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
                 Status::internal(format!("add_friend_anyone: relation add failed: {e}"))
             })?;
 
-        // 下发请求通知（用于记录/展示）
-        let request_payload = msg_message::FriendRequestPayload {
-            request_id: req_id as u64,
-            from_uid: row.from_uid,
-            to_uid: row.to_uid,
-            reason: row.reason.clone(),
-            source: row.source,
-            created_at: row.created_at,
-            remark: row.remark.clone(),
-            nickname: row.nickname.clone(),
-        };
-        let request_biz = msg_message::FriendBusinessContent {
-            action: Some(msg_message::friend_business_content::Action::Request(
-                request_payload,
-            )),
-        };
+        // 3) 省略请求通知（已自动通过）
         let mut notify_ok = true;
-        if let Err(err) =
-            send_friend_business_system_notify(request_biz, row.from_uid, row.to_uid).await
-        {
-            warn!(
-                "add_friend_anyone: send request notify failed req_id={} err={}",
-                row.id, err
-            );
-            notify_ok = false;
-        }
 
         // 自动通过：下发决策通知，复用客户端处理逻辑。
-        let decision_biz = msg_message::FriendBusinessContent {
-            action: Some(msg_message::friend_business_content::Action::Decision(
-                msg_message::FriendRequestDecisionPayload {
-                    request_id: req_id as u64,
-                    accepted: true,
-                    remark: String::new(),
-                    decided_at: ts_ms,
-                    nickname: String::new(),
-                },
-            )),
-        };
-        if let Err(err) =
-            send_friend_business_system_notify(decision_biz, row.to_uid, row.from_uid).await
-        {
-            warn!(
-                "add_friend_anyone: send decision notify failed req_id={} err={}",
-                row.id, err
-            );
-            notify_ok = false;
-        }
         if let Err(err) = send_established_notify(row.from_uid, row.to_uid, ts_ms).await {
             warn!(
                 "add_friend_anyone: send established notify failed req_id={} err={}",
@@ -936,24 +894,35 @@ impl msgpb::friend_msg_service_server::FriendMsgService for Services {
             notify_ok = false;
         }
 
+        // 5) 根据通知结果重置或增加重试计数
         if notify_ok {
             if let Err(err) = mark_friend_request_notified(self.pool(), row.id, ts_ms).await {
                 warn!(
                     "add_friend_anyone: mark notified failed req_id={} err={}",
                     row.id, err
                 );
+                // 标记失败也计入重试，让后台任务能再次尝试
+                if let Err(e) = increment_friend_request_notify_retry(self.pool(), row.id).await {
+                    warn!(
+                        "add_friend_anyone: mark notify retry failed after mark error req_id={} err={}",
+                        row.id, e
+                    );
+                }
             }
-        } else if let Err(err) = increment_friend_request_notify_retry(self.pool(), row.id).await {
-            warn!(
-                "add_friend_anyone: mark notify retry failed req_id={} err={}",
-                row.id, err
-            );
+        } else {
+            if let Err(err) = increment_friend_request_notify_retry(self.pool(), row.id).await {
+                warn!(
+                    "add_friend_anyone: mark notify retry failed req_id={} err={}",
+                    row.id, err
+                );
+            }
         }
 
         Ok(Response::new(msgpb::AddFriendAnyoneResponse { ok: true }))
     }
 }
 
+/// 仅包装一次 add_friend_both 调用，带简单的错误分级日志。
 impl Services {
     async fn persist_contents(&self, domain: &msg_message::DomainMessage) -> Result<(), Status> {
         let now = chrono::Utc::now().timestamp_millis();
@@ -1154,12 +1123,12 @@ async fn process_friend_business(
                 id: payload.request_id as i64,
                 from_uid: payload.from_uid,
                 to_uid: payload.to_uid,
-                reason: payload.reason.clone(),
+                from_reason: payload.reason.clone(),
                 source: payload.source as i32,
-                remark,
-                nickname,
-                peer_remark: String::new(),
-                peer_nickname: String::new(),
+                from_remark: remark,
+                from_nickname: nickname,
+                to_remark: String::new(),
+                to_nickname: String::new(),
                 created_at: payload.created_at,
                 decided_at: None,
                 accepted: None,
@@ -1224,7 +1193,7 @@ async fn process_friend_business(
                 .map_err(|e| Status::internal(format!("fetch friend request failed: {e}")))?;
             let remark = stored
                 .as_ref()
-                .map(|r| r.remark.clone())
+                .map(|r| r.from_remark.clone())
                 .unwrap_or_else(|| payload.remark.clone());
             mark_friend_request_decision(
                 svc.pool(),
@@ -1254,10 +1223,10 @@ async fn process_friend_business(
                             r.from_uid,
                             r.to_uid,
                             r.source,
-                            r.remark.clone(),
-                            r.nickname.clone(),
-                            r.peer_remark.clone(),
-                            r.peer_nickname.clone(),
+                            r.from_remark.clone(),
+                            r.from_nickname.clone(),
+                            r.to_remark.clone(),
+                            r.to_nickname.clone(),
                         )
                     } else {
                         (
@@ -1526,55 +1495,73 @@ fn parse_metadata_flag(metadata: &HashMap<String, String>, key: &str) -> Option<
 }
 
 async fn retry_friend_business_notifications(services: &Services) -> Result<(), String> {
-    // 至少间隔 30 秒后才重试，避免瞬时重复。
     let now_ms = Utc::now().timestamp_millis();
-    let backoff_ms: i64 = 30_000;
-    let before_ts = now_ms - backoff_ms;
     let max_retry = 5;
     let limit = 50;
 
-    let rows = list_friend_requests_pending_notify(services.pool(), before_ts, max_retry, limit)
+    // 只挑未通知过的记录，按重试次数和时间排序，尽量按 FIFO 重试。
+    let rows = list_friend_requests_pending_notify(services.pool(), max_retry, limit)
         .await
         .map_err(|e| format!("query pending notify failed: {e}"))?;
 
     for row in rows {
-        // 根据是否已决策构造 action。
-        let action = if let (Some(decided_at), Some(accepted)) = (row.decided_at, row.accepted) {
-            let payload = msg_message::FriendRequestDecisionPayload {
-                request_id: row.id as u64,
-                accepted,
-                remark: row.peer_remark.clone(),
-                decided_at,
-                nickname: row.peer_nickname.clone(),
-            };
-            msg_message::friend_business_content::Action::Decision(payload)
-        } else {
-            let source = msg_message::FriendRequestSource::try_from(row.source)
-                .unwrap_or(msg_message::FriendRequestSource::FrsUnknown);
-            let payload = msg_message::FriendRequestPayload {
-                request_id: row.id as u64,
-                from_uid: row.from_uid,
-                to_uid: row.to_uid,
-                reason: row.reason.clone(),
-                source: source as i32,
-                created_at: row.created_at,
-                remark: row.remark.clone(),
-                nickname: row.nickname.clone(),
-            };
-            msg_message::friend_business_content::Action::Request(payload)
-        };
+        // 已接受的请求：仅重试好友建立通知；未决策的保留请求通知。
+        if let (Some(decided_at), Some(accepted)) = (row.decided_at, row.accepted) {
+            if accepted {
+                match send_established_notify(row.from_uid, row.to_uid, decided_at).await {
+                    Ok(_) => {
+                        if let Err(err) =
+                            mark_friend_request_notified(services.pool(), row.id, now_ms).await
+                        {
+                            warn!(
+                                "retry notify: mark notified failed id={} err={}",
+                                row.id, err
+                            );
+                        } else {
+                            info!(
+                                "retry notify: success id={} sender={} receiver={}",
+                                row.id, row.from_uid, row.to_uid
+                            );
+                        }
+                    }
+                    Err(err) => {
+                        warn!(
+                            "retry notify: send established failed id={} retry_count={} err={}",
+                            row.id, row.notify_retry, err
+                        );
+                        if let Err(e) =
+                            increment_friend_request_notify_retry(services.pool(), row.id).await
+                        {
+                            warn!(
+                                "retry notify: increment retry failed id={} err={}",
+                                row.id, e
+                            );
+                        }
+                    }
+                }
+                continue;
+            }
+        }
 
+        // 未决策的仍重试好友请求通知
+        let source = msg_message::FriendRequestSource::try_from(row.source)
+            .unwrap_or(msg_message::FriendRequestSource::FrsUnknown);
+        let payload = msg_message::FriendRequestPayload {
+            request_id: row.id as u64,
+            from_uid: row.from_uid,
+            to_uid: row.to_uid,
+            reason: row.from_reason.clone(),
+            source: source as i32,
+            created_at: row.created_at,
+            remark: row.from_remark.clone(),
+            nickname: row.from_nickname.clone(),
+        };
         let biz = msg_message::FriendBusinessContent {
-            action: Some(action.clone()),
+            action: Some(msg_message::friend_business_content::Action::Request(
+                payload,
+            )),
         };
-
-        // 判定发送双方
-        let (sender_id, receiver_id) = match action {
-            msg_message::friend_business_content::Action::Decision(_) => (row.to_uid, row.from_uid),
-            _ => (row.from_uid, row.to_uid),
-        };
-
-        match send_friend_business_system_notify(biz, sender_id, receiver_id).await {
+        match send_friend_business_system_notify(biz, row.from_uid, row.to_uid).await {
             Ok(_) => {
                 if let Err(err) =
                     mark_friend_request_notified(services.pool(), row.id, now_ms).await
@@ -1586,7 +1573,7 @@ async fn retry_friend_business_notifications(services: &Services) -> Result<(), 
                 } else {
                     info!(
                         "retry notify: success id={} sender={} receiver={}",
-                        row.id, sender_id, receiver_id
+                        row.id, row.from_uid, row.to_uid
                     );
                 }
             }

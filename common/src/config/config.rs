@@ -462,8 +462,8 @@ pub fn init_log(log_lovel: &str) -> Result<(), AppError> {
     let mut builder = env_logger::Builder::new();
     builder.target(env_logger::Target::Stdout);
     builder.format_timestamp_millis();
-    let level = LevelFilter::from_str(log_lovel).unwrap_or(LevelFilter::Info);
-    builder.filter(None, level);
+    // 支持 env_logger 风格的过滤串（如 "sqlx::query=trace,info"）；若解析失败则退回单级别
+    builder.parse_filters(log_lovel);
     let _ = builder.try_init();
     Ok(())
 }

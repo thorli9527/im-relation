@@ -6,7 +6,7 @@ url = "redis://127.0.0.1:6379/"
 host = "127.0.0.1"
 port = 8004
 [sys]
-log_leve = "info"  #trace debug info error warn
+log_leve = "sqlx::query=trace,trace" 
 md5_key = "0000000000000000000000000000000"
 
 #-----------app_socket

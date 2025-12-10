@@ -60,7 +60,7 @@ impl GroupService {
         Ok(GroupEntity {
             id: Some(row.get("id")?),
             group_id: row.get("group_id")?,
-            avatar: row.get("avatar")?,
+            avatar: normalize_optional(row.get("avatar")?),
             name: row.get("name")?,
             notice: row.get("notice")?,
             owner_id: row.get("owner_id")?,
@@ -69,5 +69,13 @@ impl GroupService {
             member_count: row.get("member_count")?,
             create_time: row.get("create_time")?,
         })
+    }
+}
+
+fn normalize_optional(value: String) -> Option<String> {
+    if value.is_empty() {
+        None
+    } else {
+        Some(value)
     }
 }

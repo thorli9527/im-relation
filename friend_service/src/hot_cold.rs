@@ -22,7 +22,7 @@ use common::UID;
 use tokio::runtime::Handle;
 
 use crate::autotune::{auto_tune_cache, AutoTuneConfig, CacheAutoTune};
-use crate::hot_shard_store::{HotShardStore, PersistFn};
+use crate::hot_shard_store::HotShardStore;
 use crate::store::mysql::{FriendEntry, FriendRepo};
 
 #[inline]
@@ -40,7 +40,7 @@ pub struct HotColdFriendFacade<R: FriendRepo> {
     storage: Arc<R>,
     rt: Handle,
     plan: RwLock<CacheAutoTune>,
-    stores: RwLock<Vec<Arc<HotShardStore<UID, Vec<UID>>>>>,
+    stores: RwLock<Vec<Arc<HotShardStore<UID, Vec<FriendEntry>>>>>,
 }
 
 impl<R: FriendRepo> HotColdFriendFacade<R> {
@@ -58,11 +58,11 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
     /// 读取好友列表（命中内存则读放热；未命中则分页冷加载并回写）。
     pub async fn get_friends(&self, uid: UID) -> Result<Vec<UID>> {
         if let Some(v) = self.store(uid).get(&uid) {
-            return Ok(v);
+            return Ok(v.iter().map(|e| e.friend_id).collect());
         }
         let from_db = self.load_all_from_repo(uid).await?;
         self.store(uid).insert(uid, from_db.clone());
-        Ok(from_db)
+        Ok(from_db.iter().map(|e| e.friend_id).collect())
     }
 
     /// 覆盖写（整个列表替换：clear_all + upsert_bulk）。
@@ -87,32 +87,20 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
                 .with_context(|| format!("overwrite_friends: upsert_bulk failed, uid={uid}"))?;
         }
 
-        // 3) 回写热存
-        self.store(uid).insert(uid, friends);
-        Ok(())
-    }
-
-    /// 添加好友（若已存在则忽略昵称变化，这里 nickname/remark=None）。
-    pub async fn add_friend(&self, uid: UID, fid: UID, remark: Option<&str>) -> Result<()> {
-        let _outcome = self
-            .storage
-            .add_friend(uid, fid, None, 0, remark)
-            .await
-            .with_context(|| format!("add_friend: repo.add_friend failed, uid={uid}, fid={fid}"))?;
-
-        // 更新热存（Inserted/Unchanged/Updated 都确保缓存包含该 fid）
-        let mut list = if let Some(v) = self.store(uid).get(&uid) {
-            v
-        } else {
-            self.load_all_from_repo(uid).await?
-        };
-
-        if !list.contains(&fid) {
-            list.push(fid);
-            list.sort_unstable();
-        }
-        // 即使 Unchanged，也刷新热度
-        self.store(uid).insert(uid, list);
+        // 3) 回写热存（详细信息未知，先占位）
+        let entries: Vec<FriendEntry> = friends
+            .into_iter()
+            .map(|fid| FriendEntry {
+                friend_id: fid,
+                nickname: None,
+                apply_source: 0,
+                remark: None,
+                blacklisted: false,
+                created_at: 0,
+                updated_at: 0,
+            })
+            .collect();
+        self.store(uid).insert(uid, entries);
         Ok(())
     }
 
@@ -143,15 +131,34 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
             })?;
 
         // 更新两侧热存
-        for (uid, fid) in [(a, b), (b, a)] {
+        for (uid, fid, nick, remark) in [
+            (a, b, nickname_for_a, remark_for_a),
+            (b, a, nickname_for_b, remark_for_b),
+        ] {
             let mut list = if let Some(v) = self.store(uid).get(&uid) {
                 v
             } else {
                 self.load_all_from_repo(uid).await?
             };
-            if !list.contains(&fid) {
-                list.push(fid);
-                list.sort_unstable();
+            if let Some(entry) = list.iter_mut().find(|e| e.friend_id == fid) {
+                if let Some(n) = nick {
+                    entry.nickname = Some(n.to_string());
+                }
+                if let Some(r) = remark {
+                    entry.remark = Some(r.to_string());
+                }
+                entry.apply_source = apply_source;
+            } else {
+                list.push(FriendEntry {
+                    friend_id: fid,
+                    nickname: nick.map(|s| s.to_string()),
+                    apply_source,
+                    remark: remark.map(|s| s.to_string()),
+                    blacklisted: false,
+                    created_at: 0,
+                    updated_at: 0,
+                });
+                list.sort_unstable_by_key(|e| e.friend_id);
             }
             self.store(uid).insert(uid, list);
         }
@@ -176,7 +183,7 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
         };
 
         let old_len = list.len();
-        list.retain(|x| *x != fid);
+        list.retain(|x| x.friend_id != fid);
         if list.len() != old_len || !removed {
             // 刷新热度或落入不变情形
             self.store(uid).insert(uid, list);
@@ -303,6 +310,9 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
         &self,
         uid: UID,
     ) -> anyhow::Result<Vec<crate::store::mysql::FriendEntry>> {
+        if let Some(v) = self.store(uid).get(&uid) {
+            return Ok(v);
+        }
         let mut out = Vec::new();
         let mut cursor: Option<UID> = None;
         loop {
@@ -316,6 +326,7 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
                 break;
             }
         }
+        self.store(uid).insert(uid, out.clone());
         Ok(out)
     }
 
@@ -361,8 +372,8 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
 
     // ====== 内部工具 ======
 
-    /// 冷加载（分页拉全量，仅取 id）
-    async fn load_all_from_repo(&self, uid: UID) -> Result<Vec<UID>> {
+    /// 冷加载（分页拉全量，含昵称/备注/来源）
+    async fn load_all_from_repo(&self, uid: UID) -> Result<Vec<FriendEntry>> {
         let mut out = Vec::new();
         let mut cursor: Option<UID> = None;
         loop {
@@ -374,7 +385,7 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
             if items.is_empty() {
                 break;
             }
-            out.extend(items.into_iter().map(|e| e.friend_id));
+            out.extend(items);
             if let Some(c) = next {
                 cursor = Some(c);
             } else {
@@ -384,30 +395,12 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
         Ok(out)
     }
 
-    /// 按 plan 构建分片，并挂持久化回调（驱逐时 upsert_bulk）。
+    /// 按 plan 构建分片（关闭驱逐持久化，避免额外 upsert）。
     fn build_shards<T: FriendRepo>(
-        storage: &Arc<T>,
+        _storage: &Arc<T>,
         plan: &CacheAutoTune,
         rt: &Handle,
-    ) -> Vec<Arc<HotShardStore<UID, Vec<UID>>>> {
-        let persist: PersistFn<UID, Vec<UID>> = Arc::new({
-            let storage = Arc::clone(storage);
-            move |uid, friends| {
-                let storage = Arc::clone(&storage);
-                Box::pin(async move {
-                    // 驱逐时尽力幂等落库（只写关系，不处理别名）
-                    if friends.is_empty() {
-                        // 空列表等价于 clear_all
-                        let _ = storage.clear_all(uid).await;
-                    } else {
-                        let payload: Vec<(UID, Option<&str>)> =
-                            friends.iter().copied().map(|f| (f, None)).collect();
-                        let _ = storage.upsert_bulk(uid, &payload).await;
-                    }
-                })
-            }
-        });
-
+    ) -> Vec<Arc<HotShardStore<UID, Vec<FriendEntry>>>> {
         let mut shards = Vec::with_capacity(plan.shards);
         for _ in 0..plan.shards {
             shards.push(Arc::new(HotShardStore::new(
@@ -415,7 +408,7 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
                 plan.tti,
                 plan.per_shard_segments,
                 rt.clone(),
-                Some(persist.clone()),
+                None,
             )));
         }
         shards
@@ -423,7 +416,7 @@ impl<R: FriendRepo> HotColdFriendFacade<R> {
 
     /// 按 uid 获取所在分片引用。
     #[inline]
-    fn store(&self, uid: UID) -> Arc<HotShardStore<UID, Vec<UID>>> {
+    fn store(&self, uid: UID) -> Arc<HotShardStore<UID, Vec<FriendEntry>>> {
         let stores = self.stores.read().expect("stores RwLock poisoned");
         let i = shard_index(uid, stores.len());
         stores[i].clone()

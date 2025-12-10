@@ -9,6 +9,7 @@ pub mod message_entity;
 pub mod proto_adapter;
 pub mod sync_state_entity;
 pub mod read_cursor_entity;
+pub mod local_system_message_entity;
 pub mod user_entity;
 pub use config_entity::*;
 pub use conversation_entity::*;
@@ -20,6 +21,7 @@ pub use group_member_entity::*;
 pub use message_entity::*;
 pub use read_cursor_entity::*;
 pub use sync_state_entity::*;
+pub use local_system_message_entity::*;
 pub use user_entity::*;
 
 pub fn init() {
@@ -33,4 +35,5 @@ pub fn init() {
     message_entity::init();
     user_entity::init();
     sync_state_entity::init();
+    local_system_message_entity::init();
 }

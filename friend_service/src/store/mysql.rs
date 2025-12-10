@@ -3,9 +3,9 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use common::config::{get_db, MySqlPool};
 use common::UID;
-use sqlx::{mysql::MySqlRow, MySql, QueryBuilder, Row};
+use log::info;
+use sqlx::{mysql::MySqlRow, MySql, QueryBuilder, Row, Transaction};
 use std::sync::Arc;
-
 // =============== 领域模型与接口 ===============
 
 #[derive(Debug, Clone)]
@@ -19,23 +19,8 @@ pub struct FriendEntry {
     pub updated_at: i64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AddOutcome {
-    Inserted,
-    Updated,
-    Unchanged,
-}
-
 #[async_trait]
 pub trait FriendRepo: Send + Sync + 'static {
-    async fn add_friend(
-        &self,
-        user: UID,
-        friend: UID,
-        nickname: Option<&str>,
-        apply_source: i32,
-        remark: Option<&str>,
-    ) -> Result<AddOutcome>;
     /// 原子地为双方建立好友关系，并刷新两侧计数（以实时 COUNT(*) 为准）。
     async fn add_friend_both(
         &self,
@@ -95,64 +80,62 @@ impl FriendStorage {
     fn db(&self) -> &MySqlPool {
         self.pool.as_ref()
     }
-}
 
-#[async_trait]
-impl FriendRepo for FriendStorage {
-    async fn add_friend(
+    // 单向插入好友关系并刷新计数，依赖外部事务保证双向一致
+    async fn add_friend<'t>(
         &self,
+        tx: Transaction<'t, MySql>,
         user: UID,
         friend: UID,
         nickname: Option<&str>,
-        apply_source: i32,
         remark: Option<&str>,
-    ) -> Result<AddOutcome> {
-        let res = sqlx::query(
+        apply_source: i32,
+    ) -> Result<Transaction<'t, MySql>> {
+        let mut tx = tx;
+        sqlx::query(
             r#"
-        INSERT INTO friend_edge (uid, friend_id, nickname, apply_source, remark)
-        VALUES (?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-          nickname = COALESCE(VALUES(nickname), nickname),
-          apply_source = VALUES(apply_source),
-          remark   = COALESCE(VALUES(remark), remark),
-          updated_at = CURRENT_TIMESTAMP
-        "#,
+            INSERT INTO friend_edge (uid, friend_id, nickname, apply_source, remark)
+            VALUES (?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+              nickname = COALESCE(VALUES(nickname), nickname),
+              apply_source = VALUES(apply_source),
+              remark   = COALESCE(VALUES(remark), remark),
+              updated_at=CURRENT_TIMESTAMP
+            "#,
         )
         .bind(user as u64)
         .bind(friend as u64)
         .bind(nickname)
         .bind(apply_source)
         .bind(remark)
-        .execute(self.db())
+        .execute(&mut *tx)
         .await
-        .with_context(|| "add_friend: upsert failed")?;
+        .with_context(|| format!("add_friend: upsert {user}->{friend} failed"))?;
 
-        // rows_affected: 1 insert, 2 update, 0 unchanged (MySQL)
-        let outcome = match res.rows_affected() {
-            0 => AddOutcome::Unchanged,
-            1 => AddOutcome::Inserted,
-            _ => AddOutcome::Updated,
-        };
-
-        // 计数增量（失败不阻塞主流程）
-        if matches!(outcome, AddOutcome::Inserted) {
-            let _ = sqlx::query(
-                r#"
-            INSERT INTO user_friends_meta (uid, friend_count)
-            VALUES (?, 1)
-            ON DUPLICATE KEY UPDATE
-              friend_count = friend_count + 1,
-              updated_at   = CURRENT_TIMESTAMP
-            "#,
-            )
+        let cnt: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM friend_edge WHERE uid=?")
             .bind(user as u64)
-            .execute(self.db())
-            .await;
-        }
+            .fetch_one(&mut *tx)
+            .await
+            .with_context(|| format!("add_friend: count {user} failed"))?;
+        sqlx::query(
+            r#"
+            INSERT INTO user_friends_meta (uid, friend_count)
+            VALUES (?, ?)
+            ON DUPLICATE KEY UPDATE friend_count=VALUES(friend_count), updated_at=CURRENT_TIMESTAMP
+            "#,
+        )
+        .bind(user as u64)
+        .bind(cnt as u64)
+        .execute(&mut *tx)
+        .await
+        .with_context(|| format!("add_friend: upsert meta {user} failed"))?;
 
-        Ok(outcome)
+        Ok(tx)
     }
+}
 
+#[async_trait]
+impl FriendRepo for FriendStorage {
     async fn add_friend_both(
         &self,
         a: UID,
@@ -163,89 +146,21 @@ impl FriendRepo for FriendStorage {
         remark_for_b: Option<&str>,
         apply_source: i32,
     ) -> Result<()> {
-        let mut tx = self
+        let tx = self
             .db()
             .begin()
             .await
             .with_context(|| "add_friend_both: begin tx")?;
-
         // 双向 UPSERT（幂等），别名按传入值覆盖
-        sqlx::query(
-            r#"
-            INSERT INTO friend_edge (uid, friend_id, nickname, apply_source, remark)
-            VALUES (?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-              nickname = COALESCE(VALUES(nickname), nickname),
-              apply_source = VALUES(apply_source),
-              remark   = COALESCE(VALUES(remark), remark),
-              updated_at=CURRENT_TIMESTAMP
-            "#,
-        )
-        .bind(a as u64)
-        .bind(b as u64)
-        .bind(nickname_for_a)
-        .bind(apply_source)
-        .bind(remark_for_a)
-        .execute(&mut *tx)
-        .await
-        .with_context(|| "add_friend_both: upsert A->B failed")?;
-
-        sqlx::query(
-            r#"
-            INSERT INTO friend_edge (uid, friend_id, nickname, apply_source, remark)
-            VALUES (?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-              nickname = COALESCE(VALUES(nickname), nickname),
-              apply_source = VALUES(apply_source),
-              remark   = COALESCE(VALUES(remark), remark),
-              updated_at=CURRENT_TIMESTAMP
-            "#,
-        )
-        .bind(b as u64)
-        .bind(a as u64)
-        .bind(nickname_for_b)
-        .bind(apply_source)
-        .bind(remark_for_b)
-        .execute(&mut *tx)
-        .await
-        .with_context(|| "add_friend_both: upsert B->A failed")?;
-
-        // 计数以真实行数为准
-        let cnt_a: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM friend_edge WHERE uid=?")
-            .bind(a as u64)
-            .fetch_one(&mut *tx)
+        let tx = self
+            .add_friend(tx, a, b, nickname_for_a, remark_for_a, apply_source)
             .await
-            .with_context(|| "add_friend_both: count A failed")?;
-        sqlx::query(
-            r#"
-            INSERT INTO user_friends_meta (uid, friend_count)
-            VALUES (?, ?)
-            ON DUPLICATE KEY UPDATE friend_count=VALUES(friend_count), updated_at=CURRENT_TIMESTAMP
-            "#,
-        )
-        .bind(a as u64)
-        .bind(cnt_a as u64)
-        .execute(&mut *tx)
-        .await
-        .with_context(|| "add_friend_both: upsert meta A failed")?;
+            .with_context(|| "add_friend_both: add A->B failed")?;
 
-        let cnt_b: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM friend_edge WHERE uid=?")
-            .bind(b as u64)
-            .fetch_one(&mut *tx)
+        let mut tx = self
+            .add_friend(tx, b, a, nickname_for_b, remark_for_b, apply_source)
             .await
-            .with_context(|| "add_friend_both: count B failed")?;
-        sqlx::query(
-            r#"
-            INSERT INTO user_friends_meta (uid, friend_count)
-            VALUES (?, ?)
-            ON DUPLICATE KEY UPDATE friend_count=VALUES(friend_count), updated_at=CURRENT_TIMESTAMP
-            "#,
-        )
-        .bind(b as u64)
-        .bind(cnt_b as u64)
-        .execute(&mut *tx)
-        .await
-        .with_context(|| "add_friend_both: upsert meta B failed")?;
+            .with_context(|| "add_friend_both: add B->A failed")?;
 
         tx.commit().await?;
         Ok(())

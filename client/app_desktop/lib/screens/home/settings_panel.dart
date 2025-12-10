@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:app_desktop/screens/home/sidebar.dart';
+import 'sidebar.dart';
 
 class SettingsPanel extends ConsumerStatefulWidget {
   const SettingsPanel({super.key, required this.onLogout});
@@ -17,6 +17,7 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
   static const String _defaultLogPath = 'logs/app.log';
   late Future<String> _logFuture;
   bool _logoutTriggered = false;
+  String _selectedLanguage = '简体中文';
 
   @override
   void initState() {
@@ -57,74 +58,38 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
         widget.onLogout();
       });
     }
-    return Row(
-      children: [
-        Container(
-          width: 220,
-          color: Colors.grey.shade100,
-          child: ListView(
-            children: [
-              _MenuItem(
-                icon: Icons.article_outlined,
-                label: '日志',
-                selected: current == SettingsMenu.logs,
-                onTap: () => _selectMenu(SettingsMenu.logs),
-              ),
-              _MenuItem(
-                icon: Icons.exit_to_app,
-                label: '退出',
-                selected: current == SettingsMenu.logout,
-                onTap: () => _selectMenu(SettingsMenu.logout),
-              ),
-            ],
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: switch (current) {
+        SettingsMenu.logs => _LogViewer(
+            future: _logFuture,
+            onRefresh: () {
+              setState(() {
+                _logFuture = _loadLogs();
+              });
+            },
           ),
-        ),
-        const VerticalDivider(width: 1),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: current == SettingsMenu.logs
-                ? _LogViewer(
-                    future: _logFuture,
-                    onRefresh: () {
-                      setState(() {
-                        _logFuture = _loadLogs();
-                      });
-                    },
-                  )
-                : const Center(
-                    child: Text(
-                      '确认退出请点击左侧“退出”',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ),
+        SettingsMenu.language => _LanguagePanel(
+            selected: _selectedLanguage,
+            onSelected: (lang) {
+              setState(() {
+                _selectedLanguage = lang;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('语言已切换为 $lang（仅客户端示例）'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MenuItem extends StatelessWidget {
-  const _MenuItem({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon, color: selected ? Colors.blue : Colors.grey),
-      title: Text(label),
-      selected: selected,
-      onTap: onTap,
+        SettingsMenu.logout => const Center(
+            child: Text(
+              '确认退出请点击左侧“退出”',
+              style: TextStyle(fontSize: 16),
+            ),
+          ),
+      },
     );
   }
 }
@@ -182,6 +147,52 @@ class _LogViewer extends StatelessWidget {
               );
             },
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LanguagePanel extends StatelessWidget {
+  const _LanguagePanel({required this.selected, required this.onSelected});
+
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    const languages = ['简体中文', 'English', '繁體中文'];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '语言',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          elevation: 0,
+          color: Colors.grey.shade50,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Column(
+            children: languages
+                .map(
+                  (lang) => RadioListTile<String>(
+                    title: Text(lang),
+                    value: lang,
+                    groupValue: selected,
+                    onChanged: (v) {
+                      if (v != null) onSelected(v);
+                    },
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          '选择后立即生效（示例），可在重启后保持当前选择。',
+          style: TextStyle(color: Colors.grey, fontSize: 12),
         ),
       ],
     );

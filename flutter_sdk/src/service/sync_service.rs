@@ -17,7 +17,8 @@ use crate::{
         conversation_service::ConversationService,
         friend_request_service::FriendRequestService, friend_service::FriendService,
         group_request_service::GroupRequestService,
-        message_service::MessageService, sync_state_service::SyncStateService,
+        local_system_message_service::LocalSystemMessageService, message_service::MessageService,
+        sync_state_service::SyncStateService,
         user_service::UserService,
     },
 };
@@ -269,43 +270,80 @@ fn handle_friend_established(
         }
     }
 
-    let mut nickname = None;
-    let mut avatar = None;
-    match friend_api::search_user(SearchUserQuery {
+    let profile = match friend_api::search_user(SearchUserQuery {
         query: friend_id.to_string(),
     }) {
-        Ok(resp) => {
-            if let Some(user) = resp.user {
-                if !user.nickname.trim().is_empty() {
-                    nickname = Some(user.nickname.clone());
-                }
-                if !user.avatar.trim().is_empty() {
-                    avatar = Some(user.avatar.clone());
-                }
+        Ok(resp) => match resp.user {
+            Some(user) => user,
+            None => {
+                warn!(
+                    "fetch profile for established friend {} returned empty user",
+                    friend_id
+                );
+                return;
             }
-        }
+        },
         Err(err) => {
             warn!(
                 "fetch profile for established friend {} failed: {}",
                 friend_id, err
             );
+            return;
         }
-    }
+    };
 
-    if let Err(err) = svc.ensure_friend(friend_id, None, nickname.clone(), established_at) {
+    let nickname = (!profile.nickname.trim().is_empty()).then(|| profile.nickname.clone());
+    let avatar = (!profile.avatar.trim().is_empty()).then(|| profile.avatar.clone());
+
+    if let Err(err) = svc.ensure_friend(friend_id, None, nickname.clone().unwrap_or_default(), established_at) {
         warn!(
             "ensure_friend {} from established message failed: {}",
             friend_id, err
         );
     }
     if avatar.is_some() || nickname.is_some() {
-        if let Err(err) = svc.apply_profile_update(friend_id, nickname, avatar, established_at) {
+        if let Err(err) =
+            svc.apply_profile_update(friend_id, nickname.clone().unwrap_or_default(), avatar, established_at)
+        {
             warn!(
                 "apply_profile_update {} from established message failed: {}",
                 friend_id, err
             );
         }
     }
+
+    if let Err(err) = persist_established_snapshot(uid, friend_id, established_at) {
+        warn!(
+            "persist conversation/system message for established {} failed: {}",
+            friend_id, err
+        );
+    }
+}
+
+const FRIEND_ESTABLISHED_PLACEHOLDER: &str = "已成为好友";
+
+fn persist_established_snapshot(
+    owner_uid: i64,
+    friend_id: i64,
+    established_at: i64,
+) -> Result<(), String> {
+    let conv_svc = ConversationService::get();
+    let mut conv = conv_svc
+        .get_by_type_and_target(owner_uid, MessageScene::Single as i32, friend_id)?
+        .unwrap_or_else(|| ConversationEntity::new(owner_uid, MessageScene::Single as i32, friend_id));
+    conv.owner_uid = owner_uid;
+    conv.unread_count = conv.unread_count.saturating_add(1);
+    conv.last_message_time = established_at;
+    conv.last_message_content = FRIEND_ESTABLISHED_PLACEHOLDER.to_string();
+    conv_svc.upsert(conv)?;
+
+    let sys_msg = crate::domain::LocalSystemMessageEntity::new(
+        owner_uid,
+        friend_id,
+        FRIEND_ESTABLISHED_PLACEHOLDER.to_string(),
+        established_at,
+    );
+    LocalSystemMessageService::get().insert(sys_msg)
 }
 
 fn handle_group_business(content: &Content) {
@@ -371,7 +409,8 @@ fn handle_system_business(content: &Content, current_uid: Option<i64>) {
         };
         if friend_id > 0 {
             if let Err(err) =
-                FriendService::get().ensure_friend(friend_id, None, None, content.timestamp)
+                FriendService::get()
+                    .ensure_friend(friend_id, None, String::new(), content.timestamp)
             {
                 warn!("ensure_friend on system business failed: {}", err);
             }
@@ -428,7 +467,7 @@ fn apply_friend_acceptance(
     FriendService::get().ensure_friend(
         counterpart,
         normalize_optional(&payload.remark),
-        normalize_optional(&payload.nickname),
+        normalize_optional(&payload.nickname).unwrap_or_default(),
         decided_at,
     )
 }

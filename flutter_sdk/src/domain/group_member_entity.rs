@@ -19,7 +19,7 @@ pub struct GroupMemberEntity {
     pub group_id: i64,
     pub member_id: i64,
     pub nickname: String,
-    pub avatar: String,
+    pub avatar: Option<String>,
     pub role: i32,
     pub muted: bool,
     pub join_time: i64,
@@ -34,7 +34,7 @@ impl GroupMemberEntity {
             group_id,
             member_id,
             nickname: nickname.into(),
-            avatar: String::new(),
+            avatar: None,
             role: 0,
             muted: false,
             join_time: 0,
@@ -59,7 +59,10 @@ impl TableEntity for GroupMemberEntity {
             "nickname",
             Value::Text(self.nickname.clone()),
         ));
-        cols.push(ColumnValue::new("avatar", Value::Text(self.avatar.clone())));
+        cols.push(ColumnValue::new(
+            "avatar",
+            Value::Text(self.avatar.clone().unwrap_or_default()),
+        ));
         cols.push(ColumnValue::new("role", Value::Integer(self.role as i64)));
         cols.push(ColumnValue::new("muted", Value::Integer(self.muted as i64)));
         cols.push(ColumnValue::new(

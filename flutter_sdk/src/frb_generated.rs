@@ -2379,8 +2379,8 @@ impl SseDecode for crate::domain::friend_entity::FriendEntity {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_id = <Option<i64>>::sse_decode(deserializer);
         let mut var_friendId = <i64>::sse_decode(deserializer);
-        let mut var_avatar = <String>::sse_decode(deserializer);
-        let mut var_nickname = <Option<String>>::sse_decode(deserializer);
+        let mut var_avatar = <Option<String>>::sse_decode(deserializer);
+        let mut var_nickname = <String>::sse_decode(deserializer);
         let mut var_remark = <Option<String>>::sse_decode(deserializer);
         let mut var_email = <Option<String>>::sse_decode(deserializer);
         let mut var_phone = <Option<String>>::sse_decode(deserializer);
@@ -2566,7 +2566,7 @@ impl SseDecode for crate::domain::group_entity::GroupEntity {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_id = <Option<i64>>::sse_decode(deserializer);
         let mut var_groupId = <i64>::sse_decode(deserializer);
-        let mut var_avatar = <String>::sse_decode(deserializer);
+        let mut var_avatar = <Option<String>>::sse_decode(deserializer);
         let mut var_name = <String>::sse_decode(deserializer);
         let mut var_notice = <String>::sse_decode(deserializer);
         let mut var_ownerId = <i64>::sse_decode(deserializer);
@@ -5273,8 +5273,8 @@ impl SseEncode for crate::domain::friend_entity::FriendEntity {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <Option<i64>>::sse_encode(self.id, serializer);
         <i64>::sse_encode(self.friend_id, serializer);
-        <String>::sse_encode(self.avatar, serializer);
-        <Option<String>>::sse_encode(self.nickname, serializer);
+        <Option<String>>::sse_encode(self.avatar, serializer);
+        <String>::sse_encode(self.nickname, serializer);
         <Option<String>>::sse_encode(self.remark, serializer);
         <Option<String>>::sse_encode(self.email, serializer);
         <Option<String>>::sse_encode(self.phone, serializer);
@@ -5384,7 +5384,7 @@ impl SseEncode for crate::domain::group_entity::GroupEntity {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <Option<i64>>::sse_encode(self.id, serializer);
         <i64>::sse_encode(self.group_id, serializer);
-        <String>::sse_encode(self.avatar, serializer);
+        <Option<String>>::sse_encode(self.avatar, serializer);
         <String>::sse_encode(self.name, serializer);
         <String>::sse_encode(self.notice, serializer);
         <i64>::sse_encode(self.owner_id, serializer);

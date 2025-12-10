@@ -87,21 +87,21 @@ impl FriendService {
     pub fn apply_profile_update(
         &self,
         friend_id: i64,
-        nickname: Option<String>,
+        nickname: String,
         avatar: Option<String>,
         updated_at: i64,
     ) -> Result<(), String> {
-        if nickname.is_none() && avatar.is_none() {
+        if nickname.is_empty() && avatar.is_none() {
             return Ok(());
         }
         let mut entity = self
             .get_by_friend_id(friend_id)?
             .unwrap_or_else(|| FriendEntity::new(friend_id, updated_at));
-        if let Some(nick) = nickname {
-            entity.nickname = Some(nick);
+        if !nickname.trim().is_empty() {
+            entity.nickname = nickname;
         }
         if let Some(av) = avatar {
-            entity.avatar = av;
+            entity.avatar = Some(av);
         }
         if entity.created_at == 0 {
             entity.created_at = updated_at;
@@ -119,7 +119,7 @@ impl FriendService {
         &self,
         friend_id: i64,
         remark: Option<String>,
-        nickname: Option<String>,
+        nickname: String,
         created_at: i64,
     ) -> Result<(), String> {
         let mut entity = self
@@ -128,10 +128,8 @@ impl FriendService {
         if let Some(r) = remark {
             entity.remark = Some(r);
         }
-        if let Some(nick) = nickname {
-            if !nick.trim().is_empty() {
-                entity.nickname = Some(nick);
-            }
+        if !nickname.trim().is_empty() {
+            entity.nickname = nickname;
         }
         if entity.created_at == 0 {
             entity.created_at = created_at;
@@ -175,13 +173,12 @@ impl FriendService {
     }
 
     fn map_row(row: &Row) -> Result<FriendEntity, rusqlite::Error> {
-        let nickname: String = row.get("nickname")?;
         let remark: String = row.get("remark")?;
         Ok(FriendEntity {
             id: Some(row.get("id")?),
             friend_id: row.get("friend_id")?,
-            avatar: row.get("avatar")?,
-            nickname: normalize_optional(nickname),
+            avatar: normalize_optional(row.get("avatar")?),
+            nickname: row.get("nickname")?,
             remark: normalize_optional(remark),
             email: normalize_optional(row.get("email")?),
             phone: normalize_optional(row.get("phone")?),

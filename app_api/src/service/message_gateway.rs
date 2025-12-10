@@ -283,9 +283,11 @@ pub async fn submit_friend_request(
 pub async fn add_friend_anyone(
     from_uid: i64,
     to_uid: i64,
-    reason: &str,
-    remark: &str,
-    nickname: &str,
+    from_reason: &str,
+    from_remark: &str,
+    from_nickname: &str,
+    to_remark: &str,
+    to_nickname: &str,
     source: i32,
 ) -> Result<AddFriendAnyoneResponse> {
     let addr = resolve_addr(NodeType::MsgFriend, from_uid).await?;
@@ -293,9 +295,11 @@ pub async fn add_friend_anyone(
     let req = AddFriendAnyoneRequest {
         from_uid,
         to_uid,
-        reason: reason.to_string(),
-        remark: remark.to_string(),
-        nickname: nickname.to_string(),
+        from_reason: from_reason.to_string(),
+        from_remark: from_remark.to_string(),
+        from_nickname: from_nickname.to_string(),
+        to_remark: to_remark.to_string(),
+        to_nickname: to_nickname.to_string(),
         source,
     };
     client
@@ -303,6 +307,20 @@ pub async fn add_friend_anyone(
         .await
         .map(|resp| resp.into_inner())
         .map_err(|status| anyhow!("add_friend_anyone failed: {status}"))
+}
+
+/// 查询好友申请详情。
+pub async fn get_friend_request_detail(
+    uid_hint: i64,
+    request_id: u64,
+) -> Result<GetFriendRequestResponse> {
+    let addr = resolve_addr(NodeType::MsgFriend, uid_hint).await?;
+    let mut client = connect_friend_msg(&addr).await?;
+    client
+        .get_friend_request(GetFriendRequestRequest { request_id })
+        .await
+        .map(|resp| resp.into_inner())
+        .map_err(|status| anyhow!("get_friend_request failed: {status}"))
 }
 
 /// 处理好友申请的决策（同意/拒绝），落到好友消息域。

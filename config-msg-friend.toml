@@ -7,7 +7,7 @@ port = 8102
 host = "127.0.0.1"
 port = 8302
 [sys]
-log_leve = "warn"  # trace debug info error warn
+log_leve = "sqlx::query=info,info"    # trace debug info error warn
 
 [kafka]
 broker = "127.0.0.1:9092"

@@ -24,16 +24,14 @@ rand_core = { version = "0.9.3" }
 # ========================
 # 🗄 数据库相关
 # ========================
-sqlx = { version = "0.8.6", default-features = false, features = ["mysql", "postgres", "runtime-tokio-rustls", "macros", "json", "time"] }
-mongodb = { version = "3.2.4", features = ["sync"] }       # MongoDB 客户端（同步版）
-mongo_indexed_derive = { version = "2.0.0" }               # Mongo 索引宏派生
+sqlx = { version = "0.8.6", default-features = false, features = ["mysql", "runtime-tokio-rustls", "macros", "json", "time"] }
 deadpool-redis = { version = "0.21.1", features = ["tokio-comp"] }  # Redis 异步连接池（tokio）
 
 # ========================
 # ⚙️ 配置、日志、时间
 # ========================
-config = { version = "0.15.13" }             # 多源配置文件加载
-log = { version = "0.4.27" }                 # 日志抽象接口
+config = { version = "0.15.19" }             # 多源配置文件加载
+log = { version = "0.4.29" }                 # 日志抽象接口
 env_logger = { version = "0.11.8" }          # 日志环境控制输出
 chrono = { version = "0.4.41" }              # 时间处理（传统）
 time = { version = "0.3.41", features = ["macros", "formatting"] }                # 更现代的时间库

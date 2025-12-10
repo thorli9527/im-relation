@@ -17,8 +17,8 @@ pub fn init() {
 pub struct FriendEntity {
     pub id: Option<i64>,
     pub friend_id: i64,
-    pub avatar: String,
-    pub nickname: Option<String>,
+    pub avatar: Option<String>,
+    pub nickname: String,
     pub remark: Option<String>,
     pub email: Option<String>,
     pub phone: Option<String>,
@@ -31,8 +31,8 @@ impl FriendEntity {
         Self {
             id: None,
             friend_id,
-            avatar: String::new(),
-            nickname: None,
+            avatar: None,
+            nickname: String::new(),
             remark: None,
             email: None,
             phone: None,
@@ -52,10 +52,13 @@ impl TableEntity for FriendEntity {
             "friend_id",
             Value::Integer(self.friend_id),
         ));
-        cols.push(ColumnValue::new("avatar", Value::Text(self.avatar.clone())));
+        cols.push(ColumnValue::new(
+            "avatar",
+            Value::Text(self.avatar.clone().unwrap_or_default()),
+        ));
         cols.push(ColumnValue::new(
             "nickname",
-            Value::Text(self.nickname.clone().unwrap_or_default()),
+            Value::Text(self.nickname.clone()),
         ));
         cols.push(ColumnValue::new(
             "remark",

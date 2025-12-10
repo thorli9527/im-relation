@@ -5,6 +5,7 @@ use tonic::{Request, Response, Status};
 
 use common::support::grpc::internal_error;
 use common::UID;
+use log::info;
 
 use crate::hot_cold::HotColdFriendFacade;
 use common::infra::grpc::grpc_friend::friend_service::friend_service_server::FriendService;
@@ -55,86 +56,6 @@ impl<R: FriendRepo> FriendServiceImpl<R> {
             (!t.is_empty()).then_some(t.to_string())
         })
     }
-
-    fn parse_add_friend_both(req: AddFriendBothReq) -> Result<AddFriendBothInput, Status> {
-        let uid = Self::cast_uid(req.uid_a, "uid_a")?;
-        let fid = Self::cast_uid(req.uid_b, "uid_b")?;
-        if uid == fid {
-            return Err(Status::invalid_argument("cannot add yourself"));
-        }
-        Ok(AddFriendBothInput {
-            uid,
-            fid,
-            nickname_for_user: Self::normalize(req.nickname_for_a.as_deref()),
-            nickname_for_friend: Self::normalize(req.nickname_for_b.as_deref()),
-            remark_for_user: Self::normalize(req.remark_for_a.as_deref()),
-            remark_for_friend: Self::normalize(req.remark_for_b.as_deref()),
-            source: req.source,
-        })
-    }
-
-    async fn add_friend_both_inner(
-        &self,
-        uid: UID,
-        fid: UID,
-        nickname_for_user: Option<String>,
-        nickname_for_friend: Option<String>,
-        remark_for_user: Option<String>,
-        remark_for_friend: Option<String>,
-        source: i32,
-    ) -> Result<bool, Status> {
-        // 判断是否已存在（决定返回布尔）
-        let already = self
-            .facade
-            .get_friends(uid)
-            .await
-            .map(|v| v.contains(&fid))
-            .map_err(|e| internal_error(format!("add_friend/get_friends: {e}")))?;
-
-        match self
-            .facade
-            .add_friend_both(
-                uid,
-                fid,
-                nickname_for_user.as_deref(),
-                nickname_for_friend.as_deref(),
-                remark_for_user.as_deref(),
-                remark_for_friend.as_deref(),
-                source,
-            )
-            .await
-        {
-            Ok(()) => Ok(!already),
-            Err(err) => {
-                let msg = err.to_string();
-                if let Err(job_err) = enqueue_friend_add_job(
-                    uid,
-                    fid,
-                    nickname_for_user.as_deref(),
-                    nickname_for_friend.as_deref(),
-                    source,
-                    remark_for_user.as_deref(),
-                    remark_for_friend.as_deref(),
-                    &msg,
-                )
-                .await
-                {
-                    eprintln!("friend add compensation enqueue failed: {}", job_err);
-                }
-                Err(internal_error(format!("add_friend/write: {msg}")))
-            }
-        }
-    }
-}
-
-struct AddFriendBothInput {
-    uid: UID,
-    fid: UID,
-    nickname_for_user: Option<String>,
-    nickname_for_friend: Option<String>,
-    remark_for_user: Option<String>,
-    remark_for_friend: Option<String>,
-    source: i32,
 }
 
 #[async_trait]
@@ -143,19 +64,68 @@ impl<R: FriendRepo + Send + Sync + 'static> FriendService for FriendServiceImpl<
         &self,
         request: Request<AddFriendBothReq>,
     ) -> Result<Response<AddFriendResp>, Status> {
-        let input = Self::parse_add_friend_both(request.into_inner())?;
+        let req = request.into_inner();
+        let uid = Self::cast_uid(req.uid_a, "uid_a")?;
+        let fid = Self::cast_uid(req.uid_b, "uid_b")?;
+        if uid == fid {
+            return Err(Status::invalid_argument("cannot add yourself"));
+        }
+        let nickname_for_user = Self::normalize(req.nickname_for_a.as_deref());
+        let nickname_for_friend = Self::normalize(req.nickname_for_b.as_deref());
+        let remark_for_user = Self::normalize(req.remark_for_a.as_deref());
+        let remark_for_friend = Self::normalize(req.remark_for_b.as_deref());
+        // 判断是否已存在（决定返回布尔）
+        let already = self
+            .facade
+            .get_friends(uid)
+            .await
+            .map(|v| v.contains(&fid))
+            .map_err(|e| internal_error(format!("add_friend/get_friends: {e}")))?;
 
-        let added = self
-            .add_friend_both_inner(
-                input.uid,
-                input.fid,
-                input.nickname_for_user,
-                input.nickname_for_friend,
-                input.remark_for_user,
-                input.remark_for_friend,
-                input.source,
+        let added = match self
+            .facade
+            .add_friend_both(
+                uid,
+                fid,
+                nickname_for_user.as_deref(),
+                nickname_for_friend.as_deref(),
+                remark_for_user.as_deref(),
+                remark_for_friend.as_deref(),
+                req.source,
             )
-            .await?;
+            .await
+        {
+            Ok(()) => !already,
+            Err(err) => {
+                info!(
+                    "<== Result: failed add_friend_both uid={} fid={} err={}",
+                    uid, fid, err
+                );
+                let msg = err.to_string();
+                if let Err(job_err) = enqueue_friend_add_job(
+                    uid,
+                    fid,
+                    nickname_for_user.as_deref(),
+                    nickname_for_friend.as_deref(),
+                    req.source,
+                    remark_for_user.as_deref(),
+                    remark_for_friend.as_deref(),
+                    &msg,
+                )
+                .await
+                {
+                    eprintln!("friend add compensation enqueue failed: {}", job_err);
+                }
+                return Err(internal_error(format!("add_friend/write: {msg}")));
+            }
+        };
+        info!(
+            "<== Result: success uid={} fid={} added={} already_existed={}",
+            uid, fid, added, already
+        );
+        // 成功后刷新两侧热存（如果在热存则续命）
+        self.facade.warm_user(uid);
+        self.facade.warm_user(fid);
 
         Ok(Response::new(AddFriendResp { added }))
     }

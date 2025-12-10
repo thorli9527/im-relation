@@ -20,7 +20,7 @@ pub struct GroupEntity {
     /// 群 ID（业务唯一）
     pub group_id: i64,
     /// 群头像 URL
-    pub avatar: String,
+    pub avatar: Option<String>,
     /// 群名称
     pub name: String,
     /// 群公告
@@ -42,7 +42,7 @@ impl GroupEntity {
         Self {
             id: None,
             group_id,
-            avatar: String::new(),
+            avatar: None,
             name: name.into(),
             notice: String::new(),
             owner_id,
@@ -61,7 +61,10 @@ impl TableEntity for GroupEntity {
             cols.push(ColumnValue::new("id", Value::Integer(id)));
         }
         cols.push(ColumnValue::new("group_id", Value::Integer(self.group_id)));
-        cols.push(ColumnValue::new("avatar", Value::Text(self.avatar.clone())));
+        cols.push(ColumnValue::new(
+            "avatar",
+            Value::Text(self.avatar.clone().unwrap_or_default()),
+        ));
         cols.push(ColumnValue::new("name", Value::Text(self.name.clone())));
         cols.push(ColumnValue::new("notice", Value::Text(self.notice.clone())));
         cols.push(ColumnValue::new("owner_id", Value::Integer(self.owner_id)));

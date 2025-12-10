@@ -179,14 +179,17 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final action = ref.watch(sidebarActionProvider);
-    if (action == SidebarAction.settings) {
-      return Scaffold(
-        body: SettingsPanel(onLogout: _logout),
-      );
-    }
     return Scaffold(
       body: Row(
-        children: const [Sidebar(), VerticalDivider(width: 1), ChatPane()],
+        children: [
+          const Sidebar(),
+          const VerticalDivider(width: 1),
+          Expanded(
+            child: action == SidebarAction.settings
+                ? SettingsPanel(onLogout: _logout)
+                : const ChatPane(),
+          ),
+        ],
       ),
       // bottomNavigationBar: BottomTabs(), // 如需底部 Tab 可启用
     );

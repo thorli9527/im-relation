@@ -3,6 +3,7 @@ use anyhow::{anyhow, Context, Result};
 use axum::http;
 use axum::{
     body::Body as AxumBody,
+    body::{to_bytes, Bytes},
     http::{Request, StatusCode},
     middleware::{from_fn, Next},
     response::Html,
@@ -10,7 +11,7 @@ use axum::{
     Json, Router,
 };
 use common::config::AppConfig;
-use log::{error, warn};
+use log::{error, info, warn};
 use serde_json::json;
 use std::backtrace::Backtrace;
 use tokio::net::TcpListener;
@@ -80,6 +81,7 @@ pub async fn start() -> Result<()> {
 
     let api_router: Router = handler::router()
         .route("/healthz", post(healthz))
+        .layer(from_fn(logging_middleware))
         .layer(trace_layer)
         .layer(from_fn(auth_middleware));
 
@@ -107,6 +109,48 @@ async fn auth_middleware(
     // 当前先直接透传
     req.extensions_mut().insert("auth-skipped");
     Ok(next.run(req).await)
+}
+
+/// 统一日志拦截：打印请求体、响应体和异常堆栈。
+async fn logging_middleware(
+    req: Request<AxumBody>,
+    next: Next,
+) -> Result<axum::response::Response, StatusCode> {
+    let method = req.method().clone();
+    let uri = req.uri().clone();
+
+    // 读取请求体（最多 1MB），再放回去
+    let (parts, body) = req.into_parts();
+    let body_bytes = to_bytes(body, 1_048_576)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let req_body = String::from_utf8_lossy(&body_bytes);
+    info!("request {} {} body={}", method, uri, req_body);
+    let req = Request::from_parts(parts, AxumBody::from(body_bytes));
+
+    let res = next.run(req).await;
+    let status = res.status();
+    let (res_parts, res_body) = res.into_parts();
+    let res_bytes = to_bytes(res_body, 1_048_576)
+        .await
+        .unwrap_or_else(|_| Bytes::new());
+    let res_body = String::from_utf8_lossy(&res_bytes);
+
+    if status.is_server_error() {
+        let backtrace = Backtrace::force_capture();
+        error!(
+            "response {} {} status={} body={} backtrace={}",
+            method, uri, status, res_body, backtrace
+        );
+    } else {
+        info!(
+            "response {} {} status={} body={}",
+            method, uri, status, res_body
+        );
+    }
+
+    let res = http::Response::from_parts(res_parts, AxumBody::from(res_bytes));
+    Ok(res)
 }
 
 async fn swagger_json() -> Json<OpenApiSpec> {

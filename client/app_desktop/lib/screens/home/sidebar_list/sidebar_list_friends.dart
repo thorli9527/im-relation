@@ -60,31 +60,25 @@ class _SidebarListFriendsState extends ConsumerState<SidebarListFriends> {
       ...contacts,
     ];
 
-    final filtered = list
-        .where((c) {
-          if (_query.isEmpty) return true;
-          final q = _query.toLowerCase();
-          return c.name.toLowerCase().contains(q) ||
-              c.nickname.toLowerCase().contains(q) ||
-              c.subtitle.toLowerCase().contains(q);
-        })
-        .toList();
+    final filtered = list.where((c) {
+      if (_query.isEmpty) return true;
+      final q = _query.toLowerCase();
+      return c.name.toLowerCase().contains(q) ||
+          c.nickname.toLowerCase().contains(q) ||
+          c.subtitle.toLowerCase().contains(q);
+    }).toList();
 
     final topArea = Column(
       children: [
         _FriendsTopBar(onAdd: () => _showAddFriendDialog(context, ref, l10n)),
-         SidebarSearchBox(
+        SidebarSearchBox(
           hintText: l10n.contacts,
           onChanged: (v) => setState(() => _query = v.trim()),
         ),
       ],
     );
 
-    return SidebarListCore(
-      contacts: filtered,
-      onTap: widget.onTap,
-      topArea: topArea,
-    );
+    return SidebarListCore(contacts: filtered, onTap: widget.onTap, topArea: topArea);
   }
 
   Future<void> _loadLocalFriends() async {
@@ -101,8 +95,7 @@ class _SidebarListFriendsState extends ConsumerState<SidebarListFriends> {
   }
 
   Contact _toContact(FriendEntity f) {
-    final displayName =
-        (f.nickname?.isNotEmpty ?? false) ? f.nickname! : 'Friend ${f.friendId}';
+    final displayName = (f.nickname?.isNotEmpty ?? false) ? f.nickname! : 'Friend ${f.friendId}';
     return Contact(
       name: displayName,
       subtitle: f.remark ?? '',
@@ -115,8 +108,7 @@ class _SidebarListFriendsState extends ConsumerState<SidebarListFriends> {
 
   Future<void> _loadFriendRequests() async {
     try {
-      final page =
-          await friend_api.getFriendRequestPage(page: 1, pageSize: 200);
+      final page = await friend_api.getFriendRequestPage(page: 1, pageSize: 200);
       final mapped = page.items.map(_toFriendRequest).toList();
       if (mapped.isNotEmpty) {
         ref.read(friendRequestsProvider.notifier).setRequests(mapped);
@@ -127,8 +119,7 @@ class _SidebarListFriendsState extends ConsumerState<SidebarListFriends> {
   }
 
   FriendRequest _toFriendRequest(FriendRequestEntity e) {
-    final name =
-        (e.nickname?.isNotEmpty ?? false) ? e.nickname! : 'User ${e.fromUid}';
+    final name = (e.nickname?.isNotEmpty ?? false) ? e.nickname! : 'User ${e.fromUid}';
     final remark = (e.remark?.isNotEmpty ?? false) ? e.remark! : e.reason;
     final signature = (e.remark?.isNotEmpty ?? false)
         ? e.remark!
@@ -146,27 +137,30 @@ class _SidebarListFriendsState extends ConsumerState<SidebarListFriends> {
   }
 
   void _subscribeFriendRequests() {
-    _friendReqSub = socket_api.subscribeFriendRequest().listen((event) async {
-      try {
-        final req = FriendRequest(
-          requestId: event.requestId.toInt(),
-          name: event.nickname ?? 'User ${event.fromUid}',
-          fromUid: event.fromUid,
-          nickname: event.nickname,
-          avatarUrl: null,
-          remark: event.remark,
-          signature: event.remark ?? event.reason ?? '',
-          accepted: false,
-        );
-        final notifier = ref.read(friendRequestsProvider.notifier);
-        final current = ref.read(friendRequestsProvider);
-        notifier.setRequests([...current, req]);
-      } catch (err, stack) {
+    _friendReqSub = socket_api.subscribeFriendRequest().listen(
+      (event) async {
+        try {
+          final req = FriendRequest(
+            requestId: event.requestId.toInt(),
+            name: event.nickname ?? 'User ${event.fromUid}',
+            fromUid: event.fromUid,
+            nickname: event.nickname,
+            avatarUrl: null,
+            remark: event.remark,
+            signature: event.remark ?? event.reason ?? '',
+            accepted: false,
+          );
+          final notifier = ref.read(friendRequestsProvider.notifier);
+          final current = ref.read(friendRequestsProvider);
+          notifier.setRequests([...current, req]);
+        } catch (err, stack) {
+          _logError('subscribeFriendRequest', err, stack);
+        }
+      },
+      onError: (err, stack) {
         _logError('subscribeFriendRequest', err, stack);
-      }
-    }, onError: (err, stack) {
-      _logError('subscribeFriendRequest', err, stack);
-    });
+      },
+    );
   }
 
   void _logError(String tag, Object error, [StackTrace? st]) {
@@ -193,11 +187,7 @@ class _SidebarListFriendsState extends ConsumerState<SidebarListFriends> {
     );
   }
 
-  void _showAddFriendDialog(
-    BuildContext context,
-    WidgetRef ref,
-    AppLocalizations l10n,
-  ) {
+  void _showAddFriendDialog(BuildContext context, WidgetRef ref, AppLocalizations l10n) {
     final contentCtrl = TextEditingController();
     final nicknameCtrl = TextEditingController();
     final remarkCtrl = TextEditingController();
@@ -235,9 +225,7 @@ class _SidebarListFriendsState extends ConsumerState<SidebarListFriends> {
                 return;
               }
               try {
-                final res = await friend_api.searchUser(
-                  query: SearchUserQuery(query: input),
-                );
+                final res = await friend_api.searchUser(query: SearchUserQuery(query: input));
                 if (res.user == null) {
                   safeSetState(() {
                     error = l10n.userNotFound;
@@ -271,142 +259,139 @@ class _SidebarListFriendsState extends ConsumerState<SidebarListFriends> {
                 await showDialog(
                   context: ctx,
                   builder: (dialogCtx) {
-                    return StatefulBuilder(builder: (context, setState) {
-                      return AlertDialog(
-                        title: Text(l10n.userSummaryTitle),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 20,
-                                  backgroundImage: user.avatar.isNotEmpty
-                                      ? NetworkImage(user.avatar)
-                                      : null,
-                                  child: user.avatar.isEmpty
-                                      ? Text(
-                                          (user.nickname ?? user.username)
-                                              .characters
-                                              .first,
-                                        )
-                                      : null,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    '${user.username} · ${l10n.uidWithValue(uid.toString())}',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
+                    return StatefulBuilder(
+                      builder: (context, setState) {
+                        return AlertDialog(
+                          title: Text(l10n.userSummaryTitle),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 20,
+                                    backgroundImage: user.avatar.isNotEmpty
+                                        ? NetworkImage(user.avatar)
+                                        : null,
+                                    child: user.avatar.isEmpty
+                                        ? Text((user.nickname ?? user.username).characters.first)
+                                        : null,
                                   ),
-                                ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      '${user.username} · ${l10n.uidWithValue(uid.toString())}',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  if ((user.nickname ?? '').isNotEmpty) _infoBadge(user.nickname!),
+                                  ...detailBadges.map(_infoBadge),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  _infoBadge(l10n.countryWithValue(country)),
+                                  _infoBadge(l10n.languageWithValue(language)),
+                                ],
+                              ),
+                              if (dialogError != null) ...[
+                                const SizedBox(height: 8),
+                                Text(dialogError!, style: const TextStyle(color: Colors.red)),
                               ],
-                            ),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                if ((user.nickname ?? '').isNotEmpty)
-                                  _infoBadge(user.nickname!),
-                                ...detailBadges.map(_infoBadge),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                _infoBadge(l10n.countryWithValue(country)),
-                                _infoBadge(l10n.languageWithValue(language)),
-                              ],
-                            ),
-                            if (dialogError != null) ...[
-                              const SizedBox(height: 8),
-                              Text(dialogError!, style: const TextStyle(color: Colors.red)),
                             ],
-                          ],
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: submitting ? null : () => Navigator.of(dialogCtx).pop(),
-                            child: Text(l10n.cancel),
                           ),
-                          FilledButton(
-                            onPressed: submitting
-                                ? null
-                                : () async {
-                                    setState(() {
-                                      submitting = true;
-                                      dialogError = null;
-                                    });
-                                    try {
-                                      final res = await friend_api.addFriend(
-                                        payload: AddFriendPayload(
-                                          targetUid: user.uid,
-                                          reason: remarkCtrl.text.isNotEmpty
-                                              ? remarkCtrl.text
-                                              : null,
-                                          remark: remarkCtrl.text.isNotEmpty
-                                              ? remarkCtrl.text
-                                              : null,
-                                          nickname: _fallbackNickname(
-                                            preferredNickname,
-                                            user,
+                          actions: [
+                            TextButton(
+                              onPressed: submitting ? null : () => Navigator.of(dialogCtx).pop(),
+                              child: Text(l10n.cancel),
+                            ),
+                            FilledButton(
+                              onPressed: submitting
+                                  ? null
+                                  : () async {
+                                      setState(() {
+                                        submitting = true;
+                                        dialogError = null;
+                                      });
+                                      try {
+                                        final res = await friend_api.addFriend(
+                                          payload: AddFriendPayload(
+                                            targetUid: user.uid,
+                                            reason: remarkCtrl.text.isNotEmpty
+                                                ? remarkCtrl.text
+                                                : null,
+                                            remark: remarkCtrl.text.isNotEmpty
+                                                ? remarkCtrl.text
+                                                : null,
+                                            nickname: _fallbackNickname(preferredNickname, user),
+                                            // 添加好友来源：用户ID添加
+                                            source: 3,
                                           ),
-                                          // 添加好友来源：用户ID添加
-                                          source: 3,
-                                        ),
-                                      );
-                                      Navigator.of(dialogCtx).pop();
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            res.applied
-                                                ? l10n.friendRequestSent
-                                                : l10n.addedAsFriend,
-                                          ),
-                                        ),
-                                      );
-                                      if (!res.applied) {
-                                        final notifier = ref.read(friendsProvider.notifier);
-                                        final current = [...ref.read(friendsProvider)];
-                                        if (!current.any((c) => c.friendId == uid)) {
-                                          current.add(
-                                            Contact(
-                                              name: user.username,
-                                              subtitle: l10n.uidWithValue(uid.toString()),
-                                              nickname: user.nickname,
-                                              friendId: uid,
-                                              avatarUrl:
-                                                  user.avatar.isNotEmpty ? user.avatar : null,
+                                        );
+                                        Navigator.of(dialogCtx).pop();
+                                        // 关闭外层搜索弹窗
+                                        Navigator.of(context, rootNavigator: true).maybePop();
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              res.applied
+                                                  ? l10n.friendRequestSent
+                                                  : l10n.addedAsFriend,
                                             ),
-                                          );
-                                          notifier.setFriends(current);
+                                          ),
+                                        );
+                                        if (!res.applied) {
+                                          final notifier = ref.read(friendsProvider.notifier);
+                                          final current = [...ref.read(friendsProvider)];
+                                          if (!current.any((c) => c.friendId == uid)) {
+                                            current.add(
+                                              Contact(
+                                                name: user.username,
+                                                subtitle: l10n.uidWithValue(uid.toString()),
+                                                nickname: user.nickname,
+                                                friendId: uid,
+                                                avatarUrl: user.avatar.isNotEmpty
+                                                    ? user.avatar
+                                                    : null,
+                                              ),
+                                            );
+                                            notifier.setFriends(current);
+                                          }
                                         }
+                                      } catch (e) {
+                                        _logError('userSummaryAddFriend', e);
+                                        setState(() => dialogError = '$e');
+                                      } finally {
+                                        setState(() => submitting = false);
                                       }
-                                    } catch (e) {
-                                      _logError('userSummaryAddFriend', e);
-                                      setState(() => dialogError = '$e');
-                                    } finally {
-                                      setState(() => submitting = false);
-                                    }
-                                  },
-                            child: submitting
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : Text(l10n.confirm),
-                          ),
-                        ],
-                      );
-                    });
+                                    },
+                              child: submitting
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : Text(l10n.confirm),
+                            ),
+                          ],
+                        );
+                      },
+                    );
                   },
                 );
               } catch (e, st) {
@@ -504,10 +489,7 @@ class _FriendsTopBar extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          Text(
-            l10n.contacts,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
+          Text(l10n.contacts, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           const Spacer(),
           IconButton(
             tooltip: l10n.add,

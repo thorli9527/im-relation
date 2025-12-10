@@ -8,6 +8,7 @@ pub mod group_member_service;
 pub mod group_service;
 pub mod message_service;
 pub mod online_service;
+pub mod local_system_message_service;
 pub mod read_cursor_service;
 pub mod socket_client;
 pub mod sync_service;
@@ -42,6 +43,9 @@ pub fn init() {
     }
     if let Err(err) = message_service::MessageService::init() {
         eprintln!("MessageService init failed: {err}");
+    }
+    if let Err(err) = local_system_message_service::LocalSystemMessageService::init() {
+        eprintln!("LocalSystemMessageService init failed: {err}");
     }
     if let Err(err) = read_cursor_service::ReadCursorService::init() {
         eprintln!("ReadCursorService init failed: {err}");

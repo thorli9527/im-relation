@@ -115,7 +115,7 @@ pub async fn get_friend_list(
             .map_err(map_internal_error)?
             .into_inner();
 
-        let nickname = user.name;
+        let nickname = user.nickname;
         let avatar = entry
             .avatar
             .and_then(normalize_optional_string)

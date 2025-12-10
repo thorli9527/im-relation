@@ -10,7 +10,7 @@ use std::{
 
 use crate::{
     api::{config_api, friend_api, app_api_types::SearchUserQuery},
-    domain::{MessageEntity, MessageScene, MessageSource},
+    domain::{ConversationEntity, MessageEntity, MessageScene, MessageSource},
     domain::proto_adapter::content_to_json,
     generated::message::{self as msgpb, DeviceType as SocketDeviceType},
     generated::socket::{AuthMsg, ClientMsg, ServerMsg as SocketServerMsg},
@@ -18,7 +18,8 @@ use crate::{
     service::{
         conversation_service::ConversationService, friend_request_service::FriendRequestService,
         friend_service::FriendService, group_member_service::GroupMemberService,
-        group_request_service::GroupRequestService, message_service::MessageService,
+        group_request_service::GroupRequestService,
+        local_system_message_service::LocalSystemMessageService, message_service::MessageService,
         user_service::UserService, 
     },
 };
@@ -612,12 +613,17 @@ fn apply_profile_update_event(
     )?;
     FriendService::get().apply_profile_update(
         sender_id,
-        nickname.clone(),
+        nickname.clone().unwrap_or_default(),
         avatar.clone(),
         updated_at,
     )?;
-    GroupMemberService::get()
-        .apply_profile_update(sender_id, nickname, avatar, updated_at, version)?;
+    GroupMemberService::get().apply_profile_update(
+        sender_id,
+        nickname.unwrap_or_default(),
+        avatar,
+        updated_at,
+        version,
+    )?;
     Ok(())
 }
 
@@ -649,7 +655,8 @@ fn handle_system_business(
             0
         };
         if friend_id > 0 {
-            let _ = FriendService::get().ensure_friend(friend_id, None, None, content.timestamp);
+            let _ = FriendService::get()
+                .ensure_friend(friend_id, None, String::new(), content.timestamp);
         }
     }
     persist_friend_add_message(content, &detail, current_uid)
@@ -727,6 +734,7 @@ fn handle_friend_business(content: &msgpb::Content, current_uid: Option<i64>) {
     }
 }
 
+// 处理好友建立通知：拉取对方资料 -> 落地好友/头像 -> 更新会话快照/本地系统消息。
 fn handle_friend_established(
     current_uid: Option<i64>,
     content: &msgpb::Content,
@@ -736,6 +744,7 @@ fn handle_friend_established(
         Some(id) => id,
         None => return,
     };
+    // 判定当前用户是 A 还是 B，从而得到对端 ID；不匹配直接返回。
     let friend_id = if uid == payload.uid_a {
         payload.uid_b
     } else if uid == payload.uid_b {
@@ -749,6 +758,7 @@ fn handle_friend_established(
         content.timestamp
     };
     let svc = FriendService::get();
+    // 已存在则不重复落地。
     match svc.get_by_friend_id(friend_id) {
         Ok(Some(_)) => return,
         Ok(None) => {}
@@ -760,43 +770,87 @@ fn handle_friend_established(
         }
     }
 
-    let mut nickname = None;
-    let mut avatar = None;
-    match friend_api::search_user(SearchUserQuery {
+    // 调用用户搜索接口补全昵称/头像，失败则放弃本地落地。
+    let profile = match friend_api::search_user(SearchUserQuery {
         query: friend_id.to_string(),
     }) {
-        Ok(resp) => {
-            if let Some(user) = resp.user {
-                if !user.nickname.trim().is_empty() {
-                    nickname = Some(user.nickname.clone());
-                }
-                if !user.avatar.trim().is_empty() {
-                    avatar = Some(user.avatar.clone());
-                }
+        Ok(resp) => match resp.user {
+            Some(user) => user,
+            None => {
+                warn!(
+                    "fetch profile for established friend {} returned empty user",
+                    friend_id
+                );
+                return;
             }
-        }
+        },
         Err(err) => {
             warn!(
                 "fetch profile for established friend {} failed: {}",
                 friend_id, err
             );
+            return;
         }
-    }
+    };
 
-    if let Err(err) = svc.ensure_friend(friend_id, None, nickname.clone(), established_at) {
-        warn!(
-            "ensure_friend {} from established message failed: {}",
-            friend_id, err
-        );
-    }
-    if avatar.is_some() || nickname.is_some() {
-        if let Err(err) = svc.apply_profile_update(friend_id, nickname, avatar, established_at) {
+    let nickname =  profile.nickname.clone();
+    let avatar = (!profile.avatar.trim().is_empty()).then(|| profile.avatar.clone());
+
+    // 落地好友（昵称允许空串），若成功且有头像则顺带更新头像。
+    match svc.ensure_friend(friend_id, None, nickname.clone(), established_at) {
+        Ok(()) => {
+            if let Some(av) = avatar {
+                if let Err(err) =
+                    svc.apply_profile_update(friend_id, nickname, Some(av), established_at)
+                {
+                    warn!(
+                        "apply_profile_update {} from established message failed: {}",
+                        friend_id, err
+                    );
+                }
+            }
+        }
+        Err(err) => {
             warn!(
-                "apply_profile_update {} from established message failed: {}",
+                "ensure_friend {} from established message failed: {}",
                 friend_id, err
             );
         }
     }
+
+    // 更新会话快照 + 本地系统消息占位。
+    if let Err(err) = persist_established_snapshot(uid, friend_id, established_at) {
+        warn!(
+            "persist conversation/system message for established {} failed: {}",
+            friend_id, err
+        );
+    }
+}
+
+const FRIEND_ESTABLISHED_PLACEHOLDER: &str = "已成为好友";
+
+fn persist_established_snapshot(
+    owner_uid: i64,
+    friend_id: i64,
+    established_at: i64,
+) -> Result<(), String> {
+    let conv_svc = ConversationService::get();
+    let mut conv = conv_svc
+        .get_by_type_and_target(owner_uid, MessageScene::Single as i32, friend_id)?
+        .unwrap_or_else(|| ConversationEntity::new(owner_uid, MessageScene::Single as i32, friend_id));
+    conv.owner_uid = owner_uid;
+    conv.unread_count = conv.unread_count.saturating_add(1);
+    conv.last_message_time = established_at;
+    conv.last_message_content = FRIEND_ESTABLISHED_PLACEHOLDER.to_string();
+    conv_svc.upsert(conv)?;
+
+    let sys_msg = crate::domain::LocalSystemMessageEntity::new(
+        owner_uid,
+        friend_id,
+        FRIEND_ESTABLISHED_PLACEHOLDER.to_string(),
+        established_at,
+    );
+    LocalSystemMessageService::get().insert(sys_msg)
 }
 
 fn handle_group_business(content: &msgpb::Content) {
@@ -852,7 +906,7 @@ fn apply_friend_acceptance(
     FriendService::get().ensure_friend(
         counterpart,
         normalize_optional(&payload.remark),
-        normalize_optional(&payload.nickname),
+        normalize_optional(&payload.nickname).unwrap_or_default(),
         decided_at,
     )
 }

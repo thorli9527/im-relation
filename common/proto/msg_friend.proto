@@ -174,10 +174,12 @@ message GetFriendRequestResponse {
 message AddFriendAnyoneRequest {
   int64 from_uid = 1;
   int64 to_uid = 2;
-  string reason = 3;
-  string remark = 4;
-  string nickname = 5;
+  string from_reason = 3;
+  string from_remark = 4;
+  string from_nickname = 5;
   int32 source = 6;
+  string to_remark = 7;
+  string to_nickname = 8;
 }
 
 message AddFriendAnyoneResponse {

@@ -14,11 +14,13 @@ final sidebarActionProvider =
     StateProvider<SidebarAction>((_) => SidebarAction.friends);
 
 /// 设置页的菜单项。
-enum SettingsMenu { logs, logout }
+enum SettingsMenu { logs, language, logout }
 
 /// 当前选中的设置菜单。
 final settingsMenuProvider =
     StateProvider<SettingsMenu>((_) => SettingsMenu.logs);
+
+
 
 class Sidebar extends ConsumerStatefulWidget {
   const Sidebar({super.key});
@@ -29,6 +31,7 @@ class Sidebar extends ConsumerStatefulWidget {
 
 class _SidebarState extends ConsumerState<Sidebar> {
   static const int _settingsLogId = -9000;
+  static const int _settingsLanguageId = -9002;
   static const int _settingsLogoutId = -9001;
 
   @override
@@ -43,9 +46,9 @@ class _SidebarState extends ConsumerState<Sidebar> {
       SidebarAction.chat => SidebarListChat(
           conversations: convs, friends: contacts, onTap: (c) => handler(c)),
       SidebarAction.voice =>
-          SidebarListVoice(contacts: contacts, onTap: (c) => handler(c)),
-      SidebarAction.settings => SidebarListSettings(
-          contacts: _buildSettingsMenu(), onTap: (c) => handler(c)),
+          SidebarListVoice(contacts: contacts, onTap: handler),
+      SidebarAction.settings =>
+          SidebarListSettings(contacts: _buildSettingsMenu(), onTap: handler),
       _ => SidebarListFriends(onTap: (c) => handler(c)),
     };
     return SizedBox(
@@ -89,6 +92,13 @@ class _SidebarState extends ConsumerState<Sidebar> {
         color: const Color(0xFF4A90E2),
       ),
       Contact(
+        name: '语言',
+        subtitle: '切换显示语言',
+        nickname: '语言',
+        friendId: _settingsLanguageId,
+        color: const Color(0xFF8E44AD),
+      ),
+      Contact(
         name: '退出',
         subtitle: '退出登录',
         nickname: '退出',
@@ -102,6 +112,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
     ref.read(selectedFriendProvider.notifier).state = c.friendId;
     ref.read(sidebarActionProvider.notifier).state = SidebarAction.settings;
     final menu = switch (c.friendId) {
+      _settingsLanguageId => SettingsMenu.language,
       _settingsLogoutId => SettingsMenu.logout,
       _ => SettingsMenu.logs,
     };
@@ -161,6 +172,9 @@ class SidebarActions extends ConsumerWidget {
               onTap: () {
                 ref.read(sidebarActionProvider.notifier).state =
                     SidebarAction.settings;
+                // 进入设置页时重置到默认菜单，避免上次停留在“退出”导致直接登出。
+                ref.read(settingsMenuProvider.notifier).state =
+                    SettingsMenu.logs;
               },
             ),
           ],

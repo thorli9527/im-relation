@@ -189,16 +189,16 @@ impl UserService {
         let normalize = |s: Option<&str>| s.unwrap_or_default().trim().to_string();
         let reason = normalize(reason);
         let remark = normalize(remark);
-        let mut friend_nickname = normalize(nickname);
-
-        // 如果未指定昵称，尝试读取最新昵称（保持与服务端存量一致）。
-        if friend_nickname.is_empty() {
-            friend_nickname = if target.nickname.is_empty() {
-                target.name.clone()
-            } else {
-                target.nickname.clone()
-            };
-        }
+        let friend_nickname = match nickname {
+            Some(nick) => {
+                if nick.trim().is_empty() {
+                    target.nickname.clone()
+                } else {
+                    nick.trim().to_string()
+                }
+            }
+            None => target.nickname,
+        };
 
         warn!(
             "add_friend_http: {} -> {} policy={:?} source={} reason='{}' remark='{}' prefer_nick='{}'",
@@ -208,6 +208,7 @@ impl UserService {
         match policy {
             AddFriendPolicy::Anyone => {
                 warn!("Anyone: friend request sent submit_friend_request ");
+                let self_user = Self::get_user_by_id(&mut user_client, active.uid).await?;
                 // 对方允许任何人添加：交由 msg_friend 落库并自动通过（含业务通知）。
                 let _ = message_gateway::add_friend_anyone(
                     active.uid,
@@ -215,6 +216,8 @@ impl UserService {
                     reason.as_str(),
                     remark.as_str(),
                     friend_nickname.as_str(),
+                    "",
+                    self_user.nickname.as_str(),
                     source,
                 )
                 .await?;
@@ -256,36 +259,30 @@ impl UserService {
         remark: Option<&str>,
         nickname: Option<&str>,
     ) -> anyhow::Result<()> {
+        // 拉取申请详情，校验受理人权限与申请人一致性。
+        let detail =
+            message_gateway::get_friend_request_detail(approver_uid, request_id as u64).await?;
+        if detail.to_uid != approver_uid {
+            return Err(anyhow!("permission denied: request not for approver"));
+        }
+        if detail.from_uid != requester_uid {
+            return Err(anyhow!("requester mismatch"));
+        }
+
         // 查询双方昵称，作为默认展示昵称。
         let mut user_client = user_gateway::get_user_rpc_client().await?;
-        let requester = Self::get_user_by_id(&mut user_client, requester_uid).await?;
-        let _approver = Self::get_user_by_id(&mut user_client, approver_uid).await?;
-
-        let preferred_nick = nickname
-            .and_then(|s| {
-                let t = s.trim();
-                (!t.is_empty()).then_some(t.to_string())
-            })
-            .or_else(|| {
-                let t = requester.nickname.trim();
-                (!t.is_empty()).then_some(requester.nickname.clone())
-            })
-            .unwrap_or_else(|| requester.name.clone());
-        let remark_clean = remark
-            .map(|s| s.trim())
-            .filter(|v| !v.is_empty())
-            .map(|v| v.to_string())
-            .unwrap_or_default();
-
-        // 受理后的欢迎消息/通知由 msg_friend 处理。
-
+        let approver = Self::get_user_by_id(&mut user_client, approver_uid).await?;
+        let nickname = match nickname {
+            Some(nick) => nick.trim().to_string(),
+            None => approver.nickname.clone(),
+        };
         // 发送好友业务决策消息（含默认欢迎语由 msg_friend 侧处理）。
         let decision = msgpb::FriendRequestDecisionPayload {
             request_id: request_id as u64,
             accepted,
-            remark: remark_clean.clone(),
+            remark: remark.unwrap_or_default().to_string(),
             decided_at: common::support::util::date_util::now(),
-            nickname: preferred_nick.clone(),
+            nickname: nickname.to_string(),
         };
         message_gateway::decide_friend_request(approver_uid, requester_uid, decision).await?;
         Ok(())
