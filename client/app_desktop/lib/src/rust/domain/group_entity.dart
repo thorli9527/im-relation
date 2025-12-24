@@ -14,7 +14,7 @@ class GroupEntity {
   final PlatformInt64 groupId;
 
   /// 群头像 URL
-  final String avatar;
+  final String? avatar;
 
   /// 群名称
   final String name;
@@ -40,7 +40,7 @@ class GroupEntity {
   const GroupEntity({
     this.id,
     required this.groupId,
-    required this.avatar,
+    this.avatar,
     required this.name,
     required this.notice,
     required this.ownerId,

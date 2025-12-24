@@ -202,6 +202,24 @@ pub struct FriendListResult {
     pub has_more: bool,
 }
 
+/// 查询好友详情参数。
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct FriendDetailQuery {
+    /// 会话 token
+    pub session_token: String,
+    /// 好友 UID
+    pub friend_id: i64,
+}
+
+/// 好友详情返回。
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct FriendDetailResult {
+    /// 好友信息（可能为空）
+    pub friend: Option<FriendSummary>,
+}
+
 /// 群成员概要信息。
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]

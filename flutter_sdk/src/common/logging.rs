@@ -1,13 +1,25 @@
-use chrono::Local;
+use chrono::{Local, Utc};
 use log::{LevelFilter, Metadata, Record};
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 use std::sync::{Mutex, Once, OnceLock};
 
+use crate::service::log_service::LogService;
+
 static LOGGER: SimpleLogger = SimpleLogger;
 static INIT: Once = Once::new();
 static LOG_FILE: OnceLock<Mutex<Option<File>>> = OnceLock::new();
+static LOG_BUFFER: OnceLock<Mutex<Vec<BufferedLog>>> = OnceLock::new();
+static LOG_SOURCE: OnceLock<String> = OnceLock::new();
+
+#[derive(Clone)]
+struct BufferedLog {
+    timestamp_ms: i64,
+    level: String,
+    target: String,
+    message: String,
+}
 
 /// 初始化日志（只执行一次）。支持通过环境变量 `FLUTTER_SDK_LOG` / `RUST_LOG`
 /// 指定日志级别，默认使用 info。
@@ -48,6 +60,7 @@ impl log::Log for SimpleLogger {
             );
             eprintln!("{line}");
             append_to_file(&line);
+            append_to_db(record);
         }
     }
 
@@ -90,5 +103,78 @@ fn open_log_file() -> Option<File> {
             eprintln!("init_logging skipped file logger: {err}");
             None
         }
+    }
+}
+
+fn append_to_db(record: &Record) {
+    let entry = BufferedLog {
+        timestamp_ms: Utc::now().timestamp_millis(),
+        level: record.level().to_string(),
+        target: record.target().to_string(),
+        message: record.args().to_string(),
+    };
+    persist_log(entry);
+}
+
+fn persist_log(entry: BufferedLog) {
+    if let Some(service) = LogService::get_opt() {
+        flush_buffer_with(service);
+        if let Err(err) = service.append_line(
+            resolve_log_source(),
+            &entry.level,
+            &entry.target,
+            &entry.message,
+            entry.timestamp_ms,
+        ) {
+            eprintln!("append log to db failed: {err}");
+            buffer_log(entry);
+        }
+    } else {
+        buffer_log(entry);
+    }
+}
+
+fn flush_buffer_with(service: &LogService) {
+    if let Ok(mut buf) = LOG_BUFFER.get_or_init(|| Mutex::new(Vec::new())).lock() {
+        if buf.is_empty() {
+            return;
+        }
+        let mut failed = Vec::new();
+        for pending in buf.drain(..) {
+            if let Err(err) = service.append_line(
+                resolve_log_source(),
+                &pending.level,
+                &pending.target,
+                &pending.message,
+                pending.timestamp_ms,
+            ) {
+                eprintln!("flush buffered log failed: {err}");
+                failed.push(pending);
+            }
+        }
+        if !failed.is_empty() {
+            buf.extend(failed);
+        }
+    }
+}
+
+fn buffer_log(entry: BufferedLog) {
+    if let Ok(mut buf) = LOG_BUFFER.get_or_init(|| Mutex::new(Vec::new())).lock() {
+        buf.push(entry);
+    }
+}
+
+fn resolve_log_source() -> &'static str {
+    LOG_SOURCE
+        .get_or_init(|| {
+            std::env::var("APP_LOG_SOURCE")
+                .unwrap_or_else(|_| "flutter_sdk".to_string())
+        })
+        .as_str()
+}
+
+pub(crate) fn flush_log_buffer_if_ready() {
+    if let Some(service) = LogService::get_opt() {
+        flush_buffer_with(service);
     }
 }

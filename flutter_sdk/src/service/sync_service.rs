@@ -1,12 +1,11 @@
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
-use log::warn;
+use log::{info, warn};
 use prost::Message as ProstMessage;
 use serde::Deserialize;
 
 use crate::{
     api::{
-        app_api_types::SearchUserQuery,
         friend_api,
         sync_api::{build_sync_request_from_state, sync_messages},
     },
@@ -260,8 +259,19 @@ fn handle_friend_established(
     };
     let svc = FriendService::get();
     match svc.get_by_friend_id(friend_id) {
-        Ok(Some(_)) => return,
-        Ok(None) => {}
+        Ok(Some(_)) => {
+            info!(
+                "friend {} already exists, skip established payload (uid_a={}, uid_b={})",
+                friend_id, payload.uid_a, payload.uid_b
+            );
+            return;
+        }
+        Ok(None) => {
+            info!(
+                "friend {} not found locally, will fetch profile via established payload",
+                friend_id
+            );
+        }
         Err(err) => {
             warn!(
                 "query friend {} from established message failed: {}",
@@ -270,19 +280,15 @@ fn handle_friend_established(
         }
     }
 
-    let profile = match friend_api::search_user(SearchUserQuery {
-        query: friend_id.to_string(),
-    }) {
-        Ok(resp) => match resp.user {
-            Some(user) => user,
-            None => {
-                warn!(
-                    "fetch profile for established friend {} returned empty user",
-                    friend_id
-                );
-                return;
-            }
-        },
+    let profile = match friend_api::get_friend_detail(friend_id) {
+        Ok(Some(friend)) => friend,
+        Ok(None) => {
+            warn!(
+                "fetch profile for established friend {} returned empty user",
+                friend_id
+            );
+            return;
+        }
         Err(err) => {
             warn!(
                 "fetch profile for established friend {} failed: {}",
@@ -295,7 +301,12 @@ fn handle_friend_established(
     let nickname = (!profile.nickname.trim().is_empty()).then(|| profile.nickname.clone());
     let avatar = (!profile.avatar.trim().is_empty()).then(|| profile.avatar.clone());
 
-    if let Err(err) = svc.ensure_friend(friend_id, None, nickname.clone().unwrap_or_default(), established_at) {
+    if let Err(err) = svc.ensure_friend(
+        friend_id,
+        profile.remark.clone(),
+        nickname.clone().unwrap_or_default(),
+        established_at,
+    ) {
         warn!(
             "ensure_friend {} from established message failed: {}",
             friend_id, err

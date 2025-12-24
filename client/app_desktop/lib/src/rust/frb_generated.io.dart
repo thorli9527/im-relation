@@ -11,6 +11,7 @@ import 'api/errors.dart';
 import 'api/frb_types.dart';
 import 'api/friend_api.dart';
 import 'api/group_api.dart';
+import 'api/log_api.dart';
 import 'api/login_api.dart';
 import 'api/login_api_types.dart';
 import 'api/reg_api.dart';
@@ -145,6 +146,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   FriendRequestPayload dco_decode_box_autoadd_friend_request_payload(
     dynamic raw,
   );
+
+  @protected
+  FriendSummary dco_decode_box_autoadd_friend_summary(dynamic raw);
 
   @protected
   GroupMember dco_decode_box_autoadd_group_member(dynamic raw);
@@ -383,6 +387,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
 
   @protected
+  FriendSummary? dco_decode_opt_box_autoadd_friend_summary(dynamic raw);
+
+  @protected
   GroupMember? dco_decode_opt_box_autoadd_group_member(dynamic raw);
 
   @protected
@@ -576,6 +583,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   FriendRequestPayload sse_decode_box_autoadd_friend_request_payload(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  FriendSummary sse_decode_box_autoadd_friend_summary(
     SseDeserializer deserializer,
   );
 
@@ -888,6 +900,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
 
   @protected
+  FriendSummary? sse_decode_opt_box_autoadd_friend_summary(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   GroupMember? sse_decode_opt_box_autoadd_group_member(
     SseDeserializer deserializer,
   );
@@ -1132,6 +1149,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_friend_request_payload(
     FriendRequestPayload self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_friend_summary(
+    FriendSummary self,
     SseSerializer serializer,
   );
 
@@ -1525,6 +1548,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_friend_summary(
+    FriendSummary? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_group_member(

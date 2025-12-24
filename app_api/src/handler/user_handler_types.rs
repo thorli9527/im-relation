@@ -137,6 +137,19 @@ pub struct FriendSummaryResult {
     pub remark: Option<String>,
 }
 
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FriendDetailQuery {
+    pub session_token: String,
+    pub friend_id: i64,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FriendDetailResult {
+    pub friend: Option<FriendSummaryResult>,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GroupPath {

@@ -48,6 +48,10 @@ Future<OperationStatus> rejectFriendRequest({
 Future<FriendListResult> getFriendList({required FriendListQuery query}) =>
     RustLib.instance.api.crateApiFriendApiGetFriendList(query: query);
 
+/// 获取好友详情，内部调用 app_api /friends/detail。
+Future<FriendSummary?> getFriendDetail({required PlatformInt64 friendId}) =>
+    RustLib.instance.api.crateApiFriendApiGetFriendDetail(friendId: friendId);
+
 Future<SearchUserResult> searchUser({required SearchUserQuery query}) =>
     RustLib.instance.api.crateApiFriendApiSearchUser(query: query);
 

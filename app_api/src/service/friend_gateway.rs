@@ -3,7 +3,7 @@ use anyhow::{anyhow, Result};
 use common::config::AppConfig;
 use common::infra::grpc::grpc_friend::friend_service::friend_service_client::FriendServiceClient;
 use common::infra::grpc::grpc_friend::friend_service::{
-    AddFriendBothReq, FriendEntry, GetFriendsPageDetailedReq, IsFriendReq,
+    AddFriendBothReq, FriendEntry, GetFriendsDetailedReq, GetFriendsPageDetailedReq, IsFriendReq,
 };
 use common::infra::grpc::grpc_user::online_service::GetUserReq;
 use common::infra::grpc::GrpcClientManager;
@@ -96,6 +96,25 @@ pub async fn is_friend(uid: i64, friend_id: i64) -> Result<bool> {
         .map_err(|status| anyhow!("friend service is_friend failed: {status}"))?
         .into_inner();
     Ok(resp.is_friend)
+}
+
+pub async fn get_friend_detail(uid: i64, friend_id: i64) -> Result<Option<FriendEntry>> {
+    let addr = resolve_friend_addr(uid).await?;
+    let mut client = connect_friend_service(&addr).await?;
+    let resp = client
+        .get_friends_detailed(GetFriendsDetailedReq {
+            uid,
+            apply_source: false,
+            nickname: true,
+            avatar: true,
+        })
+        .await
+        .map_err(|status| anyhow!("friend service get_friends_detailed failed: {status}"))?
+        .into_inner();
+    Ok(resp
+        .friends
+        .into_iter()
+        .find(|entry| entry.friend_id == friend_id))
 }
 
 pub async fn add_friend(

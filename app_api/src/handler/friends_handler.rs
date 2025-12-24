@@ -8,8 +8,9 @@ use tonic::Code;
 use utoipa::ToSchema;
 
 use crate::handler::user_handler_types::{
-    AddFriendRequest, AddFriendResult, FriendListQuery, FriendListResult, FriendSummaryResult,
-    OperationStatus, SearchUserQuery, SearchUserResult, UserProfileResult,
+    AddFriendRequest, AddFriendResult, FriendDetailQuery, FriendDetailResult, FriendListQuery,
+    FriendListResult, FriendSummaryResult, OperationStatus, SearchUserQuery, SearchUserResult,
+    UserProfileResult,
 };
 use crate::handler::utils::{map_internal_error, map_session_error, success, HandlerResult};
 use crate::service::{
@@ -61,6 +62,7 @@ pub struct FriendRequestListResult {
 pub fn router() -> Router {
     Router::new()
         .route("/friends", post(get_friend_list))
+        .route("/friends/detail", post(get_friend_detail))
         .route("/friends/add", post(add_friend))
         .route("/friends/requests", post(list_friend_requests))
         .route("/friends/requests/decision", post(decide_friend_request))
@@ -138,6 +140,66 @@ pub async fn get_friend_list(
         page,
         page_size,
         has_more,
+    })
+}
+
+#[utoipa::path(
+    post,
+    path = "/friends/detail",
+    request_body = FriendDetailQuery,
+    responses(
+        (status = 200, description = "好友详情", body = ApiResponse<FriendDetailResult>)
+    ),
+    tag = "app_api/friends"
+)]
+pub async fn get_friend_detail(
+    Json(query): Json<FriendDetailQuery>,
+) -> HandlerResult<FriendDetailResult> {
+    if query.session_token.trim().is_empty() {
+        return Err(AppError::Validation("session_token is required".into()));
+    }
+    if query.friend_id <= 0 {
+        return Err(AppError::Validation("friend_id must be positive".into()));
+    }
+    let active = user_service::ensure_active_session(&query.session_token)
+        .await
+        .map_err(map_session_error)?;
+
+    let entry = friend_gateway::get_friend_detail(active.uid, query.friend_id)
+        .await
+        .map_err(map_internal_error)?;
+    let Some(entry) = entry else {
+        return success(FriendDetailResult { friend: None });
+    };
+
+    let mut user_client = user_gateway::get_user_rpc_client()
+        .await
+        .map_err(map_internal_error)?;
+    let user = user_client
+        .find_user_by_id(GetUserReq {
+            id: entry.friend_id,
+        })
+        .await
+        .map_err(map_internal_error)?
+        .into_inner();
+
+    let nickname = entry
+        .nickname
+        .and_then(normalize_optional_string)
+        .unwrap_or_else(|| user.nickname.clone());
+    let avatar = entry
+        .avatar
+        .and_then(normalize_optional_string)
+        .unwrap_or_else(|| user.avatar.clone());
+    let remark = entry.remark.and_then(normalize_optional_string);
+
+    success(FriendDetailResult {
+        friend: Some(FriendSummaryResult {
+            friend_id: entry.friend_id,
+            nickname,
+            avatar,
+            remark,
+        }),
     })
 }
 

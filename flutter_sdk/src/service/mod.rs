@@ -6,6 +6,7 @@ pub mod group_request_service;
 pub mod friend_request_service;
 pub mod group_member_service;
 pub mod group_service;
+pub mod log_service;
 pub mod message_service;
 pub mod online_service;
 pub mod local_system_message_service;
@@ -17,6 +18,9 @@ pub mod user_service;
 
 pub fn init() {
     crate::common::init_logging();
+    if let Err(err) = log_service::LogService::init() {
+        eprintln!("LogService init failed: {err}");
+    }
     if let Err(err) = config_service::ConfigService::init() {
         eprintln!("ConfigService init failed: {err}");
     }

@@ -3,8 +3,9 @@ use flutter_rust_bridge::frb;
 use crate::{
     api::FriendRequestPageResult,
     api::app_api_types::{
-        AddFriendRequest, AddFriendResult, FriendListQuery, FriendListResult,
-        FriendRequestDecisionRequest, OperationStatus, SearchUserQuery, SearchUserResult,
+        AddFriendRequest, AddFriendResult, FriendDetailQuery, FriendDetailResult, FriendListQuery,
+        FriendListResult, FriendRequestDecisionRequest, FriendSummary, OperationStatus,
+        SearchUserQuery, SearchUserResult,
     },
     api::user_api_types::AddFriendPayload,
     api::utils::post_request,
@@ -108,6 +109,24 @@ pub fn get_friend_list(query: FriendListQuery) -> Result<FriendListResult, Strin
         page_size: query.page_size,
     };
     post_request("/friends", &params)
+}
+
+/// 获取好友详情，内部调用 app_api /friends/detail。
+pub fn get_friend_detail(friend_id: i64) -> Result<Option<FriendSummary>, String> {
+    if friend_id <= 0 {
+        return Err("friend_id must be positive".to_string());
+    }
+    let session_token = UserService::get()
+        .latest_user()?
+        .and_then(|u| u.session_token)
+        .filter(|t| !t.trim().is_empty())
+        .ok_or_else(|| "missing session_token".to_string())?;
+    let query = FriendDetailQuery {
+        session_token,
+        friend_id,
+    };
+    let resp: FriendDetailResult = post_request("/friends/detail", &query)?;
+    Ok(resp.friend)
 }
 
 #[frb]

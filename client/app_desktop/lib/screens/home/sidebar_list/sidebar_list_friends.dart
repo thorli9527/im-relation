@@ -95,13 +95,15 @@ class _SidebarListFriendsState extends ConsumerState<SidebarListFriends> {
   }
 
   Contact _toContact(FriendEntity f) {
-    final displayName = (f.nickname?.isNotEmpty ?? false) ? f.nickname! : 'Friend ${f.friendId}';
+    final nickname = f.nickname;
+    final displayName = nickname.isNotEmpty ? nickname : 'Friend ${f.friendId}';
+    final avatar = (f.avatar?.isNotEmpty ?? false) ? f.avatar! : null;
     return Contact(
       name: displayName,
       subtitle: f.remark ?? '',
       nickname: displayName,
       friendId: f.friendId.toInt(),
-      avatarUrl: f.avatar.isNotEmpty ? f.avatar : null,
+      avatarUrl: avatar,
       lastLoginAt: f.lastLoginAt?.toInt(),
     );
   }
@@ -147,7 +149,7 @@ class _SidebarListFriendsState extends ConsumerState<SidebarListFriends> {
             nickname: event.nickname,
             avatarUrl: null,
             remark: event.remark,
-            signature: event.remark ?? event.reason ?? '',
+            signature: event.remark ?? event.reason,
             accepted: false,
           );
           final notifier = ref.read(friendRequestsProvider.notifier);
@@ -185,6 +187,11 @@ class _SidebarListFriendsState extends ConsumerState<SidebarListFriends> {
       ),
       child: Text(text),
     );
+  }
+
+  String _initialForUser(String nickname, String username) {
+    final value = nickname.isNotEmpty ? nickname : username;
+    return value.isNotEmpty ? value.substring(0, 1) : '';
   }
 
   void _showAddFriendDialog(BuildContext context, WidgetRef ref, AppLocalizations l10n) {
@@ -271,12 +278,11 @@ class _SidebarListFriendsState extends ConsumerState<SidebarListFriends> {
                                 children: [
                                   CircleAvatar(
                                     radius: 20,
-                                    backgroundImage: user.avatar.isNotEmpty
-                                        ? NetworkImage(user.avatar)
-                                        : null,
-                                    child: user.avatar.isEmpty
-                                        ? Text((user.nickname ?? user.username).characters.first)
-                                        : null,
+                                  backgroundImage:
+                                      user.avatar.isNotEmpty ? NetworkImage(user.avatar) : null,
+                                  child: user.avatar.isEmpty
+                                      ? Text(_initialForUser(user.nickname, user.username))
+                                      : null,
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
@@ -296,7 +302,7 @@ class _SidebarListFriendsState extends ConsumerState<SidebarListFriends> {
                                 spacing: 8,
                                 runSpacing: 8,
                                 children: [
-                                  if ((user.nickname ?? '').isNotEmpty) _infoBadge(user.nickname!),
+                                  if (user.nickname.isNotEmpty) _infoBadge(user.nickname),
                                   ...detailBadges.map(_infoBadge),
                                 ],
                               ),

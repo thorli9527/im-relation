@@ -274,7 +274,21 @@ async fn send_established_notify(from_uid: i64, to_uid: i64, at_ms: i64) -> Resu
             },
         )),
     };
-    send_friend_business_system_notify(biz, from_uid, to_uid).await
+    // 双向发送系统消息，确保双方都能收到好友建立通知。
+    let mut errors = Vec::new();
+
+    if let Err(err) = send_friend_business_system_notify(biz.clone(), from_uid, to_uid).await {
+        errors.push(format!("notify {}->{} failed: {}", from_uid, to_uid, err));
+    }
+    if let Err(err) = send_friend_business_system_notify(biz, to_uid, from_uid).await {
+        errors.push(format!("notify {}->{} failed: {}", to_uid, from_uid, err));
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("; "))
+    }
 }
 
 #[tonic::async_trait]

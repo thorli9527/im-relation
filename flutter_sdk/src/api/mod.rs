@@ -10,6 +10,7 @@ pub mod login_api;
 pub mod login_api_types;
 pub mod reg_api;
 pub mod reg_api_types;
+pub mod log_api;
 pub mod socket_api;
 pub mod sync_api;
 pub mod user_api;

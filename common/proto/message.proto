@@ -927,24 +927,41 @@ enum MsgCategory {
   MSG_CATEGORY_SYSTEM = 3;
 }
 
+// 投递配置：是否需要 ACK、过期时间与最大重试次数。生产端控制，消费端按此策略 ACK。
 message DeliveryOptions {
+  // 是否需要客户端 ACK：true 时收到 socket ACK 才提交 Kafka offset。
   bool require_ack = 1;
+  // 消息过期时间（毫秒），超过后可丢弃/不再重试。
   optional uint64 expire_ms = 2;
+  // 最大重试次数，超出后视为失败并提交 offset。
   optional uint32 max_retry = 3;
 }
 
+// 下行消息统一包裹：Kafka → Socket 的载体，兼容好友/群/系统消息与业务事件。
 message DomainMessage {
+  // 消息唯一 ID（雪花）；缺省时由消费端用当前毫秒兜底，确保 ACK 对齐。
   optional uint64 message_id = 1;
+  // 发送者 UID（系统或具体用户）。
   int64 sender_id = 2;
+  // 接收者 UID（或群发场景的目标 UID/GID）。
   int64 receiver_id = 3;
+  // 业务时间（秒级，兼容旧字段）。
   int64 timestamp = 4;
+  // 精确毫秒时间，优先使用。
   int64 ts_ms = 5;
+  // 投递策略：ACK/过期/重试。
   DeliveryOptions delivery = 6;
+  // 场景：单聊/群聊/系统。
   ChatScene scene = 7;
+  // 消息大类：好友/群/系统。
   MsgCategory category = 8;
+  // 具体内容列表。
   repeated MessageContent contents = 9;
+  // 好友业务载荷（请求/同意等）。
   FriendBusinessContent friend_business = 10;
+  // 群业务载荷（入群/审批等）。
   GroupBusinessContent group_business = 11;
+  // 系统业务载荷（公告/停机等）。
   SystemBusinessContent system_business = 12;
 }
 

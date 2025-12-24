@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::{
-    api::{config_api, friend_api, app_api_types::SearchUserQuery},
+    api::{config_api, friend_api},
     domain::{ConversationEntity, MessageEntity, MessageScene, MessageSource},
     domain::proto_adapter::content_to_json,
     generated::message::{self as msgpb, DeviceType as SocketDeviceType},
@@ -20,7 +20,7 @@ use crate::{
         friend_service::FriendService, group_member_service::GroupMemberService,
         group_request_service::GroupRequestService,
         local_system_message_service::LocalSystemMessageService, message_service::MessageService,
-        user_service::UserService, 
+        user_service::UserService,
     },
 };
 use base64::engine::general_purpose::STANDARD as BASE64;
@@ -417,6 +417,7 @@ async fn run_connection_attempt(
     ConnectionOutcome::Shutdown
 }
 
+/// 统一入口处理服务端推送：日志打印 -> 落库（业务/消息/会话） -> UI 通知系统事件 -> 应用资料变更。
 fn handle_inbound_content(content: &msgpb::Content, current_uid: Option<i64>) {
     // 打印解码后的 Content，便于调试；失败时仅提示。
     if let Ok(json) = serde_json::to_string_pretty(&content_to_json(content)) {
@@ -455,15 +456,25 @@ fn handle_inbound_content(content: &msgpb::Content, current_uid: Option<i64>) {
     }
 }
 
-/// 顺序处理业务并落库：群/好友/系统，消息实体，会话快照。
+/// 顺序处理业务并落库：先处理群/好友/系统业务（确保资料/关系写入），再落地消息实体并更新会话快照/未读。
 fn persist_inbound_content(
     content: &msgpb::Content,
     current_uid: Option<i64>,
 ) -> Result<(), String> {
+    // 打印收到的完整消息内容，便于排查落库前的原始数据。
+    match serde_json::to_string_pretty(&content_to_json(content)) {
+        Ok(json) => info!("persist inbound content: {}", json),
+        Err(err) => warn!("persist inbound content json encode failed: {}", err),
+    }
+    // 先处理业务消息：群事件（入群/审批等）、好友事件（申请/通过/拉起资料）、系统事件（公告/停机等）。
     handle_group_business(content);
+    // 好友业务：申请/同意/建立好友关系等，可能触发本地好友/请求表更新。
     handle_friend_business(content, current_uid);
+    // 系统业务：公告、停机等系统通知，可能直接返回错误提示调用方。
     handle_system_business(content, current_uid)?;
+    // 业务处理完成后再落地原始消息实体，保持与服务端对齐的完整历史。
     persist_message_entity(content, current_uid)?;
+    // 最后更新会话快照/未读，保证 UI 看到的最新状态与落地记录一致。
     update_conversation_snapshot(content, current_uid)?;
     Ok(())
 }
@@ -728,6 +739,7 @@ fn handle_friend_business(content: &msgpb::Content, current_uid: Option<i64>) {
             }
         }
         Some(FriendAction::Established(payload)) => {
+            info!("friendAction Established{}",&content_to_json(content));
             handle_friend_established(current_uid, content, payload);
         }
         _ => {}
@@ -760,8 +772,19 @@ fn handle_friend_established(
     let svc = FriendService::get();
     // 已存在则不重复落地。
     match svc.get_by_friend_id(friend_id) {
-        Ok(Some(_)) => return,
-        Ok(None) => {}
+        Ok(Some(_)) => {
+            info!(
+                "friend {} already exists, skip established payload (uid_a={}, uid_b={})",
+                friend_id, payload.uid_a, payload.uid_b
+            );
+            return;
+        }
+        Ok(None) => {
+            info!(
+                "friend {} not found locally, will fetch profile via established payload",
+                friend_id
+            );
+        }
         Err(err) => {
             warn!(
                 "query friend {} from established message failed: {}",
@@ -770,20 +793,16 @@ fn handle_friend_established(
         }
     }
 
-    // 调用用户搜索接口补全昵称/头像，失败则放弃本地落地。
-    let profile = match friend_api::search_user(SearchUserQuery {
-        query: friend_id.to_string(),
-    }) {
-        Ok(resp) => match resp.user {
-            Some(user) => user,
-            None => {
-                warn!(
-                    "fetch profile for established friend {} returned empty user",
-                    friend_id
-                );
-                return;
-            }
-        },
+    // 调用好友详情接口补全昵称/头像，失败则放弃本地落地。
+    let profile = match friend_api::get_friend_detail(friend_id) {
+        Ok(Some(friend)) => friend,
+        Ok(None) => {
+            warn!(
+                "fetch profile for established friend {} returned empty user",
+                friend_id
+            );
+            return;
+        }
         Err(err) => {
             warn!(
                 "fetch profile for established friend {} failed: {}",
@@ -793,11 +812,12 @@ fn handle_friend_established(
         }
     };
 
-    let nickname =  profile.nickname.clone();
+    let nickname = profile.nickname.clone();
     let avatar = (!profile.avatar.trim().is_empty()).then(|| profile.avatar.clone());
+    let remark = profile.remark.clone();
 
     // 落地好友（昵称允许空串），若成功且有头像则顺带更新头像。
-    match svc.ensure_friend(friend_id, None, nickname.clone(), established_at) {
+    match svc.ensure_friend(friend_id, remark, nickname.clone(), established_at) {
         Ok(()) => {
             if let Some(av) = avatar {
                 if let Err(err) =

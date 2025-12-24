@@ -9,8 +9,8 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 class FriendEntity {
   final PlatformInt64? id;
   final PlatformInt64 friendId;
-  final String avatar;
-  final String? nickname;
+  final String? avatar;
+  final String nickname;
   final String? remark;
   final String? email;
   final String? phone;
@@ -20,8 +20,8 @@ class FriendEntity {
   const FriendEntity({
     this.id,
     required this.friendId,
-    required this.avatar,
-    this.nickname,
+    this.avatar,
+    required this.nickname,
     this.remark,
     this.email,
     this.phone,
