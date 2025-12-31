@@ -344,6 +344,7 @@ async fn run_connection_attempt(
                     Some(Ok(bytes)) => {
                         let read_len = bytes.len(); // 收到的字节数（记录调试）
                         if let Ok(pb) = SocketServerMsg::decode(bytes.freeze()) {
+
                             // 处理鉴权响应：首次收到 auth 即视为鉴权成功，重置重连计数并通知订阅者。
                             if let Some(auth) = pb.auth.as_ref() {
                                 info!(
@@ -947,6 +948,7 @@ async fn send_delivery_ack(
     let client_msg = ClientMsg {
         ack: Some(msg_id),
         auth: None,
+        heartbeat: None,
         payload: Vec::new(),
         client_id: None,
     };
@@ -978,6 +980,7 @@ async fn send_auth(
     let client_msg = ClientMsg {
         ack: None,
         auth: Some(auth),
+        heartbeat: None,
         payload: Vec::new(),
         client_id: None,
     };
@@ -987,13 +990,11 @@ async fn send_auth(
 async fn send_heartbeat(
     framed: &mut Framed<TcpStream, LengthDelimitedCodec>,
 ) -> Result<(), String> {
-    let mut content = msgpb::Content::default();
-    content.heartbeat = Some(true);
-    let payload_bytes = encode_message(content)?;
     let client_msg = ClientMsg {
         ack: None,
         auth: None,
-        payload: payload_bytes.to_vec(),
+        heartbeat: Some(true),
+        payload: Vec::new(),
         client_id: None,
     };
     send_message(framed, client_msg).await
@@ -1008,6 +1009,7 @@ async fn send_outbound_content(
     let client_msg = ClientMsg {
         ack: None,
         auth: None,
+        heartbeat: None,
         payload: payload.to_vec(),
         client_id: None,
     };

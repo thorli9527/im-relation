@@ -45,6 +45,9 @@ pub struct ClientMsg {
     /// 鉴权载荷（首帧必须携带）
     #[prost(message, optional, tag = "2")]
     pub auth: ::core::option::Option<AuthMsg>,
+    /// 心跳包标志位（仅用于保活，不携带业务 payload）
+    #[prost(bool, optional, tag = "4")]
+    pub heartbeat: ::core::option::Option<bool>,
     /// 业务负载（二进制，建议为 message.Content）
     #[prost(bytes = "vec", tag = "3")]
     pub payload: ::prost::alloc::vec::Vec<u8>,

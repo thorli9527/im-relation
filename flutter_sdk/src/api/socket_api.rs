@@ -45,6 +45,7 @@ pub fn pack_client_msg(
     let pb = socket_proto::ClientMsg {
         ack,
         auth: None,
+        heartbeat: None,
         payload: encode(content)?,
         client_id,
     };

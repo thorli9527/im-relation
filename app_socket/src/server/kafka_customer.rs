@@ -46,6 +46,7 @@ use prost::Message as _;
 use rdkafka::message::Message as _;
 
 use crate::service::dispatcher::ShardedDispatcher;
+use crate::service::session::SessionManager;
 use crate::service::types::{SendOpts, ServerMsg, UID};
 use common::infra::grpc::message::{self as msg_message, DomainMessage};
 use common::infra::kafka::start_consumer;
@@ -60,7 +61,7 @@ pub async fn start_socket_pipeline() -> anyhow::Result<()> {
     let shard_count: usize = sock_cfg
         .dispatch_shards
         .unwrap_or_else(num_cpus::get)
-        .max(1);
+        .max(32);
     let shard_cap: usize = sock_cfg.dispatch_cap.unwrap_or(10_000);
     // Kafka 连接参数：若配置缺失则退化为本地单机默认，方便本地开发。
     let broker = kafka_cfg
@@ -160,8 +161,15 @@ pub async fn start_socket_pipeline() -> anyhow::Result<()> {
                 });
                 let require_ack = proto_delivery.require_ack;
                 let receiver_id = domain.receiver_id;
+                if !SessionManager::get().has_sessions(&(receiver_id as UID)) {
+                    info!(
+                        "kafka consume skip: no sessions msg_id={} receiver={}",
+                        id, receiver_id
+                    );
+                    return Ok(true);
+                }
                 // 立即提交 Kafka offset；会话内最多重发 3 次，超过则丢弃并记录日志。
-                let mut opts = SendOpts {
+                let  opts = SendOpts {
                     require_ack,
                     expire: Duration::from_millis(proto_delivery.expire_ms.unwrap_or(10_000)),
                     max_retry: 3,

@@ -203,46 +203,55 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
             frame = stream.next() => {
                 match frame {
                     Some(Ok(bytes)) => {
+                        // 1) 解析长度前缀帧为业务 protobuf；失败即视为非法消息
                         match PbClientMsg::decode(bytes.freeze()) {
                             Ok(pb) => {
+                                // 2) 收到任意消息先刷新心跳计时，避免长连接被误判超时
                                 heartbeat_timer
                                     .as_mut()
                                     .reset(Instant::now() + HEARTBEAT_TIMEOUT);
-                                if let Some(ack_id) = pb.ack {
-                                    info!("{} <- ack {} uid={}", peer, ack_id, user_id);
+                                // 3) 心跳包到此为止，避免触发后续业务逻辑
+                                if pb.heartbeat.unwrap_or(false) {
+                                    continue;
                                 }
+                                // 4) payload 是 msgpb::Content 的二进制序列；decode 失败时退化为默认值
                                 let raw_payload = pb.payload;
                                 let payload =
                                     msgpb::Content::decode(raw_payload.as_slice()).unwrap_or_default();
+                                // 5) 组装统一 ClientMsg 结构，供后续业务和会话层处理
                                 let client_msg = ClientMsg {
                                     ack: pb.ack,
                                     client_id: pb.client_id,
+                                    heartbeat: pb.heartbeat.unwrap_or(false),
                                     payload: payload.clone(),
                                     raw_payload,
                                 };
-                                if payload.heartbeat.unwrap_or(false) {
-                                    continue;
-                                }
-
-                                if client_msg.ack.is_some() {
+                                // 6) 若带 ACK，记录日志并交给 SessionManager 处理（触发重试/状态更新等）
+                                if let Some(ack_id) = pb.ack {
+                                    info!("{} <- ack {} uid={}", peer, ack_id, user_id);
                                     SessionManager::get().on_client_msg(user_id, client_msg);
                                     continue;
                                 }
 
+                                // 7) 非 ACK 的业务消息，根据内容类型路由到不同异步处理分支
                                 let ref_message_id = payload.message_id;
                                 if payload.friend_business.is_some() {
+                                    // 好友相关业务 -> msg_friend 服务
                                     spawn_friend_forward(user_id, payload.clone(), ref_message_id);
                                     continue;
                                 }
                                 if payload.group_business.is_some() {
+                                    // 群聊相关业务 -> msg_group 服务
                                     spawn_group_forward(user_id, payload.clone(), ref_message_id);
                                     continue;
                                 }
                                 if let Some(profile_update) = find_profile_event(&payload) {
+                                    // 资料更新事件 -> profile handler
                                     spawn_profile_event(user_id, profile_update, ref_message_id);
                                     continue;
                                 }
                                 if payload.system_business.is_some() {
+                                    // 系统业务 -> system handler
                                     spawn_system_business(
                                         user_id,
                                         payload.system_business.clone(),
@@ -251,6 +260,7 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
                                     continue;
                                 }
 
+                                // 9) 普通聊天消息，按场景转发；失败不发送 ACK
                                 match msgpb::ChatScene::try_from(payload.scene) {
                                     Ok(msgpb::ChatScene::Single) => {
                                         let domain = build_domain_message(&payload);

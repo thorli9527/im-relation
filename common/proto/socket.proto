@@ -35,6 +35,8 @@ message ClientMsg {
   optional int64 ack = 1;
   // 鉴权载荷（首帧必须携带）
   optional AuthMsg auth = 2;
+  // 心跳包标志位（仅用于保活，不携带业务 payload）
+  optional bool heartbeat = 4;
   // 业务负载（二进制，建议为 message.Content）
   bytes payload = 3;
   // 客户端上行幂等ID（用于去重/重试对账），不参与 ACK 语义

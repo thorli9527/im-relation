@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use log::warn;
+use log::{log, warn};
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::mpsc;
 
@@ -58,6 +58,10 @@ async fn run_shard(shard_id: usize, mut rx: mpsc::Receiver<DispatchItem>) {
     let sm = SessionManager::get();
     let mut dropped = 0usize;
     while let Some(item) = rx.recv().await {
+
+        //打印 item.ServerMsg.id
+        warn!("DispatchItem.id.{}",item.msg.id);
+
         let DispatchItem { uid, msg, opts } = item;
         let msg_id = msg.id;
         let ack_hook = opts.ack_hook.clone();

@@ -601,6 +601,14 @@ impl SessionManager {
         }
     }
 
+    /// 判断用户是否存在在线会话（用于消费侧快速判定是否需要下发）。
+    pub fn has_sessions(&self, user_id: &UID) -> bool {
+        self.sessions
+            .get(user_id)
+            .map(|m| !m.is_empty())
+            .unwrap_or(false)
+    }
+
     /// 处理来自客户端的上行消息（包含 ACK）
     pub fn on_client_msg(&self, user_id: UID, msg: ClientMsg) {
         if let Some(id) = msg.ack {
@@ -615,10 +623,10 @@ impl SessionManager {
             self.acks.ack(id);
             return;
         }
+        if msg.heartbeat {
+            return;
+        }
         if let Ok(content) = msgpb::Content::decode(msg.raw_payload.as_slice()) {
-            if content.heartbeat.unwrap_or(false) {
-                return;
-            }
             warn!(
                 "SessionManager: unhandled client msg scene={:?} from user={} message_id={:?}",
                 msgpb::ChatScene::try_from(content.scene).ok(),

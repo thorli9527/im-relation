@@ -51,6 +51,8 @@ pub struct ClientMsg {
     pub ack: Option<MessageId>,
     /// 客户端上行幂等ID（新字段）：用于去重/重试对账；不参与下行 ACK 语义
     pub client_id: Option<MessageId>,
+    /// 心跳包标志位（由 socket 层透传）
+    pub heartbeat: bool,
     /// 解码后的结构化内容（由 `message.Content` 表示）
     pub payload: msg_message::Content,
     /// 原始 protobuf 负载（仍然需要用于 Typing/部分 handler）
