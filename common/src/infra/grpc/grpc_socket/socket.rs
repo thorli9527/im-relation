@@ -70,4 +70,10 @@ pub struct ServerMsg {
     /// 业务时间戳（毫秒）
     #[prost(int64, tag = "4")]
     pub ts_ms: i64,
+    /// 心跳包标志位（服务端下行保活，可不携带 payload）
+    #[prost(bool, optional, tag = "5")]
+    pub heartbeat: ::core::option::Option<bool>,
+    /// 若存在，表示对客户端某条 id 的确认
+    #[prost(int64, optional, tag = "6")]
+    pub ack: ::core::option::Option<i64>,
 }

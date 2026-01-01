@@ -87,28 +87,6 @@ pub mod message_content {
     }
 }
 /// ===============================
-/// ✅ 通用业务确认/通知（处理结果回执）
-/// ===============================
-/// 用于服务端向客户端回传“该业务已处理”的标准结构。
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct AckContent {
-    /// 是否成功
-    #[prost(bool, tag = "1")]
-    pub ok: bool,
-    /// 业务错误码（0 表示无错误）
-    #[prost(int32, tag = "2")]
-    pub code: i32,
-    /// 文本信息（可本地化）
-    #[prost(string, tag = "3")]
-    pub message: ::prost::alloc::string::String,
-    /// 可选的引用消息 ID（与此次处理相关的消息）
-    #[prost(uint64, optional, tag = "5")]
-    pub ref_message_id: ::core::option::Option<u64>,
-    /// 附加数据（预留）
-    #[prost(bytes = "vec", tag = "6")]
-    pub extra: ::prost::alloc::vec::Vec<u8>,
-}
-/// ===============================
 /// 🗑️ 删除消息
 /// ===============================
 /// 通知各端某条消息已经被移除，可用于撤回或用户主动删除
@@ -1254,12 +1232,6 @@ pub struct Content {
     /// 群申请/受理业务载荷
     #[prost(message, optional, tag = "12")]
     pub group_business: ::core::option::Option<GroupBusinessContent>,
-    /// 标记：表示该帧仅用于连接保活（心跳）
-    #[prost(bool, optional, tag = "13")]
-    pub heartbeat: ::core::option::Option<bool>,
-    /// 通用业务确认/通知（处理结果回执）
-    #[prost(message, optional, tag = "23")]
-    pub ack: ::core::option::Option<AckContent>,
     /// 系统业务通知：可承载系统事件/任务执行结果
     #[prost(message, optional, tag = "25")]
     pub system_business: ::core::option::Option<SystemBusinessContent>,

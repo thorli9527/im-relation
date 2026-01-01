@@ -81,6 +81,8 @@ fn server_msg_to_json(msg: socket_proto::ServerMsg) -> JsonValue {
         "id": msg.id,
         "payload": STANDARD.encode(msg.payload),
         "ts_ms": msg.ts_ms,
+        "heartbeat": msg.heartbeat,
+        "ack": msg.ack,
     })
 }
 

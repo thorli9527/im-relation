@@ -150,6 +150,8 @@ pub async fn start_socket_pipeline() -> anyhow::Result<()> {
                     payload: content,
                     raw_payload: raw.clone(),
                     ts_ms,
+                    heartbeat: false,
+                    ack: None,
                 };
                 let payload_len = raw.len();
 

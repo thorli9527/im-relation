@@ -323,6 +323,8 @@ impl SessionManager {
             payload: content,
             raw_payload,
             ts_ms: now_ms,
+            heartbeat: false,
+            ack: None,
         };
         let _ = handle.send(msg);
     }
@@ -464,6 +466,8 @@ impl SessionManager {
             payload: msgpb::Content::default(),
             ts_ms: at_ms,
             raw_payload: buf,
+            heartbeat: false,
+            ack: None,
         };
 
         let mut fanout = 0u64;
@@ -570,19 +574,19 @@ impl SessionManager {
 
     /// 向用户的所有在线会话扇出一条消息（可选 ACK 跟踪）
     pub fn send_to_user(&self, user_id: UID, msg: ServerMsg, opts: SendOpts) -> usize {
-        if opts.require_ack {
-            self.acks.track_if_new(&msg, &opts, user_id);
-        }
-        // 记录最近下发的消息，用于快速补发（每用户保留最多 100 条）
-        const BACKLOG_CAP: usize = 100;
-        {
-            let mut q = self.backlog.entry(user_id).or_default();
-            q.push_back(msg.clone());
-            while q.len() > BACKLOG_CAP {
-                q.pop_front();
-            }
-        }
         if let Some(m) = self.sessions.get(&user_id) {
+            if opts.require_ack {
+                self.acks.track_if_new(&msg, &opts, user_id);
+            }
+            // 记录最近下发的消息，用于快速补发（每用户保留最多 100 条）
+            const BACKLOG_CAP: usize = 100;
+            {
+                let mut q = self.backlog.entry(user_id).or_default();
+                q.push_back(msg.clone());
+                while q.len() > BACKLOG_CAP {
+                    q.pop_front();
+                }
+            }
             let mut sent = 0;
             for (_sid, s) in m.iter() {
                 if s.send(msg.clone()) {

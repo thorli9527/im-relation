@@ -36,10 +36,6 @@ pub(crate) fn content_to_json(content: &msgpb::Content) -> JsonValue {
         content.group_business.as_ref(),
         |gb| business_to_json(gb),
     );
-    if let Some(heartbeat) = content.heartbeat {
-        map.insert("heartbeat".to_string(), json!(heartbeat));
-    }
-    map_insert_opt(&mut map, "ack", content.ack.as_ref(), ack_to_json);
     map_insert_opt(
         &mut map,
         "system_business",
@@ -95,16 +91,6 @@ fn message_content_to_json(content: &msgpb::MessageContent) -> JsonValue {
 
 fn business_to_json<M: Message>(message: &M) -> JsonValue {
     json!({ "raw": encode_raw(message) })
-}
-
-fn ack_to_json(ack: &msgpb::AckContent) -> JsonValue {
-    json!({
-        "ok": ack.ok,
-        "code": ack.code,
-        "message": ack.message,
-        "ref_message_id": ack.ref_message_id,
-        "extra": encode_raw(ack),
-    })
 }
 
 fn system_business_to_json(sys: &msgpb::SystemBusinessContent) -> JsonValue {

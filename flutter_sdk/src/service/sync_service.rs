@@ -39,11 +39,6 @@ pub fn sync_incremental() -> Result<(), String> {
 
     for raw in resp.friend_messages {
         if let Some(content) = decode_content(&raw) {
-            if let Some(ack) = &content.ack {
-                if let Some(ref_id) = ack.ref_message_id {
-                    let _ = MessageService::get().mark_ack(ref_id as i64);
-                }
-            }
             // 先处理业务，再落库
             handle_friend_business(&content, current_uid);
             handle_group_business(&content);
@@ -55,11 +50,6 @@ pub fn sync_incremental() -> Result<(), String> {
     }
     for raw in resp.group_messages {
         if let Some(content) = decode_content(&raw) {
-            if let Some(ack) = &content.ack {
-                if let Some(ref_id) = ack.ref_message_id {
-                    let _ = MessageService::get().mark_ack(ref_id as i64);
-                }
-            }
             // 先处理业务，再落库
             handle_friend_business(&content, current_uid);
             handle_group_business(&content);
@@ -71,11 +61,6 @@ pub fn sync_incremental() -> Result<(), String> {
     }
     for raw in resp.system_messages {
         if let Some(content) = decode_content(&raw) {
-            if let Some(ack) = &content.ack {
-                if let Some(ref_id) = ack.ref_message_id {
-                    let _ = MessageService::get().mark_ack(ref_id as i64);
-                }
-            }
             // 先处理业务，再落库
             handle_friend_business(&content, current_uid);
             handle_group_business(&content);
@@ -157,9 +142,6 @@ fn summarize_content(content: &Content) -> String {
     }
     if content.group_business.is_some() {
         return "[group business]".into();
-    }
-    if content.ack.is_some() {
-        return "[ACK]".into();
     }
     if let Some(system) = content.system_business.as_ref() {
         if system.business_type == msgpb::SystemBusinessType::SystemFriendAdd as i32 {

@@ -364,6 +364,14 @@ async fn run_connection_attempt(
                                 // 鉴权帧处理完成，继续下个循环
                                 continue;
                             }
+                            if pb.heartbeat.unwrap_or(false) {
+                                debug!("socket recv heartbeat id={} ts_ms={}", pb.id, pb.ts_ms);
+                                continue;
+                            }
+                            if let Some(ack_id) = pb.ack {
+                                let _ = MessageService::get().mark_ack(ack_id);
+                                continue;
+                            }
                             // 处理业务 payload：Content 解码、ACK 更新、本地落库、回送送达 ACK。
                             if !pb.payload.is_empty() {
                                 let current_uid = UserService::get()
@@ -373,18 +381,12 @@ async fn run_connection_attempt(
                                     .map(|u| u.uid);
                                 if let Ok(content) = msgpb::Content::decode(pb.payload.as_slice()) {
                                     info!(
-                                        "socket recv id={} ts_ms={} scene={} contents={} heartbeat={:?}",
+                                        "socket recv id={} ts_ms={} scene={} contents={}",
                                         pb.id,
                                         pb.ts_ms,
                                         content.scene,
-                                        content.contents.len(),
-                                        content.heartbeat
+                                        content.contents.len()
                                     );
-                                    if let Some(ack) = &content.ack {
-                                        if let Some(ref_id) = ack.ref_message_id {
-                                            let _ = MessageService::get().mark_ack(ref_id as i64);
-                                        }
-                                    }
                                     handle_inbound_content(&content, current_uid);
                                     if pb.id > 0 {
                                         if let Err(err) = send_delivery_ack(&mut framed, pb.id).await
@@ -564,9 +566,6 @@ fn summarize_content(content: &msgpb::Content) -> String {
     }
     if content.group_business.is_some() {
         return "[group business]".into();
-    }
-    if content.ack.is_some() {
-        return "[ACK]".into();
     }
     if let Some(system) = content.system_business.as_ref() {
         if system.business_type == msgpb::SystemBusinessType::SystemFriendAdd as i32 {

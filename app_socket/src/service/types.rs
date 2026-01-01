@@ -38,6 +38,10 @@ pub struct ServerMsg {
     pub raw_payload: Vec<u8>,
     /// 业务时间戳（毫秒）
     pub ts_ms: i64,
+    /// 心跳包标志位（服务端下行保活，可不携带 payload）
+    pub heartbeat: bool,
+    /// 若存在，表示对客户端某条 id 的确认
+    pub ack: Option<MessageId>,
 }
 
 /// 客户端上行消息（含 ACK）。

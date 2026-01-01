@@ -65,11 +65,15 @@ async fn run_shard(shard_id: usize, mut rx: mpsc::Receiver<DispatchItem>) {
         let DispatchItem { uid, msg, opts } = item;
         let msg_id = msg.id;
         let ack_hook = opts.ack_hook.clone();
+        let drop_hook = opts.drop_hook.clone();
         // 直接调用 SessionManager 扇出消息；返回值代表成功推送到多少会话。
         let sent = sm.send_to_user(uid, msg, opts);
         if sent == 0 {
             // 设备不在线：直接确认以便 kafka 提交 offset，避免长时间阻塞。
             if let Some(cb) = ack_hook.as_ref() {
+                cb(msg_id);
+            }
+            if let Some(cb) = drop_hook.as_ref() {
                 cb(msg_id);
             }
             dropped += 1;

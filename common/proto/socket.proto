@@ -53,4 +53,8 @@ message ServerMsg {
   bytes payload = 3;
   // 业务时间戳（毫秒）
   int64 ts_ms = 4;
+  // 心跳包标志位（服务端下行保活，可不携带 payload）
+  optional bool heartbeat = 5;
+  // 若存在，表示对客户端某条 id 的确认
+  optional int64 ack = 6;
 }

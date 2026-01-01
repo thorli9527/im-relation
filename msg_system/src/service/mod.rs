@@ -65,8 +65,6 @@ impl SystemMsgService for SystemMsgServiceImpl {
             contents: contents.clone(),
             friend_business: friend_business.clone(),
             group_business: group_business.clone(),
-            heartbeat: None,
-            ack: None,
             system_business: system_business.clone(),
         };
 

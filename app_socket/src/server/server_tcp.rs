@@ -170,6 +170,8 @@ async fn handle_conn(stream: tokio::net::TcpStream, peer: SocketAddr) -> anyhow:
                 auth: msg.auth.clone(),
                 payload: msg.raw_payload.clone(),
                 ts_ms: msg.ts_ms,
+                heartbeat: if msg.heartbeat { Some(true) } else { None },
+                ack: msg.ack,
             };
             let mut buf = BytesMut::with_capacity(pb.encoded_len());
             pb.encode(&mut buf)?; // 编码原始消息体，由 LengthDelimitedCodec 负责加长度前缀
@@ -526,21 +528,14 @@ async fn handle_system_business(
 
 fn send_client_ack(user_id: UID, ref_message_id: Option<u64>) {
     let ts_ms = current_time_millis();
-    let mut payload = msgpb::Content::default();
-    payload.ack = Some(msgpb::AckContent {
-        ok: true,
-        code: 0,
-        message: "forwarded".to_string(),
-        ref_message_id,
-        extra: Vec::new(),
-    });
-    let raw_payload = payload.encode_to_vec();
     let msg = ServerMsg {
         id: ts_ms,
         auth: None,
-        payload,
-        raw_payload,
+        payload: msgpb::Content::default(),
+        raw_payload: Vec::new(),
         ts_ms,
+        heartbeat: false,
+        ack: ref_message_id.map(|id| id as i64),
     };
     let opts = SendOpts {
         require_ack: false,
@@ -571,6 +566,8 @@ fn send_connection_success(handle: &SessionHandle) {
         raw_payload: Vec::new(),
         ts_ms,
         auth: Some(auth),
+        heartbeat: false,
+        ack: None,
     };
     let _ = handle.send(msg);
 }
